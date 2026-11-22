@@ -5,24 +5,24 @@ import { GameSim } from "../../core/index.js";
 import { SEED, content, eventsOf, makeSim, teleport } from "../support.js";
 
 describe("GameSim: crafting and stash", () => {
-  it("crafting needs the table and the ingredients", () => {
+  it("crafting table recipes need the table while hand recipes craft anywhere", () => {
     const sim = makeSim();
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const inventory = sim.getInventory(player.playerId)!;
     inventory.length = 0;
-    inventory.push({ item: "rag", qty: 2 });
+    inventory.push({ item: "stick", qty: 1 }, { item: "flint", qty: 2 });
 
-    sim.queueAction(player.playerId, { type: "craft", recipe: "bandage" });
+    sim.queueAction(player.playerId, { type: "craft", recipe: "knife" });
     sim.step();
-    expect(inventory.some((slot) => slot?.item === "bandage")).toBe(false);
+    expect(inventory.some((slot) => slot?.item === "knife")).toBe(false);
 
     const features = personalRoomFeatures(0);
     teleport({ entity, x: features.table.x - 0.5, y: features.table.y + 0.5, sim });
-    sim.queueAction(player.playerId, { type: "craft", recipe: "bandage" });
+    sim.queueAction(player.playerId, { type: "craft", recipe: "knife" });
     sim.step();
-    expect(inventory.some((slot) => slot?.item === "bandage")).toBe(true);
-    expect(inventory.some((slot) => slot?.item === "rag")).toBe(false);
+    expect(inventory.some((slot) => slot?.item === "knife")).toBe(true);
+    expect(inventory.some((slot) => slot?.item === "flint")).toBe(false);
   });
 
   it("stash persists across sims (server restarts) via the store", () => {

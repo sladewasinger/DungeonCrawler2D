@@ -13,7 +13,9 @@ import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type 
 import { readCurrentInput } from "./movement/readCurrentInput.js";
 import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
 import { assistedAimActive } from "./actions/assistedAim.js";
+import { resolveBowDrawPreview } from "./actions/attack.js";
 import { activeThrowableSlot } from "./gameplay/hotbar.js";
+import { cursorWorldTile } from "./pointer/pointer.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
@@ -61,15 +63,7 @@ export class InputController {
   private configureEvents(options: InputControllerOptions): void {
     const { scene, conn, panels, hud, queries, hooks, tilePx } = options;
     this.stopModality = bindControllerEvents({
-      scene,
-      conn,
-      panels,
-      hud,
-      state: this.state,
-      queries,
-      hooks,
-      touch: this.touch,
-      tilePx,
+      scene, conn, panels, hud, state: this.state, queries, hooks, touch: this.touch, tilePx,
       touchActive: () => this.touchActive,
       onThrowAimStart: () => this.throwAim.beginKeyboardAim(),
       onThrowAimRelease: (allowThrow) => this.throwAim.releaseKeyboardAim(allowThrow),
@@ -168,8 +162,13 @@ export class InputController {
     return true;
   }
 
-  /** Current held-G trajectory preview, resolved identically to the release action. */
-  throwPreview(): ThrowPreview | null { return this.throwAim.preview(); }
+  /** Current held-G trajectory preview or held-bow draw trajectory preview. */
+  throwPreview(): ThrowPreview | null {
+    const heldThrow = this.throwAim.preview();
+    if (heldThrow) return heldThrow;
+    const cursor = cursorWorldTile({ camera: this.scene.cameras.main, pointer: this.scene.input.activePointer, tilePx: this.tilePx, heightAt: this.conn.heightAt });
+    return resolveBowDrawPreview({ state: this.state, conn: this.conn, cursor, nowMs: performance.now() });
+  }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
   armedThrowableSlot(): number | null { return this.throwAim.armedSlot(); }

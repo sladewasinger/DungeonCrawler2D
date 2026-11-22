@@ -1,60 +1,48 @@
 import {
-  CHUNK_SIZE,
-  TILE,
-  resolveWorldInteraction,
-  isSpawnRoomExteriorDoor,
-  partyRoomSpawn,
-  personalRoomSpawn,
-  safeRoomSpawn,
-  safeRoomChunk,
-  roomKindAt,
-  type WorldInteractionTarget,
+  CHUNK_SIZE, INTERACT_RANGE, TILE, resolveWorldInteraction, isSpawnRoomExteriorDoor,
+  partyRoomSpawn, personalRoomSpawn, safeRoomSpawn, safeRoomChunk, roomKindAt, type WorldInteractionTarget,
 } from "@dc2d/engine";
 import { findDungeonEntry } from "../spawn/dungeonEntry.js";
+import { invAdd, invRemove } from "../inventory/inventory.js";
 import { findSpawn } from "../spawn/spawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
-import {
-  safeRoomDoorAt,
-  safeRoomHasCapacity,
-} from "../core/safeRoomDoors.js";
+import { safeRoomDoorAt, safeRoomHasCapacity } from "../core/safeRoomDoors.js";
 import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
 import { openLootChest } from "../lootChests/lootChests.js";
 import { claimNearestPet } from "../pets/index.js";
 import { useMiniBossArenaGate } from "../enemies/miniBossArena/gate.js";
 import { teleportPlayer } from "./playerTeleport.js";
 
-/** The interact intent: revive, pet claims, doors, stash, and floor exits. */
+/** The interact intent: revive, pet claims, doors, stash, campfire cooking, and floor exits. */
 
-interface InteractContext {
-  sim: SimState;
-  slot: PlayerSlot;
-}
-
-interface DoorContext extends InteractContext {
-  door: { tile: number; x: number; y: number };
-}
+interface InteractContext { sim: SimState; slot: PlayerSlot; }
+interface DoorContext extends InteractContext { door: { tile: number; x: number; y: number }; }
 
 export function doInteract({ sim, slot }: InteractContext): void {
   if (slot.downedAtTick !== null) return;
   if (claimNearestPet(sim, slot) || openLootChest(sim, slot)) return;
   const body = slot.entity.body;
   const target = resolveWorldInteraction(sim.world, body.x, body.y);
-  if (target) useWorldInteraction({ sim, slot }, target);
+  if (target) return useWorldInteraction({ sim, slot }, target);
+  tryCookAtCampfire(sim, slot);
 }
 
-function useWorldInteraction(
-  context: InteractContext,
-  target: WorldInteractionTarget,
-): void {
-  if (target.kind === "arena-gate") {
-    useMiniBossArenaGate({ ...context, gate: target });
-    return;
-  }
-  if (target.kind === "door") {
-    useDoor({ ...context, door: target });
-    return;
-  }
+function tryCookAtCampfire(sim: SimState, slot: PlayerSlot): boolean {
+  const body = slot.entity.body;
+  const nearFire = [...sim.torches.values()].some((t) =>
+    t.torchState === "placed" && Math.abs(t.body.z - body.z) <= 1.5 &&
+    Math.hypot(t.body.x - body.x, t.body.y - body.y) <= INTERACT_RANGE,
+  );
+  if (!nearFire || !invRemove(slot, "raw-meat", 1)) return false;
+  invAdd(sim, slot, "cooked-meat", 1);
+  slot.outbox.push({ t: "toast", msg: "Cooked Raw Meat over the fire (+12 HP)" });
+  return true;
+}
+
+function useWorldInteraction(context: InteractContext, target: WorldInteractionTarget): void {
+  if (target.kind === "arena-gate") return void useMiniBossArenaGate({ ...context, gate: target });
+  if (target.kind === "door") return void useDoor({ ...context, door: target });
   if (target.kind === "stash") sendStash(context.slot);
 }
 

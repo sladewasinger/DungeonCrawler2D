@@ -1,5 +1,6 @@
 import {
   type AreaSystem,
+  type ArmorLoadout,
   type ClientInput,
   type ContentRegistry,
   type Entity,
@@ -35,15 +36,7 @@ import type {
 } from "./domainTypes.js";
 
 export type {
-  FloorArrivalKind,
-  FloorTransferRequest,
-  JoinResult,
-  LootChest,
-  ModerationReport,
-  Party,
-  PendingTransfer,
-  ReviveAttempt,
-  WorldEvent,
+  FloorArrivalKind, FloorTransferRequest, JoinResult, LootChest, ModerationReport, Party, PendingTransfer, ReviveAttempt, WorldEvent,
 } from "./domainTypes.js";
 
 export type { AoiCenter } from "./aoiCenter.js";
@@ -82,6 +75,8 @@ export interface PlayerSlot extends AdminPlayerState {
   hotbar: Array<string | null>;
   /** Equipped weapon def; null = fists. Melee swings read this. */
   weapon: string | null;
+  /** Four-slot armor loadout (head, chest, legs, boots). */
+  armor?: ArmorLoadout;
   /** GAME-2 resources are optional only for legacy unit-test fixtures. New live
    * slots initialize them eagerly in join.ts. */
   stamina?: number;
@@ -154,10 +149,7 @@ export interface SimState {
     clusterSpawns?: boolean;
     /**
      * Gameplay mode: keep every spawn (and respawn) within this many tiles
-     * of a seed-derived anchor near the world origin, spaced apart from
-     * other players. `undefined`/`0` = classic vast MIN_SPAWN_DIST scatter.
-     * Distinct from `clusterSpawns`, which is a tight fixed-grid e2e/test
-     * mode and always wins if both are set — see sim/spawn.ts.
+     * of a seed-derived anchor near the world origin.
      */
     spawnRadiusTiles?: number | undefined;
     /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */

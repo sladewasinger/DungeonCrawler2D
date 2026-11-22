@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { inputModality } from "../controls/inputModality.js";
+import { releaseBowAtPointer } from "../actions/pointerActions.js";
 import { handlePointerDown } from "./pointer.js";
 import { bindPointerMovementEdges } from "./pointerMovementEdges.js";
 import type {
@@ -35,22 +36,28 @@ export function bindInputPointerEdges(options: PointerBindingOptions): void {
     onInteract, onInteractReleased, onThrowAimStart, onThrowAimMove, onThrowAimRelease, onMovementEdge,
   } = options;
   scene.input.mouse?.disableContextMenu();
+  const depsForPointer = () => ({
+    conn,
+    hud,
+    queries,
+    hooks,
+    tilePx,
+    touch,
+    touchActive: touchActive(),
+    sendMovementEdge: onMovementEdge,
+    performInteract: onInteract,
+    beginThrowAim: onThrowAimStart,
+    viewport: { width: scene.scale.width, height: scene.scale.height },
+    camera: scene.cameras.main,
+  });
   scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
     if (pointer.wasTouch) inputModality.noteTouch(scene.time.now);
-    handlePointerDown(state, {
-      conn,
-      hud,
-      queries,
-      hooks,
-      tilePx,
-      touch,
-      touchActive: touchActive(),
-      sendMovementEdge: onMovementEdge,
-      performInteract: onInteract,
-      beginThrowAim: onThrowAimStart,
-      viewport: { width: scene.scale.width, height: scene.scale.height },
-      camera: scene.cameras.main,
-    }, pointer);
+    handlePointerDown(state, depsForPointer(), pointer);
   });
+  const finishBowDraw = (pointer: Phaser.Input.Pointer) => {
+    releaseBowAtPointer({ state, deps: depsForPointer(), pointer, camera: scene.cameras.main, tilePx });
+  };
+  scene.input.on("pointerup", finishBowDraw);
+  scene.input.on("pointerupoutside", finishBowDraw);
   bindPointerMovementEdges({ scene, touch, touchActive, onInteractReleased, onThrowAimMove, onThrowAimRelease, onMovementEdge });
 }

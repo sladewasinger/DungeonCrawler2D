@@ -12,6 +12,7 @@ Authoritative Node + WebSocket (`ws`) multiplayer game server. Depends on
   (`floorPreparationWorker*.ts`), and disk/memory floor artifacts.
 - `runtime/` — Active server runtime orchestration across floors and rooms.
 - `sim/` — Tick-driven authoritative simulation: player inputs, enemy AI,
-  combat, loot/items, effects, status ticks, and companion pets.
+  melee and hold-to-draw bow combat, 4-slot armor & per-level stat scaling,
+  loot/items, effects, status ticks, and companion pets.
 - `store*.ts` — File-backed persistent player state (`STORE_FILE`), stashes,
   and versioned schemas.

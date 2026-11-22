@@ -14,19 +14,19 @@ describe("bandaging another player", () => {
 
     sim.queueAction(healer.playerId, {
       type: "useSlot",
-      slot: 1,
+      slot: 2,
       targetId: patient.playerId,
     });
     const snapshots = sim.step();
 
-    expect(patientEntity.hp).toBe(14);
+    expect(patientEntity.hp).toBe(20);
     expect(patientEntity.statuses.some((status) => status.defId === "bandaged")).toBe(true);
     expect(sim.getInventory(healer.playerId)?.find((stack) => stack.item === "bandage")?.qty)
-      .toBe(1);
+      .toBe(2);
     expect(snapshots.get(healer.playerId)?.events).toContainEqual({
       t: "health",
       id: patient.playerId,
-      delta: 4,
+      delta: 10,
       kind: "heal",
     });
   });
@@ -42,13 +42,13 @@ describe("bandaging another player", () => {
 
     sim.queueAction(healer.playerId, {
       type: "useSlot",
-      slot: 1,
+      slot: 2,
       targetId: patient.playerId,
     });
     sim.step();
 
     expect(patientEntity.hp).toBe(10);
     expect(sim.getInventory(healer.playerId)?.find((stack) => stack.item === "bandage")?.qty)
-      .toBe(2);
+      .toBe(3);
   });
 });

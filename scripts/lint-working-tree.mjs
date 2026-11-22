@@ -31,10 +31,11 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const eslint = process.platform === "win32"
-  ? "node_modules/.bin/eslint.cmd"
-  : "node_modules/.bin/eslint";
-const result = spawnSync(eslint, files, { stdio: "inherit" });
+const result = spawnSync(
+  process.execPath,
+  ["node_modules/eslint/bin/eslint.js", ...files],
+  { stdio: "inherit" },
+);
 if (result.error) {
   console.error(result.error.message);
   process.exit(1);

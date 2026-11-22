@@ -41,7 +41,9 @@ export function syncCombatants(frame: CombatantSyncFrame): void {
   const assistedAim = inputController.usesAssistedAim();
   const facing = assistedSelfAimFacing(state.cosmetics, nowMs);
   const aimAngle = resolveSelfAimAngle({ assistedAim, faceX: facing.x, faceY: facing.y, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
-  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim });
+  const selectedSlot = inputController.selectedHotbarSlot();
+  const heldItemId = selectedSlot !== null ? (conn.hotbar[selectedSlot] ?? conn.weapon) : conn.weapon;
+  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId });
   const monsters = mapFrameInto({ source: buckets.enemies, out: state.entityViews.enemies, records: state.entityViews.enemyRecords, map: monsterView });
   const pets = mapFrameInto({ source: buckets.pets, out: state.entityViews.pets, records: state.entityViews.petRecords, map: petView });
   syncDamageVfx({
@@ -88,16 +90,16 @@ function syncItemViews(input: ItemViewSyncInput): void {
 interface PlayerViewSyncInput {
   readonly conn: Connection; readonly state: DungeonSceneState; readonly buckets: FrameEntityBuckets;
   readonly render: RenderPose; readonly nowMs: number; readonly aimAngle: number;
-  readonly assistedAim: boolean;
+  readonly assistedAim: boolean; readonly heldItemId: string | null;
 }
 
 function syncPlayerViews(input: PlayerViewSyncInput): PlayerEntityView[] {
-  const { conn, state, buckets, render, nowMs, aimAngle, assistedAim } = input;
+  const { conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId } = input;
   if (!conn.welcome || !conn.body) return state.entityViews.players;
   const players = state.entityViews.players;
   const records = state.entityViews.playerRecords;
   players.length = buckets.players.length + 1;
-  updateSelfSource(conn, state, render);
+  updateSelfSource(conn, state, { render, heldItemId });
   const self = selfPlayerView({
     pose: state.selfPose, vitals: state.selfVitals, cosmetics: state.cosmetics,
     nowMs, weaponAimAngle: aimAngle, assistedAim, target: records[0],
@@ -126,8 +128,9 @@ function syncRemotePlayers(
 function updateSelfSource(
   conn: Connection,
   state: DungeonSceneState,
-  render: RenderPose,
+  input: { render: RenderPose; heldItemId: string | null },
 ): void {
+  const { render, heldItemId } = input;
   if (!conn.welcome || !conn.body) return;
   const pose = state.selfPose;
   pose.id = conn.welcome.playerId;
@@ -145,6 +148,6 @@ function updateSelfSource(
   vitals.admin = conn.activeAdmin;
   vitals.reviveProgress = conn.reviveProgress;
   vitals.blocking = conn.blocking;
-  vitals.weaponId = conn.weapon;
+  vitals.weaponId = heldItemId;
   vitals.blockFeedback = conn.blockFeedback;
 }

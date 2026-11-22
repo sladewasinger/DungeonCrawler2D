@@ -1,18 +1,20 @@
 /** Owns the shared inventory workspace state and authoritative item actions. */
 import type { Connection } from "../../../net/connection/connection.js";
-import { inventoryRows } from "../model/HudModel.js";
+import { buildInventoryWorkspace } from "../inventory/InventoryGrid.js";
+import { isCraftingTableNearby } from "../inventory/InventoryQuickCraft.js";
 import {
   createInventoryShell,
   type InventoryFolder,
   type InventoryTab,
 } from "../inventory/InventoryShell.js";
-import { createInventoryRow } from "../inventory/InventoryRows.js";
+import { inventoryRows } from "../model/HudModel.js";
 
 export class HudInventory {
   private readonly shell;
   readonly element;
   private selectedTab: InventoryTab = "all";
   private selectedFolder: InventoryFolder = "all";
+  private selectedItemId: string | null = null;
   private signature = "";
 
   constructor(
@@ -40,8 +42,6 @@ export class HudInventory {
     this.element.hidden = false;
     this.element.style.display = "grid";
     this.invalidate();
-    // Do not summon the mobile keyboard just for opening the inventory. The
-    // player can still tap the filter field when they actually want to type.
     if (this.touchDevice) return;
     this.shell.search.focus({ preventScroll: true });
     requestAnimationFrame(() => {
@@ -79,30 +79,45 @@ export class HudInventory {
       this.connection.inventory,
       this.connection.hotbar,
       this.connection.weapon,
+      this.connection.armor,
+      this.connection.hp,
+      this.connection.maxHp,
+      this.connection.stamina,
+      this.connection.maxStamina,
+      this.connection.charLevel,
+      isCraftingTableNearby(this.connection),
       this.selectedTab,
       this.selectedFolder,
+      this.selectedItemId,
       this.shell.search.value,
     ]);
     if (signature === this.signature) return;
     this.signature = signature;
     const rows = this.visibleRows();
     this.shell.summary.textContent =
-      `${rows.length} of ${this.connection.inventory.length} stacks`;
+      `${rows.length} / 27 backpack slots`;
     this.shell.list.replaceChildren(
-      ...rows.map((row) => createInventoryRow(this.connection, row)),
+      buildInventoryWorkspace(this.connection, rows, {
+        selectedItemId: this.selectedItemId,
+        selectItem: (itemId) => {
+          this.selectedItemId = itemId;
+          this.invalidate();
+        },
+      }),
     );
     this.syncNavigation();
   }
 
   private visibleRows(): ReturnType<typeof inventoryRows> {
     const query = this.shell.search.value.trim().toLocaleLowerCase();
+    const equippedArmor = new Set(Object.values(this.connection.armor ?? {}));
     return inventoryRows(this.connection.inventory, this.connection.hotbar)
       .filter((row) =>
         this.selectedTab === "all" || row.category === this.selectedTab)
       .filter((row) =>
         this.selectedFolder === "all" ||
         (this.selectedFolder === "equipped" &&
-          row.id === this.connection.weapon) ||
+          (row.id === this.connection.weapon || equippedArmor.has(row.id))) ||
         (this.selectedFolder === "hotbar" && row.boundSlot !== null))
       .filter((row) =>
         !query ||
@@ -111,16 +126,8 @@ export class HudInventory {
   }
 
   private syncNavigation(): void {
-    this.syncSelected(
-      this.shell.tabs,
-      "inventoryTab",
-      this.selectedTab,
-    );
-    this.syncSelected(
-      this.shell.folders,
-      "inventoryFolder",
-      this.selectedFolder,
-    );
+    this.syncSelected(this.shell.tabs, "inventoryTab", this.selectedTab);
+    this.syncSelected(this.shell.folders, "inventoryFolder", this.selectedFolder);
   }
 
   private syncSelected(
@@ -139,5 +146,4 @@ export class HudInventory {
     this.signature = "";
     this.update();
   }
-
 }

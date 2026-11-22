@@ -61,8 +61,8 @@ function stepSimActors(sim: SimState, effectEvents: EffectEvent[]): void {
   maintainSpawnClearance(sim);
   if (!sim.opts.freezeEnemies) {
     stepEnemies(sim, effectEvents);
-    stepProjectiles(sim, effectEvents);
   }
+  stepProjectiles(sim, effectEvents);
   stepTorches(sim, effectEvents);
   sim.areas.tick(TICK_DT, () => sim.rng.next());
 }

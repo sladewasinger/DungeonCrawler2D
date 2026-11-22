@@ -40,7 +40,7 @@ interface ThrowTarget {
 }
 
 function throwTo({ sim, playerId, x, y }: ThrowTarget): EntitySnapshot {
-  sim.queueAction(playerId, { type: "useSlot", slot: 0, targetX: x, targetY: y });
+  sim.queueAction(playerId, { type: "useSlot", slot: 1, targetX: x, targetY: y });
   const snapshots = stepN(sim, 30);
   const torch = torchesIn(snapshots, playerId)
     .find((candidate) => candidate.state === "placed");

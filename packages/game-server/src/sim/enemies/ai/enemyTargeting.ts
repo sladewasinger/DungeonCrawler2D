@@ -24,7 +24,33 @@ export function assignVisibleEnemyTargets(
   for (const candidate of candidates) {
     assignCandidate(candidate, assignments, playerCounts);
   }
+  propagatePackHunterTargets(enemies, assignments, playerCounts);
   return assignments;
+}
+
+function propagatePackHunterTargets(
+  enemies: readonly EnemySlot[],
+  assignments: Map<string, Entity>,
+  playerCounts: Map<string, number>,
+): void {
+  const alerted = enemies.filter((e) => e.def.tags.includes("pack-hunter") && assignments.has(e.entity.id));
+  if (alerted.length === 0) return;
+  for (const enemy of enemies) {
+    if (!enemy.def.tags.includes("pack-hunter") || assignments.has(enemy.entity.id)) continue;
+    const target = packmateTarget(enemy, alerted, assignments);
+    if (target) assignCandidate({ enemy, player: target, distance: 0, retained: false }, assignments, playerCounts);
+  }
+}
+
+function packmateTarget(
+  enemy: EnemySlot,
+  alerted: readonly EnemySlot[],
+  assignments: Map<string, Entity>,
+): Entity | undefined {
+  const leader = alerted.find(
+    (ally) => Math.hypot(ally.entity.body.x - enemy.entity.body.x, ally.entity.body.y - enemy.entity.body.y) <= 14,
+  );
+  return leader ? assignments.get(leader.entity.id) : undefined;
 }
 
 export function activeEnemiesNearPlayers(

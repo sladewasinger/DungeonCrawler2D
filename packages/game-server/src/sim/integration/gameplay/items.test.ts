@@ -55,7 +55,7 @@ describe("GameSim: items and inventory", () => {
     // player's own); binding explicitly via assign makes 1-9 use it.
     const arena2 = findFlatArena({ sim: sim, anchor: { x: arena.x + 40, y: arena.y + 40 }, clearance: 1 }); // clear of the rag we just dropped
     teleport({ entity: entity, x: arena2.x, y: arena2.y, sim: sim });
-    entity.hp = 20;
+    entity.hp = 15;
     sim.effects.applyStatus({ entity, statusId: "bleeding", events: [] });
     sim.spawnItem({ defId: "bandage", x: entity.body.x + 0.5, y: entity.body.y, qty: 1 });
     sim.queueAction(a.playerId, { type: "pickup" });
@@ -67,7 +67,7 @@ describe("GameSim: items and inventory", () => {
     expect(hotbar[2]).toBe("bandage");
     sim.queueAction(a.playerId, { type: "useSlot", slot: 2 });
     snap = sim.step().get(a.playerId)!;
-    expect(snap.self.hp).toBe(24);
+    expect(snap.self.hp).toBe(25);
     expect(snap.self.fx).not.toContain("bleeding");
     expect(inv.find((s) => s.item === "bandage")).toBeUndefined(); // consumed
     expect(hotbar[2]).toBe("bandage"); // binding survives the empty stack
@@ -100,25 +100,26 @@ describe("GameSim: items and inventory", () => {
     expect(sim.areas.sourceIdAt(Math.floor(tx), Math.floor(ty))).toBe(a.playerId);
   });
 
-  it("uses consumables directly while rejecting invalid equip and hotbar assignments", () => {
+  it("uses consumables directly while allowing weapon hotbar bindings and rejecting invalid equip", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    entity.hp = 20;
+    entity.hp = 15;
     sim.effects.applyStatus({ entity, statusId: "bleeding", events: [] });
     sim.queueAction(a.playerId, { type: "useItem", item: "bandage" });
     sim.step();
-    expect(entity.hp).toBe(24);
+    expect(entity.hp).toBe(25);
     expect(entity.statuses.some((status) => status.defId === "bleeding")).toBe(false);
-    expect(sim.getInventory(a.playerId)!.find((stack) => stack.item === "bandage")?.qty).toBe(1);
+    expect(sim.getInventory(a.playerId)!.find((stack) => stack.item === "bandage")?.qty).toBe(2);
 
     sim.queueAction(a.playerId, { type: "equip", item: "torch" });
-    sim.queueAction(a.playerId, { type: "assign", slot: 0, item: "sword" });
-    sim.queueAction(a.playerId, { type: "assign", slot: 2, item: "torch" });
+    sim.queueAction(a.playerId, { type: "assign", slot: 0, item: "rag" });
+    sim.queueAction(a.playerId, { type: "assign", slot: 3, item: "sword" });
     sim.step();
     expect(sim.getWeapon(a.playerId)).toBe("sword");
-    expect(sim.getHotbar(a.playerId)![0]).toBe("torch");
-    expect(sim.getHotbar(a.playerId)![1]).toBe("bandage");
-    expect(sim.getHotbar(a.playerId)![2]).toBe("torch");
+    expect(sim.getHotbar(a.playerId)![0]).toBe("sword");
+    expect(sim.getHotbar(a.playerId)![1]).toBe("torch");
+    expect(sim.getHotbar(a.playerId)![2]).toBe("bandage");
+    expect(sim.getHotbar(a.playerId)![3]).toBe("sword");
   });
 
   it("restores queued hotbar assignment and unbind actions from the store", () => {

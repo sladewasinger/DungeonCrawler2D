@@ -8,9 +8,9 @@
       "tags": ["heal"],
       "stacking": "refresh"
     },
-    "immediateHeal": 4,
+    "immediateHeal": 10,
     "durationSeconds": 5,
     "tickEverySeconds": 1,
-    "healPerTick": 2
+    "healPerTick": 3
   }
 }

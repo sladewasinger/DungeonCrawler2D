@@ -1,4 +1,5 @@
-/** Renders the HTML two-column stash and emits put/take intents by authoritative row index. */
+/** Renders the HTML two-column stash/chest grid with pixel-art icons and drag-and-drop. */
+import { itemIconDataUrl } from "../../../ui/presentation/itemIcons.js";
 import type { StashSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { StashRowView } from "../../../ui/widgets/hud/windows/stashRows.js";
 import {
@@ -25,6 +26,7 @@ const createColumn = ({ title, rows, action, onAction }: StashColumnOptions): HT
   const column = createHudTemplate<HTMLDivElement>("hud-stash-column-template");
   requireHudElement(column, "[data-hud-stash-column-title]").textContent = title;
   const list = requireHudElement(column, "[data-hud-stash-rows]");
+  list.classList.add("hud-stash__grid");
   appendStashRows(list, { rows, action, onAction });
   return column;
 };
@@ -53,7 +55,15 @@ const createStashRow = (
   onAction: StashColumnOptions["onAction"],
 ): HTMLDivElement => {
   const row = createHudTemplate<HTMLDivElement>("hud-contact-row-template");
-  requireHudElement(row, "[data-hud-contact-name]").textContent = `${item.name} ×${item.qty}`;
+  row.classList.add("hud-stash__card");
+  const nameEl = requireHudElement(row, "[data-hud-contact-name]");
+  const icon = document.createElement("img");
+  icon.className = "hud-mc-slot__icon";
+  icon.src = itemIconDataUrl(item.itemId);
+  icon.alt = item.name;
+  const text = document.createElement("span");
+  text.textContent = `${item.name} ×${item.qty}`;
+  nameEl.replaceChildren(icon, text);
   requireHudElement(row, "[data-hud-contact-presence]").textContent = "";
   configureStashAction({
     button: requireHudElement<HTMLButtonElement>(row, "[data-hud-contact-message]"),

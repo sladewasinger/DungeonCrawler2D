@@ -6,6 +6,7 @@ import type { Connection } from "../../net/connection/connection.js";
 import { canOpenLootChest, nearestLootChest } from "../../net/queries/lootChestQuery.js";
 import { nearestDownedPartyMember } from "../../scenes/dungeon/world/contentQueries.js";
 import { resolveStairwayPrompt } from "../../scenes/dungeon/world/stairwayProximity.js";
+import { isWeaponItem } from "../../ui/presentation/itemCatalog.js";
 import type { ThreeInputSample } from "../input/ThreeInput.js";
 import {
   throwSelectedItem,
@@ -37,6 +38,10 @@ export class ThreeActionController {
 
   selectHotbar = (slot: number | null): void => {
     this.selectedSlot = slot;
+    const itemId = slot !== null ? this.connection.hotbar[slot] : null;
+    if (itemId && isWeaponItem(itemId) && this.connection.weapon !== itemId) {
+      this.connection.equip(itemId);
+    }
   };
 
   publish(world: World, sample: ThreeInputSample): void {

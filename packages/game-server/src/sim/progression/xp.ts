@@ -5,6 +5,7 @@ import {
   announceLevelUp,
   broadcastAnnouncement,
 } from "../announcer/index.js";
+import { syncPlayerDerivedStats } from "../inventory/armor.js";
 import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
 
 /**
@@ -80,6 +81,7 @@ export function awardKillXp(sim: SimState, enemy: EnemySlot): void {
   if (milestone) broadcastAnnouncement(sim, milestone);
   const { level, leveledUp } = sim.store.addXp(killer.stored, amount, levelForXp);
   if (!leveledUp) return;
+  syncPlayerDerivedStats(sim, killer, true);
   broadcastAnnouncement(
     sim,
     announceLevelUp({

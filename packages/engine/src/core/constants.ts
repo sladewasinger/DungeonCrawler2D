@@ -26,7 +26,7 @@ export const ADMIN_NOCLIP_SPEED = MOVE_SPEED * 4;
 export const RUN_SPEED_MULTIPLIER = 1.3125;
 /** A raised guard trades mobility for protection. Shared prediction/server physics apply it once. */
 export const BLOCK_SPEED_MULTIPLIER = 0.5;
-export const PLAYER_MAX_STAMINA = 100;
+export const PLAYER_MAX_STAMINA = 200;
 export const SPRINT_STAMINA_PER_SECOND = 22;
 export const BLOCK_STAMINA_PER_SECOND = 14;
 export const WALK_STAMINA_RECOVERY_PER_SECOND = 12;
@@ -128,14 +128,22 @@ export const TORCH_BURN_TICKS = 180 * TICK_RATE;
 /** Authoritative per-floor budget across both flying and placed player torches. */
 export const MAX_ACTIVE_TORCHES_PER_FLOOR = 40;
 
-// ASSUMPTION #90 (docs/ASSUMPTIONS.md): Epic 11 core (character levels),
-// pulled forward into Epic 7.13 by the user's second playtest. Total XP to
-// REACH `level` (level 1 = 0 XP) grows quadratically with no cap: each
-// step to the next level costs 2*XP_LEVEL_CURVE_COEFFICIENT more XP than
-// the previous step did, so the climb steepens smoothly instead of
-// jumping. `xpForLevel(2) = 100`, `xpForLevel(3) = 300`, `xpForLevel(4) =
-// 600`, etc.
+// Total XP to reach `level` (level 1 = 0 XP) grows quadratically with no cap:
+// `xpForLevel(2) = 100`, `xpForLevel(3) = 300`, `xpForLevel(4) = 600`.
 export const XP_LEVEL_CURVE_COEFFICIENT = 50;
 export function xpForLevel(level: number): number {
   return XP_LEVEL_CURVE_COEFFICIENT * (level - 1) * level;
+}
+
+export const LEVEL_DAMAGE_BONUS_PER_LEVEL = 0.12;
+export const LEVEL_HP_BONUS_PER_LEVEL = 5;
+export const LEVEL_STAMINA_BONUS_PER_LEVEL = 20;
+export function playerDamageMultiplierForLevel(level = 1): number {
+  return 1 + LEVEL_DAMAGE_BONUS_PER_LEVEL * Math.max(0, level - 1);
+}
+export function playerMaxHpForLevel(level = 1, armorHpBonus = 0): number {
+  return PLAYER_MAX_HP + LEVEL_HP_BONUS_PER_LEVEL * Math.max(0, level - 1) + armorHpBonus;
+}
+export function playerMaxStaminaForLevel(level = 1): number {
+  return PLAYER_MAX_STAMINA + LEVEL_STAMINA_BONUS_PER_LEVEL * Math.max(0, level - 1);
 }

@@ -115,7 +115,16 @@ const gatedHandlers: Partial<Record<PlayerAction["type"], GatedHandler>> = {
 };
 
 function dispatchAttack({ sim, slot, action, effectEvents }: ActionContext): void {
-  if (action.type === "attack") doAttack({ sim, slot, dirX: action.dirX, dirY: action.dirY, effectEvents });
+  if (action.type === "attack") {
+    doAttack({
+      sim,
+      slot,
+      dirX: action.dirX,
+      dirY: action.dirY,
+      ...(action.drawRatio !== undefined ? { drawRatio: action.drawRatio } : {}),
+      effectEvents,
+    });
+  }
 }
 
 function dispatchDrop({ sim, slot, action }: ActionContext): void {

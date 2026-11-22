@@ -5,7 +5,7 @@ const STARTER_SWORD_DEF = "sword";
 const STARTER_TORCH_DEF = "torch";
 const STARTER_BANDAGE_DEF = "bandage";
 const STARTER_TORCH_QTY = 3;
-const STARTER_BANDAGE_QTY = 2;
+const STARTER_BANDAGE_QTY = 3;
 const STARTER_HOTBAR_SCHEMA = 1;
 
 export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
@@ -47,7 +47,8 @@ function grantMissingBandages(sim: SimState, slot: PlayerSlot): void {
 function migrateStarterItems(sim: SimState, slot: PlayerSlot): void {
   if ((slot.stored.starterHotbarSchema ?? 0) >= STARTER_HOTBAR_SCHEMA) return;
   grantMissingBandages(sim, slot);
-  slot.hotbar[0] = STARTER_TORCH_DEF;
-  slot.hotbar[1] = STARTER_BANDAGE_DEF;
+  slot.hotbar[0] = STARTER_SWORD_DEF;
+  slot.hotbar[1] = STARTER_TORCH_DEF;
+  slot.hotbar[2] = STARTER_BANDAGE_DEF;
   sim.store.recordHotbar(slot.stored, slot.hotbar, STARTER_HOTBAR_SCHEMA);
 }

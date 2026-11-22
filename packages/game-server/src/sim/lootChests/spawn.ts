@@ -1,7 +1,33 @@
-import { LOOT_CHEST_LIFETIME_TICKS, LOOT_CHEST_LOCK_TICKS, createBody, makeEntity, newEntityId } from "@dc2d/engine";
+import { LOOT_CHEST_LIFETIME_TICKS, LOOT_CHEST_LOCK_TICKS, createBody, makeEntity, newEntityId, type InvStack } from "@dc2d/engine";
 import type { LootChest, PlayerSlot, SimState } from "../state/state.js";
 
 export const PLAYER_LOOT_CHEST_DEF_ID = "player-loot-chest";
+
+export function spawnWildLootChest(
+  sim: SimState,
+  input: { x: number; y: number; z: number; label?: string; slots: InvStack[] },
+): LootChest {
+  const entity = makeEntity("item", createBody(input.x, input.y, input.z), {
+    id: newEntityId("loot"),
+    defId: PLAYER_LOOT_CHEST_DEF_ID,
+    name: input.label ?? "Bandit Camp Chest",
+    expiresAtTick: Number.MAX_SAFE_INTEGER,
+    tags: new Set(["loot-chest"]),
+  });
+  const chest: LootChest = {
+    entity,
+    slots: input.slots.map((stack) => ({ ...stack })),
+    viewerId: null,
+    victimId: entity.id,
+    victimName: input.label ?? "Bandit Camp",
+    killerId: null,
+    killerName: null,
+    unlockAtTick: 0,
+    expiresAtTick: Number.MAX_SAFE_INTEGER,
+  };
+  sim.lootChests.set(entity.id, chest);
+  return chest;
+}
 
 const OFFSETS = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1], [2, 0], [0, 2], [-2, 0], [0, -2]] as const;
 

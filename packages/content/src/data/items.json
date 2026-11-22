@@ -80,5 +80,137 @@
         { "primitive": "apply_status", "status": "poisoned", "chance": 0.3 }
       ]
     }
+  },
+  {
+    "id": "cooked-meat",
+    "name": "Cooked Meat",
+    "tags": ["organic", "food"],
+    "maxStack": 5,
+    "flavor": "Charred over open embers. Restores real strength without the food poisoning.",
+    "consumable": {
+      "effects": [
+        { "primitive": "modify_health", "amount": 12 }
+      ]
+    }
+  },
+  {
+    "id": "herb",
+    "name": "Healing Herb",
+    "tags": ["organic", "heal"],
+    "maxStack": 10,
+    "flavor": "Bitter forest leaves that mend cuts and stretch cloth into extra bandages.",
+    "consumable": {
+      "effects": [
+        { "primitive": "modify_health", "amount": 5 }
+      ]
+    }
+  },
+  {
+    "id": "flint",
+    "name": "Flint",
+    "tags": ["stone", "mineral"],
+    "maxStack": 16,
+    "flavor": "Knapped river stone with a wicked edge for arrowheads and blades."
+  },
+  {
+    "id": "spider-silk",
+    "name": "Spider Silk",
+    "tags": ["cloth", "organic"],
+    "maxStack": 16,
+    "flavor": "Tensile forest web spun strong enough to string a hunting bow."
+  },
+  {
+    "id": "wolf-pelt",
+    "name": "Wolf Pelt",
+    "tags": ["leather", "organic"],
+    "maxStack": 10,
+    "flavor": "Thick timber-wolf fur that turns claws and bitter wind."
+  },
+  {
+    "id": "bear-hide",
+    "name": "Grizzly Hide",
+    "tags": ["leather", "heavy"],
+    "maxStack": 10,
+    "flavor": "Dense apex-predator hide nearly as tough as forged iron."
+  },
+  {
+    "id": "arrow",
+    "name": "Arrow",
+    "tags": ["ammo", "sharp", "wood"],
+    "maxStack": 32,
+    "flavor": "Flint-tipped hunting shaft balanced for a long draw."
+  },
+  {
+    "id": "bow",
+    "name": "Hunter's Bow",
+    "tags": ["ranged", "wood"],
+    "maxStack": 1,
+    "flavor": "Hold to draw, release to loose. Keeps forest predators at respectful distance.",
+    "weapon": { "profileId": "bow", "damage": 15, "range": 14, "cooldownMs": 450, "arcCos": 0.95, "knockbackForce": 8 },
+    "ranged": { "ammoItem": "arrow", "minDamage": 7, "maxDamage": 15, "minSpeed": 13, "maxSpeed": 24, "maxRange": 14, "maxDrawMs": 650, "cooldownMs": 450 }
+  },
+  {
+    "id": "leather-hood",
+    "name": "Wolf-Pelt Hood",
+    "tags": ["armor", "leather"],
+    "maxStack": 1,
+    "flavor": "Stitched wolf-fur hood (+5% DR, +2.5% move speed).",
+    "armor": { "slot": "head", "damageReduction": 0.05, "moveSpeedBonus": 0.025 }
+  },
+  {
+    "id": "leather-tunic",
+    "name": "Wolf-Pelt Tunic",
+    "tags": ["armor", "leather"],
+    "maxStack": 1,
+    "flavor": "Supple timber-wolfbrigandine (+5% DR, +2.5% move speed).",
+    "armor": { "slot": "chest", "damageReduction": 0.05, "moveSpeedBonus": 0.025 }
+  },
+  {
+    "id": "leather-leggings",
+    "name": "Wolf-Pelt Leggings",
+    "tags": ["armor", "leather"],
+    "maxStack": 1,
+    "flavor": "Brush-resistant hunting greaves (+5% DR, +2.5% move speed).",
+    "armor": { "slot": "legs", "damageReduction": 0.05, "moveSpeedBonus": 0.025 }
+  },
+  {
+    "id": "leather-boots",
+    "name": "Wolf-Pelt Boots",
+    "tags": ["armor", "leather"],
+    "maxStack": 1,
+    "flavor": "Light stalker boots for quick forest footing (+5% DR, +2.5% move speed).",
+    "armor": { "slot": "boots", "damageReduction": 0.05, "moveSpeedBonus": 0.025 }
+  },
+  {
+    "id": "grizzly-helm",
+    "name": "Grizzly-Hide Helm",
+    "tags": ["armor", "heavy"],
+    "maxStack": 1,
+    "flavor": "Reinforced bear-crest greathelm (+10% DR, +5 Max HP).",
+    "armor": { "slot": "head", "damageReduction": 0.1, "maxHpBonus": 5 }
+  },
+  {
+    "id": "grizzly-cuirass",
+    "name": "Grizzly-Hide Cuirass",
+    "tags": ["armor", "heavy"],
+    "maxStack": 1,
+    "flavor": "Layered grizzly hide breastplate (+10% DR, +5 Max HP).",
+    "armor": { "slot": "chest", "damageReduction": 0.1, "maxHpBonus": 5 }
+  },
+  {
+    "id": "grizzly-greaves",
+    "name": "Grizzly-Hide Greaves",
+    "tags": ["armor", "heavy"],
+    "maxStack": 1,
+    "flavor": "Heavy hide legplates (+10% DR, +5 Max HP).",
+    "armor": { "slot": "legs", "damageReduction": 0.1, "maxHpBonus": 5 }
+  },
+  {
+    "id": "grizzly-boots",
+    "name": "Grizzly-Hide Boots",
+    "tags": ["armor", "heavy"],
+    "maxStack": 1,
+    "flavor": "Iron-shod grizzly stompers (+10% DR, +5 Max HP).",
+    "armor": { "slot": "boots", "damageReduction": 0.1, "maxHpBonus": 5 }
   }
 ]

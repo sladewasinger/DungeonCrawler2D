@@ -11,41 +11,54 @@ interface EnemyNavigationInput {
   readonly decision: EnemyDecision;
 }
 
-export function enemyPursuitMove(
-  input: EnemyNavigationInput,
-): MoveInput {
+export function enemyPursuitMove(input: EnemyNavigationInput): MoveInput {
   const { sim, enemy, visibleTarget, decision } = input;
   const speed = effectiveEnemySpeed(sim, enemy);
-  const routeMove = routeWithMemory({
-    sim,
-    enemy,
-    visibleTarget,
-    decision,
-  });
+  const routeMove = routeWithMemory({ sim, enemy, visibleTarget, decision });
   if (!decision.pursuit) return routeWithLedgeJump(sim, enemy, routeMove);
   if (!visibleTarget) return routeMove;
   if (isStandoffPursuit(input) && input.decision.pursuitMode !== "melee-slot") {
-    return routeWithLedgeJump(
-      sim,
-      enemy,
-      withEnemyMemoryPath({
-        sim,
-        enemy,
-        visibleTarget: undefined,
-        pursuit: decision.pursuit,
-        move: chaseToPoint({ enemy: enemy.entity, point: decision.pursuit, speed }),
-      }),
-    );
+    const chase = chaseToPoint({ enemy: enemy.entity, point: decision.pursuit, speed });
+    const memory = withEnemyMemoryPath({ sim, enemy, visibleTarget: undefined, pursuit: decision.pursuit, move: chase });
+    return routeWithLedgeJump(sim, enemy, memory);
   }
-  return routeWithLedgeJump(
-    sim,
-    enemy,
-    chaseToPoint({ enemy: enemy.entity, point: decision.pursuit, speed }),
-  );
+  const point = packFlankingPoint(sim, enemy, decision.pursuit);
+  return routeWithLedgeJump(sim, enemy, chaseToPoint({ enemy: enemy.entity, point, speed }));
+}
+
+function packFlankingPoint(
+  sim: SimState,
+  enemy: EnemySlot,
+  pursuit: { readonly x: number; readonly y: number },
+): { readonly x: number; readonly y: number } {
+  if (!enemy.def.tags.includes("pack-hunter")) return pursuit;
+  const dx = enemy.entity.body.x - pursuit.x;
+  const dy = enemy.entity.body.y - pursuit.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 2.1 || dist > 8.5) return pursuit;
+  const packmates = [...sim.enemies.values()]
+    .filter((e) => e.entity.hp > 0 && e.def.tags.includes("pack-hunter") &&
+      Math.hypot(e.entity.body.x - pursuit.x, e.entity.body.y - pursuit.y) <= 12)
+    .sort((a, b) => a.entity.id.localeCompare(b.entity.id));
+  if (packmates.length <= 1) return pursuit;
+  const idx = packmates.findIndex((e) => e.entity.id === enemy.entity.id);
+  const angleOffset = (idx - (packmates.length - 1) * 0.5) * 0.7;
+  const baseAngle = Math.atan2(dy, dx) + angleOffset;
+  const flankRadius = Math.min(2.2, dist * 0.45);
+  return {
+    x: pursuit.x + Math.cos(baseAngle) * flankRadius,
+    y: pursuit.y + Math.sin(baseAngle) * flankRadius,
+  };
 }
 
 function effectiveEnemySpeed(sim: SimState, enemy: EnemySlot): number {
-  return enemy.entity.baseSpeed * sim.effects.speedMult(enemy.entity);
+  let mult = sim.effects.speedMult(enemy.entity);
+  if (enemy.def.tags.includes("apex-predator") && enemy.brain.targetId) {
+    const target = sim.players.get(enemy.brain.targetId)?.entity;
+    const dist = target ? Math.hypot(target.body.x - enemy.entity.body.x, target.body.y - enemy.entity.body.y) : 0;
+    if (dist >= 2.2 && dist <= 6.5) mult *= 1.5;
+  }
+  return enemy.entity.baseSpeed * mult;
 }
 
 function routeWithMemory(

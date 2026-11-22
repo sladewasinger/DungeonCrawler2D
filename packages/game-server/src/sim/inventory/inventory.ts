@@ -1,5 +1,6 @@
 import { PICKUP_RANGE, findWorldInteractionTarget, type Entity } from "@dc2d/engine";
 import { spawnItem } from "../core/helpers.js";
+import { clearAllArmor, clearUnequippedArmorItem } from "./armor.js";
 export { ensureStarterKit, grantRespawnKit } from "./starterKit.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
@@ -117,7 +118,10 @@ function pickUpTorch(sim: SimState, slot: PlayerSlot, torch: Entity): void {
 export function doDrop(sim: SimState, slot: PlayerSlot, defId: string): void {
   if (!invRemove(slot, defId, 1)) return;
   spawnItem(sim, { defId, x: slot.entity.body.x, y: slot.entity.body.y, qty: 1 });
-  if (slot.weapon === defId && invQty(slot, defId) === 0) slot.weapon = null;
+  if (invQty(slot, defId) === 0) {
+    if (slot.weapon === defId) slot.weapon = null;
+    clearUnequippedArmorItem(sim, slot, defId);
+  }
 }
 
 export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
@@ -129,13 +133,15 @@ export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
   }
   slot.inventory = [];
   slot.weapon = null;
+  clearAllArmor(sim, slot);
 }
 
 export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void {
   const recipe = sim.content.recipes.get(recipeId);
   if (!recipe) return;
   const body = slot.entity.body;
-  if (!findWorldInteractionTarget({ world: sim.world, x: body.x, y: body.y, kind: "craft" })) {
+  const requiresTable = (recipe.station ?? "table") === "table";
+  if (requiresTable && !findWorldInteractionTarget({ world: sim.world, x: body.x, y: body.y, kind: "craft" })) {
     slot.outbox.push({ t: "toast", msg: "You need a crafting table" });
     return;
   }
@@ -163,6 +169,7 @@ function stashInventory(sim: SimState, slot: PlayerSlot, index: number): void {
     return void slot.outbox.push({ t: "toast", msg: "Stash full" });
   }
   if (slot.weapon === stack.item) slot.weapon = null;
+  clearUnequippedArmorItem(sim, slot, stack.item);
   slot.inventory.splice(index, 1);
 }
 

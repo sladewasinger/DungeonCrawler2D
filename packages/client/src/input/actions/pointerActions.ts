@@ -7,8 +7,9 @@ import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } 
 import type Phaser from "phaser";
 import type { TouchInputState } from "../touch/index.js";
 import { attackInKidMode } from "../controls/kidMode.js";
+import { isConsumableItem, isThrowableItem } from "../../ui/presentation/itemCatalog.js";
 import { triggerAssistedAttack } from "./assistedAim.js";
-import { triggerAttack } from "./attack.js";
+import { consumeBowDrawRatio, triggerAttack, tryStartBowDraw } from "./attack.js";
 
 export type { PointerDeps } from "../pointer/pointer.js";
 
@@ -47,49 +48,63 @@ interface PointerAttackRequest {
 
 export function attackAtPointer({ state, deps, pointer, camera, tilePx }: PointerAttackRequest): void {
   const { conn } = deps;
+  if (useActiveHandItem({ state, deps, pointer, camera, tilePx })) return;
+  const nowMs = performance.now();
   if (state.kidMode.active) {
-    attackInKidMode({
-      state,
-      conn,
-      queries: deps.queries,
-      hooks: deps.hooks,
-      nowMs: performance.now(),
-    });
+    attackInKidMode({ state, conn, queries: deps.queries, hooks: deps.hooks, nowMs });
     return;
   }
+  if (tryStartBowDraw(state, conn.weapon, nowMs)) return;
   const aim = pointerAim({ deps, pointer, camera, tilePx });
   triggerAttack({
-    state,
-    conn,
-    hooks: deps.hooks,
-    direction: aim.networkDirection,
-    ...(aim.presentationDirection
-      ? { presentationDirection: aim.presentationDirection }
-      : {}),
-    nowMs: performance.now(),
-    cooldownMs: deps.queries.attackCooldownMs(conn.weapon),
+    state, conn, hooks: deps.hooks, direction: aim.networkDirection,
+    ...(aim.presentationDirection ? { presentationDirection: aim.presentationDirection } : {}),
+    nowMs, cooldownMs: deps.queries.attackCooldownMs(conn.weapon),
+  });
+}
+
+function useActiveHandItem({ state, deps, pointer, camera, tilePx }: PointerAttackRequest): boolean {
+  const slot = state.selectedSlot;
+  if (slot === null || slot === undefined) return false;
+  const heldItem = deps.conn.hotbar?.[slot];
+  if (!heldItem) return false;
+  if (isConsumableItem(heldItem)) {
+    deps.conn.useSlot(slot);
+    return true;
+  }
+  if (isThrowableItem(heldItem)) {
+    const target = cursorWorldTile({ camera, pointer, tilePx, heightAt: deps.conn.heightAt });
+    deps.conn.useSlot(slot, target.x, target.y);
+    return true;
+  }
+  return false;
+}
+
+export function releaseBowAtPointer({ state, deps, pointer, camera, tilePx }: PointerAttackRequest): void {
+  const nowMs = performance.now();
+  const drawRatio = consumeBowDrawRatio(state, deps.conn, nowMs);
+  if (drawRatio === null) return;
+  const aim = pointerAim({ deps, pointer, camera, tilePx });
+  triggerAttack({
+    state, conn: deps.conn, hooks: deps.hooks, direction: aim.networkDirection,
+    ...(aim.presentationDirection ? { presentationDirection: aim.presentationDirection } : {}),
+    drawRatio, nowMs, cooldownMs: deps.queries.attackCooldownMs(deps.conn.weapon),
   });
 }
 
 function pointerAim(request: {
-  readonly deps: PointerDeps;
-  readonly pointer: Phaser.Input.Pointer;
-  readonly camera: WorldPointCamera;
-  readonly tilePx: number;
+  readonly deps: PointerDeps; readonly pointer: Phaser.Input.Pointer; readonly camera: WorldPointCamera; readonly tilePx: number;
 }): {
   readonly networkDirection: { readonly x: number; readonly y: number };
   readonly presentationDirection?: { readonly x: number; readonly y: number };
 } {
   const { deps, pointer, camera, tilePx } = request;
   const reflectionAim = deps.queries.projectileReflectionAim?.(deps.conn, {
-    pointerView: pointerViewTile(camera, pointer, tilePx),
-    orientation: getViewOrientation(),
+    pointerView: pointerViewTile(camera, pointer, tilePx), orientation: getViewOrientation(),
   });
   if (reflectionAim) return reflectionAim;
   const cursorWorld = cursorWorldTile({ camera, pointer, tilePx, heightAt: deps.conn.heightAt });
-  return {
-    networkDirection: { x: cursorWorld.x - deps.conn.body!.x, y: cursorWorld.y - deps.conn.body!.y },
-  };
+  return { networkDirection: { x: cursorWorld.x - deps.conn.body!.x, y: cursorWorld.y - deps.conn.body!.y } };
 }
 
 function pointerViewTile(camera: WorldPointCamera, pointer: Phaser.Input.Pointer, tilePx: number): { x: number; y: number } {
@@ -97,10 +112,7 @@ function pointerViewTile(camera: WorldPointCamera, pointer: Phaser.Input.Pointer
   return { x: viewPixels.x / tilePx, y: viewPixels.y / tilePx };
 }
 
-interface UiHitRequest {
-  state: InputState; deps: PointerDeps; uiHit: string; pointerId: number;
-  pointer: Phaser.Input.Pointer;
-}
+interface UiHitRequest { state: InputState; deps: PointerDeps; uiHit: string; pointerId: number; pointer: Phaser.Input.Pointer; }
 
 function handleUiHit({ state, deps, uiHit, pointerId, pointer }: UiHitRequest): void {
   if (uiHit.startsWith("slot:")) return activateHotbar(state, deps.conn, Number(uiHit.slice(5)));
@@ -108,22 +120,12 @@ function handleUiHit({ state, deps, uiHit, pointerId, pointer }: UiHitRequest): 
   action?.[uiHit]?.();
 }
 
-interface UiHitActionsRequest {
-  state: InputState; deps: PointerDeps; pointerId: number;
-  pointer: Phaser.Input.Pointer;
-}
+interface UiHitActionsRequest { state: InputState; deps: PointerDeps; pointerId: number; pointer: Phaser.Input.Pointer; }
 
 function uiHitActions({ state, deps, pointerId, pointer }: UiHitActionsRequest): Record<string, () => void> {
   const { conn, queries, hooks, touch } = deps;
   return {
-    "touch:attack": () => attackWithTouchAssistance({
-      state,
-      conn,
-      queries,
-      hooks,
-      touch,
-      cooldownMs: queries.attackCooldownMs(conn.weapon),
-    }),
+    "touch:attack": () => attackWithTouchAssistance({ state, conn, queries, hooks, touch, cooldownMs: queries.attackCooldownMs(conn.weapon) }),
     "touch:block": () => pressAndMove(deps, "block", pointerId),
     "touch:jump": () => pressAndMove(deps, "jump", pointerId),
     "touch:interact": () => pressAndInteract(deps, pointerId),
@@ -133,27 +135,12 @@ function uiHitActions({ state, deps, pointerId, pointer }: UiHitActionsRequest):
   };
 }
 
-interface TouchAttackRequest {
-  state: InputState; conn: InputConnection; queries: InputQueries; hooks: InputHooks;
-  touch: TouchInputState;
-  cooldownMs: number;
-}
+interface TouchAttackRequest { state: InputState; conn: InputConnection; queries: InputQueries; hooks: InputHooks; touch: TouchInputState; cooldownMs: number; }
 
 function attackWithTouchAssistance(request: TouchAttackRequest): void {
   const { state, conn, queries, hooks, touch, cooldownMs } = request;
-  const fallbackDirection = screenDirToWorld(
-    touch.lastFacing,
-    getViewOrientation(),
-  );
-  triggerAssistedAttack({
-    state,
-    conn,
-    queries,
-    hooks,
-    fallbackDirection,
-    nowMs: performance.now(),
-    cooldownMs,
-  });
+  const fallbackDirection = screenDirToWorld(touch.lastFacing, getViewOrientation());
+  triggerAssistedAttack({ state, conn, queries, hooks, fallbackDirection, nowMs: performance.now(), cooldownMs });
 }
 
 function pressAndMove(deps: PointerDeps, button: "block" | "jump", pointerId: number): void {

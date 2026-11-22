@@ -1,8 +1,9 @@
 /** Builds renderer-neutral live view models for the browser-native shared HTML HUD. */
 import type { ActiveStatusSnapshot, InvStack } from "@dc2d/engine";
 import {
+  isArmorItem,
   isConsumableItem,
-  isThrowableItem,
+  isHotbarBindableItem,
   isWeaponItem,
   itemCategory,
   itemFlavor,
@@ -43,9 +44,9 @@ export const inventoryRows = (
     category: itemCategory(stack.item),
     ...(flavor ? { flavor } : {}),
     boundSlot: boundSlot < 0 ? null : boundSlot,
-    canEquip: isWeaponItem(stack.item),
+    canEquip: isWeaponItem(stack.item) || isArmorItem(stack.item),
     canUse: isConsumableItem(stack.item),
-    canHotbar: isConsumableItem(stack.item) || isThrowableItem(stack.item),
+    canHotbar: isHotbarBindableItem(stack.item),
   };
 }).sort((left, right) => left.name.localeCompare(right.name));
 

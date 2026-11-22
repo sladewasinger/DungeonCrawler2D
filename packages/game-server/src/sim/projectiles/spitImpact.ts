@@ -1,4 +1,6 @@
 import {
+  KNOCKBACK_FORCE,
+  applyKnockback,
   type DirectProjectileImpact,
   type EffectEvent,
   type Entity,
@@ -50,6 +52,13 @@ export function resolveSpitImpact(context: SpitImpactContext): void {
     applies: impact.applies,
     sourceId: projectile.ownerId,
   });
+  if (projectile.tags.has("arrow") && projectile.vel) {
+    applyKnockback(directHit.body, {
+      dirX: projectile.vel.x,
+      dirY: projectile.vel.y,
+      force: KNOCKBACK_FORCE * 0.7,
+    });
+  }
 }
 
 function spitImpact(sim: SimState, projectile: Entity): DirectProjectileImpact {

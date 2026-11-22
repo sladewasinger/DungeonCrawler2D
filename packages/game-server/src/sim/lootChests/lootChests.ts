@@ -1,7 +1,7 @@
 import { INTERACT_RANGE, TICK_RATE } from "@dc2d/engine";
 import { invAdd } from "../inventory/inventory.js";
 import type { LootChest, PlayerSlot, SimState } from "../state/state.js";
-export { PLAYER_LOOT_CHEST_DEF_ID, spawnPlayerLootChest } from "./spawn.js";
+export { PLAYER_LOOT_CHEST_DEF_ID, spawnPlayerLootChest, spawnWildLootChest } from "./spawn.js";
 
 export function nearestLootChest(
   sim: SimState,

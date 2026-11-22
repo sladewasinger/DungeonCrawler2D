@@ -7,6 +7,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { grantRespawnKit } from "../inventory/inventory.js";
+import { syncPlayerDerivedStats } from "../inventory/armor.js";
 import { findPlayerSpawn } from "../spawn/playerSpawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { leaveParty } from "../social/social.js";
@@ -80,7 +81,8 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.respawnAtTick = null;
   const spawn = findPlayerSpawn(sim, slot.stored.slot);
   slot.entity.body = createBody(spawn.x, spawn.y, spawn.z);
-  slot.entity.hp = PLAYER_MAX_HP;
+  syncPlayerDerivedStats(sim, slot);
+  slot.entity.hp = slot.entity.maxHp || PLAYER_MAX_HP;
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina = slot.maxStamina;
   slot.blocking = false;

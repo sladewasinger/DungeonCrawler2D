@@ -1,4 +1,4 @@
-import type { AdminCommand } from "@dc2d/engine";
+import type { AdminCommand, ArmorSlot } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 import { ConnectionState } from "./connectionState.js";
 import { socialTargetId } from "./socialTargetResolver.js";
@@ -56,9 +56,9 @@ export class ConnectionActions extends ConnectionState {
     });
   }
 
-  attack(dirX: number, dirY: number): void {
+  attack(dirX: number, dirY: number, drawRatio?: number): void {
     this.connection.contextualActionsUsed.add("attack");
-    attackIntent(this.connection, dirX, dirY);
+    attackIntent(this.connection, { dirX, dirY, ...(drawRatio !== undefined ? { drawRatio } : {}) });
   }
   throwTorch(dirX: number, dirY: number): void { throwTorchIntent(this.connection, dirX, dirY); }
   useSlot(slot: number, targetX?: number, targetY?: number): void {
@@ -73,7 +73,9 @@ export class ConnectionActions extends ConnectionState {
   assignSlot(slot: number, item: string | null): void {
     assignSlotIntent(this.connection, slot, item);
   }
-  equip(item: string | null): void { equipIntent(this.connection, item); }
+  equip(item: string | null, armorSlot?: ArmorSlot): void {
+    equipIntent(this.connection, item, armorSlot);
+  }
   interact(): void { interactIntent(this.connection); }
   revive(targetId: string, held: boolean): void { reviveIntent(this.connection, targetId, held); }
   descend(): void { descendIntent(this.connection); }

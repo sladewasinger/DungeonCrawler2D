@@ -48,7 +48,7 @@ function expectStarterKit(sim: ReturnType<typeof makeSim>, playerId: string): vo
   const inventory = sim.getInventory(playerId)!;
   expect(inventory.find((slot) => slot.item === "sword")?.qty).toBe(1);
   expect(inventory.find((slot) => slot.item === "torch")?.qty).toBe(3);
-  expect(inventory.find((slot) => slot.item === "bandage")?.qty).toBe(2);
+  expect(inventory.find((slot) => slot.item === "bandage")?.qty).toBe(3);
   expect(inventory).toHaveLength(3);
   expect(sim.getWeapon(playerId)).toBe("sword");
 }

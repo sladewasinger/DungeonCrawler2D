@@ -7,8 +7,9 @@ or other `@dc2d/*` packages).
 ## Contents
 
 - `index.ts` — Typed, Zod-validated catalog exports.
-- `data/items.json` & `data/recipes.json` — Weapons, consumables, materials,
-  and crafting recipes.
+- `data/items.json` & `data/recipes.json` — Melee and ranged weapons, ammo,
+  4-slot armor sets (`head`, `chest`, `legs`, `boots`), consumables, materials,
+  and hand vs. workbench crafting recipes.
 - `data/enemies.json` — Enemy stats, hurtboxes, and behavior definitions.
 - `data/areas.json` & `data/areaReactions.json` — Elemental ground zones and
   cross-area interaction rules.

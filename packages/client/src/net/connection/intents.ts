@@ -1,4 +1,4 @@
-import { clampFiniteFloorPosition } from "@dc2d/engine";
+import { clampFiniteFloorPosition, type ArmorSlot } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 
 /**
@@ -15,9 +15,16 @@ function normalized(dirX: number, dirY: number): { dirX: number; dirY: number } 
   return { dirX: dirX / len, dirY: dirY / len };
 }
 
-export function attackIntent(conn: Connection, dirX: number, dirY: number): void {
+export function attackIntent(
+  conn: Connection,
+  request: { dirX: number; dirY: number; drawRatio?: number },
+): void {
   if (!conn.canAct) return;
-  conn.send({ type: "attack", ...normalized(dirX, dirY) });
+  conn.send({
+    type: "attack",
+    ...normalized(request.dirX, request.dirY),
+    ...(request.drawRatio !== undefined ? { drawRatio: request.drawRatio } : {}),
+  });
 }
 
 export function throwTorchIntent(conn: Connection, dirX: number, dirY: number): void {
@@ -99,8 +106,14 @@ export function dropIntent(conn: Connection, item: string): void {
   if (conn.canAct) conn.send({ type: "drop", item });
 }
 
-export function equipIntent(conn: Connection, item: string | null): void {
-  if (conn.canAct) conn.send({ type: "equip", item });
+export function equipIntent(conn: Connection, item: string | null, armorSlot?: ArmorSlot): void {
+  if (conn.canAct) {
+    conn.send({
+      type: "equip",
+      item,
+      ...(armorSlot ? { armorSlot } : {}),
+    });
+  }
 }
 
 export function interactIntent(conn: Connection): void {

@@ -7,11 +7,14 @@ import type Phaser from "phaser";
 import { uiTextStyle } from "../../../foundation/font.js";
 import { PANEL_BORDER } from "../../../foundation/panel.js";
 import { ASSET_KEYS } from "../../../../boot/assetManifest.js";
+import { PROCEDURAL_ITEM_FRAMES } from "../../../presentation/itemAtlasInstaller.js";
 
 const ITEM_ICON_FRAMES: Readonly<Record<string, string>> = {
   knife: "weapon_knife",
   sword: "weapon_rusty_sword",
   hammer: "weapon_hammer",
+  bow: "weapon_bow",
+  arrow: "weapon_arrow",
   "water-flask": "flask_blue",
   "vodka-bottle": "flask_red",
   bandage: "item_bandage",
@@ -19,6 +22,7 @@ const ITEM_ICON_FRAMES: Readonly<Record<string, string>> = {
   "raw-meat": "item_raw_meat",
   stick: "item_stick",
   torch: "item_torch",
+  ...PROCEDURAL_ITEM_FRAMES,
 };
 
 const FALLBACK_TINT = 0x6b6b7e;

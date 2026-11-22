@@ -1,7 +1,13 @@
-/** Renders the HTML crafting list and emits authoritative craft intents. */
+/** Renders the HTML crafting list with pixel-art icons and emits authoritative craft intents. */
+import { recipesData } from "@dc2d/content";
+import { itemIconDataUrl } from "../../../ui/presentation/itemIcons.js";
 import type { CraftSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import { createHudPanelHeader } from "../styles/HudStyles.js";
 import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
+
+const outputItemByRecipe = new Map<string, string>(
+  (recipesData as ReadonlyArray<{ id: string; output: { item: string } }>).map((r) => [r.id, r.output.item]),
+);
 
 export class HudCraft {
   readonly element: HTMLElement;
@@ -29,7 +35,14 @@ export class HudCraft {
       const ingredients = recipe.ingredients.map((item) =>
         `${item.need}× ${item.name} (${item.have}/${item.need})`
       ).join(" · ");
-      name.textContent = `${recipe.outputName} ×${recipe.outputQty}`;
+      const outputItemId = outputItemByRecipe.get(recipe.recipeId) ?? recipe.recipeId;
+      const icon = document.createElement("img");
+      icon.className = "hud-mc-slot__icon";
+      icon.src = itemIconDataUrl(outputItemId);
+      icon.alt = recipe.outputName;
+      const title = document.createElement("span");
+      title.textContent = `${recipe.outputName} ×${recipe.outputQty}`;
+      name.replaceChildren(icon, title);
       description.textContent = ingredients;
       row.dataset.craftable = String(recipe.craftable);
       button.addEventListener("click", () => this.craft(recipe.recipeId));

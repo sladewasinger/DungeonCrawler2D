@@ -3,9 +3,11 @@ import {
   createBody,
   makeEntity,
   newEntityId,
+  playerDamageMultiplierForLevel,
   type BodyState,
   type Entity,
 } from "@dc2d/engine";
+import { armorStatsFor } from "../inventory/armor.js";
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import {
   GOD_MODE_DAMAGE_MULTIPLIER,
@@ -67,16 +69,19 @@ function playerEffectTarget(
     return { invulnerable: true };
   }
   const handicap = playerHandicap(slot);
-  return handicap ? { damageTakenMultiplier: handicap.damageTakenMultiplier } : {};
+  const armorScale = 1 - armorStatsFor(sim, slot).damageReduction;
+  const takenMultiplier = (handicap?.damageTakenMultiplier ?? 1) * armorScale;
+  return takenMultiplier === 1 ? {} : { damageTakenMultiplier: takenMultiplier };
 }
 
-/** Returns the active grant for a player, including future admin grants. */
+/** Returns the active grant for a player, including level scaling and future admin grants. */
 export function damageGivenMultiplierFor(sim: SimState, entity: Entity): number {
   if (entity.kind !== "player") return 1;
   const slot = sim.players.get(entity.id);
+  const levelMultiplier = playerDamageMultiplierForLevel(slot?.stored.level ?? 1);
   const handicapMultiplier = playerHandicap(slot)?.damageGivenMultiplier ?? 1;
   const godMultiplier = slot?.god ? GOD_MODE_DAMAGE_MULTIPLIER : 1;
-  return handicapMultiplier * godMultiplier;
+  return levelMultiplier * handicapMultiplier * godMultiplier;
 }
 
 function playerHandicap(slot: PlayerSlot | undefined): HandicapGrant | undefined {

@@ -8,6 +8,7 @@ import {
 import { spawnItem } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
 import { populateCombatSandboxChunk } from "../sandbox/combatSandboxPopulation.js";
+import { populateForestChunkFeatures } from "./population/forestPopulation.js";
 import { spawnEnemyPack } from "./population/packs.js";
 import {
   syncObservableMiniBossEncounters,
@@ -55,6 +56,7 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
   spawnRoomLoot(sim, cx, cy);
   if (sim.enemies.size >= ENEMY_CAP) return;
   spawnEnemyPack(sim, cx, cy);
+  populateForestChunkFeatures(sim, cx, cy);
 }
 
 function spawnRoomLoot(sim: SimState, cx: number, cy: number): void {

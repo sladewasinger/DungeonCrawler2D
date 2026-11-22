@@ -47,6 +47,7 @@ export interface InputState {
   /** Mirrors the server's swing cooldown so the swing arc never lies. */
   nextSwingAt: number;
   selectedSlot: number | null;
+  bowDrawStartedAtMs?: number | null;
   kidMode: KidModeState;
 }
 
@@ -72,7 +73,7 @@ export interface InputConnection {
   interact(): void;
   revive(targetId: string, held: boolean): void;
   pickup(): void;
-  attack(dx: number, dy: number): void;
+  attack(dx: number, dy: number, drawRatio?: number): void;
   useSlot(index: number, targetX?: number, targetY?: number): void;
   useSlotOnPlayer(index: number, targetId: string): void;
   useItem(item: string): void;

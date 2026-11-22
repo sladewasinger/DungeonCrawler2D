@@ -46,9 +46,10 @@ function expectFullKit(slot: PlayerSlot): void {
   expect(slot.weapon).toBe("sword");
   expect(invQty(slot, "sword")).toBe(1);
   expect(invQty(slot, "torch")).toBe(3);
-  expect(invQty(slot, "bandage")).toBe(2);
-  expect(slot.hotbar[0]).toBe("torch");
-  expect(slot.hotbar[1]).toBe("bandage");
+  expect(invQty(slot, "bandage")).toBe(3);
+  expect(slot.hotbar[0]).toBe("sword");
+  expect(slot.hotbar[1]).toBe("torch");
+  expect(slot.hotbar[2]).toBe("bandage");
 }
 
 /** Enter downed, resolve full death, then jump to the scheduled respawn tick. */
@@ -119,7 +120,7 @@ describe("respawn starter kit (panel round 4)", () => {
     expect(slot.entity.hp).toBe(PLAYER_MAX_HP);
     expect(invQty(slot, "sword")).toBe(1);
     expect(invQty(slot, "torch")).toBe(3);
-    expect(invQty(slot, "bandage")).toBe(2);
+    expect(invQty(slot, "bandage")).toBe(3);
     expect(slot.hotbar).toEqual(customized);
     expect(slot.stored.hotbar).toEqual(customized);
   });

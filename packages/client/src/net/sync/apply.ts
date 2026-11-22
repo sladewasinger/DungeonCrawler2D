@@ -1,4 +1,4 @@
-import { World, type ServerSnapshot } from "@dc2d/engine";
+import { World, emptyArmorLoadout, type ServerSnapshot } from "@dc2d/engine";
 import type { Connection } from "../connection/connection.js";
 import { applyEvent } from "./applyEvents.js";
 import {
@@ -135,6 +135,7 @@ function applyInventoryState(conn: Connection, snap: ServerSnapshot): void {
   conn.inventory = snap.self.spectatorLoadout?.inventory ?? snap.inventory;
   conn.hotbar = snap.self.spectatorLoadout?.hotbar ?? snap.hotbar;
   conn.weapon = snap.weapon;
+  conn.armor = snap.self.armor ?? emptyArmorLoadout();
   conn.party = snap.party;
 }
 

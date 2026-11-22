@@ -52,6 +52,7 @@ export function toSelfSnapshot(
     ...adminSnapshot(sim, slot),
     floor: sim.world.floor,
     deepestFloor: slot.stored.deepestFloor ?? 1,
+    ...(slot.armor ? { armor: slot.armor } : {}),
     ...(sim.world.floorIdentity ? { generation: sim.world.floorIdentity } : {}),
     ...(slot.pendingFiniteFloorArtifact ? { finiteFloorArtifact: slot.pendingFiniteFloorArtifact } : {}),
   };

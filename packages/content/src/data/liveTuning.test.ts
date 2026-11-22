@@ -14,12 +14,12 @@ describe("live tuning", () => {
       duration: 5,
       tickEvery: 1,
       stacking: "refresh",
-      onTick: [{ primitive: "modify_health", amount: 2 }],
+      onTick: [{ primitive: "modify_health", amount: 3 }],
     });
     expect(status.onApply).toEqual(status.onRefresh);
     expect(status.onApply[0]).toEqual({
       primitive: "modify_health",
-      amount: 4,
+      amount: 10,
     });
   });
 

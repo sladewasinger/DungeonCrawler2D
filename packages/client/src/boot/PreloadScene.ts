@@ -5,6 +5,10 @@ import { registerAnimations, type AnimationManifest } from "./registerAnimations
 import { waitForPixelFontReady } from "../ui/foundation/font.js";
 import { setViewOrientation } from "../render/view/transform/viewState.js";
 import { installForestTerrainAtlas } from "../render/terrain/material/forestTerrainAtlas.js";
+import {
+  installProceduralItemAtlasFrames,
+  registerProceduralEnemyAnimations,
+} from "../ui/presentation/itemAtlasInstaller.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
 import { terrainDebugIsEnabled } from "../render/terrain/runtime/debugMode.js";
 import { resolveStartupScene } from "./startupScene.js";
@@ -55,8 +59,10 @@ export class PreloadScene extends Phaser.Scene {
 
   create(): void {
     installForestTerrainAtlas(this.textures);
+    installProceduralItemAtlasFrames(this.textures);
     const manifest = this.cache.json.get(ASSET_KEYS.animations) as AnimationManifest;
     registerAnimations(this.anims, manifest);
+    registerProceduralEnemyAnimations(this.anims);
     registerPetAnimations(this.anims);
     this.bootStartedAtMs = this.time.now;
     this.waitThenHandOff();

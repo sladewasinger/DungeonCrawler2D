@@ -18,6 +18,10 @@ export function resolveProjectileImpact(context: ProjectileImpactContext): void 
     resolveOilLobImpact(context);
     return;
   }
+  if (context.projectile.directProjectileImpact) {
+    resolveSpitImpact(context);
+    return;
+  }
   if (context.projectile.defId) resolveThrowableImpact(context);
   else resolveSpitImpact(context);
 }

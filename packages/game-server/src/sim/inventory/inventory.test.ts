@@ -55,13 +55,13 @@ describe("inventory: adding and removing stacks", () => {
     invAdd(sim, slot, "torch", 3);
     slot.hotbar[0] = "bandage";
     ensureStarterKit(sim, slot);
-    expect(invQty(slot, "bandage")).toBe(2);
+    expect(invQty(slot, "bandage")).toBe(3);
     expect(slot.stored.starterHotbarSchema).toBe(1);
-    expect(slot.stored.hotbar?.slice(0, 2)).toEqual(["torch", "bandage"]);
+    expect(slot.stored.hotbar?.slice(0, 3)).toEqual(["sword", "torch", "bandage"]);
     const customized = [null, null, null, "torch", null, null, null, null, "bandage"];
     slot.hotbar = [...customized];
     sim.store.recordHotbar(slot.stored, slot.hotbar);
-    invRemove(slot, "bandage", 2);
+    invRemove(slot, "bandage", 3);
     ensureStarterKit(sim, slot);
     expect(slot.hotbar).toEqual(customized);
     expect(slot.stored.hotbar).toEqual(customized);
@@ -133,21 +133,28 @@ describe("inventory: pickup and drop", () => {
 });
 
 describe("inventory: crafting", () => {
-  it("requires an adjacent crafting table and consumes inputs on success", () => {
+  it("allows hand-crafting survival gear anywhere while gating table recipes on a crafting table", () => {
     const sim = buildSim(fakeWorld({ x: 4, y: 4, tile: TILE.CraftingTable }));
     const slot = buildSlot(10, 10); // far from the table
     invAdd(sim, slot, "rag", 2);
     doCraft(sim, slot, "bandage");
-    expect(invQty(slot, "bandage")).toBe(0); // no table nearby, nothing happens
+    expect(invQty(slot, "rag")).toBe(0);
+    expect(invQty(slot, "bandage")).toBe(1);
+    expect(slot.stored.craftedRecipes).toEqual({ bandage: 1 });
+
+    invAdd(sim, slot, "stick", 1);
+    invAdd(sim, slot, "flint", 2);
+    doCraft(sim, slot, "knife");
+    expect(invQty(slot, "knife")).toBe(0); // no table nearby, nothing happens
     expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "You need a crafting table" });
 
     slot.entity.body.x = 4;
     slot.entity.body.y = 5; // adjacent to the table tile
-    doCraft(sim, slot, "bandage");
-    expect(invQty(slot, "rag")).toBe(0);
-    expect(invQty(slot, "bandage")).toBe(1); expect(slot.stored.craftedRecipes).toEqual({ bandage: 1 });
-    doCraft(sim, slot, "bandage");
-    expect(invQty(slot, "bandage")).toBe(1);
-    expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "Missing rag" });
+    doCraft(sim, slot, "knife");
+    expect(invQty(slot, "flint")).toBe(0);
+    expect(invQty(slot, "knife")).toBe(1);
+    doCraft(sim, slot, "knife");
+    expect(invQty(slot, "knife")).toBe(1);
+    expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "Missing stick" });
   });
 });

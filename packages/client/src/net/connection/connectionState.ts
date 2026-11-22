@@ -11,6 +11,8 @@ import {
   type AdminMapEntity,
   type AdminPalette,
   createDebugFlags,
+  emptyArmorLoadout,
+  type ArmorLoadout,
   type DebugFlags,
   type BodyState,
   type InvStack,
@@ -74,8 +76,7 @@ export class ConnectionState {
   xpForNext = 0;
   floor = 1;
   inventory: InvStack[] = [];
-  hotbar: Array<string | null> = [];
-  weapon: string | null = null;
+  hotbar: Array<string | null> = []; weapon: string | null = null; armor: ArmorLoadout = emptyArmorLoadout();
   party: ServerSnapshot["party"] = null;
   stash: Array<{ item: string; qty: number }> | null = null;
   stashContext: { kind: "personal" | "loot"; chestId: string | null } = { kind: "personal", chestId: null };
@@ -106,9 +107,7 @@ export class ConnectionState {
   readonly serverTimeline = new ServerTimeline();
   readonly interpolationDelay = new InterpolationDelay();
   readonly corpNet = new CorpNetState(loadExperimentalCorpNetSettings().enabled);
-  readonly snapshotCoalescer = new SnapshotCoalescer(
-    EXPERIMENTAL_CORPNET_TUNING.snapshots.maximumQueuedMessages,
-  );
+  readonly snapshotCoalescer = new SnapshotCoalescer(EXPERIMENTAL_CORPNET_TUNING.snapshots.maximumQueuedMessages);
   readonly spectatorDeathPresentations = new SpectatorDeathPresentationJournal();
   readonly networkMetrics = new WireMetrics();
   movementTrace: MovementTraceRecorder | null = null;

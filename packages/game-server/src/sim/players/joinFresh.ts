@@ -9,6 +9,7 @@ import {
 } from "@dc2d/engine";
 import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "../announcer/index.js";
 import { sendContactsUpdated } from "../combat/contacts.js";
+import { syncPlayerDerivedStats } from "../inventory/armor.js";
 import { ensureStarterKit } from "../inventory/inventory.js";
 import { refreshModerationBindings, sendModerationState } from "../moderation.js";
 import { findPlayerSpawn } from "../spawn/playerSpawn.js";
@@ -27,6 +28,7 @@ export function createPlayerEntity(
 }
 
 export function completeFreshJoin(sim: SimState, slot: PlayerSlot, name: string): void {
+  syncPlayerDerivedStats(sim, slot, true);
   secureSpawnHandoff(sim, slot);
   ensureStarterKit(sim, slot);
   refreshModerationBindings(sim);

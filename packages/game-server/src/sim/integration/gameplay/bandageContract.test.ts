@@ -20,10 +20,10 @@ function useBandage(hp: number) {
 }
 
 describe("authoritative bandage contract", () => {
-  it("heals +4 immediately, then +2 once per second for five ticks and expires", () => {
-    const { sim, joined, entity, snapshot } = useBandage(10);
+  it("heals +10 immediately, then +3 once per second for five ticks and expires", () => {
+    const { sim, joined, entity, snapshot } = useBandage(4);
     expect(healingEvents(snapshot)).toEqual([
-      { t: "health", id: joined.playerId, delta: 4, kind: "heal" },
+      { t: "health", id: joined.playerId, delta: 10, kind: "heal" },
     ]);
     expect(snapshot.self.statusEffects).toContainEqual({
       id: "bandaged",
@@ -39,10 +39,10 @@ describe("authoritative bandage contract", () => {
     expect(periodic).toEqual(Array.from({ length: 5 }, () => ({
       t: "health",
       id: joined.playerId,
-      delta: 2,
+      delta: 3,
       kind: "heal",
     })));
-    expect(entity.hp).toBe(24);
+    expect(entity.hp).toBe(29);
     expect(entity.statuses.some((status) => status.defId === "bandaged")).toBe(false);
   });
 
@@ -51,16 +51,16 @@ describe("authoritative bandage contract", () => {
     for (let tick = 0; tick < TICK_RATE / 2; tick++) sim.step();
     sim.queueAction(joined.playerId, { type: "useItem", item: "bandage" });
     const refreshed = sim.step().get(joined.playerId)!;
-    expect(healingEvents(refreshed)[0]).toMatchObject({ delta: 4, kind: "heal" });
+    expect(healingEvents(refreshed)[0]).toMatchObject({ delta: 10, kind: "heal" });
     expect(entity.statuses[0]).toMatchObject({
       defId: "bandaged",
       remaining: 5 - 1 / TICK_RATE,
       tickAccum: 1 / TICK_RATE,
     });
     for (let tick = 1; tick < TICK_RATE - 1; tick++) sim.step();
-    expect(entity.hp).toBe(10);
+    expect(entity.hp).toBe(22);
     sim.step();
-    expect(entity.hp).toBe(12);
+    expect(entity.hp).toBe(25);
   });
 
   it("clamps healing to max health and reports only the applied positive delta", () => {

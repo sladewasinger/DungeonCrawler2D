@@ -8,18 +8,26 @@
 }
 
 .hud-hotbar__slot {
-  min-height: 48px;
+  position: relative;
+  min-height: 50px;
   padding: 3px;
-  border: 1px solid var(--hud-button-border);
-  background: rgb(27 28 44 / 88%);
+  border: 2px inset var(--hud-button-border);
+  background: rgb(22 24 38 / 92%);
   color: #e6e5ef;
   font: 10px monospace;
-  white-space: pre-line;
+  display: grid;
+  place-items: center;
   overflow: hidden;
   pointer-events: auto;
+  cursor: pointer;
 }
 
-.hud-hotbar__slot[data-selected="true"] { outline: 2px solid var(--hud-gold); outline-offset: -2px; }
+.hud-hotbar__slot[data-selected="true"] { outline: 2px solid var(--hud-gold); outline-offset: -2px; background: rgb(52 47 28 / 82%); }
+.hud-hotbar__slot[data-equipped="true"] { border-color: #4ade80; }
+.hud-hotbar__key { position: absolute; top: 2px; left: 4px; font: 9px monospace; color: #94a3b8; }
+.hud-hotbar__icon { width: 28px; height: 28px; image-rendering: pixelated; pointer-events: none; }
+.hud-hotbar__count { position: absolute; bottom: 2px; right: 4px; font: bold 10px monospace; color: #fef08a; text-shadow: 0 1px 2px #000; }
+.hud-stash__card [data-hud-contact-name], .hud-craft__copy strong { display: flex; align-items: center; gap: 6px; }
 .hud-buffs { display: grid; align-content: start; gap: 4px; }
 .hud-buffs__list { display: flex; flex-wrap: wrap; gap: 4px; }
 .hud-buff { padding: 4px 6px; border: 1px solid #4f9a72; background: rgb(42 92 67 / 78%); font-size: 10px; text-transform: uppercase; }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../../entities/playerAppearance.js";
+import { armorLoadoutSchema } from "../../effects/content/items.js";
 import { debugFlagsSchema } from "../../debug/debugFlags.js";
 import { adminMapEntitySchema } from "../wire/adminStateSchemas.js";
 import { floorGenerationIdentitySchema } from "./floorGenerationIdentity.js";
@@ -50,6 +51,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   faceX: z.number().min(-1).max(1).optional(),
   faceY: z.number().min(-1).max(1).optional(),
   attacking: z.boolean().optional(),
+  armor: armorLoadoutSchema.optional(),
   spectatorLoadout: z.object({
     inventory: z.array(z.object({ item: z.string(), qty: z.number().int() })),
     hotbar: z.array(z.string().nullable()),

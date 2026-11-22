@@ -18,7 +18,7 @@ export const RANDOM_ENEMY_ROSTER = [
   SLIME, PLANT_CREEPER, PITCHBLOOM, SKELETON, SPITTER, GOBLIN,
   MASKED_ORC, ORC_WARRIOR, ORC_SHAMAN, "tiny-zombie",
   "big-zombie", CHORT, "wogol", "pumpkin-fiend",
-  FALLEN_ANGEL,
+  FALLEN_ANGEL, "wolf", "grizzly-bear", "forest-spider", "wild-boar",
 ] as const;
 
 export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {

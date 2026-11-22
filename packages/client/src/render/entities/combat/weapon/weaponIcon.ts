@@ -7,6 +7,7 @@ const WEAPON_ICON_FRAMES: Readonly<Record<string, string>> = {
   knife: "weapon_knife",
   sword: "weapon_rusty_sword",
   hammer: HAMMER_WEAPON_FRAME,
+  bow: "weapon_bow",
 };
 
 /** The equip-hand icon frame for a weapon item id, or null for fists / unarmed / no icon mapped. */

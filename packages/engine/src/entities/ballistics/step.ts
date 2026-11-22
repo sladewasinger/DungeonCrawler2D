@@ -78,7 +78,8 @@ function stepVelocityProjectile(
   projectile.body.x = next.x;
   projectile.body.y = next.y;
   projectile.body.z = next.z;
-  vel.z -= GRAVITY * dt;
+  const gravity = projectile.tags.has("arrow") ? GRAVITY * 0.12 : GRAVITY;
+  vel.z -= gravity * dt;
   return groundImpact(world, projectile);
 }
 

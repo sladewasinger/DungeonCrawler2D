@@ -1,10 +1,13 @@
 /** Owns client-side item presentation metadata shared by both renderers. */
 import { itemsData } from "@dc2d/content";
+import type { ArmorSlot, ItemArmorDef, ItemRangedDef } from "@dc2d/engine";
 
 interface ItemDefinition {
   readonly id: string;
   readonly name?: string;
-  readonly weapon?: { readonly cooldownMs?: number };
+  readonly weapon?: { readonly cooldownMs?: number; readonly damage?: number };
+  readonly ranged?: ItemRangedDef;
+  readonly armor?: ItemArmorDef;
   readonly consumable?: unknown;
   readonly throwable?: unknown;
   readonly flavor?: string;
@@ -30,8 +33,26 @@ export const isConsumableItem = (itemId: string): boolean =>
 export const isWeaponItem = (itemId: string): boolean =>
   Boolean(items.get(itemId)?.weapon);
 
+export const isRangedWeaponItem = (itemId: string): boolean =>
+  Boolean(items.get(itemId)?.ranged);
+
+export const itemRangedDef = (itemId: string | null): ItemRangedDef | null =>
+  itemId ? (items.get(itemId)?.ranged ?? null) : null;
+
+export const isArmorItem = (itemId: string): boolean =>
+  Boolean(items.get(itemId)?.armor);
+
+export const itemArmorDef = (itemId: string | null): ItemArmorDef | null =>
+  itemId ? (items.get(itemId)?.armor ?? null) : null;
+
+export const itemArmorSlot = (itemId: string): ArmorSlot | null =>
+  items.get(itemId)?.armor?.slot ?? null;
+
+export const isHotbarBindableItem = (itemId: string): boolean =>
+  isWeaponItem(itemId) || isConsumableItem(itemId) || isThrowableItem(itemId);
+
 export const itemCategory = (itemId: string): ItemCategory => {
-  if (isWeaponItem(itemId)) return "weapons";
+  if (isWeaponItem(itemId) || isArmorItem(itemId)) return "weapons";
   if (isConsumableItem(itemId) || isThrowableItem(itemId)) return "usables";
   return "materials";
 };

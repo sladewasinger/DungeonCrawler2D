@@ -2,6 +2,7 @@ import {
   HOTBAR_SLOTS,
   PLAYER_MAX_STAMINA,
   createDebugFlags,
+  emptyArmorLoadout,
   type Entity,
 } from "@dc2d/engine";
 import { handicapForPlayer } from "../progression/handicap.js";
@@ -71,8 +72,8 @@ function connectionGameplay() {
   };
 }
 
-function inventoryState(stored: PlayerSlot["stored"]): Pick<PlayerSlot, "inventory" | "hotbar" | "weapon"> {
-  return { inventory: [], hotbar: restoredHotbar(stored), weapon: null };
+function inventoryState(stored: PlayerSlot["stored"]): Pick<PlayerSlot, "inventory" | "hotbar" | "weapon" | "armor"> {
+  return { inventory: [], hotbar: restoredHotbar(stored), weapon: null, armor: emptyArmorLoadout() };
 }
 
 function restoredHotbar(stored: PlayerSlot["stored"]): Array<string | null> {

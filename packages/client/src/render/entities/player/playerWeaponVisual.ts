@@ -3,6 +3,7 @@ import { createHeldWeapon, updateHeldWeapon } from "../combat/weapon/heldWeapon.
 import type { PlayerVisual } from "../visuals/state.js";
 import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
 import { FIST_FALLBACK_FRAME, weaponIconFrame } from "../combat/weapon/weaponIcon.js";
+import { itemIconFrame } from "../../../ui/widgets/hud/inventory/itemIcon.js";
 import { combatOverlayPosition } from "../geometry/worldToScreen.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { worldAngleToView } from "../../view/transform/viewTransform.js";
@@ -85,7 +86,7 @@ function weaponPose({
   combatPosition,
   attackReadyFlash,
 }: WeaponPoseInput) {
-  const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
+  const rawFrame = heldItemFrame(view);
   const isFistFallback = rawFrame === null && !view.downed;
   return {
     screenX: visual.body.x,
@@ -105,8 +106,13 @@ function weaponPose({
 }
 
 function weaponFrame(view: PlayerEntityView): string | null {
-  const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
+  const rawFrame = heldItemFrame(view);
   return rawFrame ?? (view.downed ? null : FIST_FALLBACK_FRAME);
+}
+
+function heldItemFrame(view: PlayerEntityView): string | null {
+  if (view.downed || !view.weaponId) return null;
+  return weaponIconFrame(view.weaponId) ?? itemIconFrame(view.weaponId);
 }
 
 function applySwingEdge(input: {

@@ -2,6 +2,7 @@
  * Hotbar/throwable/panel-number-key logic — pure functions over InputState plus
  * the connection/panels/queries contracts, so it ports and tests without Phaser.
  */
+import { isConsumableItem, isThrowableItem, isWeaponItem } from "../../ui/presentation/itemCatalog.js";
 import type { InputConnection, InputPanels, InputQueries, InputState, Keys } from "../controls/state.js";
 
 export interface NumberKeyRequest {
@@ -28,11 +29,21 @@ export function activeThrowableSlot(state: InputState, conn: InputConnection, qu
   return defId && queries.isThrowable(defId) ? state.selectedSlot : null;
 }
 
-/** [1-9]/hotbar click selects a usable without consuming or throwing it. */
+/** [1-9]/hotbar click selects a slot and holds its item in the active hand. */
 export function activateHotbar(state: InputState, conn: InputConnection, index: number): void {
   const defId = conn.hotbar[index];
   if (!defId) return;
   state.selectedSlot = state.selectedSlot === index ? null : index;
+  syncActiveHandEquipment(state.selectedSlot, defId, conn);
+}
+
+function syncActiveHandEquipment(selectedSlot: number | null, defId: string, conn: InputConnection): void {
+  if (selectedSlot === null) return;
+  if (isWeaponItem(defId)) {
+    if (conn.weapon !== defId) conn.equip(defId);
+  } else if ((isConsumableItem(defId) || isThrowableItem(defId)) && conn.weapon !== null) {
+    conn.equip(null);
+  }
 }
 
 /** Shift+number puts the hotbar-bound item into the stash; a plain number takes from it. */

@@ -18,9 +18,10 @@ import { isOilLob } from "../enemies/elemental/oilLob.js";
 
 export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const [id, projectile] of sim.projectiles) {
+    const start = { x: projectile.body.x, y: projectile.body.y, z: projectile.body.z };
     const impact = stepProjectile(sim.world, projectile, TICK_DT).impact;
     const returned = returnProjectileDuringActiveMeleeAttack(sim, projectile);
-    const directHit = findDirectHit(sim, projectile);
+    const directHit = findSweptDirectHit(sim, projectile, start);
     resolveProjectileStep({
       sim,
       id,
@@ -59,35 +60,21 @@ function resolveProjectileStep(step: ProjectileStep): void {
   resolveProjectileImpact({ sim, projectile, point, directHit, effectEvents });
 }
 
-function projectileSource(
-  sim: SimState,
-  projectile: Entity,
-): { x: number; y: number } {
+function projectileSource(sim: SimState, projectile: Entity): { x: number; y: number } {
   const incomingSource = projectileIncomingSource(projectile);
   if (incomingSource) return incomingSource;
   const owner = projectileOwner(sim, projectile.ownerId);
   if (owner) return { x: owner.body.x, y: owner.body.y };
-  return {
-    x: projectile.body.x - projectileVelocity(projectile, "x"),
-    y: projectile.body.y - projectileVelocity(projectile, "y"),
-  };
+  return { x: projectile.body.x - projectileVelocity(projectile, "x"), y: projectile.body.y - projectileVelocity(projectile, "y") };
 }
 
-function projectileIncomingSource(
-  projectile: Entity,
-): { x: number; y: number } | undefined {
+function projectileIncomingSource(projectile: Entity): { x: number; y: number } | undefined {
   const velocity = projectile.vel;
   if (!velocity || Math.hypot(velocity.x, velocity.y) <= 0.001) return undefined;
-  return {
-    x: projectile.body.x - velocity.x,
-    y: projectile.body.y - velocity.y,
-  };
+  return { x: projectile.body.x - velocity.x, y: projectile.body.y - velocity.y };
 }
 
-function projectileOwner(
-  sim: SimState,
-  ownerId: string | undefined,
-): Entity | undefined {
+function projectileOwner(sim: SimState, ownerId: string | undefined): Entity | undefined {
   if (!ownerId) return undefined;
   return sim.enemies.get(ownerId)?.entity ?? sim.players.get(ownerId)?.entity;
 }
@@ -96,21 +83,26 @@ function projectileVelocity(projectile: Entity, axis: "x" | "y"): number {
   return projectile.vel?.[axis] ?? 0;
 }
 
-function projectileBlockedByTarget(
-  sim: SimState,
-  projectile: Entity,
-  target: Entity,
-): boolean {
-  const targetSlot = target.kind === "player"
-    ? sim.players.get(target.id)
-    : undefined;
+function projectileBlockedByTarget(sim: SimState, projectile: Entity, target: Entity): boolean {
+  const targetSlot = target.kind === "player" ? sim.players.get(target.id) : undefined;
   const source = projectileSource(sim, projectile);
-  return isBlockableProjectile(projectile) &&
-    blocksAttackDirection(targetSlot, source.x, source.y);
+  return isBlockableProjectile(projectile) && blocksAttackDirection(targetSlot, source.x, source.y);
 }
 
 function isBlockableProjectile(projectile: Entity): boolean {
   return projectile.defId === undefined || isOilLob(projectile);
+}
+
+function findSweptDirectHit(sim: SimState, projectile: Entity, start: { x: number; y: number; z: number }): Entity | null {
+  const end = { x: projectile.body.x, y: projectile.body.y, z: projectile.body.z };
+  projectile.body.x = (start.x + end.x) * 0.5;
+  projectile.body.y = (start.y + end.y) * 0.5;
+  projectile.body.z = (start.z + end.z) * 0.5;
+  const midHit = findDirectHit(sim, projectile);
+  projectile.body.x = end.x;
+  projectile.body.y = end.y;
+  projectile.body.z = end.z;
+  return midHit ?? findDirectHit(sim, projectile);
 }
 
 function findDirectHit(sim: SimState, projectile: Entity): Entity | null {

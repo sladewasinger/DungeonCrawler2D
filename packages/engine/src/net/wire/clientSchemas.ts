@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { armorSlotSchema } from "../../effects/content/items.js";
 import { clientNetworkProfileSchema } from "../networkProfile.js";
 import { clientHelloSchema } from "./hello.js";
 import {
@@ -15,13 +16,13 @@ import {
 const axis = z.number().min(-1).max(1);
 const slot = z.number().int().min(0).max(8);
 export const clientInputSchema = z.object({ type: z.literal("input"), seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), projectedServerTick: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), moveX: axis, moveY: axis, faceX: axis.optional(), faceY: axis.optional(), jump: z.boolean(), run: z.boolean().default(false), block: z.boolean().optional() });
-export const clientAttackSchema = z.object({ type: z.literal("attack"), dirX: z.number().min(-1).max(1), dirY: z.number().min(-1).max(1) });
+export const clientAttackSchema = z.object({ type: z.literal("attack"), dirX: z.number().min(-1).max(1), dirY: z.number().min(-1).max(1), drawRatio: z.number().min(0).max(1).optional() });
 export const clientUseSlotSchema = z.object({ type: z.literal("useSlot"), slot, targetX: z.number().optional(), targetY: z.number().optional(), targetId: z.string().max(64).optional() });
 export const clientUseItemSchema = z.object({ type: z.literal("useItem"), item: z.string().max(64) });
 export const clientPickupSchema = z.object({ type: z.literal("pickup") });
 export const clientDropSchema = z.object({ type: z.literal("drop"), item: z.string().max(64) });
 export const clientAssignSchema = z.object({ type: z.literal("assign"), slot, item: z.string().max(64).nullable() });
-export const clientEquipSchema = z.object({ type: z.literal("equip"), item: z.string().max(64).nullable() });
+export const clientEquipSchema = z.object({ type: z.literal("equip"), item: z.string().max(64).nullable(), armorSlot: armorSlotSchema.optional() });
 export const clientThrowTorchSchema = z.object({ type: z.literal("throwTorch"), dirX: z.number(), dirY: z.number() });
 export const clientInteractSchema = z.object({ type: z.literal("interact") });
 export const clientReviveSchema = z.object({ type: z.literal("revive"), targetId: z.string().max(64), held: z.boolean() });

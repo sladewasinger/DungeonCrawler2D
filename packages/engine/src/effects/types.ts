@@ -13,7 +13,20 @@ export {
   type AreaReaction,
   type AreaReactionAction,
 } from "./content/areaReactions.js";
-export { itemDefSchema, type ItemDef } from "./content/items.js";
+export {
+  ARMOR_SLOTS,
+  armorLoadoutSchema,
+  armorSlotSchema,
+  emptyArmorLoadout,
+  itemArmorSchema,
+  itemDefSchema,
+  itemRangedSchema,
+  type ArmorLoadout,
+  type ArmorSlot,
+  type ItemArmorDef,
+  type ItemDef,
+  type ItemRangedDef,
+} from "./content/items.js";
 export { enemyDefSchema, type EnemyDef } from "./content/enemies.js";
 export { recipeDefSchema, type RecipeDef } from "./content/recipes.js";
 export {

@@ -1,4 +1,6 @@
+import type { ArmorSlot } from "@dc2d/engine";
 import { doWho } from "../combat/contacts.js";
+import { setArmorSlot } from "../inventory/armor.js";
 import { invIndex } from "../inventory/inventory.js";
 import { doModeration } from "../moderation.js";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
@@ -38,7 +40,12 @@ function dispatchAssign({ sim, slot, action }: StandingActionContext): void {
 }
 
 function dispatchEquip({ sim, slot, action }: StandingActionContext): void {
-  if (action.type === "equip") doEquip(sim, slot, action.item);
+  if (action.type === "equip") {
+    doEquip(sim, slot, {
+      item: action.item,
+      ...(action.armorSlot ? { armorSlot: action.armorSlot } : {}),
+    });
+  }
 }
 
 function dispatchSocial({ sim, slot, action }: StandingActionContext): void {
@@ -93,7 +100,7 @@ function clearAssignedItem({ sim, slot, hotbarSlot }: Omit<Assignment, "item">):
 
 function isAssignableItem(sim: SimState, slot: PlayerSlot, item: string): boolean {
   const def = sim.content.items.get(item);
-  return invIndex(slot, item) >= 0 && !def?.weapon && Boolean(def?.consumable || def?.throwable);
+  return invIndex(slot, item) >= 0 && Boolean(def?.weapon || def?.consumable || def?.throwable);
 }
 
 interface Assignment {
@@ -108,9 +115,34 @@ function recordAssignedItem({ sim, slot, hotbarSlot, item }: Assignment): void {
   sim.store.recordHotbar(slot.stored, slot.hotbar);
 }
 
-function doEquip(sim: SimState, slot: PlayerSlot, item: string | null): void {
-  if (item === null) return void (slot.weapon = null);
-  if (invIndex(slot, item) >= 0 && sim.content.items.get(item)?.weapon) slot.weapon = item;
+function doEquip(
+  sim: SimState,
+  slot: PlayerSlot,
+  request: { item: string | null; armorSlot?: ArmorSlot },
+): void {
+  if (request.item === null) return unequipSlot(sim, slot, request.armorSlot);
+  if (invIndex(slot, request.item) < 0) return;
+  equipOwnedItem(sim, slot, { itemId: request.item, armorSlot: request.armorSlot });
+}
+
+function unequipSlot(sim: SimState, slot: PlayerSlot, armorSlot?: ArmorSlot): void {
+  if (armorSlot) setArmorSlot(sim, slot, { armorSlot, itemId: null });
+  else slot.weapon = null;
+}
+
+function equipOwnedItem(
+  sim: SimState,
+  slot: PlayerSlot,
+  request: { itemId: string; armorSlot?: ArmorSlot | undefined },
+): void {
+  const def = sim.content.items.get(request.itemId);
+  if (def?.armor) {
+    if (!request.armorSlot || request.armorSlot === def.armor.slot) {
+      setArmorSlot(sim, slot, { armorSlot: def.armor.slot, itemId: request.itemId });
+    }
+    return;
+  }
+  if (def?.weapon) slot.weapon = request.itemId;
 }
 
 function doDebug(sim: SimState, slot: PlayerSlot, action: Extract<PlayerAction, { type: "debug" }>): void {
