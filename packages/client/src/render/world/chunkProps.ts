@@ -54,6 +54,9 @@ function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
   if (prop.kind === PropKind.Bush) return p.bush[prop.variant % p.bush.length]!;
   if (prop.kind === PropKind.Campfire) return p.campfireFrames[0]!;
   if (prop.kind === PropKind.Torch) return p.torchFrames[0]!;
+  if (prop.kind === PropKind.Palisade) return p.palisade;
+  if (prop.kind === PropKind.Tent) return p.tent;
+  if (prop.kind === PropKind.RuinPillar) return p.ruinPillar;
   return p.stump;
 }
 

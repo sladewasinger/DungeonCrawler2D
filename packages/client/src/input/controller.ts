@@ -76,6 +76,8 @@ export class InputController {
     this.mobileCombat.setGear(gear);
   }
 
+  queueInteract(): void { this.interactQueued = true; }
+
   consumeJump(): boolean {
     const fired = this.jumpQueued;
     this.jumpQueued = false;

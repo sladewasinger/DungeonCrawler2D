@@ -1,54 +1,21 @@
-/** Renders interactive combat training targets, telegraphs, and status indicators. */
+/** Renders interactive combat training targets, wildlife, POI guards, and fallen bodies. */
 import { TILE_PX, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics } from "pixi.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
+import { drawCreatureBody } from "./creatureDrawers.js";
 
 type WorldEntityKind = WorldEntitySnapshot["kind"];
 
-function drawStrawDummy(body: Graphics): void {
-  body.rect(-3, -6, 6, 6).fill(0x78350f);
-  body.rect(-6, -15, 12, 10).fill(0x18181b);
-  body.rect(-5, -14, 10, 8).fill(0xca8a04);
-  body.rect(-9, -14, 18, 4).fill(0x18181b);
-  body.rect(-8, -13, 16, 2).fill(0xa16207);
-  body.rect(-4, -22, 8, 8).fill(0x18181b);
-  body.rect(-3, -21, 6, 6).fill(0xfacc15);
-  body.rect(-2, -19, 1, 1).fill(0x18181b);
-  body.rect(1, -19, 1, 1).fill(0x18181b);
-}
+const KIND_SLIME_DUMMY: WorldEntityKind = "slime-dummy";
+const KIND_SLIME: WorldEntityKind = "slime";
+const KIND_SPIDER: WorldEntityKind = "spider";
 
-function drawSlimeBody(body: Graphics): void {
-  body.rect(-7, -11, 14, 11).fill(0x14532d);
-  body.rect(-6, -10, 12, 9).fill(0x22c55e);
-  body.rect(-5, -9, 10, 5).fill(0x4ade80);
-  body.rect(-4, -8, 3, 2).fill(0x86efac);
-  body.rect(-3, -6, 2, 2).fill(0x052e16);
-  body.rect(1, -6, 2, 2).fill(0x052e16);
-}
-
-function drawSparringDummy(body: Graphics): void {
-  body.rect(-3, -6, 6, 6).fill(0x475569);
-  body.rect(-6, -16, 12, 11).fill(0x0f172a);
-  body.rect(-5, -15, 10, 9).fill(0x64748b);
-  body.rect(-4, -14, 4, 6).fill(0x94a3b8);
-  body.rect(-5, -23, 10, 8).fill(0x0f172a);
-  body.rect(-4, -22, 8, 6).fill(0x94a3b8);
-  body.rect(-3, -19, 6, 2).fill(0x0f172a);
-  body.rect(5, -14, 3, 9).fill(0x92400e);
-  body.rect(-9, -15, 4, 7).fill(0x78350f);
-}
-
-const KIND_SLIME = "slime-dummy" as const;
-
-function buildBodyGraphic(kind: WorldEntityKind): Graphics {
-  const g = new Graphics();
-  if (kind === KIND_SLIME) drawSlimeBody(g);
-  else if (kind === "spar-dummy") drawSparringDummy(g);
-  else drawStrawDummy(g);
-  return g;
+function isCorpseState(snap: WorldEntitySnapshot): boolean {
+  return Boolean(snap.corpse) || snap.hp <= 0;
 }
 
 function resolveBodyTint(snap: WorldEntitySnapshot): number {
+  if (isCorpseState(snap)) return 0x94a3b8;
   if (snap.hitTimer > 0) return 0xfca5a5;
   if (snap.staggerTimer > 0) return 0xfef08a;
   return 0xffffff;
@@ -58,7 +25,7 @@ class EntityView {
   readonly root = new Container();
   private readonly shadow = new Graphics();
   private readonly telegraph = new Graphics();
-  private readonly body: Graphics;
+  private readonly body = new Graphics();
   private readonly hpBg = new Graphics();
   private readonly hpFill = new Graphics();
   private readonly kind: WorldEntityKind;
@@ -66,7 +33,7 @@ class EntityView {
   constructor(kind: WorldEntityKind) {
     this.kind = kind;
     this.shadow.ellipse(0, 0, 7, 2.2).fill({ color: 0x0c1018, alpha: 0.36 });
-    this.body = buildBodyGraphic(kind);
+    drawCreatureBody(kind, this.body);
     this.hpBg.rect(-9, -27, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
     this.hpFill.rect(-8, -26, 16, 1.5).fill(0xef4444);
@@ -84,26 +51,45 @@ class EntityView {
   }
 
   private syncBodyState(snap: WorldEntitySnapshot, timeSec: number): void {
-    const deadSlime = snap.hp <= 0 && this.kind === KIND_SLIME;
-    this.body.alpha = deadSlime ? 0.25 : 1;
-    const hitShake = snap.hitTimer > 0 ? Math.sin(timeSec * 55) * 0.14 : 0;
-    const staggerSpin = snap.staggerTimer > 0 ? Math.sin(timeSec * 22) * 0.22 : 0;
-    this.body.rotation = hitShake + staggerSpin;
-    this.body.tint = resolveBodyTint(snap);
-    this.applyBodyScale(snap, timeSec, deadSlime);
-  }
-
-  private applyBodyScale(snap: WorldEntitySnapshot, timeSec: number, deadSlime: boolean): void {
-    if (this.kind === KIND_SLIME && !deadSlime) {
-      const sy = 1 + Math.sin(timeSec * 4.5 + snap.x) * 0.07;
-      this.body.scale.set(1 / sy, sy);
+    const dead = isCorpseState(snap);
+    const slime = this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME;
+    if (dead && slime) {
+      this.body.alpha = 0.25;
+      this.body.rotation = 0;
+      this.body.scale.set(1.15, 0.35);
+      this.body.tint = 0x86efac;
       return;
     }
-    this.body.scale.set(1, deadSlime ? 0.35 : 1);
+    this.body.alpha = this.resolveBodyAlpha(snap, dead);
+    this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
+    this.body.tint = resolveBodyTint(snap);
+    this.applyBodyScale(snap, timeSec, dead);
+  }
+
+  private resolveBodyAlpha(snap: WorldEntitySnapshot, dead: boolean): number {
+    if (dead) return 0.72;
+    return this.kind === KIND_SPIDER && snap.aiState === "ambush" ? 0.45 : 1;
+  }
+
+  private liveShakeAngle(snap: WorldEntitySnapshot, timeSec: number): number {
+    const hitShake = snap.hitTimer > 0 ? Math.sin(timeSec * 55) * 0.14 : 0;
+    const staggerSpin = snap.staggerTimer > 0 ? Math.sin(timeSec * 22) * 0.22 : 0;
+    return hitShake + staggerSpin;
+  }
+
+  private applyBodyScale(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): void {
+    const flipX = !dead && snap.facingX < -0.1 ? -1 : 1;
+    if (!dead && (this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME)) {
+      const sy = 1 + Math.sin(timeSec * 4.5 + snap.x) * 0.07;
+      this.body.scale.set(flipX / sy, sy);
+      return;
+    }
+    const feedBob = !dead && snap.aiState === "feed" ? 1 - Math.abs(Math.sin(timeSec * 6)) * 0.12 : 1;
+    this.body.scale.set(flipX, feedBob);
   }
 
   private syncHpBar(snap: WorldEntitySnapshot): void {
-    const show = snap.hp > 0 && snap.hp < snap.maxHp;
+    const show = !isCorpseState(snap) && snap.hp > 0 && snap.hp < snap.maxHp;
     this.hpBg.visible = show;
     this.hpFill.visible = show;
     if (!show) return;
@@ -114,7 +100,7 @@ class EntityView {
 
   private syncTelegraph(snap: WorldEntitySnapshot): void {
     this.telegraph.clear();
-    if (snap.telegraphProgress <= 0 || snap.hp <= 0) return;
+    if (isCorpseState(snap) || snap.telegraphProgress <= 0 || snap.hp <= 0) return;
     const ang = Math.atan2(snap.facingY || 0.01, snap.facingX || 1);
     const radius = 18;
     const a0 = ang - 0.85;

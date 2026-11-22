@@ -114,7 +114,7 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   const dists = ctx.scene.renderFrame({
     dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache,
     players: view.players, localPlayerId: view.localPlayerId,
-    projectiles: view.projectiles, entities: view.entities, events: view.events,
+    projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, events: view.events,
   });
   syncUiAndAudio({ ctx, view, preEvents: pre.events, dt: ctx.dt, dists });
 }
@@ -173,6 +173,7 @@ async function bootOverworldClient(): Promise<void> {
   const client = new WorldClient();
   const audio = new AudioEngine();
   const ui = mountHudAndControls({ host, scene, client, audio });
+  scene.setInteractHandler(() => ui.input.queueInteract());
   startRenderLoop({ scene, client, audio, ...ui });
 }
 

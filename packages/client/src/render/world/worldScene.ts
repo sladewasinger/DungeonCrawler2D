@@ -1,13 +1,14 @@
 /** Top-level PixiJS v8 overworld scene coordinating shaders, camera, and quality scaling. */
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import {
-  GroundKind, TILE_PX, WorldChunkCache, clamp, sampleDayNight,
-  type PlayerSnapshot, type PointLightSpec, type ProjectileSnapshot,
-  type WorldEntitySnapshot, type WorldEvent,
+  TILE_PX, WorldChunkCache, clamp, sampleDayNight,
+  type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
+  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
 import { GoreSystem } from "../combat/goreSystem.js";
+import { WorldPickupsRenderer } from "../combat/worldPickups.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
 import { FoliageWindEffect } from "../shaders/foliageWindFilter.js";
@@ -17,6 +18,11 @@ import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
+import {
+  buildGoreSpawn, nearestCampfireDist, nearestWaterDist, resolveEventElev, type SceneAudioDistances,
+} from "./sceneHelpers.js";
+
+export type { SceneAudioDistances } from "./sceneHelpers.js";
 
 export interface SceneFrameInput {
   readonly dt: number;
@@ -27,55 +33,9 @@ export interface SceneFrameInput {
   readonly localPlayerId: string;
   readonly projectiles?: readonly ProjectileSnapshot[];
   readonly entities?: readonly WorldEntitySnapshot[];
+  readonly chests?: readonly WorldChestSnapshot[];
+  readonly groundLoot?: readonly GroundLootSnapshot[];
   readonly events?: readonly WorldEvent[];
-}
-
-export interface SceneAudioDistances {
-  readonly campfireDist: number;
-  readonly waterDist: number;
-}
-
-function nearestCampfireDist(campfires: readonly PointLightSpec[], local: PlayerSnapshot | undefined): number {
-  if (!local || campfires.length === 0) return 99;
-  let best = 99;
-  for (const fire of campfires) {
-    const d = Math.hypot(fire.x - local.x, fire.y - local.y);
-    if (d < best) best = d;
-  }
-  return best;
-}
-
-const WATER_PROBE_RING: readonly (readonly [number, number])[] = [
-  [-2, 0], [2, 0], [0, -2], [0, 2], [-4, -4], [0, -4], [4, -4],
-  [-4, 0], [4, 0], [-4, 4], [0, 4], [4, 4], [-6, 0], [6, 0], [0, -6], [0, 6],
-];
-
-function nearestWaterDist(cache: WorldChunkCache, local: PlayerSnapshot | undefined): number {
-  if (!local) return 99;
-  if (local.inWater) return 0;
-  const cx = Math.floor(local.x);
-  const cy = Math.floor(local.y);
-  let best = 99;
-  for (const [dx, dy] of WATER_PROBE_RING) {
-    const g = cache.tileAt(cx + dx, cy + dy).ground;
-    if (g === GroundKind.ShallowWater || g === GroundKind.DeepWater) {
-      best = Math.min(best, Math.hypot(dx, dy));
-    }
-  }
-  return best;
-}
-
-function resolveEventElev(id: string | undefined, entities: readonly WorldEntitySnapshot[] | undefined, local: PlayerSnapshot | undefined): number {
-  const match = id ? entities?.find((e) => e.id === id) : undefined;
-  return match?.elevation ?? local?.elevation ?? 0;
-}
-
-function buildGoreSpawn(ev: WorldEvent, elevation: number) {
-  return {
-    x: ev.x, y: ev.y, elevation,
-    dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1,
-    style: ev.goreStyle!, substance: ev.substance!,
-  };
 }
 
 export const CAMERA_TUNING = {
@@ -98,15 +58,17 @@ export class WorldScene {
   private readonly castShadows = new CastShadowLayer();
   private readonly particles = new AmbientParticleLayer();
   private readonly gore = new GoreSystem();
+  private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
+  private interactHandler: (() => void) | null = null;
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
   private zoom: number = CAMERA_TUNING.defaultZoom;
 
-  private constructor(private readonly app: Application) {
+  private constructor(private readonly app: Application, host: HTMLElement) {
     const [groundCam, waterCam, shadowCam, goreCam, grassCam, ysortCam, canopyCam, emissiveCam] =
       Array.from({ length: 8 }, () => new Container());
     ysortCam!.sortableChildren = true;
@@ -118,8 +80,9 @@ export class WorldScene {
     canopyHost.addChild(canopyCam!);
     shadowCam!.addChild(this.castShadows.container);
     goreCam!.addChild(this.gore.decalLayer);
+    this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
     this.gore.particleLayer.zIndex = 100_000;
-    ysortCam!.addChild(this.gore.particleLayer);
+    ysortCam!.addChild(this.pickups.container, this.gore.particleLayer);
     emissiveCam!.addChild(this.particles.container, this.vfx.container);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
@@ -128,11 +91,9 @@ export class WorldScene {
     this.sceneRoot.filters = [this.lighting.filter];
     this.sceneRoot.addChild(groundCam!, waterHost, shadowCam!, goreCam!, grassHost, ysortCam!, canopyHost);
     app.stage.addChild(this.sceneRoot, emissiveCam!);
-    const terrain = createTerrainTileAtlas();
-    const props = createPropTextureSet();
     this.chunks = new ChunkRenderer(
       { ground: groundCam!, water: waterCam!, grass: grassCam!, ysort: ysortCam!, canopy: canopyCam! },
-      { terrain, props },
+      { terrain: createTerrainTileAtlas(), props: createPropTextureSet() },
     );
     reportShaderDiagnostics(app.renderer, [
       { name: "water", filter: this.waterEffect.filter },
@@ -148,17 +109,16 @@ export class WorldScene {
       backgroundColor: 0x0d131a, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true,
     });
     host.appendChild(app.canvas);
-    return new WorldScene(app);
+    return new WorldScene(app, host);
   }
 
+  setInteractHandler(cb: () => void): void { this.interactHandler = cb; }
   setQualityPreset(presetId: QualityPresetId): void {
     this.qualityId = presetId;
     this.app.renderer.resolution = Math.min(QUALITY_PRESETS[presetId].maxDpr, window.devicePixelRatio || 1);
     this.app.resize();
   }
-
   qualityPreset(): QualityPresetId { return this.qualityId; }
-
   adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, CAMERA_TUNING.minZoom, CAMERA_TUNING.maxZoom); }
 
   screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
@@ -167,10 +127,7 @@ export class WorldScene {
     const sh = this.app.screen.height;
     const sx = ((clientX - rect.left) * sw) / Math.max(1, rect.width);
     const sy = ((clientY - rect.top) * sh) / Math.max(1, rect.height);
-    return {
-      x: ((sx - sw * 0.5) / this.zoom + this.camX * TILE_PX) / TILE_PX,
-      y: ((sy - sh * 0.5) / this.zoom + this.camY * TILE_PX) / TILE_PX,
-    };
+    return { x: ((sx - sw * 0.5) / this.zoom + this.camX * TILE_PX) / TILE_PX, y: ((sy - sh * 0.5) / this.zoom + this.camY * TILE_PX) / TILE_PX };
   }
 
   renderFrame(input: SceneFrameInput): SceneAudioDistances {
@@ -184,6 +141,20 @@ export class WorldScene {
     const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({
       cache: input.cache, players: input.players, entities: input.entities ?? [], timeSec: input.timeSec,
     });
+    this.renderEffectsAndLighting({ input, local, simDt, lights, campfires, casters, preset });
+    this.app.render();
+    return { campfireDist: nearestCampfireDist(campfires, local), waterDist: nearestWaterDist(input.cache, local) };
+  }
+
+  private renderEffectsAndLighting(opts: {
+    readonly input: SceneFrameInput; readonly local: PlayerSnapshot | undefined; readonly simDt: number;
+    readonly lights: ReturnType<ChunkRenderer["syncPlayersAndAtmosphere"]>["lights"];
+    readonly campfires: ReturnType<ChunkRenderer["syncPlayersAndAtmosphere"]>["campfires"];
+    readonly casters: ReturnType<ChunkRenderer["syncPlayersAndAtmosphere"]>["casters"];
+    readonly preset: (typeof QUALITY_PRESETS)[QualityPresetId];
+  }): void {
+    const { input, local, simDt, lights, campfires, casters, preset } = opts;
+    this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, timeSec: input.timeSec });
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });
@@ -199,20 +170,17 @@ export class WorldScene {
       lightmapScale: preset.lightmapScale, timeSec: input.timeSec, dayNight,
       camera: { x: this.camX, y: this.camY, zoom: this.zoom }, lights, godRaysEnabled: preset.godRays,
     });
-    this.app.render();
-    return { campfireDist: nearestCampfireDist(campfires, local), waterDist: nearestWaterDist(input.cache, local) };
   }
 
   private syncEvents(input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
     const events = input.events ?? [];
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
-    for (const ev of events) this.spawnEventGore(ev, input.entities, local);
-  }
-
-  private spawnEventGore(ev: WorldEvent, entities: readonly WorldEntitySnapshot[] | undefined, local: PlayerSnapshot | undefined): void {
-    if (ev.kind !== "hit" || !ev.goreStyle || !ev.substance) return;
-    this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, entities, local)));
+    for (const ev of events) {
+      if (ev.kind === "hit" && ev.goreStyle && ev.substance) {
+        this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local)));
+      }
+    }
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {
@@ -234,16 +202,13 @@ export class WorldScene {
   }
 
   private updateShaders(input: {
-    readonly timeSec: number;
-    readonly dayNight: ReturnType<typeof sampleDayNight>;
+    readonly timeSec: number; readonly dayNight: ReturnType<typeof sampleDayNight>;
     readonly preset: (typeof QUALITY_PRESETS)[QualityPresetId];
   }): void {
     const worldOriginX = this.camX * TILE_PX - (this.app.screen.width * 0.5) / this.zoom;
     const worldOriginY = this.camY * TILE_PX - (this.app.screen.height * 0.5) / this.zoom;
     this.waterEffect.update({ timeSec: input.timeSec, enabled: input.preset.waterShader, worldOriginX, worldOriginY, zoom: this.zoom, dayNight: input.dayNight });
-    const grassStrength = input.preset.windShader ? CAMERA_TUNING.grassWindStrength : 0;
-    const canopyStrength = input.preset.windShader ? CAMERA_TUNING.canopyWindStrength : 0;
-    this.grassWind.update({ timeSec: input.timeSec, windStrength: grassStrength, worldOriginX, worldOriginY, zoom: this.zoom });
-    this.canopyWind.update({ timeSec: input.timeSec, windStrength: canopyStrength, worldOriginX, worldOriginY, zoom: this.zoom });
+    this.grassWind.update({ timeSec: input.timeSec, windStrength: input.preset.windShader ? CAMERA_TUNING.grassWindStrength : 0, worldOriginX, worldOriginY, zoom: this.zoom });
+    this.canopyWind.update({ timeSec: input.timeSec, windStrength: input.preset.windShader ? CAMERA_TUNING.canopyWindStrength : 0, worldOriginX, worldOriginY, zoom: this.zoom });
   }
 }
