@@ -9,6 +9,7 @@ export interface InputCallbacks {
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
+  readonly onInteract?: () => void;
   readonly onClosePanels: () => void;
 }
 
@@ -152,8 +153,8 @@ export class InputController {
     if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
     if (e.code === "Space") { e.preventDefault(); this.jumpQueued = true; return; }
     if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
-    if (e.code === "KeyE") { this.interactQueued = true; return; }
     const actions: Readonly<Record<string, () => void>> = {
+      KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
       KeyC: callbacks.onToggleCrafting,
       KeyH: callbacks.onToggleCharacter,
       KeyF: callbacks.onToggleTorch,

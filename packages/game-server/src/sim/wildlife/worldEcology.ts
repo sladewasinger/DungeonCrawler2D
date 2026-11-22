@@ -147,8 +147,16 @@ export class WorldEcology {
     });
   }
 
-  tryInteractChest(player: CombatPlayerRef, events: WorldEvent[]): boolean {
-    return this.loot.tryInteractChest(player, events);
+  openChest(player: CombatPlayerRef, chestId: string | undefined, events: WorldEvent[]): string | null {
+    return this.loot.openChest(player, chestId, events);
+  }
+
+  transferChest(player: CombatPlayerRef, req: Parameters<LootManager["transferChest"]>[1]): boolean {
+    return this.loot.transferChest(player, req);
+  }
+
+  takeAllChest(player: CombatPlayerRef, chestId: string, events: WorldEvent[]): number {
+    return this.loot.takeAllChest(player, chestId, events);
   }
 
   debugSpawnNearPlayer(player: { readonly x: number; readonly y: number; readonly facingX: number; readonly facingY: number }, kind: WildlifeKind, count = 1): void {

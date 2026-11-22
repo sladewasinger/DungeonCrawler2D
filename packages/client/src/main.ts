@@ -8,6 +8,7 @@ import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { AudioPopover } from "./ui/audioPopover.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
+import type { HudActions } from "./ui/hud/slotRenderer.js";
 import { TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
@@ -88,11 +89,15 @@ function syncUiAndAudio(opts: {
     local, cache: view.cache, dt: opts.dt, dayPhase: view.dayPhase,
     campfireDist: dists.campfireDist, waterDist: dists.waterDist,
   });
-  ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance, localPlayer: local });
+  ctx.hud.sync({
+    inventory: view.inventory, name: view.localName, appearance: view.localAppearance,
+    localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests,
+  });
   ctx.toolbar.sync({
     mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused,
     quality: ctx.scene.qualityPreset(), activePanel: ctx.hud.activePanel(),
     audioOpen: ctx.audioPopover.isOpen(), audioMuted: ctx.audioPopover.isMuted(),
+    playerX: local?.x ?? 0, playerY: local?.y ?? 0,
   });
 }
 
@@ -141,28 +146,41 @@ function startRenderLoop(ctx: AppCtx): void {
   requestAnimationFrame(loop);
 }
 
-function mountHudAndControls(opts: {
-  readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly audio: AudioEngine;
-}): { readonly hud: HudRoot; readonly input: InputController; readonly toolbar: AtmosphereToolbar; readonly audioPopover: AudioPopover } {
-  const { host, scene, client, audio } = opts;
-  const toggleTorch = () => { client.toggleTorch(); audio.playUi("click"); };
-  const hud = new HudRoot(host, {
+function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: () => void): HudActions {
+  return {
     onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
     onMoveSlot: (move) => client.moveSlot(move),
     onEquipArmor: (req) => { client.equipArmor(req); audio.playUi("equip"); },
     onUnequipArmor: (req) => { client.unequipArmor(req); audio.playUi("equip"); },
+    onChestTransfer: (req) => { if (req.chestId) { client.chestTransfer({ ...req, chestId: req.chestId }); audio.playUi("click"); } },
+    onChestTakeAll: (chestId) => { client.chestTakeAll(chestId); audio.playUi("equip"); },
     onCraft: (recipeId) => { client.craftRecipe(recipeId); audio.playUi("craft"); },
     onSetCharacter: (req) => client.setCharacter(req),
     onToggleTorch: toggleTorch,
-  });
+  };
+}
+
+function mountHudAndControls(opts: {
+  readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly audio: AudioEngine;
+}): { readonly hud: HudRoot; readonly input: InputController; readonly toolbar: AtmosphereToolbar; readonly audioPopover: AudioPopover; readonly onInteractChest: () => void } {
+  const { host, scene, client, audio } = opts;
+  const toggleTorch = () => { client.toggleTorch(); audio.playUi("click"); };
+  const hud = new HudRoot(host, buildHudActions(client, audio, toggleTorch));
+  const onInteractChest = () => {
+    if (hud.activePanel() === "chest") { hud.closePanels(); return; }
+    const near = client.nearestChest();
+    if (!near) return;
+    client.openChest(near.id);
+    hud.openChest(near.id);
+    audio.playUi("open");
+  };
   const input = new InputController(host, {
-    onToggleTorch: toggleTorch,
-    onZoom: (factor) => scene.adjustZoom(factor),
+    onToggleTorch: toggleTorch, onZoom: (factor) => scene.adjustZoom(factor),
     onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); },
     onToggleCrafting: () => { hud.toggleCrafting(); audio.playUi("open"); },
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onClosePanels: () => hud.closePanels(),
+    onInteract: onInteractChest, onClosePanels: () => hud.closePanels(),
   });
   const audioPopover = new AudioPopover(host, audio);
   const toolbar = new AtmosphereToolbar(host, {
@@ -172,8 +190,9 @@ function mountHudAndControls(opts: {
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onToggleAudio: () => { audioPopover.toggle(); audio.playUi("click"); },
     onZoom: (factor) => scene.adjustZoom(factor),
+    onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
   });
-  return { hud, input, toolbar, audioPopover };
+  return { hud, input, toolbar, audioPopover, onInteractChest };
 }
 
 async function bootOverworldClient(): Promise<void> {
@@ -185,7 +204,7 @@ async function bootOverworldClient(): Promise<void> {
   const client = new WorldClient(undefined, { autoConnect: skipTitle });
   const audio = new AudioEngine();
   const ui = mountHudAndControls({ host, scene, client, audio });
-  scene.setInteractHandler(() => ui.input.queueInteract());
+  scene.setInteractHandler(() => ui.onInteractChest());
   const snap = client.snapshot();
   let titleScreen: TitleScreen | null = null;
   if (!skipTitle) {

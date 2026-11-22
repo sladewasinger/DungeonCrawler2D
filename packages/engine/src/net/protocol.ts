@@ -70,6 +70,24 @@ export const ClientEquipArmorSchema = z.object({ t: z.literal("equipArmor"), slo
 export const ClientUnequipArmorSchema = z.object({ t: z.literal("unequipArmor"), armorSlot: ArmorSlotKeySchema, targetSlot: SlotIndexSchema.optional(), seq: SeqSchema });
 export const ClientSelectHotbarSchema = z.object({ t: z.literal("selectHotbar"), slot: HotbarIndexSchema, seq: SeqSchema });
 export const ClientCraftSchema = z.object({ t: z.literal("craft"), recipeId: z.string().min(1).max(48), seq: SeqSchema });
+export const ClientOpenChestSchema = z.object({ t: z.literal("openChest"), chestId: z.string().min(1).max(64), seq: SeqSchema });
+export const ClientChestTransferSchema = z.object({
+  t: z.literal("chestTransfer"),
+  chestId: z.string().min(1).max(64),
+  from: z.enum(["chest", "inv"]),
+  fromSlot: SlotIndexSchema,
+  to: z.enum(["chest", "inv"]),
+  toSlot: SlotIndexSchema,
+  quick: z.boolean().optional(),
+  seq: SeqSchema,
+});
+export const ClientChestTakeAllSchema = z.object({ t: z.literal("chestTakeAll"), chestId: z.string().min(1).max(64), seq: SeqSchema });
+export const ClientDebugSpawnSchema = z.object({
+  t: z.literal("debugSpawn"),
+  kind: z.enum(ENTITY_KINDS),
+  count: z.number().int().min(1).max(5).optional(),
+  seq: SeqSchema,
+});
 
 export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema,
@@ -82,6 +100,10 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientUnequipArmorSchema,
   ClientSelectHotbarSchema,
   ClientCraftSchema,
+  ClientOpenChestSchema,
+  ClientChestTransferSchema,
+  ClientChestTakeAllSchema,
+  ClientDebugSpawnSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -164,6 +186,7 @@ export const WorldChestSnapshotSchema = z.object({
   y: z.number(),
   elevation: z.number(),
   opened: z.boolean(),
+  slots: z.array(SlotItemSchema.nullable()).length(27),
 });
 
 export type WorldChestSnapshot = z.infer<typeof WorldChestSnapshotSchema>;

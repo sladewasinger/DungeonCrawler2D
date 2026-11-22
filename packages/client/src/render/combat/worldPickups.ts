@@ -86,7 +86,7 @@ export class WorldPickupsRenderer {
     let nearestOpenable: string | null = null;
     let bestDist: number = AI_TUNING.chestInteractRadiusTiles;
     for (const c of chests) {
-      const dist = local && !c.opened ? Math.hypot(c.x - local.x, c.y - local.y) : 99;
+      const dist = local ? Math.hypot(c.x - local.x, c.y - local.y) : 99;
       if (dist <= bestDist) { bestDist = dist; nearestOpenable = c.id; }
       const view = this.chestViews.get(c.id) ?? this.createChestView(c.id);
       drawChestGraphic(view, c, c.id === nearestOpenable);

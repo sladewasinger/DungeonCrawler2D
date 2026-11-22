@@ -51,7 +51,7 @@ export class CombatWorld {
     const { player: p, players, input, dt } = req;
     stepCombatTimers(p, input.blockHeld, dt);
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
-    if (input.interactQueued) this.ecology.tryInteractChest(p, this.events);
+    if (input.interactQueued) this.ecology.openChest(p, undefined, this.events);
     if (input.dodgeQueued) this.tryStartDodge(p, input.moveX, input.moveY);
     this.stepOffense({ p, players, input, dt });
   }
@@ -128,6 +128,16 @@ export class CombatWorld {
 
   debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void {
     this.ecology.debugSpawnNearPlayer(p, kind, count);
+  }
+
+  handleChestRequest(p: CombatPlayerRef, req:
+    | { readonly t: "openChest"; readonly chestId: string }
+    | { readonly t: "chestTransfer"; readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }
+    | { readonly t: "chestTakeAll"; readonly chestId: string },
+  ): void {
+    if (req.t === "openChest") this.ecology.openChest(p, req.chestId, this.events);
+    else if (req.t === "chestTransfer") this.ecology.transferChest(p, req);
+    else this.ecology.takeAllChest(p, req.chestId, this.events);
   }
 
   private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {

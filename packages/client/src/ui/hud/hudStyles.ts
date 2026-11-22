@@ -81,7 +81,29 @@ const HUD_CSS = `
 .ow-hero-lbl { width: 82px; font-size: 12px; font-weight: 700; color: #94a3b8; }
 .ow-swatch { width: 26px; height: 26px; border-radius: 999px; border: 2px solid rgba(148, 163, 184, 0.35); cursor: pointer; padding: 0; }
 .ow-swatch[data-active="true"] { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45); }
+.ow-chest-modal { width: min(860px, calc(100vw - 20px)); }
+.ow-chest-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ow-chest-pane { display: flex; flex-direction: column; gap: 6px; }
+.ow-chest-lbl { font-size: 11px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; }
+.ow-chest-modal .ow-bag-slot { --ow-bag-slot: clamp(28px, calc((min(820px, 100vw - 60px) / 2 - 44px) / 9), 42px); }
+.ow-minimap {
+  position: fixed; right: max(12px, env(safe-area-inset-right));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 22px);
+  z-index: 34; padding: 8px; border-radius: 12px;
+  background: rgba(20, 16, 12, 0.92); border: 2px solid rgba(217, 179, 106, 0.55);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; gap: 6px;
+}
+.ow-minimap[hidden] { display: none; }
+.ow-minimap-head, .ow-minimap-foot { display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 800; color: #fde68a; letter-spacing: 0.04em; }
+.ow-minimap-canvas { width: 136px; height: 136px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.3); image-rendering: pixelated; display: block; }
+.ow-compass-pill { font-variant-numeric: tabular-nums; cursor: default; }
+.ow-compass-coords { font-size: 12px; font-weight: 800; color: #fde047; }
 .ow-drag-ghost { position: fixed; width: 44px; height: 44px; pointer-events: none; z-index: 60; transform: translate(-50%, -50%) scale(1.1); image-rendering: pixelated; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.65)); }
+@media (max-width: 820px) {
+  .ow-chest-body { grid-template-columns: 1fr; }
+  .ow-chest-modal .ow-bag-slot { --ow-bag-slot: clamp(30px, calc((100vw - 88px) / 9), 44px); }
+  .ow-minimap { bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 126px); }
+}
 @media (max-width: 620px) {
   .ow-hotbar { gap: 3px; padding: 6px; }
   .ow-inv-body { grid-template-columns: 1fr; }

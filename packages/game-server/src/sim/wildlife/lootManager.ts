@@ -1,28 +1,43 @@
-/** Authoritative treasure chest interactions, burst physics, and magnetic loot pickup. */
+/** Authoritative persistent 27-slot POI chests and magnetic dropped enemy/wildlife loot. */
 import { maxStackForItem } from "@dc2d/content";
 import {
-  AI_TUNING, WorldChunkCache, insertIntoSlots,
-  type ChunkPoi, type GroundLootSnapshot, type WorldChestSnapshot, type WorldEvent,
+  AI_TUNING, WorldChunkCache, createEmptyChestSlots, insertIntoSlots,
+  quickTransferChestSlot, takeAllFromChest, transferChestSlot,
+  type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { ITEM_ARROW, ITEM_BANDAGE, ITEM_COOKED_MEAT, ITEM_FLINT, ITEM_RAW_MEAT, ITEM_STONE, ITEM_TORCH } from "./creatureSpecs.js";
+import {
+  ITEM_ARROW, ITEM_BANDAGE, ITEM_COOKED_MEAT, ITEM_FLINT, ITEM_RAW_MEAT, ITEM_STONE, ITEM_TORCH,
+} from "./creatureSpecs.js";
 
 interface GroundLootItem {
+  readonly id: string; readonly itemId: string; readonly count: number;
+  x: number; y: number; vx: number; vy: number; readonly elevation: number; ageSec: number;
+}
+
+interface StoredChest {
   readonly id: string;
-  readonly itemId: string;
-  readonly count: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+  readonly poiKind: ChunkPoi["kind"];
+  readonly x: number;
+  readonly y: number;
   readonly elevation: number;
-  ageSec: number;
+  opened: boolean;
+  readonly slots: InventorySlot[];
 }
 
 const BANDIT_CAMP_POI = "bandit-camp" as const;
 
+function populateChestSlots(poiKind: ChunkPoi["kind"]): InventorySlot[] {
+  const slots = createEmptyChestSlots();
+  const entries: readonly (readonly [string, number])[] = poiKind === BANDIT_CAMP_POI
+    ? [[ITEM_COOKED_MEAT, 2], [ITEM_ARROW, 8], [ITEM_BANDAGE, 2], [ITEM_TORCH, 2], ["leather-boots", 1], ["sword", 1]]
+    : [[ITEM_BANDAGE, 3], [ITEM_FLINT, 3], [ITEM_STONE, 4], [ITEM_RAW_MEAT, 2], ["wooden-shield", 1], [ITEM_ARROW, 10]];
+  entries.forEach(([itemId, count], idx) => { slots[idx] = { itemId, count }; });
+  return slots;
+}
+
 export class LootManager {
-  readonly chests = new Map<string, WorldChestSnapshot>();
+  readonly chests = new Map<string, StoredChest>();
   readonly groundLoot: GroundLootItem[] = [];
   private nextId = 1;
 
@@ -31,7 +46,8 @@ export class LootManager {
   registerPoiChest(poi: ChunkPoi): void {
     if (this.chests.has(poi.id)) return;
     this.chests.set(poi.id, {
-      id: poi.id, poiKind: poi.kind, x: poi.chestX, y: poi.chestY, elevation: poi.elevation, opened: false,
+      id: poi.id, poiKind: poi.kind, x: poi.chestX, y: poi.chestY, elevation: poi.elevation,
+      opened: false, slots: populateChestSlots(poi.kind),
     });
   }
 
@@ -42,25 +58,56 @@ export class LootManager {
     });
   }
 
-  tryInteractChest(player: CombatPlayerRef, events: WorldEvent[]): boolean {
-    let best: WorldChestSnapshot | null = null;
-    let bestDist: number = AI_TUNING.chestInteractRadiusTiles;
+  private findChestInReach(player: { readonly x: number; readonly y: number }, chestId?: string, radiusPad = 0): StoredChest | null {
+    const maxR = AI_TUNING.chestInteractRadiusTiles + radiusPad;
+    if (chestId) {
+      const hit = this.chests.get(chestId);
+      return hit && Math.hypot(hit.x - player.x, hit.y - player.y) <= maxR ? hit : null;
+    }
+    let best: StoredChest | null = null;
+    let bestDist = maxR;
     for (const c of this.chests.values()) {
-      if (c.opened) continue;
       const d = Math.hypot(c.x - player.x, c.y - player.y);
       if (d <= bestDist) { bestDist = d; best = c; }
     }
-    if (!best) return false;
-    this.chests.set(best.id, { ...best, opened: true });
-    events.push({ kind: "chestOpen", x: best.x, y: best.y, actorId: player.id });
-    const items = best.poiKind === BANDIT_CAMP_POI
-      ? [[ITEM_COOKED_MEAT, 2], [ITEM_ARROW, 8], [ITEM_BANDAGE, 2], [ITEM_TORCH, 2]] as const
-      : [[ITEM_BANDAGE, 3], [ITEM_FLINT, 3], [ITEM_STONE, 4], [ITEM_RAW_MEAT, 2]] as const;
-    items.forEach(([itemId, count], i) => {
-      const a = (i / items.length) * Math.PI * 2 + 0.4;
-      this.spawnLoot({ itemId, count, x: best.x, y: best.y, vx: Math.cos(a) * 2.6, vy: Math.sin(a) * 2.6 });
+    return best;
+  }
+
+  openChest(player: CombatPlayerRef, chestId: string | undefined, events: WorldEvent[]): string | null {
+    const chest = this.findChestInReach(player, chestId, 0.35);
+    if (!chest) return null;
+    if (!chest.opened) {
+      chest.opened = true;
+      events.push({ kind: "chestOpen", x: chest.x, y: chest.y, actorId: player.id });
+    }
+    return chest.id;
+  }
+
+  transferChest(player: CombatPlayerRef, req: {
+    readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number;
+    readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined;
+  }): boolean {
+    const chest = this.findChestInReach(player, req.chestId, 1.35);
+    if (!chest) return false;
+    chest.opened = true;
+    if (req.quick) {
+      return quickTransferChestSlot({
+        chestSlots: chest.slots, invSlots: player.inventory.slots, from: req.from, slotIndex: req.fromSlot, maxStackFor: maxStackForItem,
+      });
+    }
+    return transferChestSlot({
+      chestSlots: chest.slots, invSlots: player.inventory.slots, from: req.from, fromSlot: req.fromSlot,
+      to: req.to, toSlot: req.toSlot, maxStackFor: maxStackForItem,
     });
-    return true;
+  }
+
+  takeAllChest(player: CombatPlayerRef, chestId: string, events: WorldEvent[]): number {
+    const chest = this.findChestInReach(player, chestId, 1.35);
+    if (!chest) return 0;
+    chest.opened = true;
+    const moved = takeAllFromChest({ chestSlots: chest.slots, invSlots: player.inventory.slots, maxStackFor: maxStackForItem });
+    if (moved > 0) events.push({ kind: "loot", x: chest.x, y: chest.y, actorId: player.id, value: moved });
+    return moved;
   }
 
   step(players: readonly CombatPlayerRef[], events: WorldEvent[], dt: number): void {
@@ -101,7 +148,10 @@ export class LootManager {
 
   snapshot(): { readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[] } {
     return {
-      chests: Array.from(this.chests.values()),
+      chests: Array.from(this.chests.values(), (c) => ({
+        id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation, opened: c.opened,
+        slots: c.slots.map((s) => (s ? { ...s } : null)),
+      })),
       groundLoot: this.groundLoot.map((g) => ({
         id: g.id, itemId: g.itemId, count: g.count, x: g.x, y: g.y, elevation: g.elevation, ageSec: g.ageSec,
       })),

@@ -53,6 +53,13 @@ export {
   unequipArmorToSlot,
 } from "./inventory/armorOps.js";
 export type { ArmorItemRule, ArmorRuleLookup } from "./inventory/armorOps.js";
+export {
+  CHEST_SLOT_COUNT,
+  createEmptyChestSlots,
+  quickTransferChestSlot,
+  takeAllFromChest,
+  transferChestSlot,
+} from "./inventory/chestOps.js";
 export { canCraftRecipe, countItemInSlots, craftRecipeInState } from "./inventory/crafting.js";
 export type { CraftRecipe, RecipeIngredient } from "./inventory/crafting.js";
 export {

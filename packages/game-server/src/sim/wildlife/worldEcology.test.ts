@@ -12,7 +12,7 @@ function makePlayer(x: number, y: number): CombatPlayerRef & { moving: boolean }
 }
 
 describe("WorldEcology & POIs", () => {
-  it("spawns POI chests, opens on interact, and magnetically pulls loot into inventory", () => {
+  it("opens 27-slot POI chests without bursting, supports bidirectional transfer/take-all, and magnetically loots enemy drops", () => {
     const cache = new WorldChunkCache(1337);
     const eco = new WorldEcology(cache);
     const p = makePlayer(45, 16);
@@ -20,17 +20,23 @@ describe("WorldEcology & POIs", () => {
     const chests = eco.snapshots().chests;
     expect(chests.length).toBeGreaterThan(0);
     const chest = chests[0]!;
+    expect(chest.slots).toHaveLength(27);
+    expect(chest.slots[0]).not.toBeNull();
     p.x = chest.x + 0.4;
     p.y = chest.y + 0.4;
     const events: WorldEvent[] = [];
-    expect(eco.tryInteractChest(p, events)).toBe(true);
+    expect(eco.openChest(p, chest.id, events)).toBe(chest.id);
     expect(events.some((e) => e.kind === "chestOpen")).toBe(true);
-    expect(eco.snapshots().groundLoot.length).toBeGreaterThan(0);
+    expect(eco.snapshots().groundLoot).toHaveLength(0);
 
-    const arrowsBefore = p.inventory.slots[2]?.count ?? 0;
+    expect(eco.transferChest(p, { chestId: chest.id, from: "inv", fromSlot: 11, to: "chest", toSlot: 20 })).toBe(true);
+    expect(eco.snapshots().chests.find((c) => c.id === chest.id)?.slots[20]).not.toBeNull();
+    expect(eco.takeAllChest(p, chest.id, events)).toBeGreaterThan(0);
+
+    const goblin = eco.spawnEntity({ kind: "goblin", x: chest.x + 1.1, y: chest.y, homeRadius: 8, poiId: null, packId: null, packSlot: 0 });
+    eco.damageEntity({ entity: goblin, damage: 999, dirX: 1, dirY: 0, goreStyle: "splatter", actorId: "p1", events });
+    expect(eco.snapshots().groundLoot.length).toBeGreaterThan(0);
     for (let i = 0; i < 40; i++) eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [p], events, onStrike: () => {} });
-    const arrowsAfter = p.inventory.slots[2]?.count ?? 0;
-    expect(arrowsAfter).toBeGreaterThanOrEqual(arrowsBefore);
     expect(events.some((e) => e.kind === "loot")).toBe(true);
   });
 

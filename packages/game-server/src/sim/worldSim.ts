@@ -147,6 +147,11 @@ export class WorldSim {
     if (p) this.combat.debugSpawnNearPlayer(p, kind, count);
   }
 
+  handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void {
+    const p = this.players.get(playerId);
+    if (p) this.combat.handleChestRequest(p, req);
+  }
+
   inventorySnapshot(playerId: string): InventorySnapshot | undefined {
     const p = this.players.get(playerId);
     if (!p) return undefined;

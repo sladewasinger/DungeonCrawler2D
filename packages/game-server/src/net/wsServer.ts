@@ -12,6 +12,8 @@ export interface RunningGameServer {
   close(): Promise<void>;
 }
 
+const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
+
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
   "hello", "setAppearance", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch",
 ]);
@@ -76,6 +78,10 @@ function dispatchMessage(ctx: {
     equipArmor: () => msg.t === "equipArmor" && sim.equipArmor(playerId, msg),
     unequipArmor: () => msg.t === "unequipArmor" && sim.unequipArmor(playerId, msg),
     craft: () => msg.t === "craft" && sim.craftRecipe(playerId, msg.recipeId),
+    openChest: () => msg.t === "openChest" && sim.handleChestAction(playerId, msg),
+    chestTransfer: () => msg.t === "chestTransfer" && sim.handleChestAction(playerId, msg),
+    chestTakeAll: () => msg.t === "chestTakeAll" && sim.handleChestAction(playerId, msg),
+    debugSpawn: () => msg.t === "debugSpawn" && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
   };
   handlers[msg.t]();
   if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });

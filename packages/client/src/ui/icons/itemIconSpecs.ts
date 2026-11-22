@@ -96,4 +96,9 @@ export const ITEM_ICON_SPECS: Readonly<Record<string, readonly PixelRect[]>> = {
     [7, 7, 2, 6, HERB_DK], [4, 5, 4, 4, HERB_LT], [8, 4, 4, 4, HERB_LT],
     [6, 2, 4, 4, "#86efac"],
   ],
+  map: [
+    [2, 3, 4, 10, "#eab676"], [6, 4, 4, 10, "#fde68a"], [10, 3, 4, 10, "#eab676"],
+    [3, 5, 3, 6, HERB_LT], [7, 6, 3, 6, "#38bdf8"], [10, 5, 3, 4, WOOD_LT],
+    [7, 8, 2, 2, "#ef4444"],
+  ],
 };

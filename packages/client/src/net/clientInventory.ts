@@ -8,9 +8,13 @@ import {
   createEmptyInventoryState,
   equipArmorFromSlot,
   moveOrSwapSlot,
+  quickTransferChestSlot,
+  takeAllFromChest,
+  transferChestSlot,
   unequipArmorToSlot,
   type ArmorSlotKey,
   type InventorySnapshot,
+  type WorldChestSnapshot,
   type WorldChunkCache,
 } from "@dc2d/engine";
 
@@ -72,6 +76,43 @@ export function applySelectHotbar(inv: InventorySnapshot, slot: number): Invento
 
 export function heldItemForInventory(inv: InventorySnapshot): string | null {
   return inv.slots[inv.selectedHotbar]?.itemId ?? null;
+}
+
+export function findNearestChest(
+  chests: readonly WorldChestSnapshot[],
+  pos: { readonly x: number; readonly y: number },
+  radius: number,
+): WorldChestSnapshot | undefined {
+  let best: WorldChestSnapshot | undefined;
+  let bestDist = radius;
+  for (const c of chests) {
+    const d = Math.hypot(c.x - pos.x, c.y - pos.y);
+    if (d <= bestDist) { bestDist = d; best = c; }
+  }
+  return best;
+}
+
+export function applyChestTransfer(opts: {
+  readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot;
+  readonly from: "chest" | "inv"; readonly fromSlot: number;
+  readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined;
+}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot } {
+  const nextSlots = opts.inv.slots.map((s) => (s ? { ...s } : null));
+  const nextChestSlots = opts.chest.slots.map((s) => (s ? { ...s } : null));
+  const changed = opts.quick
+    ? quickTransferChestSlot({ chestSlots: nextChestSlots, invSlots: nextSlots, from: opts.from, slotIndex: opts.fromSlot, maxStackFor: maxStackForItem })
+    : transferChestSlot({ chestSlots: nextChestSlots, invSlots: nextSlots, from: opts.from, fromSlot: opts.fromSlot, to: opts.to, toSlot: opts.toSlot, maxStackFor: maxStackForItem });
+  if (!changed) return { inv: opts.inv, chest: opts.chest };
+  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots } };
+}
+
+export function applyChestTakeAll(opts: {
+  readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot;
+}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot } {
+  const nextSlots = opts.inv.slots.map((s) => (s ? { ...s } : null));
+  const nextChestSlots = opts.chest.slots.map((s) => (s ? { ...s } : null));
+  takeAllFromChest({ chestSlots: nextChestSlots, invSlots: nextSlots, maxStackFor: maxStackForItem });
+  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots } };
 }
 
 export function reconcileInventorySnapshot(input: {
