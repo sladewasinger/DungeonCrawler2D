@@ -1,17 +1,30 @@
-/** Modular 32x32 4-directional pixel base body, limbs, and under-tunic layers. */
-import { SKIN_PALETTES, UNDERWEAR_PALETTE, type ToneTriad } from "@dc2d/content";
+/** Modular 32x32 4-directional pixel base body, limbs, expressive colored eyes, and under-tunic layers. */
+import { EYE_PALETTES, SKIN_PALETTES, UNDERWEAR_PALETTE, type ToneTriad } from "@dc2d/content";
 import type { CharacterAppearance } from "@dc2d/engine";
 import type { PixelRect } from "../textures/pixelCanvas.js";
 import {
-  BELT_DARK, EYE_DARK, EYE_GLINT, getCharacterMetrics,
+  BELT_DARK, EYE_GLINT, EYE_SCLERA, getCharacterMetrics,
   type CharacterMetrics, type CharacterPose, type FacingDir,
 } from "./characterTypes.js";
 
-function southHeadRects(skin: ToneTriad, b: number, north: boolean): PixelRect[] {
+function southEyeRects(skin: ToneTriad, eye: ToneTriad, b: number): PixelRect[] {
+  return [
+    [12, 8 + b, 1, 1, skin.shade], [13, 8 + b, 2, 1, eye.shade],
+    [12, 9 + b, 1, 2, EYE_SCLERA], [13, 9 + b, 2, 2, eye.base],
+    [13, 9 + b, 1, 1, EYE_GLINT], [14, 10 + b, 1, 1, eye.highlight],
+    [17, 8 + b, 2, 1, eye.shade], [19, 8 + b, 1, 1, skin.shade],
+    [19, 9 + b, 1, 2, EYE_SCLERA], [17, 9 + b, 2, 2, eye.base],
+    [17, 9 + b, 1, 1, EYE_GLINT], [18, 10 + b, 1, 1, eye.highlight],
+  ];
+}
+
+function southHeadRects(opts: {
+  readonly skin: ToneTriad; readonly eye: ToneTriad; readonly b: number; readonly north: boolean;
+}): PixelRect[] {
+  const { skin, eye, b, north } = opts;
   const rects: PixelRect[] = [
     [11, 4 + b, 10, 10, skin.base],
     [10, 5 + b, 12, 7, skin.base],
-    [12, 5 + b, 7, 2, skin.highlight],
     [10, 8 + b, 1, 4, skin.shade],
     [21, 8 + b, 1, 4, skin.shade],
     [11, 12 + b, 10, 2, skin.shade],
@@ -19,18 +32,17 @@ function southHeadRects(skin: ToneTriad, b: number, north: boolean): PixelRect[]
     [14, 13 + b, 4, 2, skin.shade],
   ];
   if (north) {
-    rects.push([11, 5 + b, 10, 7, skin.shade], [13, 6 + b, 6, 3, skin.base]);
+    rects.push([12, 5 + b, 8, 2, skin.highlight]);
     return rects;
   }
-  rects.push(
-    [12, 7 + b, 2, 1, skin.shade], [18, 7 + b, 2, 1, skin.shade],
-    [12, 8 + b, 2, 3, EYE_DARK], [18, 8 + b, 2, 3, EYE_DARK],
-    [12, 8 + b, 1, 1, EYE_GLINT], [18, 8 + b, 1, 1, EYE_GLINT],
-  );
+  rects.push([12, 5 + b, 7, 2, skin.highlight], ...southEyeRects(skin, eye, b));
   return rects;
 }
 
-function buildSouthOrNorth(skin: ToneTriad, m: CharacterMetrics, north: boolean): PixelRect[] {
+function buildSouthOrNorth(opts: {
+  readonly skin: ToneTriad; readonly eye: ToneTriad; readonly m: CharacterMetrics; readonly north: boolean;
+}): PixelRect[] {
+  const { skin, eye, m, north } = opts;
   const u = UNDERWEAR_PALETTE;
   const { b, pose, torsoX, torsoW, armW, armLX, armRX, legW, legLX, legRX } = m;
   const footTopL = 26 - pose.liftL;
@@ -38,7 +50,7 @@ function buildSouthOrNorth(skin: ToneTriad, m: CharacterMetrics, north: boolean)
   const armL = Math.max(-2, Math.min(2, pose.armSwing));
   const armR = -armL;
   return [
-    ...southHeadRects(skin, b, north),
+    ...southHeadRects({ skin, eye, b, north }),
     [armLX, 14 + b + armL, armW, 4, u.shirtShade],
     [armLX, 18 + b + armL, armW, 3, skin.shade],
     [armRX, 14 + b + armR, armW, 4, north ? u.shirtShade : u.shirt],
@@ -56,7 +68,7 @@ function buildSouthOrNorth(skin: ToneTriad, m: CharacterMetrics, north: boolean)
   ];
 }
 
-function sideHeadRects(skin: ToneTriad, b: number): PixelRect[] {
+function sideHeadRects(skin: ToneTriad, eye: ToneTriad, b: number): PixelRect[] {
   return [
     [12, 4 + b, 8, 10, skin.base],
     [11, 5 + b, 10, 7, skin.base],
@@ -65,13 +77,16 @@ function sideHeadRects(skin: ToneTriad, b: number): PixelRect[] {
     [11, 6 + b, 3, 6, skin.shade],
     [12, 12 + b, 8, 2, skin.shade],
     [14, 13 + b, 4, 2, skin.shade],
-    [18, 7 + b, 2, 1, skin.shade],
-    [18, 8 + b, 2, 3, EYE_DARK],
-    [19, 8 + b, 1, 1, EYE_GLINT],
+    [17, 8 + b, 1, 1, skin.shade],
+    [18, 8 + b, 2, 1, eye.shade],
+    [17, 9 + b, 1, 2, EYE_SCLERA],
+    [18, 9 + b, 2, 2, eye.base],
+    [18, 9 + b, 1, 1, EYE_GLINT],
+    [19, 10 + b, 1, 1, eye.highlight],
   ];
 }
 
-function buildSideBody(skin: ToneTriad, m: CharacterMetrics): PixelRect[] {
+function buildSideBody(skin: ToneTriad, eye: ToneTriad, m: CharacterMetrics): PixelRect[] {
   const u = UNDERWEAR_PALETTE;
   const { b, pose, sideTorsoX, sideTorsoW } = m;
   const backLegX = 14 - pose.stride;
@@ -94,7 +109,7 @@ function buildSideBody(skin: ToneTriad, m: CharacterMetrics): PixelRect[] {
     [sideTorsoX, 14 + b, 2, 6, u.shirtShade],
     [sideTorsoX, 19 + b, sideTorsoW, 1, BELT_DARK],
     [sideTorsoX, 20 + b, sideTorsoW, 2, u.pants],
-    ...sideHeadRects(skin, b),
+    ...sideHeadRects(skin, eye, b),
     [frontArmX, 14 + b, 3, 4, u.shirt],
     [frontArmX, 18 + b, 3, 3, skin.base],
   ];
@@ -106,7 +121,8 @@ export function buildBodyRects(input: {
   readonly pose: CharacterPose;
 }): PixelRect[] {
   const skin = SKIN_PALETTES[input.appearance.skin] ?? SKIN_PALETTES.warm!;
+  const eye = EYE_PALETTES[input.appearance.eyeColor] ?? EYE_PALETTES.brown!;
   const m = getCharacterMetrics(input.appearance, input.pose);
-  if (input.dir === "side") return buildSideBody(skin, m);
-  return buildSouthOrNorth(skin, m, input.dir === "north");
+  if (input.dir === "side") return buildSideBody(skin, eye, m);
+  return buildSouthOrNorth({ skin, eye, m, north: input.dir === "north" });
 }

@@ -5,6 +5,7 @@ export { RECIPE_CATALOG, getRecipeDef } from "./recipes/recipes.js";
 export type { RecipeDef, RecipeIngredientDef } from "./recipes/recipes.js";
 export {
   ARMOR_VISUAL_STYLES,
+  EYE_PALETTES,
   HAIR_PALETTES,
   SKIN_PALETTES,
   UNDERWEAR_PALETTE,

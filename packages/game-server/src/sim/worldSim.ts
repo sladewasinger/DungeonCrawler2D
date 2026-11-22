@@ -1,7 +1,7 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
   DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement,
-  sanitizeCharacterAppearance, wrapDayPhase,
+  sanitizeCharacterAppearance, stepJumpArc, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type InventorySnapshot, type PlayerInventoryState, type PlayerSnapshot,
 } from "@dc2d/engine";
 import {
@@ -26,6 +26,9 @@ interface SimPlayer {
   aimX: number;
   aimY: number;
   hasExplicitAim: boolean;
+  jumpZ: number;
+  jumpVz: number;
+  jumpQueued: boolean;
   moveX: number;
   moveY: number;
   moving: boolean;
@@ -56,6 +59,7 @@ export class WorldSim {
     this.players.set(id, {
       id, name, appearance: sanitizeCharacterAppearance(appearance),
       x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, aimX: 0, aimY: 1, hasExplicitAim: false,
+      jumpZ: 0, jumpVz: 0, jumpQueued: false,
       moveX: 0, moveY: 0, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
     });
@@ -75,12 +79,14 @@ export class WorldSim {
   queueInput(playerId: string, input: {
     readonly seq: number; readonly moveX: number; readonly moveY: number;
     readonly aimX?: number | undefined; readonly aimY?: number | undefined;
+    readonly jump?: boolean | undefined;
   }): void {
     const p = this.players.get(playerId);
     if (!p) return;
     p.moveX = input.moveX;
     p.moveY = input.moveY;
     p.lastAckSeq = input.seq;
+    if (input.jump) p.jumpQueued = true;
     applyAimInput(p, input);
   }
 
@@ -127,6 +133,10 @@ export class WorldSim {
   }
 
   private stepPlayer(p: SimPlayer, dtSeconds: number): void {
+    const arc = stepJumpArc({ jumpZ: p.jumpZ, jumpVz: p.jumpVz }, p.jumpQueued, dtSeconds);
+    p.jumpZ = arc.jumpZ;
+    p.jumpVz = arc.jumpVz;
+    p.jumpQueued = false;
     const mag = Math.hypot(p.moveX, p.moveY);
     if (mag < 0.05) { p.moving = false; return; }
     const nx = p.moveX / Math.max(1, mag);
@@ -145,6 +155,7 @@ export class WorldSim {
     return Array.from(this.players.values(), (p) => ({
       id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
       facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
+      jumpZ: p.jumpZ, jumpVz: p.jumpVz,
       moving: p.moving, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
       heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
       appearance: p.appearance, armor: { ...p.inventory.armor },

@@ -1,10 +1,13 @@
-/** Renders 0.75x-scaled 32x32 4-directional characters, 360-degree weapons, and off-hand torch/lantern. */
+/** Renders 0.75x-scaled 32x32 4-directional characters, jump/fall shadow lift, and dominant-hand gear. */
 import { SKIN_PALETTES } from "@dc2d/content";
-import { DEFAULT_APPEARANCE, TILE_PX, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
-import { Container, Sprite, Text, type Texture } from "pixi.js";
+import {
+  DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX,
+  type ArmorEquipment, type PlayerSnapshot,
+} from "@dc2d/engine";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import {
   CHARACTER_WORLD_SCALE, characterCacheKey, getCharacterSpriteSet, resolveFacingDir,
-  type CharacterSpriteSet,
+  type CharacterSpriteSet, type DirectionAnim,
 } from "../character/characterSprites.js";
 import { computeHeldLayout, type OffhandPlacement } from "../character/heldPlacement.js";
 import {
@@ -28,12 +31,28 @@ function gearLayoutFor(snap: PlayerSnapshot, visual: ReturnType<typeof getHeldWe
   });
 }
 
+function pickPoseTrack(anim: DirectionAnim, snap: PlayerSnapshot): { readonly list: readonly Texture[]; readonly fps: number } {
+  if ((snap.jumpZ ?? 0) > 0.01) {
+    return { list: (snap.jumpVz ?? 0) > 0.35 ? anim.jump : anim.fall, fps: 8 };
+  }
+  return snap.moving ? { list: anim.run, fps: 11 } : { list: anim.idle, fps: 5 };
+}
+
 function attachToSlot(slot: Container, child: Container): void { if (child.parent !== slot) slot.addChild(child); }
 
 function makeHandSprite(): Sprite { const s = new Sprite(getGrippingHandTexture()); s.anchor.set(0.5, 0.5); return s; }
 
+function makeGroundShadow(): Graphics {
+  const g = new Graphics();
+  g.ellipse(0, 0, 7, 2.2).fill({ color: 0x0c1018, alpha: 0.34 });
+  g.ellipse(0, 0, 5, 1.3).fill({ color: 0x0c1018, alpha: 0.2 });
+  return g;
+}
+
 export class PlayerView {
   readonly root = new Container();
+  private readonly groundShadow = makeGroundShadow();
+  private readonly actorGroup = new Container();
   private readonly backSlot = new Container();
   private readonly frontSlot = new Container();
   private readonly body: Sprite;
@@ -61,7 +80,8 @@ export class PlayerView {
     this.offhandGroup.scale.set(CHARACTER_WORLD_SCALE);
     this.offhandGroup.visible = false;
     this.label = createNameLabel(snap.name);
-    this.root.addChild(this.backSlot, this.body, this.frontSlot, this.label);
+    this.actorGroup.addChild(this.backSlot, this.body, this.frontSlot);
+    this.root.addChild(this.groundShadow, this.actorGroup, this.label);
   }
 
   sync(input: {
@@ -76,6 +96,7 @@ export class PlayerView {
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - elev * ELEVATION_LIFT_PX);
     this.root.zIndex = Math.round(snap.y * TILE_PX) + (input.sortBoost ?? snap.elevation * 2);
     this.syncAppearanceSet(snap);
+    this.syncJumpAndShadow(snap);
     this.syncPose(snap, timeSec);
     this.syncGear(snap, timeSec);
   }
@@ -89,11 +110,20 @@ export class PlayerView {
     this.sprites = getCharacterSpriteSet(appearance, armor);
   }
 
+  private syncJumpAndShadow(snap: PlayerSnapshot): void {
+    const jumpZ = snap.jumpZ ?? 0;
+    const jumpPx = jumpZ * JUMP_VISUAL_PX_PER_TILE;
+    this.actorGroup.position.y = -jumpPx;
+    this.label.position.y = -27 - jumpPx;
+    this.groundShadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.65));
+    this.groundShadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
+  }
+
   private syncPose(snap: PlayerSnapshot, timeSec: number): void {
     if (this.label.text !== snap.name) this.label.text = snap.name;
     const { dir, flipX } = resolveFacingDir(snap.facingX, snap.facingY);
-    const list = snap.moving ? this.sprites[dir].run : this.sprites[dir].idle;
-    const nextTex = list[Math.floor(timeSec * (snap.moving ? 11 : 5)) % list.length];
+    const { list, fps } = pickPoseTrack(this.sprites[dir], snap);
+    const nextTex = list[Math.floor(timeSec * fps) % list.length];
     if (nextTex) this.body.texture = nextTex;
     this.body.scale.set(flipX ? -CHARACTER_WORLD_SCALE : CHARACTER_WORLD_SCALE, CHARACTER_WORLD_SCALE);
   }

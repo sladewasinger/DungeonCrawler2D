@@ -35,7 +35,7 @@ export class WorldScene {
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
-  private zoom = 2.8;
+  private zoom = 3.8;
 
   private constructor(private readonly app: Application) {
     const [groundCam, waterCam, shadowCam, grassCam, ysortCam, canopyCam, emissiveCam] =

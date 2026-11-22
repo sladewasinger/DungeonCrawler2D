@@ -13,6 +13,7 @@ export interface ToolbarCallbacks {
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
+  readonly onZoom: (factor: number) => void;
 }
 
 const PRESET_ORDER: readonly QualityPresetId[] = ["high", "balanced", "performance"];
@@ -71,7 +72,7 @@ export class AtmosphereToolbar {
     presets.append(this.pauseBtn);
     this.drawer.append(presets, this.slider);
     root.append(bar, this.drawer);
-    host.appendChild(root);
+    host.append(root, makeZoomControls(callbacks.onZoom));
     this.syncFullscreenButton();
   }
 
@@ -128,6 +129,22 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
   b.textContent = label;
   b.addEventListener("click", onClick);
   return b;
+}
+
+function makeZoomControls(onZoom: (factor: number) => void): HTMLDivElement {
+  const box = el("div", "ow-zoom-controls");
+  const zoomOut = el("button", "ow-pill ow-zoom-btn");
+  zoomOut.type = "button";
+  zoomOut.textContent = "−";
+  zoomOut.setAttribute("aria-label", "Zoom out");
+  zoomOut.addEventListener("click", () => onZoom(1 / 1.18));
+  const zoomIn = el("button", "ow-pill ow-zoom-btn");
+  zoomIn.type = "button";
+  zoomIn.textContent = "+";
+  zoomIn.setAttribute("aria-label", "Zoom in");
+  zoomIn.addEventListener("click", () => onZoom(1.18));
+  box.append(zoomOut, zoomIn);
+  return box;
 }
 
 function makeSlider(onInput: (val: number) => void): HTMLInputElement {

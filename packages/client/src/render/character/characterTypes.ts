@@ -1,4 +1,4 @@
-/** Shared character sprite constants, directional facing helpers, and frame pose types. */
+/** Shared character sprite constants, directional facing helpers, and canonical frame pose tables. */
 import type { CharacterAppearance } from "@dc2d/engine";
 import type { Texture } from "pixi.js";
 
@@ -8,8 +8,8 @@ export type CharacterAnimState = "idle" | "run" | "jump" | "fall";
 export const CHARACTER_WORLD_SCALE = 0.75;
 export const FRAME_SIZE = { w: 32, h: 32 } as const;
 export const OUTLINE_RGB = [20, 16, 24] as const;
-export const EYE_DARK = "#141018";
-export const EYE_GLINT = "#f8fafc";
+export const EYE_SCLERA = "#f1f5f9";
+export const EYE_GLINT = "#ffffff";
 export const BELT_DARK = "#2a201b";
 export const SOLE_DARK = "#1c1917";
 
@@ -23,11 +23,37 @@ export interface CharacterPose {
   readonly shadowShrink: number;
 }
 
+export const IDLE_POSES: readonly CharacterPose[] = [
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: 1, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 1, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+];
+
+export const RUN_POSES: readonly CharacterPose[] = [
+  { bobY: -1, hairBobY: 0, stride: 3, liftL: 2, liftR: 0, armSwing: 2, shadowShrink: 1 },
+  { bobY: -1, hairBobY: -1, stride: 2, liftL: 1, liftR: 0, armSwing: 1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: -1, hairBobY: 0, stride: -3, liftL: 0, liftR: 2, armSwing: -2, shadowShrink: 1 },
+  { bobY: -1, hairBobY: -1, stride: -2, liftL: 0, liftR: 1, armSwing: -1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+];
+
+export const JUMP_POSES: readonly CharacterPose[] = [
+  { bobY: 0, hairBobY: 1, stride: 2, liftL: 2, liftR: 1, armSwing: -2, shadowShrink: 1 },
+  { bobY: -1, hairBobY: 1, stride: 2, liftL: 2, liftR: 2, armSwing: -2, shadowShrink: 1 },
+];
+
+export const FALL_POSES: readonly CharacterPose[] = [
+  { bobY: -1, hairBobY: -1, stride: -2, liftL: 1, liftR: 0, armSwing: 2, shadowShrink: 1 },
+  { bobY: 0, hairBobY: -1, stride: -1, liftL: 0, liftR: 1, armSwing: 2, shadowShrink: 1 },
+];
+
 export interface DirectionAnim {
   readonly idle: readonly Texture[];
   readonly run: readonly Texture[];
-  readonly jump?: readonly Texture[];
-  readonly fall?: readonly Texture[];
+  readonly jump: readonly Texture[];
+  readonly fall: readonly Texture[];
 }
 
 export interface CharacterSpriteSet {

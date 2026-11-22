@@ -32,6 +32,21 @@ describe("WorldSim", () => {
     expect(aimed.facingX).toBeCloseTo(0.6, 3);
     expect(aimed.facingY).toBeCloseTo(-0.8, 3);
 
+    sim.queueInput(id, { seq: 3, moveX: 0, moveY: 0, jump: true });
+    sim.step();
+    const launching = must(sim.snapshots()[0]);
+    expect(launching.jumpZ).toBeGreaterThan(0);
+    expect(launching.jumpVz).toBeGreaterThan(0);
+
+    sim.queueInput(id, { seq: 4, moveX: 0, moveY: 0 });
+    let sawFall = false;
+    for (let i = 0; i < 15; i++) {
+      sim.step();
+      if ((must(sim.snapshots()[0]).jumpVz ?? 0) < 0) sawFall = true;
+    }
+    expect(sawFall).toBe(true);
+    expect(must(sim.snapshots()[0]).jumpZ).toBe(0);
+
     sim.toggleTorch(id);
     expect(must(sim.snapshots()[0]).torchLit).toBe(false);
 
@@ -67,7 +82,7 @@ describe("WorldSim", () => {
     expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(2);
     expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
 
-    const customLook = { body: "slender", skin: "tan", hairStyle: "ponytail", hairColor: "red" } as const;
+    const customLook = { body: "slender", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;
     sim.setAppearance(id, { name: "Slade", appearance: customLook });
     expect(must(sim.snapshots()[0]).name).toBe("Slade");
     expect(must(sim.snapshots()[0]).appearance).toEqual(customLook);

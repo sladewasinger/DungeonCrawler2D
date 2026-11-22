@@ -1,5 +1,13 @@
+import { BODY_STYLES, EYE_COLORS, HAIR_STYLES, type ArmorEquipment, type CharacterAppearance } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { CHARACTER_WORLD_SCALE, resolveFacingDir } from "./characterTypes.js";
+import type { PixelRect } from "../textures/pixelCanvas.js";
+import { buildArmorRects } from "./characterArmorLayers.js";
+import { buildBodyRects } from "./characterBodyLayers.js";
+import { buildHairRects } from "./characterHairLayers.js";
+import {
+  CHARACTER_WORLD_SCALE, FALL_POSES, IDLE_POSES, JUMP_POSES, RUN_POSES, resolveFacingDir,
+  type FacingDir,
+} from "./characterTypes.js";
 import { computeHeldLayout } from "./heldPlacement.js";
 
 describe("resolveFacingDir", () => {
@@ -66,5 +74,39 @@ describe("computeHeldLayout", () => {
     });
     expect(heldTorch.offhand.kind).toBe("none");
     expect(heldTorch.main.x).toBeGreaterThan(0);
+  });
+});
+
+const TEST_DIRS: readonly FacingDir[] = ["south", "north", "side"];
+const TEST_POSES = [...IDLE_POSES, ...RUN_POSES, ...JUMP_POSES, ...FALL_POSES];
+const TEST_ARMOR_SETS: readonly ArmorEquipment[] = [
+  { head: null, chest: null, legs: null, feet: null },
+  { head: "leather-hood", chest: "leather-tunic", legs: "leather-leggings", feet: "leather-boots" },
+];
+
+function collectFrameRects(appearance: CharacterAppearance, armor: ArmorEquipment): PixelRect[] {
+  return TEST_DIRS.flatMap((dir) =>
+    TEST_POSES.flatMap((pose) => [
+      ...buildBodyRects({ appearance, dir, pose }),
+      ...buildArmorRects({ appearance, armor, dir, pose }),
+      ...buildHairRects({ appearance, dir, pose, hooded: Boolean(armor.head) }),
+    ]),
+  );
+}
+
+describe("character sprite 32x32 outline-safe bounds", () => {
+  it("keeps all body, armor, and hair pixels inside [1..30, 1..28] across all poses and styles", () => {
+    const looks = BODY_STYLES.flatMap((body) =>
+      EYE_COLORS.flatMap((eyeColor) =>
+        HAIR_STYLES.map((hairStyle) => ({ body, skin: "warm", eyeColor, hairStyle, hairColor: "red" }) as const),
+      ),
+    );
+    const rects = looks.flatMap((app) => TEST_ARMOR_SETS.flatMap((armor) => collectFrameRects(app, armor)));
+    for (const [x, y, w, h] of rects) {
+      expect(x).toBeGreaterThanOrEqual(1);
+      expect(y).toBeGreaterThanOrEqual(1);
+      expect(x + w).toBeLessThanOrEqual(31);
+      expect(y + h).toBeLessThanOrEqual(29);
+    }
   });
 });

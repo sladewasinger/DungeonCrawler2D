@@ -28,7 +28,7 @@ function resolveAimVector(ctx: AppCtx & { readonly nowMs: number }, moving: bool
 function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
   const move = ctx.input.movement();
   const moving = Math.hypot(move.x, move.y) > 0.05;
-  ctx.client.stepInput({ move, dt: ctx.dt, aim: resolveAimVector(ctx, moving) });
+  ctx.client.stepInput({ move, dt: ctx.dt, aim: resolveAimVector(ctx, moving), jump: ctx.input.consumeJump() });
   const view = ctx.client.snapshot();
   ctx.scene.renderFrame({
     dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase,
@@ -83,6 +83,7 @@ async function bootOverworldClient(): Promise<void> {
     onToggleInventory: () => hud.toggleInventory(),
     onToggleCrafting: () => hud.toggleCrafting(),
     onToggleCharacter: () => hud.toggleCharacter(),
+    onZoom: (factor) => scene.adjustZoom(factor),
   });
   startRenderLoop({ scene, client, input, toolbar, hud });
 }
