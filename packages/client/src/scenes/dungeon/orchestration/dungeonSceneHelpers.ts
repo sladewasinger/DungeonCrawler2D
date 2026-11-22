@@ -7,6 +7,8 @@ import { VfxSystem } from "../../../vfx/system/index.js";
 import type { World } from "@dc2d/engine";
 import { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
+import { ForestAmbientMotes } from "../../../render/terrain/runtime/atmosphere/ambientMotes.js";
+import { isRoomIsolationView } from "../../../render/terrain/streaming/terrainView.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
 import { terrainDeviceProfileForScene, type TerrainDeviceProfile } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
 import { devicePresentationProfileForKind } from "../../../presentation/devicePresentationProfile.js";
@@ -79,6 +81,7 @@ export interface DungeonPresentationSystems {
   readonly deviceProfile: TerrainDeviceProfile;
   readonly entityRenderer: EntityRenderer;
   readonly vfx: VfxSystem;
+  readonly ambientMotes: ForestAmbientMotes;
 }
 
 export function createDungeonPresentationSystems(
@@ -91,6 +94,7 @@ export function createDungeonPresentationSystems(
     deviceProfile,
     entityRenderer: new EntityRenderer(scene, presentationProfile),
     vfx: new VfxSystem(scene, presentationProfile, cameraZoom),
+    ambientMotes: new ForestAmbientMotes(scene),
   };
 }
 
@@ -125,15 +129,17 @@ interface WorldPresentationRequest {
   readonly scene: Phaser.Scene;
   readonly terrain: TerrainRendererLike | undefined;
   readonly lighting: LightingSystem | undefined;
+  readonly ambientMotes?: ForestAmbientMotes;
   readonly personal: RenderPose;
   readonly nowMs: number;
+  readonly dtSeconds?: number;
   readonly cameraRotationRad: number;
 }
 
 export function syncDungeonWorldPresentation(
   request: WorldPresentationRequest,
 ): void {
-  const { scene, terrain, lighting, personal, nowMs } = request;
+  const { scene, terrain, lighting, ambientMotes, personal, nowMs } = request;
   scene.cameras.main.setRotation(request.cameraRotationRad);
   measureRuntimeWork("lighting.toonVisibility", () => lighting?.prepareToonVisibility({
     view: scene.cameras.main.worldView,
@@ -143,6 +149,7 @@ export function syncDungeonWorldPresentation(
   }));
   terrain?.setWorldVisibility?.(lighting?.presentationVisibility() ?? null);
   terrain?.update(scene.cameras.main.worldView);
+  ambientMotes?.update({ width: scene.scale.width, height: scene.scale.height, nowMs, dtSeconds: request.dtSeconds ?? 0.016, visible: !isRoomIsolationView(scene.cameras.main.worldView) });
 }
 
 interface ConsumeTeleportRequest { readonly conn: Connection; readonly state: DungeonSceneState; readonly vfx: VfxSystem; readonly nowMs: number; }

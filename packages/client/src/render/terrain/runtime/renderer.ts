@@ -24,6 +24,7 @@ import { atlasReadinessChanged } from "./presentation/terrainAtlasReadiness.js";
 import { syncTerrainRootVisibility } from "./presentation/terrainRootVisibility.js";
 import type { WorldPresentationVisibility } from "../../visibility/worldPresentationVisibility.js";
 import { TerrainPresentationState } from "./presentation/terrainPresentationState.js";
+import { TerrainAtmosphere } from "./atmosphere/terrainAtmosphere.js";
 import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
 import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
 import {
@@ -39,6 +40,7 @@ export class TerrainRenderer implements TerrainRendererLike {
   private readonly cameraBackground: TerrainCameraBackground;
   private readonly deviceProfile: TerrainDeviceProfile;
   private readonly presentation = new TerrainPresentationState();
+  private readonly atmosphere: TerrainAtmosphere;
   private dirty = true;
   private atlasAssetsReady: boolean | undefined;
   constructor(
@@ -50,6 +52,7 @@ export class TerrainRenderer implements TerrainRendererLike {
     this.chunkCache = new TerrainChunkPlanCache(this.deviceProfile.retention.maxChunkPlans);
     this.terrainSource = createTerrainSource(world);
     this.cameraBackground = new TerrainCameraBackground(scene.cameras.main);
+    this.atmosphere = new TerrainAtmosphere(scene);
     this.roots = new TerrainRootRetention({ capacity: this.deviceProfile.retention.maxOrientationRoots,
       create: (orientation) => createTerrainRoot(this.scene, orientation, this.deviceProfile), destroy: destroyTerrainRoot });
     this.ensureRoot(getViewOrientation());
@@ -65,23 +68,14 @@ export class TerrainRenderer implements TerrainRendererLike {
     this.cameraBackground.sync(view, orientation, this.presentation.visibility?.backgroundColor);
     const atlasReadinessChangedNow = atlasReadinessChanged(this.atlasAssetsReady, atlasAssetsReady);
     this.atlasAssetsReady = atlasAssetsReady;
-    const key = this.presentation.planKey({
-      orientation,
-      bounds,
-      tileRevision: this.world.tileRevision,
-    });
+    const key = this.presentation.planKey({ orientation, bounds, tileRevision: this.world.tileRevision });
     if (this.dirty || root.planKey !== key || atlasReadinessChangedNow) {
       this.dirty = this.renderRoot(root, bounds, key) > 0;
     }
-    pruneTerrainWorldChunks({
-      world: this.world,
-      bounds,
-      capacity: this.deviceProfile.retention.maxWorldChunks,
-    });
+    pruneTerrainWorldChunks({ world: this.world, bounds, capacity: this.deviceProfile.retention.maxWorldChunks });
     syncTerrainRootVisibility(this.roots.values(), orientation, atlasAssetsReady);
-    recordTerrainRootVisibility(
-      terrainRootVisibilityDebug(this.roots.values(), orientation),
-    );
+    this.atmosphere.update({ roots: this.roots.values(), view, roomIsolation: isRoomIsolationView(viewBounds) });
+    recordTerrainRootVisibility(terrainRootVisibilityDebug(this.roots.values(), orientation));
   }
   prewarmRotation(view: ViewRect, direction: 1 | -1): void {
     const current = getViewOrientation();
@@ -94,11 +88,7 @@ export class TerrainRenderer implements TerrainRendererLike {
       finiteFloor: this.world.floorBounds != null,
     });
     const bounds = clipTerrainBounds(viewBounds, this.world.floorBounds, isRoomIsolationView(viewBounds));
-    const key = this.presentation.planKey({
-      orientation: next,
-      bounds,
-      tileRevision: this.world.tileRevision,
-    });
+    const key = this.presentation.planKey({ orientation: next, bounds, tileRevision: this.world.tileRevision });
     if (root.planKey !== key) this.renderRoot(root, bounds, key);
   }
   setDynamicLights(lights: readonly DynamicLightSeed[]): void {
@@ -125,22 +115,16 @@ export class TerrainRenderer implements TerrainRendererLike {
     return this.deviceProfile.kind === "constrained";
   }
   dispose(): void {
+    this.atmosphere.dispose();
     this.roots.clear();
   }
   private ensureRoot(orientation: ViewOrientation): TerrainRoot { return this.roots.acquire(orientation); }
   private renderRoot(root: TerrainRoot, bounds: TerrainRect, key: string): number {
     return measureRuntimeWork("terrain.renderRoot", () => {
       const result = renderTerrainRoot({
-        scene: this.scene,
-        root,
-        bounds,
-        cache: this.chunkCache,
-        source: this.terrainSource,
-        world: this.world,
-        profile: this.deviceProfile,
-        visibility: this.presentation.visibility,
-        debug: this.debugMode,
-        maxNewChunkPlans: TERRAIN_RUNTIME_TUNING.retention.maxNewChunkPlansPerFrame,
+        scene: this.scene, root, bounds, cache: this.chunkCache, source: this.terrainSource,
+        world: this.world, profile: this.deviceProfile, visibility: this.presentation.visibility,
+        debug: this.debugMode, maxNewChunkPlans: TERRAIN_RUNTIME_TUNING.retention.maxNewChunkPlansPerFrame,
       });
       this.presentation.record(result.metrics);
       root.planKey = result.pendingChunkPlans === 0 ? key : "";

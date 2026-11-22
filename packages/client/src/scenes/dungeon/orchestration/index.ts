@@ -53,6 +53,7 @@ export class DungeonScene extends Phaser.Scene {
   private inputGestureVisuals!: InputGestureVisuals;
   private debugOverlay!: GameplayDebugOverlay; private cameraZoom!: DungeonCameraZoomController;
   private mobilePerformanceDiagnostics: MobilePerformanceDiagnostics | undefined; private worldLoading!: WorldLoadingOverlay;
+  private ambientMotes: ReturnType<typeof createDungeonPresentationSystems>["ambientMotes"] | undefined;
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
@@ -64,16 +65,13 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setRoundPixels(true); this.cameraZoom = new DungeonCameraZoomController(this);
     bindDungeonCameraResize(this, this.cameraZoom);
     const presentation = createDungeonPresentationSystems(this, this.cameraZoom);
-    this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
+    this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx; this.ambientMotes = presentation.ambientMotes;
     this.mobilePerformanceDiagnostics = createMobilePerformanceDiagnostics({ game: this.game, connection: this.conn, profile: this.deviceProfile, terrain: () => this.terrain, buckets: () => this.state.entityBuckets });
     this.worldLoading = createWorldLoadingOverlay(this.conn, document.body); this.inputGestureVisuals = new InputGestureVisuals(this);
     this.debugOverlay = new GameplayDebugOverlay(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
-    this.chatInputBox = createDungeonChatInputBox({
-      keyboard: this.input.keyboard,
-      onSubmit: (text) => this.chatController.submit(text),
-    });
+    this.chatInputBox = createDungeonChatInputBox({ keyboard: this.input.keyboard, onSubmit: (text) => this.chatController.submit(text) });
     this.inputController = buildDungeonInputController({ scene: this, conn: this.conn, hudScene: this.hudScene, cosmetics: this.state.cosmetics, chatInputBox: this.chatInputBox });
     this.scene.launch("hud", {
       source: () => buildDungeonHudSnapshot({ scene: this, conn: this.conn, inputController: this.inputController, interactionPrompt: this.interactionPrompt, chatController: this.chatController, cache: this.hudSnapshotCache, rotation: this.rotation }), connection: this.conn,
@@ -102,15 +100,10 @@ export class DungeonScene extends Phaser.Scene {
       render,
       client: conn.movementTraceState(),
     });
-    updateDungeonCamera({ scene: this, state: this.state, render, deltaMs }); syncDungeonWorldPresentation({ scene: this, terrain: this.terrain, lighting: this.lighting, personal: render, nowMs: time, cameraRotationRad: this.rotation.cameraRotationRad() });
+    updateDungeonCamera({ scene: this, state: this.state, render, deltaMs }); syncDungeonWorldPresentation({ scene: this, terrain: this.terrain, lighting: this.lighting, ambientMotes: this.ambientMotes, personal: render, nowMs: time, dtSeconds: deltaMs / 1000, cameraRotationRad: this.rotation.cameraRotationRad() });
     this.syncParty(conn);
     const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
-    this.debugOverlay.update({
-      flags: conn.activeAdminDebugFlags,
-      entities: conn.activeAdminDebugEntities,
-      active: conn.activeAdmin,
-      nowMs: time,
-    });
+    this.debugOverlay.update({ flags: conn.activeAdminDebugFlags, entities: conn.activeAdminDebugEntities, active: conn.activeAdmin, nowMs: time });
     this.interactionPrompt = synced.interactionPrompt;
   }
   private syncInputHolds(conn: Connection): void {
@@ -147,5 +140,5 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.dispose();
     this.chatInputBox.dispose();
     this.worldLoading.dispose(); this.inputGestureVisuals.dispose();
-    this.debugOverlay.dispose(); this.mobilePerformanceDiagnostics?.dispose(); this.mobilePerformanceDiagnostics = undefined;
+    this.debugOverlay.dispose(); this.ambientMotes?.dispose(); this.mobilePerformanceDiagnostics?.dispose(); this.mobilePerformanceDiagnostics = undefined;
   } }
