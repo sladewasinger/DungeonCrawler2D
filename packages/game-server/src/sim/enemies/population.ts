@@ -55,6 +55,10 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
   }
   spawnRoomLoot(sim, cx, cy);
   if (sim.enemies.size >= ENEMY_CAP) return;
+  if (sim.world.generatedFloor !== null) {
+    populateForestChunkFeatures(sim, cx, cy);
+    return;
+  }
   spawnEnemyPack(sim, cx, cy);
   populateForestChunkFeatures(sim, cx, cy);
 }

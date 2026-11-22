@@ -118,7 +118,12 @@ function isRepairTraversable(input: ForestConnectivityInput, point: FloorPoint, 
 }
 
 function isClearableObstacle(feature: number | undefined): boolean {
-  return feature === TILE.Water || feature === TILE.Tree || feature === TILE.Boulder;
+  return feature === TILE.Water
+    || feature === TILE.Tree
+    || feature === TILE.Boulder
+    || feature === TILE.CampTent
+    || feature === TILE.CampFence
+    || feature === TILE.RuinPillar;
 }
 
 function unblockPathToReachable(input: ForestConnectivityInput, parent: Int32Array, start: number): void {
@@ -133,5 +138,5 @@ function unblockPathToReachable(input: ForestConnectivityInput, parent: Int32Arr
 function clearCellObstacle(buffers: FloorBuffers, index: number): void {
   const feature = buffers.features[index] ?? TILE.Floor;
   if (feature === TILE.Water) buffers.features[index] = TILE.Bridge;
-  else if (feature === TILE.Tree || feature === TILE.Boulder) buffers.features[index] = TILE.Floor;
+  else if (isClearableObstacle(feature)) buffers.features[index] = TILE.Floor;
 }

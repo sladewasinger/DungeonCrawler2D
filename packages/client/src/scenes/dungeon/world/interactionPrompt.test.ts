@@ -22,6 +22,14 @@ describe("resolveInteractionPrompt", () => {
     })).toEqual({ key: "E", label: "open [DEAD] Crawler 123's loot" });
   });
 
+  it("prompts world loot chests cleanly without [DEAD] prefix", () => {
+    const world = worldWithTileAt(5, 5, TILE.Floor);
+    expect(resolveInteractionPrompt({
+      world, x: 5.5, y: 5.5, items: [],
+      lootChest: { id: "wild", name: "Bandit Camp Chest", lootOwnerName: "Bandit Camp Chest" },
+    })).toEqual({ key: "E", label: "open Bandit Camp Chest" });
+  });
+
   it("returns null with nothing nearby", () => {
     const world = worldWithTileAt(99, 99, TILE.CraftingTable);
     expect(resolveInteractionPrompt({ world, x: 5, y: 5, items: [] })).toBeNull();

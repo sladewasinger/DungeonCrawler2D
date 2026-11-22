@@ -66,7 +66,11 @@ export interface InteractionPromptSource {
   readonly y: number;
   readonly items: readonly PromptTarget[];
   readonly reviveTarget?: { readonly id: string } | undefined;
-  readonly lootChest?: { readonly id: string; readonly lootOwnerName?: string | undefined } | undefined;
+  readonly lootChest?: {
+    readonly id: string;
+    readonly name?: string | undefined;
+    readonly lootOwnerName?: string | undefined;
+  } | undefined;
   readonly pet?: PetPromptTarget | undefined;
 }
 
@@ -108,9 +112,16 @@ function itemPrompt(items: readonly PromptTarget[], x: number, y: number): Inter
 }
 
 function lootChestPrompt(
-  lootChest: { readonly id: string; readonly lootOwnerName?: string | undefined } | undefined,
+  lootChest: {
+    readonly id: string;
+    readonly name?: string | undefined;
+    readonly lootOwnerName?: string | undefined;
+  } | undefined,
 ): InteractionPrompt | undefined {
   if (!lootChest) return undefined;
+  if (lootChest.name && !lootChest.name.startsWith("[DEAD]")) {
+    return { key: "E", label: `open ${lootChest.name}` };
+  }
   const label = lootChest.lootOwnerName ? `open [DEAD] ${lootChest.lootOwnerName}'s loot` : "open death loot";
   return { key: "E", label };
 }

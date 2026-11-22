@@ -41,6 +41,12 @@ export const TILE = {
   Boulder: 16,
   /** Solid interior footprint for custom building sprites (e.g. safe-room shack). */
   BuildingWall: 17,
+  /** Bandit camp canvas tent (solid obstacle). */
+  CampTent: 18,
+  /** Bandit camp wooden palisade fence (solid obstacle). */
+  CampFence: 19,
+  /** Ancient forest ruin stone pillar (solid obstacle). */
+  RuinPillar: 20,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
@@ -90,6 +96,9 @@ export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.Tree,
   TILE.Boulder,
   TILE.BuildingWall,
+  TILE.CampTent,
+  TILE.CampFence,
+  TILE.RuinPillar,
 ]);
 
 export const ZONE = {

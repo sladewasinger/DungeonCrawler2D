@@ -41,5 +41,5 @@ export function updateItemVisual(visual: ItemVisual, view: ItemEntityView, nowMs
     .setText(view.lootLockSeconds ? `First dibs: ${view.lootLockSeconds}s` : "Loot unlocked")
     .setPosition(ground.x, placement.projectedScreenY + 5)
     .setDepth(visual.body.depth + 1)
-    .setVisible(view.lootNearby ?? false);
+    .setVisible(!view.lootIsWorldChest && (view.lootNearby ?? false));
 }

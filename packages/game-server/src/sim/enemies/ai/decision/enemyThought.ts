@@ -23,10 +23,13 @@ export function thinkForEnemy(input: EnemyThoughtInput): EnemyDecision {
     ENEMY_SIMULATION_TUNING.perception.memorySearchObservationMinimumTiles,
   );
   const arrivalTolerance = enemyMemoryArrivalTolerance(sim, enemy);
+  const effectiveDef = target && enemy.def.tags.includes("pack-hunter")
+    ? { ...enemy.def, aggroRadius: Math.max(enemy.def.aggroRadius, 24) }
+    : enemy.def;
   const decision = enemyThink({
     brain: enemy.brain,
     enemy: enemy.entity,
-    def: enemy.def,
+    def: effectiveDef,
     players: target ? [target] : [],
     inSanctuary: (entity) => sim.effects.inSanctuary(entity),
     dt: TICK_DT,

@@ -2,6 +2,9 @@ import type { EntitySnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { threeEntityPresentation } from "./threeEntityPresentation.js";
 
+const LOOT_CHEST_DEF_ID = "player-loot-chest";
+const CAMP_CHEST = "Bandit Camp Chest";
+
 const snapshot = (
   kind: EntitySnapshot["kind"],
   defId?: string,
@@ -40,7 +43,7 @@ describe("Three world entity presentation", () => {
 
   it("renders death loot as a labelled, grounded chest", () => {
     expect(threeEntityPresentation({
-      ...snapshot("item", "player-loot-chest"),
+      ...snapshot("item", LOOT_CHEST_DEF_ID),
       lootOwnerName: "Crawler 123",
       lootKillerName: "Crawler 456",
       lootUnlockAtTick: 1_220,
@@ -51,6 +54,17 @@ describe("Three world entity presentation", () => {
       bob: false,
       spin: false,
       elevation: 0.24,
+    });
+  });
+
+  it("renders world chests cleanly without [DEAD] label", () => {
+    expect(threeEntityPresentation({
+      ...snapshot("item", LOOT_CHEST_DEF_ID),
+      name: CAMP_CHEST,
+      lootOwnerName: CAMP_CHEST,
+    })).toMatchObject({
+      kind: "lootChest",
+      label: CAMP_CHEST,
     });
   });
 

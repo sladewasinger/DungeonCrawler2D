@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { threadId } from "node:worker_threads";
 import { fingerprintForFloor } from "./finiteFloorFixtureIdentity.js";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_ROOT = join(tmpdir(), "dc2d-vitest-finite-floor");
 const VOID_TERRAIN = true;
 let validatedCacheHits = 0;

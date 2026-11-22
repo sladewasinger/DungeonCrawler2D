@@ -13,6 +13,9 @@ const PROP_BY_TILE: Readonly<Record<number, TerrainPropKind>> = {
   [TILE.Tree]: TERRAIN_PROPS.Tree,
   [TILE.Bush]: TERRAIN_PROPS.Bush,
   [TILE.Boulder]: TERRAIN_PROPS.Boulder,
+  [TILE.CampTent]: TERRAIN_PROPS.CampTent,
+  [TILE.CampFence]: TERRAIN_PROPS.CampFence,
+  [TILE.RuinPillar]: TERRAIN_PROPS.RuinPillar,
 };
 
 export function terrainFeatureForTile(tile: number): "stairs" | "door" | "brazier" | null {

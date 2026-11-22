@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { TERRAIN_PROPS, type TerrainPropKind } from "../geometry/terrainPlannerModel.js";
+import { ensureForestLandmarkTextures } from "../material/forestLandmarkTextures.js";
 import { ensureSafeHouseTexture } from "../material/safeHouseTexture.js";
 import { ensureSpawnHouseTexture } from "../material/spawnHouseTexture.js";
 
@@ -86,6 +87,7 @@ const SPRITES: readonly PixelSpriteSpec[] = [
 export function ensureForestPropTextures(scene: Phaser.Scene): void {
   ensureSafeHouseTexture(scene);
   ensureSpawnHouseTexture(scene);
+  ensureForestLandmarkTextures(scene);
   for (const spec of SPRITES) {
     if (scene.textures.exists(spec.key)) continue;
     buildCanvasTexture(scene, spec);

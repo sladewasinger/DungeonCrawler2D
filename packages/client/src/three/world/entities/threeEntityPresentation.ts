@@ -28,9 +28,13 @@ const itemColor = (defId = ""): string =>
 const lootChestPresentation = (
   snapshot: EntitySnapshot,
 ): ThreeEntityPresentation => {
+  const isWorldChest = Boolean(snapshot.name && !snapshot.name.startsWith("[DEAD]"));
   const killedBy = snapshot.lootKillerName
     ? `\nKilled by ${snapshot.lootKillerName}`
     : "";
+  const label = isWorldChest
+    ? snapshot.name!
+    : `[DEAD] ${snapshot.lootOwnerName ?? "Crawler"}'s loot${killedBy}`;
   return {
     kind: "lootChest",
     color: "#6f4529",
@@ -39,7 +43,7 @@ const lootChestPresentation = (
     elevation: 0.24,
     bob: false,
     spin: false,
-    label: `[DEAD] ${snapshot.lootOwnerName ?? "Crawler"}'s loot${killedBy}`,
+    label,
     unlockAtTick: snapshot.lootUnlockAtTick ?? 0,
   };
 };

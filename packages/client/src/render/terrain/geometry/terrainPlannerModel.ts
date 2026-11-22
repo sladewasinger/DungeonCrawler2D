@@ -48,6 +48,9 @@ export const TERRAIN_PROPS = {
   Tree: "tree",
   Bush: "bush",
   Boulder: "boulder",
+  CampTent: "camp-tent",
+  CampFence: "camp-fence",
+  RuinPillar: "ruin-pillar",
   SafeHouse: "safe-house",
   SpawnHouse: "spawn-house",
 } as const;

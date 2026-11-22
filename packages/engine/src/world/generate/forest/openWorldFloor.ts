@@ -19,6 +19,7 @@ import type {
 import { territoryProfile, type TerritoryId } from "../territories/territoryCatalog.js";
 import { captureFloorGenerationStage, type FiniteFloorGenerationTraceBuilder } from "../trace/finiteFloorGenerationTrace.js";
 import { ensureForestConnectivity } from "./forestConnectivity.js";
+import { placeForestLandmarks } from "./landmarks/forestLandmarks.js";
 import { placeForestProps } from "./forestProps.js";
 import { placeForestRivers } from "./forestRivers.js";
 import { placeOpenWorldGlades } from "./openWorldGlades.js";
@@ -54,11 +55,7 @@ export function buildOpenWorldAttempt(input: OpenWorldAttemptInput): FloorAttemp
   applyFeatureElevationRamps({ buffers, bounds, safeRooms, stairways, miniBossArenas, elevationStep: config.elevationStep, minimumElevation: config.minimumElevation, maximumElevation: config.maximumElevation });
   const rooms = placeOpenWorldGlades({ buffers, bounds, seed, spawn });
   captureStage({ trace: input.trace, stageId: "rooms-envelopes", bounds, buffers, rooms, featureStamps, territoryLayouts });
-  placeForestRivers({ buffers, bounds, seed, spawn, featureStamps, sealedArenas });
-  captureStage({ trace: input.trace, stageId: "maze-fill", bounds, buffers, rooms, featureStamps, territoryLayouts });
-  smoothOpenWorldHills({ buffers, bounds, seed, spawn, featureStamps, sealedArenas });
-  placeForestProps({ buffers, bounds, seed, spawn, featureStamps, sealedArenas });
-  captureStage({ trace: input.trace, stageId: "region-connectivity", bounds, buffers, rooms, featureStamps, territoryLayouts });
+  populateOpenWorldSurface({ trace: input.trace, bounds, buffers, rooms, featureStamps, territoryLayouts, seed, spawn, sealedArenas });
   ensureForestConnectivity({ buffers, bounds, spawn, sealedArenas });
   captureStage({ trace: input.trace, stageId: "loops-dead-ends-elevation", bounds, buffers, rooms, featureStamps, territoryLayouts });
   materializeBuffers({ buffers, bounds, voidTerrain: input.voidTerrain });
@@ -67,6 +64,29 @@ export function buildOpenWorldAttempt(input: OpenWorldAttemptInput): FloorAttemp
     downStairways: stairways.down, upStairway: stairways.up, safeRooms, miniBossArenas, bossArena,
     spawn, spawnExterior, territoryLayouts, topology: buildTopologySummary(config),
   };
+}
+
+interface SurfacePopulateInput {
+  readonly trace: FiniteFloorGenerationTraceBuilder | undefined;
+  readonly bounds: FloorBounds;
+  readonly buffers: FloorAttempt["buffers"];
+  readonly rooms: FloorAttempt["rooms"];
+  readonly featureStamps: readonly GeneratedFeatureStamp[];
+  readonly territoryLayouts: readonly GeneratedTerritoryLayout[];
+  readonly seed: number;
+  readonly spawn: FloorPoint;
+  readonly sealedArenas: readonly FloorRect[];
+}
+
+function populateOpenWorldSurface(input: SurfacePopulateInput): void {
+  const { trace, bounds, buffers, rooms, featureStamps, territoryLayouts, seed, spawn, sealedArenas } = input;
+  const layout = { buffers, bounds, seed, spawn, featureStamps, sealedArenas };
+  placeForestRivers(layout);
+  captureStage({ trace, stageId: "maze-fill", bounds, buffers, rooms, featureStamps, territoryLayouts });
+  smoothOpenWorldHills(layout);
+  placeForestLandmarks(layout);
+  placeForestProps(layout);
+  captureStage({ trace, stageId: "region-connectivity", bounds, buffers, rooms, featureStamps, territoryLayouts });
 }
 
 function captureStage(input: {
@@ -112,29 +132,18 @@ function buildTerritoryLayouts(roster: readonly TerritoryId[]): GeneratedTerrito
   return roster.map((id) => {
     const profile = territoryProfile(id);
     return {
-      territoryId: profile.id,
-      catalogId: profile.id,
-      label: profile.name,
-      visualIdentity: profile.visualIdentity,
-      ownershipTags: profile.ownershipTags,
-      layoutSignature: profile.layoutSignature,
-      openedCells: 1,
-      obstacleCells: 0,
-      branchPockets: 0,
-      elevatedCells: 0,
-      geometryMetrics: { structuralCells: 1 },
+      territoryId: profile.id, catalogId: profile.id, label: profile.name,
+      visualIdentity: profile.visualIdentity, ownershipTags: profile.ownershipTags,
+      layoutSignature: profile.layoutSignature, openedCells: 1, obstacleCells: 0,
+      branchPockets: 0, elevatedCells: 0, geometryMetrics: { structuralCells: 1 },
     };
   });
 }
 
 function buildTopologySummary(config: NormalizedFloorGenerationConfig): FloorTopologySummary {
   return {
-    regionCount: 1,
-    connectorCandidateCount: 0,
-    spanningConnectorCount: 0,
-    loopConnectorCount: 0,
-    prunedDeadEndCount: 0,
-    retainedDeadEndCount: 0,
+    regionCount: 1, connectorCandidateCount: 0, spanningConnectorCount: 0,
+    loopConnectorCount: 0, prunedDeadEndCount: 0, retainedDeadEndCount: 0,
     ordinaryCorridorWidthMinimum: config.ordinaryCorridorWidthMin,
     ordinaryCorridorWidthMaximum: config.ordinaryCorridorWidthMax,
     ordinaryCorridorWidths: [config.ordinaryCorridorWidthMin],

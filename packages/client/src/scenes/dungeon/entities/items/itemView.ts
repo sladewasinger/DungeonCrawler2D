@@ -13,6 +13,10 @@ export function itemView(source: ItemViewSource): ItemEntityView {
   view.y = e.y;
   view.z = e.z;
   view.frame = groundItemFrame(e.snap.defId);
+  if (isWorldLootChest(e)) {
+    applyWorldLootFields(view, e);
+    return view;
+  }
   if (!isPlayerLootChest(e)) {
     clearLootView(view);
     return view;
@@ -21,12 +25,21 @@ export function itemView(source: ItemViewSource): ItemEntityView {
   return view;
 }
 
+function applyWorldLootFields(view: ItemEntityView, e: InterpolatedEntity): void {
+  view.lootLabel = e.snap.name!;
+  view.lootIsWorldChest = true;
+  delete view.lootKillerName;
+  delete view.lootLockSeconds;
+  view.lootNearby = false;
+}
+
 function applyDeathLootFields(input: {
   readonly view: ItemEntityView;
   readonly e: InterpolatedEntity;
   readonly context: ItemViewSource["context"];
 }): void {
   const { view, e, context } = input;
+  delete view.lootIsWorldChest;
   view.lootLabel = `[DEAD] ${e.snap.lootOwnerName}'s loot`;
   if (e.snap.lootKillerName === undefined) delete view.lootKillerName;
   else view.lootKillerName = e.snap.lootKillerName;
@@ -38,11 +51,16 @@ function applyDeathLootFields(input: {
     Math.hypot(e.x - context.selfX, e.y - context.selfY) <= 3.5;
 }
 
+function isWorldLootChest(e: InterpolatedEntity): boolean {
+  return e.snap.defId === "player-loot-chest"
+    && Boolean(e.snap.name && !e.snap.name.startsWith("[DEAD]"));
+}
+
 function isPlayerLootChest(e: InterpolatedEntity): boolean {
   return e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName !== undefined;
 }
 
 function clearLootView(view: ItemEntityView): void {
-  delete view.lootLabel; delete view.lootKillerName;
+  delete view.lootLabel; delete view.lootIsWorldChest; delete view.lootKillerName;
   delete view.lootLockSeconds; delete view.lootNearby;
 }

@@ -10,6 +10,11 @@ import type { ViewOrientation } from "../../view/orientation/viewOrientation.js"
 import { worldAngleToView } from "../../view/transform/viewTransform.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { TERRAIN_PROPS, type TerrainPropKind } from "../geometry/terrainPlannerModel.js";
+import {
+  CAMP_FENCE_TEXTURE_KEY,
+  CAMP_TENT_TEXTURE_KEY,
+  RUIN_PILLAR_TEXTURE_KEY,
+} from "../material/forestLandmarkTextures.js";
 import { SAFE_HOUSE_TEXTURE_KEY } from "../material/safeHouseTexture.js";
 import { SPAWN_HOUSE_TEXTURE_KEY } from "../material/spawnHouseTexture.js";
 import type { TerrainBatches } from "../planning/terrainPlanner.js";
@@ -82,6 +87,9 @@ interface PropVisual {
 
 const FOREST_TEXTURE_BY_PROP: Readonly<Partial<Record<TerrainPropKind, string>>> = {
   ...FOREST_TEXTURE_KEYS,
+  [TERRAIN_PROPS.CampTent]: CAMP_TENT_TEXTURE_KEY,
+  [TERRAIN_PROPS.CampFence]: CAMP_FENCE_TEXTURE_KEY,
+  [TERRAIN_PROPS.RuinPillar]: RUIN_PILLAR_TEXTURE_KEY,
   [TERRAIN_PROPS.SafeHouse]: SAFE_HOUSE_TEXTURE_KEY,
   [TERRAIN_PROPS.SpawnHouse]: SPAWN_HOUSE_TEXTURE_KEY,
 };

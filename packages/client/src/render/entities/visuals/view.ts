@@ -93,6 +93,7 @@ export interface ItemEntityView {
   z: number;
   frame: string;
   lootLabel?: string;
+  lootIsWorldChest?: boolean;
   lootKillerName?: string;
   lootLockSeconds?: number;
   lootNearby?: boolean;
