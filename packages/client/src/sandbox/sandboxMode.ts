@@ -10,6 +10,8 @@ import { WorldPickupsRenderer } from "../render/combat/worldPickups.js";
 import { CastShadowLayer } from "../render/shaders/castShadows.js";
 import { FoliageWindEffect } from "../render/shaders/foliageWindFilter.js";
 import { LightingSystem } from "../render/shaders/lightingSystem.js";
+import { reportShaderDiagnostics } from "../render/shaders/shaderDiag.js";
+import { getTilemapGlProgram } from "../render/shaders/tilemapMesh.js";
 import { WaterSurfaceEffect } from "../render/shaders/waterFilter.js";
 import { createPropTextureSet } from "../render/textures/propTextures.js";
 import { getLoadedSpriteIds } from "../render/textures/spriteManifest.js";
@@ -239,6 +241,7 @@ function createSandboxState(host: HTMLElement, rig: SandboxRig): SandboxState {
 
 export async function bootAssetSandbox(host: HTMLElement): Promise<void> {
   const rig = await initPixiSandboxRig(host);
+  reportShaderDiagnostics(rig.app.renderer, [{ name: "tilemap", glProgram: getTilemapGlProgram() }]);
   const st = createSandboxState(host, rig);
   let prevMs = performance.now();
   const loop = (nowMs: number): void => {

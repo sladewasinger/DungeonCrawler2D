@@ -14,6 +14,7 @@ import { CastShadowLayer } from "../shaders/castShadows.js";
 import { FoliageWindEffect } from "../shaders/foliageWindFilter.js";
 import { LightingSystem } from "../shaders/lightingSystem.js";
 import { reportShaderDiagnostics } from "../shaders/shaderDiag.js";
+import { getTilemapGlProgram } from "../shaders/tilemapMesh.js";
 import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
@@ -96,6 +97,7 @@ export class WorldScene {
       { terrain: createTerrainTileAtlas(), props: createPropTextureSet() },
     );
     reportShaderDiagnostics(app.renderer, [
+      { name: "tilemap", glProgram: getTilemapGlProgram() },
       { name: "water", filter: this.waterEffect.filter },
       { name: "wind", filter: this.grassWind.filter },
       { name: "lighting", filter: this.lighting.filter },

@@ -9,7 +9,7 @@ import type { PropTextureSet } from "../render/textures/propTextures.js";
 import { createTerrainTileAtlas, type TerrainTileAtlas } from "../render/textures/terrainTextures.js";
 import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "../render/world/chunkProps.js";
 import { bakeElevatedChunkRows } from "../render/world/cliffStrips.js";
-import { bakeChunkTextures } from "../render/world/tileBuilder.js";
+import { buildChunkTilemapMeshes } from "../render/world/tileBuilder.js";
 
 export const SANDBOX_TOTAL_W = 96;
 export const SANDBOX_H = 32;
@@ -150,23 +150,21 @@ function mountDioramaChunk(opts: {
 }): MountedChunk {
   const { cx, cache, terrainAtlas, layers, propsAtlas } = opts;
   const chunk = cache.getChunk(cx, 0);
-  const baked = bakeChunkTextures(cache, terrainAtlas, { cx, cy: 0 });
-  const ground = new Sprite(baked.ground);
-  const water = new Sprite(baked.water);
-  ground.position.set(cx * CHUNK_SIZE * TILE_PX, 0);
-  water.position.copyFrom(ground.position);
-  layers.ground.addChild(ground); layers.water.addChild(water);
+  const baked = buildChunkTilemapMeshes(cache, terrainAtlas, { cx, cy: 0 });
+  baked.ground.mesh.position.set(cx * CHUNK_SIZE * TILE_PX, 0);
+  baked.water.mesh.position.copyFrom(baked.ground.mesh.position);
+  layers.ground.addChild(baked.ground.mesh); layers.water.addChild(baked.water.mesh);
   const target = {
     grassSprites: [] as { sprite: Sprite; wx: number; wy: number }[], ysortSprites: [] as Sprite[],
     canopySprites: [] as { sprite: Sprite; wx: number; wy: number }[], animatedProps: [] as { sprite: Sprite; kind: PropKind; phase: number }[],
     casters: [] as ShadowCaster[],
   };
   for (const strip of bakeElevatedChunkRows(cache, terrainAtlas, { cx, cy: 0 })) {
-    const sp = new Sprite(strip.texture); sp.position.set(strip.x, strip.y); sp.zIndex = strip.zIndex;
+    const sp = new Sprite(strip.texture); sp.scale.set(strip.scale); sp.position.set(strip.x, strip.y); sp.zIndex = strip.zIndex;
     layers.ysort.addChild(sp); target.ysortSprites.push(sp);
   }
   for (const prop of chunk.props) mountChunkProp({ prop, layers, propsAtlas, target });
-  return { key: `${cx},0`, cx, cy: 0, ground, water, ...target, lights: chunk.lights };
+  return { key: `${cx},0`, cx, cy: 0, ground: baked.ground, water: baked.water, ...target, lights: chunk.lights };
 }
 
 export function mountSandboxTerrainDiorama(opts: {

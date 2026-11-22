@@ -2,6 +2,7 @@
 import { PropKind, TILE_PX, type ChunkProp, type PlayerSnapshot, type PointLightSpec } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
 import { shadowCasterForProp, type ShadowCaster } from "../shaders/castShadows.js";
+import type { TilemapLayerHandle } from "../shaders/tilemapMesh.js";
 import { getPoiPropSpriteSpec, type PoiPropSpriteSpec } from "../textures/poiPropTextures.js";
 import { isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
@@ -18,8 +19,8 @@ export interface MountedChunk {
   readonly key: string;
   readonly cx: number;
   readonly cy: number;
-  readonly ground: Sprite;
-  readonly water: Sprite;
+  readonly ground: TilemapLayerHandle;
+  readonly water: TilemapLayerHandle;
   readonly grassSprites: readonly { sprite: Sprite; wx: number; wy: number }[];
   readonly ysortSprites: readonly Sprite[];
   readonly canopySprites: readonly { sprite: Sprite; wx: number; wy: number }[];

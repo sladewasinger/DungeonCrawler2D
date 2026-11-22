@@ -10,7 +10,7 @@ Localhost-only interactive `96×32` asset gallery, terrain biome diorama, and co
   4. **Held Gear Rack (`y = 17.5`)**: Weapons, shield, torch, pickaxe, and held `Overworld Map`.
   5. **Enemies & Dummies Lineup (`y = 22.4`)**: All 9 unified `0.50×` `18`-color PNG enemies (`wolf`, `bear`, `spider`, `boar`, `slime`, `goblin`, `orc`, `skeleton`, and `80×80` `golem`) plus the 3 procedural dummies.
 - **Right Half — Live Terrain Diorama (`x = 48..95`)**:
-  Curated biome slice rendered with real `bakeChunkTextures`, `bakeElevatedChunkRows`, `WaterSurfaceEffect`, `FoliageWindEffect`, `CastShadowLayer`, `LightingSystem`, and `resolveMovement` physics: winding river with shallow ford & sandy shoreline, wildflower meadow with campfire, oak/pine tree cluster with boulders & stumps, and a raised `elevation = 1` stone cliff plateau with working stairs (`[E]` ruin chest on top).
+  Curated biome slice rendered with real `buildChunkTilemapMeshes`, `bakeElevatedChunkRows`, `WaterSurfaceEffect`, `FoliageWindEffect`, `CastShadowLayer`, `LightingSystem`, and `resolveMovement` physics: winding river with shallow ford & sandy shoreline, wildflower meadow with campfire, oak/pine tree cluster with boulders & stumps, and a raised `elevation = 1` stone cliff plateau with working stairs (`[E]` ruin chest on top).
 
 ## Controls & Modes
 - Walk with `WASD` / Arrows (swim barrier, shallow wade, walk behind trees, climb stairs), attack (`LMB`), block (`RMB`), dodge (`Space`), select hotbar (`1–9`, `9` shows live minimap), open chests (`E`).

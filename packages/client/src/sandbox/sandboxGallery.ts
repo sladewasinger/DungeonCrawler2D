@@ -4,7 +4,7 @@ import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { getHeldWeaponVisual, getShieldTexture } from "../render/character/heldWeapons.js";
 import { getPoiPropSpriteSpec } from "../render/textures/poiPropTextures.js";
 import { createPropTextureSet, type PropTextureSet } from "../render/textures/propTextures.js";
-import { createTerrainTileAtlas } from "../render/textures/terrainTextures.js";
+import { TERRAIN_TEX_PX, createTerrainTileAtlas } from "../render/textures/terrainTextures.js";
 import { LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y } from "./sandboxAi.js";
 
 export const SANDBOX_W = 48;
@@ -65,12 +65,12 @@ function paintTerrainSwatches(ctx: CanvasRenderingContext2D, atlas: ReturnType<t
     const bank = atlas.variants.get(sw.kind)!;
     for (let dy = 0; dy < 2; dy++) {
       for (let dx = 0; dx < 3; dx++) {
-        ctx.drawImage(bank[(dx + dy) & 3]!, Math.round((x0 + dx) * TILE_PX), 2 * TILE_PX + dy * TILE_PX);
+        ctx.drawImage(bank[(dx + dy) & 3]!, Math.round((x0 + dx) * TERRAIN_TEX_PX), 2 * TERRAIN_TEX_PX + dy * TERRAIN_TEX_PX);
       }
     }
   });
-  ctx.drawImage(atlas.cliffFace, Math.round(39 * TILE_PX), 2 * TILE_PX);
-  ctx.drawImage(atlas.stairFace, Math.round(42 * TILE_PX), 2 * TILE_PX);
+  ctx.drawImage(atlas.cliffFace, Math.round(39 * TERRAIN_TEX_PX), 2 * TERRAIN_TEX_PX);
+  ctx.drawImage(atlas.stairFace, Math.round(42 * TERRAIN_TEX_PX), 2 * TERRAIN_TEX_PX);
 }
 
 function pickArenaTile(tx: number, ty: number, banks: {
@@ -84,8 +84,8 @@ function pickArenaTile(tx: number, ty: number, banks: {
 function paintArenaGroundCanvas(): HTMLCanvasElement {
   const atlas = createTerrainTileAtlas();
   const canvas = document.createElement("canvas");
-  canvas.width = SANDBOX_W * TILE_PX;
-  canvas.height = SANDBOX_H * TILE_PX;
+  canvas.width = SANDBOX_W * TERRAIN_TEX_PX;
+  canvas.height = SANDBOX_H * TERRAIN_TEX_PX;
   const ctx = canvas.getContext("2d")!;
   const banks = {
     grass: atlas.variants.get(GroundKind.Grass)!,
@@ -93,7 +93,7 @@ function paintArenaGroundCanvas(): HTMLCanvasElement {
     dirt: atlas.variants.get(GroundKind.DirtPath)!,
   };
   for (let ty = 0; ty < SANDBOX_H; ty++) {
-    for (let tx = 0; tx < SANDBOX_W; tx++) ctx.drawImage(pickArenaTile(tx, ty, banks), tx * TILE_PX, ty * TILE_PX);
+    for (let tx = 0; tx < SANDBOX_W; tx++) ctx.drawImage(pickArenaTile(tx, ty, banks), tx * TERRAIN_TEX_PX, ty * TERRAIN_TEX_PX);
   }
   paintTerrainSwatches(ctx, atlas);
   return canvas;
@@ -161,6 +161,17 @@ function mountGearAndEnemies(groundLayer: Container, ysortLayer: Container): voi
   });
 }
 
+function addGalleryLabels(groundLayer: Container): void {
+  SWATCH_LIST.forEach((sw, i) => addTinyLabel(groundLayer, { xTiles: 5.5 + i * 3.8, yTiles: 4.15, text: sw.label }));
+  addTinyLabel(groundLayer, { xTiles: 39.5, yTiles: 3.15, text: "Cliff" });
+  addTinyLabel(groundLayer, { xTiles: 42.5, yTiles: 3.15, text: "Stairs" });
+  addTinyLabel(groundLayer, { xTiles: 44.5, yTiles: 14.3, text: "Terrain Diorama ->" });
+  addTinyLabel(groundLayer, { xTiles: 58.5, yTiles: 3.4, text: "River & Sand" });
+  addTinyLabel(groundLayer, { xTiles: 71.5, yTiles: 2.5, text: "Forest Grove" });
+  addTinyLabel(groundLayer, { xTiles: 72.0, yTiles: 18.6, text: "Wildflower Meadow" });
+  addTinyLabel(groundLayer, { xTiles: 86.0, yTiles: 25.4, text: "Cliff & Stairs" });
+}
+
 export function buildSandboxGallery(layers: {
   readonly ground: Container;
   readonly ysort: Container;
@@ -169,20 +180,14 @@ export function buildSandboxGallery(layers: {
 }): SandboxGallery {
   const groundTex = Texture.from(paintArenaGroundCanvas());
   groundTex.source.scaleMode = "nearest";
-  layers.ground.addChild(new Sprite(groundTex));
-  SWATCH_LIST.forEach((sw, i) => addTinyLabel(layers.ground, { xTiles: 5.5 + i * 3.8, yTiles: 4.15, text: sw.label }));
-  addTinyLabel(layers.ground, { xTiles: 39.5, yTiles: 3.15, text: "Cliff" });
-  addTinyLabel(layers.ground, { xTiles: 42.5, yTiles: 3.15, text: "Stairs" });
-
+  const groundSp = new Sprite(groundTex);
+  groundSp.scale.set(TILE_PX / TERRAIN_TEX_PX);
+  layers.ground.addChild(groundSp);
   const props = layers.propsAtlas ?? createPropTextureSet();
   const { campfire, torch } = mountNatureShowcase(layers, props);
   mountPoiShowcase(layers.ysort, layers.ground, props);
   mountGearAndEnemies(layers.ground, layers.ysort);
-  addTinyLabel(layers.ground, { xTiles: 44.5, yTiles: 14.3, text: "Terrain Diorama ->" });
-  addTinyLabel(layers.ground, { xTiles: 58.5, yTiles: 3.4, text: "River & Sand" });
-  addTinyLabel(layers.ground, { xTiles: 71.5, yTiles: 2.5, text: "Forest Grove" });
-  addTinyLabel(layers.ground, { xTiles: 72.0, yTiles: 18.6, text: "Wildflower Meadow" });
-  addTinyLabel(layers.ground, { xTiles: 86.0, yTiles: 25.4, text: "Cliff & Stairs" });
+  addGalleryLabels(layers.ground);
 
   const lights: PointLightSpec[] = [
     { id: "sbx-fire", kind: "campfire", x: 33.2, y: 8.0, color: 0xffa040, radiusPx: 145, intensity: 1.25 },
