@@ -18,6 +18,15 @@ export const SKIN_PALETTES: Readonly<Record<string, ToneTriad>> = {
   deep: { base: "#6f4531", shade: "#4d2d1f", highlight: "#8b5c44" },
 };
 
+export const EYE_PALETTES: Readonly<Record<string, ToneTriad>> = {
+  brown: { base: "#5c361c", shade: "#26160c", highlight: "#8c5730" },
+  blue: { base: "#2563eb", shade: "#172554", highlight: "#60a5fa" },
+  green: { base: "#15803d", shade: "#052e16", highlight: "#4ade80" },
+  hazel: { base: "#856a25", shade: "#2c2208", highlight: "#ca9e3d" },
+  amber: { base: "#d97706", shade: "#451a03", highlight: "#fbbf24" },
+  violet: { base: "#7c3aed", shade: "#2e1065", highlight: "#c084fc" },
+};
+
 export const HAIR_PALETTES: Readonly<Record<string, ToneTriad>> = {
   brown: { base: "#6d442b", shade: "#4b2d1b", highlight: "#8c5c3d" },
   black: { base: "#272d3a", shade: "#161a24", highlight: "#3f485c" },

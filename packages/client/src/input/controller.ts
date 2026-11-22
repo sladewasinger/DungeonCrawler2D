@@ -27,6 +27,7 @@ export class InputController {
   private touchVector = { x: 0, y: 0 };
   private mouseClient: { x: number; y: number } | null = null;
   private mouseMovedAtMs = 0;
+  private jumpQueued = false;
   private readonly stickEl: HTMLDivElement;
   private readonly knobEl: HTMLDivElement;
 
@@ -34,9 +35,16 @@ export class InputController {
     const { ring, knob } = createJoystickDom();
     this.stickEl = ring;
     this.knobEl = knob;
-    host.appendChild(ring);
+    const jumpBtn = createJumpButton(() => { this.jumpQueued = true; });
+    host.append(ring, jumpBtn);
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
+  }
+
+  consumeJump(): boolean {
+    const fired = this.jumpQueued;
+    this.jumpQueued = false;
+    return fired;
   }
 
   movement(): { readonly x: number; readonly y: number } {
@@ -72,10 +80,14 @@ export class InputController {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
     if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return; }
     if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
-    if (e.code === "KeyC") callbacks.onToggleCrafting();
-    else if (e.code === "KeyH") callbacks.onToggleCharacter();
-    else if (e.code === "KeyF") callbacks.onToggleTorch();
-    else if (e.code === "Escape") callbacks.onClosePanels();
+    if (e.code === "Space") { e.preventDefault(); this.jumpQueued = true; return; }
+    const actions: Readonly<Record<string, () => void>> = {
+      KeyC: callbacks.onToggleCrafting,
+      KeyH: callbacks.onToggleCharacter,
+      KeyF: callbacks.onToggleTorch,
+      Escape: callbacks.onClosePanels,
+    };
+    actions[e.code]?.();
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
@@ -96,7 +108,7 @@ export class InputController {
   private startTouch(e: PointerEvent): void {
     if (e.pointerType !== "touch" || this.pointerId !== null) return;
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".ow-hud, .ow-hotbar, .ow-modal")) return;
+    if (target?.closest(".ow-hud, .ow-hotbar, .ow-modal, .ow-zoom-controls, .ow-jump-btn")) return;
     this.pointerId = e.pointerId;
     this.origin = { x: e.clientX, y: e.clientY };
     this.touchVector = { x: 0, y: 0 };
@@ -135,4 +147,17 @@ function createJoystickDom(): { ring: HTMLDivElement; knob: HTMLDivElement } {
   knob.className = "ow-joystick__knob";
   ring.appendChild(knob);
   return { ring, knob };
+}
+
+function createJumpButton(onPress: () => void): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "ow-jump-btn";
+  btn.textContent = "JUMP";
+  btn.setAttribute("aria-label", "Jump");
+  btn.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    onPress();
+  });
+  return btn;
 }

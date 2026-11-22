@@ -20,9 +20,26 @@ function gitShortSha(): string {
 }
 
 export default defineConfig({
+  plugins: [
+    {
+      name: "watch-workspace-packages",
+      configureServer(server) {
+        server.watcher.add([
+          resolve(repositoryRoot, "packages/engine/src"),
+          resolve(repositoryRoot, "packages/content/src"),
+        ]);
+      },
+    },
+  ],
+  optimizeDeps: {
+    exclude: ["@dc2d/engine", "@dc2d/content"],
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,
+    fs: {
+      allow: [repositoryRoot],
+    },
     proxy: {
       "/ws": {
         target: "http://127.0.0.1:4000",

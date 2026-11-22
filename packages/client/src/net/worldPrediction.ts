@@ -1,5 +1,5 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
-import { DEFAULT_APPEARANCE, WorldChunkCache, resolveMovement, type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot } from "@dc2d/engine";
+import { DEFAULT_APPEARANCE, WorldChunkCache, resolveMovement, stepJumpArc, type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot } from "@dc2d/engine";
 
 const PLAYER_SPEED = 5.4;
 const PLAYER_RADIUS = 0.28;
@@ -11,9 +11,15 @@ export function createDefaultPlayer(
 ): PlayerSnapshot {
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, aimX: 0, aimY: 1, moving: false, torchLit: true, inWater: false,
+    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, torchLit: true, inWater: false,
     lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...EMPTY_ARMOR },
   };
+}
+
+function keepJump(current: PlayerSnapshot, serverMe: PlayerSnapshot): { readonly jumpZ: number; readonly jumpVz: number } {
+  const localAir = (current.jumpZ ?? 0) > 0 || (current.jumpVz ?? 0) > 0;
+  const src = localAir ? current : serverMe;
+  return { jumpZ: src.jumpZ ?? 0, jumpVz: src.jumpVz ?? 0 };
 }
 
 function keepAim(current: PlayerSnapshot): { readonly aimX?: number; readonly aimY?: number } {
@@ -42,6 +48,7 @@ function preservedIdentity(
     name: opts.preserveAppearance ? current.name : serverMe.name,
     facingX: current.facingX,
     facingY: current.facingY,
+    ...keepJump(current, serverMe),
     ...keepAim(current),
     ...(appearance ? { appearance } : {}),
     ...(armor ? { armor } : {}),
@@ -71,10 +78,16 @@ export function predictLocalPlayerMove(input: {
   readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
   readonly nx: number; readonly ny: number; readonly dt: number;
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  readonly jump?: boolean | undefined;
 }): PlayerSnapshot {
+  const arc = stepJumpArc(
+    { jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 },
+    Boolean(input.jump),
+    input.dt,
+  );
   const moving = Math.hypot(input.nx, input.ny) > 0.05;
   const aimVec = resolveAim(input);
-  if (!moving) return { ...input.player, ...aimVec, moving: false };
+  if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false };
   const step = PLAYER_SPEED * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: input.player.x, y: input.player.y,
@@ -82,7 +95,7 @@ export function predictLocalPlayerMove(input: {
   });
   return {
     ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    ...aimVec, moving: true, inWater: moved.inWater,
+    ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: true, inWater: moved.inWater,
   };
 }
 

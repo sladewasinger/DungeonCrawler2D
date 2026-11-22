@@ -1,7 +1,7 @@
 /** Custom Hero Creator modal: name input, live layered preview, body, skin, and hair pickers. */
-import { HAIR_PALETTES, SKIN_PALETTES } from "@dc2d/content";
+import { EYE_PALETTES, HAIR_PALETTES, SKIN_PALETTES } from "@dc2d/content";
 import {
-  BODY_STYLES, HAIR_COLORS, HAIR_STYLES, SKIN_TONES,
+  BODY_STYLES, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, SKIN_TONES,
   type ArmorEquipment, type CharacterAppearance,
 } from "@dc2d/engine";
 import { characterCacheKey, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
@@ -22,8 +22,8 @@ export class CharacterPanel {
   readonly el: HTMLElement;
   private readonly previewEl: HTMLImageElement;
   private readonly nameInput: HTMLInputElement;
-  private readonly buttons: Record<"body" | "skin" | "hairStyle" | "hairColor", CharBtnEntry[]> = {
-    body: [], skin: [], hairStyle: [], hairColor: [],
+  private readonly buttons: Record<"body" | "skin" | "eyeColor" | "hairStyle" | "hairColor", CharBtnEntry[]> = {
+    body: [], skin: [], eyeColor: [], hairStyle: [], hairColor: [],
   };
   private currentName = "Adventurer";
   private currentApp: CharacterAppearance | null = null;
@@ -59,6 +59,7 @@ export class CharacterPanel {
     form.append(
       this.makeOptionRow({ title: "Body", field: "body", keys: BODY_STYLES }),
       this.makeSwatchRow({ title: "Skin", field: "skin", keys: SKIN_TONES, palettes: SKIN_PALETTES }),
+      this.makeSwatchRow({ title: "Eyes", field: "eyeColor", keys: EYE_COLORS, palettes: EYE_PALETTES }),
       this.makeOptionRow({ title: "Hair", field: "hairStyle", keys: HAIR_STYLES }),
       this.makeSwatchRow({ title: "Color", field: "hairColor", keys: HAIR_COLORS, palettes: HAIR_PALETTES }),
     );
@@ -82,7 +83,7 @@ export class CharacterPanel {
   }
 
   private makeSwatchRow(opts: {
-    readonly title: string; readonly field: "skin" | "hairColor";
+    readonly title: string; readonly field: "skin" | "eyeColor" | "hairColor";
     readonly keys: readonly string[]; readonly palettes: Readonly<Record<string, { readonly base: string }>>;
   }): HTMLDivElement {
     const row = domNode(TAG_DIV, "ow-hero-row");
@@ -121,11 +122,13 @@ export class CharacterPanel {
     this.lastFp = fp;
     if (document.activeElement !== this.nameInput) this.nameInput.value = opts.name;
     this.previewEl.src = getCharacterSpriteSet(opts.appearance, opts.armor).previewUrl;
-    for (const e of this.buttons.body) e.btn.dataset.active = String(e.key === opts.appearance.body);
-    for (const e of this.buttons.skin) e.btn.dataset.active = String(e.key === opts.appearance.skin);
-    for (const e of this.buttons.hairStyle) e.btn.dataset.active = String(e.key === opts.appearance.hairStyle);
-    for (const e of this.buttons.hairColor) e.btn.dataset.active = String(e.key === opts.appearance.hairColor);
+    const keys = ["body", "skin", "eyeColor", "hairStyle", "hairColor"] as const;
+    for (const field of keys) syncButtonGroup(this.buttons[field], opts.appearance[field]);
   }
+}
+
+function syncButtonGroup(entries: readonly CharBtnEntry[], activeKey: string): void {
+  for (const e of entries) e.btn.dataset.active = String(e.key === activeKey);
 }
 
 function buildNameInput(onChange: (name: string) => void): HTMLInputElement {

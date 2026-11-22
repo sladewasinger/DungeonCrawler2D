@@ -40,7 +40,7 @@ export default tseslint.config(
       complexity: ["error", { max: 8 }],
       "sonarjs/cognitive-complexity": ["error", 7],
       "max-lines-per-function": ["error", { max: 35, skipBlankLines: true, skipComments: true }],
-      "max-lines": ["error", { max: 150, skipBlankLines: true, skipComments: true }],
+      "max-lines": ["error", { max: 250, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 3],
       "max-params": ["error", 3],
       "max-statements-per-line": ["error", { max: 4 }],

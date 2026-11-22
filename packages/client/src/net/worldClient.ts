@@ -9,6 +9,7 @@ import {
   applyCraftRecipe, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor,
   createStarterInventorySnapshot, heldItemForInventory, isNearCampfire, reconcileInventorySnapshot,
 } from "./clientInventory.js";
+import { RemotePlayerSmoother } from "./remoteInterp.js";
 import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 const INITIAL_DAY_PHASE = 0.62;
@@ -41,6 +42,7 @@ export class WorldClient {
   private appearanceGate: PendingGate = IDLE_GATE;
   private localPlayer: PlayerSnapshot;
   private remotePlayers: PlayerSnapshot[] = [];
+  private readonly remoteSmoother = new RemotePlayerSmoother();
   private inventory: InventorySnapshot = createStarterInventorySnapshot();
   private connectTimer: number | null = null;
 
@@ -95,6 +97,7 @@ export class WorldClient {
     this.dayGate = dayRes.nextGate;
     if (dayRes.accept) { this.dayPhase = msg.dayPhase; this.dayPaused = msg.dayPaused; }
     this.remotePlayers = msg.players;
+    this.remoteSmoother.setTargets(msg.players, this.localPlayerId);
     if (msg.selfInventory) this.reconcileServerInventory(msg.selfInventory, serverAck, nowMs);
     const torchRes = resolvePendingGate(this.torchGate, { serverAck, nowMs });
     const appRes = resolvePendingGate(this.appearanceGate, { serverAck, nowMs });
@@ -115,13 +118,19 @@ export class WorldClient {
   stepInput(input: {
     readonly move: { readonly x: number; readonly y: number }; readonly dt: number;
     readonly aim?: { readonly x: number; readonly y: number } | undefined;
+    readonly jump?: boolean | undefined;
   }): void {
     const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
     const normAim = normalizeDirection(input.aim, false);
+    this.remoteSmoother.step(input.dt);
     if (this.mode === "server") {
-      this.send({ t: "input", seq: ++this.seq, moveX: moveDir.x, moveY: moveDir.y, ...(normAim ? { aimX: normAim.x, aimY: normAim.y } : {}) });
+      this.send({
+        t: "input", seq: ++this.seq, moveX: moveDir.x, moveY: moveDir.y,
+        ...(normAim ? { aimX: normAim.x, aimY: normAim.y } : {}),
+        ...(input.jump ? { jump: true } : {}),
+      });
     }
-    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: this.localPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim });
+    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: this.localPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump });
     if (this.mode === "server") return;
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + input.dt / DAY_DURATION_SECONDS);
     this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
@@ -152,7 +161,9 @@ export class WorldClient {
 
   snapshot(): WorldViewState {
     const localWithGear: PlayerSnapshot = { ...this.localPlayer, heldItem: heldItemForInventory(this.inventory), armor: this.inventory.armor };
-    const players = this.mode === "server" ? this.remotePlayers.map((p) => (p.id === this.localPlayerId ? localWithGear : p)) : [localWithGear];
+    const players = this.mode === "server"
+      ? this.remotePlayers.map((p) => (p.id === this.localPlayerId ? localWithGear : this.remoteSmoother.resolve(p)))
+      : [localWithGear];
     return {
       mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId,
       inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE,
