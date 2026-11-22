@@ -157,7 +157,7 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
     });
     return;
   }
-  const big = ft.waterSplashGain * ft.waterLandSplashMult;
+  const big = ft.waterSplashGain * AUDIO_TUNING.landing.waterSplashMult;
   playTone({ ctx, dst, wave: "sine", f0: 115, f1: 45, duration: 0.15, gain: 0.18 });
   playSweptNoise({
     ctx, dst, duration: 0.26, f0: 220, f1: ft.waterSplashFreqHz * 1.1,
@@ -173,16 +173,16 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
 }
 
 function synthLandCrunch(ctx: AudioContext, dst: AudioNode): void {
-  const ft = AUDIO_TUNING.footsteps;
-  playSweptNoise({ ctx, dst, duration: 0.24, f0: 280, f1: 75, filterType: "lowpass", gain: ft.landThudGain * 1.35, q: 0.55, attackSec: 0.012 });
-  playSweptNoise({ ctx, dst, delay: 0.012, duration: 0.23, f0: 680, f1: 210, filterType: "lowpass", gain: ft.landCrunchGain * 1.15, q: 0.65, attackSec: 0.028 });
+  const ld = AUDIO_TUNING.landing;
+  playSweptNoise({ ctx, dst, duration: ld.thudDurationSec, f0: ld.thudStartHz, f1: ld.thudEndHz, filterType: "lowpass", gain: ld.thudGain * 1.35, q: ld.thudQ, attackSec: 0.012 });
+  playSweptNoise({ ctx, dst, delay: ld.dirtDelaySec, duration: ld.dirtDurationSec, f0: ld.dirtStartHz, f1: ld.dirtEndHz, filterType: "lowpass", gain: ld.dirtGain * 1.15, q: ld.dirtQ, attackSec: 0.028 });
   const clods = [
     { delay: 0.045, duration: 0.085, freq: 620 + Math.random() * 140, q: 0.75, mult: 0.85 },
     { delay: 0.11, duration: 0.095, freq: 470 + Math.random() * 120, q: 0.8, mult: 0.6 },
     { delay: 0.18, duration: 0.09, freq: 350 + Math.random() * 100, q: 0.8, mult: 0.38 },
   ];
   for (const c of clods) {
-    playNoiseBurst({ ctx, dst, delay: c.delay, duration: c.duration, freq: c.freq, filterType: "bandpass", gain: ft.landCrunchGain * c.mult, q: c.q });
+    playNoiseBurst({ ctx, dst, delay: c.delay * ld.clodSpreadScale, duration: c.duration, freq: c.freq * ld.clodFreqScale, filterType: "bandpass", gain: ld.dirtGain * ld.clodGainScale * c.mult, q: c.q });
   }
 }
 
