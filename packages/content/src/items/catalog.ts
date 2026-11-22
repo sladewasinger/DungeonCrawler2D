@@ -1,7 +1,8 @@
 /** Authoritative item definitions with explicit stack-limit and armor stats. */
 
 export type ItemCategory = "weapon" | "tool" | "armor" | "consumable" | "material";
-export type ArmorSlot = "head" | "chest" | "legs" | "feet";
+export type ArmorSlot = "head" | "chest" | "legs" | "feet" | "offhand";
+export type GoreStyle = "splatter" | "thin-streak" | "drip" | "chunk-spray" | "explode-away";
 
 export interface ItemDef {
   readonly id: string;
@@ -10,6 +11,13 @@ export interface ItemDef {
   readonly maxStack: number;
   readonly armorSlot?: ArmorSlot;
   readonly defense?: number;
+  readonly blockMitigation?: number;
+  readonly damage?: number;
+  readonly staminaCost?: number;
+  readonly range?: number;
+  readonly arcRad?: number;
+  readonly healHp?: number;
+  readonly goreStyle?: GoreStyle;
 }
 
 export interface StarterLoadoutEntry {
@@ -25,17 +33,18 @@ const CAT_CONSUMABLE: ItemCategory = "consumable";
 const CAT_MATERIAL: ItemCategory = "material";
 
 export const ITEM_CATALOG: readonly ItemDef[] = [
-  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1 },
-  { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1 },
-  { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1 },
-  { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1 },
+  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "splatter" },
+  { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, damage: 22, staminaCost: 14, range: 11, goreStyle: "drip" },
+  { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, goreStyle: "chunk-spray" },
+  { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: "chunk-spray" },
+  { id: "wooden-shield", name: "Wooden Shield", category: CAT_ARMOR, maxStack: 1, armorSlot: "offhand", defense: 2, blockMitigation: 0.75 },
   { id: "leather-hood", name: "Leather Hood", category: CAT_ARMOR, maxStack: 1, armorSlot: "head", defense: 2 },
   { id: "leather-tunic", name: "Leather Tunic", category: CAT_ARMOR, maxStack: 1, armorSlot: "chest", defense: 4 },
   { id: "leather-leggings", name: "Leather Leggings", category: CAT_ARMOR, maxStack: 1, armorSlot: "legs", defense: 3 },
   { id: "leather-boots", name: "Leather Boots", category: CAT_ARMOR, maxStack: 1, armorSlot: "feet", defense: 2 },
-  { id: "torch", name: "Torch", category: CAT_CONSUMABLE, maxStack: 32 },
-  { id: "bandage", name: "Bandage", category: CAT_CONSUMABLE, maxStack: 16 },
-  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: 16 },
+  { id: "torch", name: "Torch", category: CAT_CONSUMABLE, maxStack: 32, damage: 10, staminaCost: 10, range: 1.65, arcRad: 1.5, goreStyle: "splatter" },
+  { id: "bandage", name: "Bandage", category: CAT_CONSUMABLE, maxStack: 16, healHp: 25 },
+  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: 16, healHp: 40 },
   { id: "raw-meat", name: "Raw Meat", category: CAT_MATERIAL, maxStack: 16 },
   { id: "arrow", name: "Arrow", category: CAT_MATERIAL, maxStack: 64 },
   { id: "wood", name: "Wood", category: CAT_MATERIAL, maxStack: 64 },
@@ -59,6 +68,7 @@ export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [
   { slot: 15, itemId: "herb", count: 4 },
   { slot: 16, itemId: "leather-boots", count: 1 },
   { slot: 17, itemId: "leather-leggings", count: 1 },
+  { slot: 18, itemId: "wooden-shield", count: 1 },
 ];
 
 const ITEM_MAP = new Map<string, ItemDef>(ITEM_CATALOG.map((item) => [item.id, item]));

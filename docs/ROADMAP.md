@@ -73,11 +73,12 @@ flowchart LR
 - **Base Character Creator**: selectable body/gender silhouette, skin tone, hair color, and expandable hair styles saved per player and synced over WebSocket.
 - **Visible Multiplayer Gear Layers**: real-time layered equipment rendering for both local and remote players — helmets/hoods, chestplates/tunics, leggings/pants, boots, plus extensible layers for gloves, capes, and held weapons/tools/shields.
 
-### Phase 4 — Tactile Action Combat, Wildlife & Overworld POIs *(Next)*
-- **Melee Combat**: Directional 3-hit weapon combos, arc VFX, brief hitstop, knockback, and stamina-cost dodge-roll with brief invulnerability frames.
-- **Shield & Bow**: Directional shield block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, and elemental arrow hooks (zero melee cone or lob-arc).
-- **Overworld Wildlife & AI**: Coordinated Wolf Packs (pack-hunter target sharing), solitary Grizzly Bears, Forest Spiders (web/poison lunge), and charging Wild Boars with outlined pixel-art animations.
-- **Deterministic Overworld POIs**: Stamped `7×7` Bandit Camps (wooden palisade fences, tents, campfire, loot chest, goblin/orc guards) and `7×7` Ancient Forest Ruins (mossy pillars, chests, undead/construct guards) with clean chest prompts & no `[DEAD]` labels.
+### Phase 4 — Hybrid Web Audio, Tactile Action Combat, Wildlife & Overworld POIs *(4A Shipped in v0.11.1; 4B & 4C Next)*
+- **Hybrid Web Audio Engine**: Zero-latency mobile audio unlock, drop-in sample overrides with full Web Audio synthesis fallback, Dawn/Day birdsong ↔ Dusk/Night crickets ambient beds, reactive combat-tension swell, terrain-matched footsteps, spatial river/campfire audio, pitch-varied combat/gore/UI SFX, and toggleable Music/SFX volume sliders.
+- **Melee Combat & Composable Gore/Blood/Goo**: Directional 3-hit weapon combos, slash arc VFX, brief hitstop, knockback, stamina-cost dodge-roll with brief i-frames, and an orthogonal `GoreStyle` (`splatter`, `thin-streak`, `drip`, `chunk-spray`, `explode-away`) × `GoreSubstance` (`blood`, `slime`, `ichor`, `straw`, `bone`) hit/drip/kill-burst system.
+- **Shield & Bow**: Dedicated 5th **Shield / Off-Hand** slot (`wooden-shield` auto-clipping the Lantern to the hip), directional block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, bleed/goo drip trails, and elemental arrow hooks.
+- **Overworld Wildlife & Cognitive/Ecological AI *(4B)***: Elevation-aware LOS & vision cones, corner-peeking last-known-position investigation, scent/sound trail tracking, dead-body non-aggression & predator scavenging/feeding, coordinated Wolf Pack flank-ring circling, Grizzly Bear hunger/territory/food utility, Forest Spider shadow-ambush, Wild Boar momentum charge, and splattering Forest Slimes.
+- **Deterministic Overworld POIs *(4C)***: Stamped `7×7` Bandit Camps (wooden palisade fences, tents, campfire, loot chest, goblin/orc guards) and `7×7` Ancient Forest Ruins (mossy pillars, chests, undead/construct guards) with clean chest prompts bursting into magnetic ground loot & zero `[DEAD]` labels.
 
 ### Phase 5 — Gathering, Light Survival, Gear Tiers & Composable AI Effects
 - Harvestable trees (wood + stumps with regrowth timers), boulders/ore veins (stone, flint, copper, iron), and herbs/berries with hit shake & chip particles.
@@ -90,6 +91,5 @@ flowchart LR
 - Server-synced **Dynamic Weather**: Clear, Overcast, Light Rain, Thunderstorm (angled GLSL rain streaks, animated puddle splash ripples, lightning flashes casting temporary crisp shadows, wet specular sheen on ground/props).
 - **Enterable Underground Dungeons**: Cave arches and sunken staircases transitioning players into dark, multi-floor procedural dungeons illuminated strictly by carried/placed torches, wall sconces, lava/crystal glow, traps, mini-boss arenas, and floor bosses (The Warden).
 
-### Phase 7 — Hybrid Web Audio, Co-op Polish & Progression
-- **Hybrid Web Audio Engine**: Zero-latency mobile audio unlock, cross-fading biome & Dawn/Day/Night ambient beds, terrain-matched footsteps, spatial river/campfire audio, pitch-varied melee/bow/harvest/UI SFX, and toggleable music/SFX volume sliders.
+### Phase 7 — Co-op Polish, Progression & QA Benchmarks
 - **Multiplayer & QoL**: Party invites, revive hold-interaction, compact minimap & POI compass, XP/perk milestones, and full desktop/mobile Playwright visual regression & frame-time benchmarks across Quality Presets (`High / Balanced / Performance`).

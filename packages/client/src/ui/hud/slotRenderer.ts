@@ -8,6 +8,7 @@ const ARMOR_LABELS: Readonly<Record<ArmorSlotKey, string>> = {
   chest: "Chest",
   legs: "Legs",
   feet: "Feet",
+  offhand: "Shield",
 };
 
 export interface HudActions {
@@ -17,6 +18,7 @@ export interface HudActions {
   readonly onUnequipArmor: (req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }) => void;
   readonly onCraft: (recipeId: string) => void;
   readonly onSetCharacter: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
+  readonly onToggleTorch: () => void;
 }
 
 export function domNode<K extends keyof HTMLElementTagNameMap>(

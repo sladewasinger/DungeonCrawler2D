@@ -1,6 +1,9 @@
 /** WebSocket multiplayer server and health endpoint. */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { ClientMessageSchema, PROTOCOL_VERSION, type ClientMessage, type PlayerSnapshot, type ServerMessage } from "@dc2d/engine";
+import {
+  ClientMessageSchema, PROTOCOL_VERSION,
+  type ClientMessage, type PlayerSnapshot, type ServerMessage, type WorldEvent,
+} from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
 
@@ -27,16 +30,31 @@ function sendJson(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
 }
 
-function buildClientSnapshot(sim: WorldSim, playerId: string, players: PlayerSnapshot[]): ServerMessage {
+interface TickBroadcastData {
+  readonly players: PlayerSnapshot[];
+  readonly projectiles: ReturnType<WorldSim["combatSnapshots"]>["projectiles"];
+  readonly entities: ReturnType<WorldSim["combatSnapshots"]>["entities"];
+  readonly events: WorldEvent[];
+}
+
+function buildClientSnapshot(input: {
+  readonly sim: WorldSim; readonly playerId: string; readonly data: TickBroadcastData;
+}): ServerMessage {
   return {
-    t: "snapshot", tick: sim.tick, dayPhase: sim.dayPhase, dayPaused: sim.dayPaused,
-    actionAckSeq: sim.actionAckSeq(playerId), players, selfInventory: sim.inventorySnapshot(playerId),
+    t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
+    actionAckSeq: input.sim.actionAckSeq(input.playerId), players: input.data.players,
+    selfInventory: input.sim.inventorySnapshot(input.playerId),
+    projectiles: input.data.projectiles, entities: input.data.entities, events: input.data.events,
   };
 }
 
-function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, string>; readonly sim: WorldSim }): void {
-  const players: PlayerSnapshot[] = ctx.sim.snapshots();
-  for (const [ws, playerId] of ctx.clients) sendJson(ws, buildClientSnapshot(ctx.sim, playerId, players));
+function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, string>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
+  const { projectiles, entities } = ctx.sim.combatSnapshots();
+  const data: TickBroadcastData = {
+    players: ctx.sim.snapshots(), projectiles, entities,
+    events: ctx.includeEvents === false ? [] : ctx.sim.drainCombatEvents(),
+  };
+  for (const [ws, playerId] of ctx.clients) sendJson(ws, buildClientSnapshot({ sim: ctx.sim, playerId, data }));
 }
 
 function dispatchMessage(ctx: {
@@ -57,8 +75,11 @@ function dispatchMessage(ctx: {
     craft: () => msg.t === "craft" && sim.craftRecipe(playerId, msg.recipeId),
   };
   handlers[msg.t]();
-  if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim });
-  else if (msg.t !== "input") sendJson(ws, buildClientSnapshot(sim, playerId, sim.snapshots()));
+  if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });
+  else if (msg.t !== "input") {
+    const { projectiles, entities } = sim.combatSnapshots();
+    sendJson(ws, buildClientSnapshot({ sim, playerId, data: { players: sim.snapshots(), projectiles, entities, events: [] } }));
+  }
 }
 
 function handleSocketMessage(ctx: {

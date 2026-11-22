@@ -4,7 +4,7 @@ export const HOTBAR_SLOT_COUNT = 9;
 export const BACKPACK_SLOT_COUNT = 27;
 export const TOTAL_INVENTORY_SLOTS = HOTBAR_SLOT_COUNT + BACKPACK_SLOT_COUNT;
 
-export type ArmorSlotKey = "head" | "chest" | "legs" | "feet";
+export type ArmorSlotKey = "head" | "chest" | "legs" | "feet" | "offhand";
 
 export interface SlotItem {
   readonly itemId: string;
@@ -18,6 +18,7 @@ export interface ArmorEquipment {
   readonly chest: string | null;
   readonly legs: string | null;
   readonly feet: string | null;
+  readonly offhand: string | null;
 }
 
 export interface PlayerInventoryState {
@@ -30,7 +31,7 @@ export type StackLimitLookup = (itemId: string) => number;
 export function createEmptyInventoryState(): PlayerInventoryState {
   return {
     slots: Array.from({ length: TOTAL_INVENTORY_SLOTS }, () => null),
-    armor: { head: null, chest: null, legs: null, feet: null },
+    armor: { head: null, chest: null, legs: null, feet: null, offhand: null },
   };
 }
 
@@ -120,5 +121,25 @@ export function moveOrSwapSlot(
   }
   slots[move.to] = src;
   slots[move.from] = dst ?? null;
+  return true;
+}
+
+function countSlotItem(slots: readonly InventorySlot[], itemId: string): number {
+  let total = 0;
+  for (const s of slots) if (s?.itemId === itemId) total += s.count;
+  return total;
+}
+
+/** Consumes `count` units of `itemId` across matching slots, returning false if insufficient. */
+export function consumeItemFromSlots(slots: InventorySlot[], itemId: string, count = 1): boolean {
+  let remaining = Math.max(1, Math.floor(count));
+  if (countSlotItem(slots, itemId) < remaining) return false;
+  for (let i = 0; i < slots.length && remaining > 0; i++) {
+    const slot = slots[i];
+    if (slot?.itemId !== itemId) continue;
+    const take = Math.min(remaining, slot.count);
+    slots[i] = slot.count > take ? { itemId, count: slot.count - take } : null;
+    remaining -= take;
+  }
   return true;
 }

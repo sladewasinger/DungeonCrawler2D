@@ -1,27 +1,18 @@
 /** Renders 0.75x-scaled 32x32 4-directional characters, jump/fall shadow lift, and dominant-hand gear. */
 import { SKIN_PALETTES } from "@dc2d/content";
-import {
-  DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX,
-  type ArmorEquipment, type PlayerSnapshot,
-} from "@dc2d/engine";
+import { DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
-import {
-  ARM_PIVOT_ANCHOR, computeArmRig, type AirborneState, type ArmPlacement,
-} from "../character/armRig.js";
+import { ARM_PIVOT_ANCHOR, computeArmRig, type AirborneState, type ArmPlacement } from "../character/armRig.js";
 import {
   CHARACTER_WORLD_SCALE, characterCacheKey, getCharacterSpriteSet, resolveFacingDir,
   type CharacterSpriteSet, type DirectionAnim,
 } from "../character/characterSprites.js";
-import {
-  FALL_POSES, IDLE_POSES, JUMP_POSES, RUN_POSES, type CharacterPose, type FacingDir,
-} from "../character/characterTypes.js";
-import { computeHeldLayout, type CardinalFacing, type OffhandPlacement } from "../character/heldPlacement.js";
-import {
-  getGrippingHandTexture, getHeldWeaponVisual, getWaistLanternFrames,
-} from "../character/heldWeapons.js";
+import { FALL_POSES, IDLE_POSES, JUMP_POSES, RUN_POSES, type CharacterPose, type FacingDir } from "../character/characterTypes.js";
+import { computeActorCombatFx, computeHeldLayout, resolveAimCardinal, type CardinalFacing, type OffhandPlacement, type ShieldPlacement } from "../character/heldPlacement.js";
+import { getGrippingHandTexture, getHeldWeaponVisual, getShieldTexture, getWaistLanternFrames } from "../character/heldWeapons.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
-const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null };
+const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 const FALLBACK_VISUAL = { twoHanded: false, aimMode: "upright" as const, spriteScale: CHARACTER_WORLD_SCALE };
 
 function skinTint(skinId: string): number {
@@ -34,6 +25,8 @@ function gearLayoutFor(snap: PlayerSnapshot, visual: ReturnType<typeof getHeldWe
     aimX: snap.aimX ?? snap.facingX, aimY: snap.aimY ?? snap.facingY,
     heldItem: snap.heldItem ?? null, torchLit: snap.torchLit,
     twoHanded: v.twoHanded, aimMode: v.aimMode, itemScale: v.spriteScale, timeSec, moving: snap.moving,
+    hasShield: snap.armor?.offhand === "wooden-shield", blocking: Boolean(snap.blocking),
+    swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 0,
   });
 }
 
@@ -64,8 +57,14 @@ function resolvePoseTrack(anim: DirectionAnim, snap: PlayerSnapshot): PoseTrack 
 function attachToSlot(slot: Container, child: Container): void { if (child.parent !== slot) slot.addChild(child); }
 
 function makeHandSprite(): Sprite { const s = new Sprite(getGrippingHandTexture()); s.anchor.set(0.5, 0.5); return s; }
-
 function makeArmSprite(): Sprite { const s = new Sprite(); s.anchor.set(ARM_PIVOT_ANCHOR.x, ARM_PIVOT_ANCHOR.y); return s; }
+function makeShieldSprite(): Sprite {
+  const s = new Sprite(getShieldTexture());
+  s.anchor.set(0.5, 0.5);
+  s.zIndex = 2;
+  s.visible = false;
+  return s;
+}
 
 function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing {
   return dir === "side" ? (flipX ? "west" : "east") : dir;
@@ -94,6 +93,7 @@ export class PlayerView {
   private readonly offhandHandSprite = makeHandSprite();
   private readonly rightArmSprite = makeArmSprite();
   private readonly leftArmSprite = makeArmSprite();
+  private readonly shieldSprite = makeShieldSprite();
   private readonly label: Text;
   private appearanceKey = "";
   private sprites: CharacterSpriteSet;
@@ -132,9 +132,26 @@ export class PlayerView {
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - elev * ELEVATION_LIFT_PX);
     this.root.zIndex = Math.round(snap.y * TILE_PX) + (input.sortBoost ?? snap.elevation * 2);
     this.syncAppearanceSet(snap);
-    this.syncJumpAndShadow(snap);
+    this.syncBodyTransform(snap);
     const activePose = this.syncPose(snap, timeSec);
     this.syncGear(snap, activePose, timeSec);
+  }
+
+  private syncBodyTransform(snap: PlayerSnapshot): void {
+    const jumpZ = snap.jumpZ ?? 0;
+    const jumpPx = jumpZ * JUMP_VISUAL_PX_PER_TILE;
+    const fx = computeActorCombatFx({
+      aimX: snap.aimX ?? snap.facingX, aimY: snap.aimY ?? snap.facingY, facingX: snap.facingX,
+      swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 1,
+      dodging: Boolean(snap.dodging), staggered: (snap.staggerTimer ?? 0) > 0,
+    });
+    this.actorGroup.position.set(fx.x, -jumpPx + fx.y);
+    this.actorGroup.alpha = fx.alpha;
+    this.actorGroup.rotation = fx.rot;
+    this.body.tint = fx.tint;
+    this.label.position.y = -27 - jumpPx;
+    this.groundShadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.65));
+    this.groundShadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
   }
 
   private syncAppearanceSet(snap: PlayerSnapshot): void {
@@ -144,15 +161,6 @@ export class PlayerView {
     if (key === this.appearanceKey) return;
     this.appearanceKey = key;
     this.sprites = getCharacterSpriteSet(appearance, armor);
-  }
-
-  private syncJumpAndShadow(snap: PlayerSnapshot): void {
-    const jumpZ = snap.jumpZ ?? 0;
-    const jumpPx = jumpZ * JUMP_VISUAL_PX_PER_TILE;
-    this.actorGroup.position.y = -jumpPx;
-    this.label.position.y = -27 - jumpPx;
-    this.groundShadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.65));
-    this.groundShadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
   }
 
   private syncPose(snap: PlayerSnapshot, timeSec: number): ActivePose {
@@ -172,25 +180,32 @@ export class PlayerView {
 
   private syncGear(snap: PlayerSnapshot, active: ActivePose, timeSec: number): void {
     const appearance = snap.appearance ?? DEFAULT_APPEARANCE;
-    const female = appearance.body === "female";
-    const handTex = getGrippingHandTexture(female);
+    const handTex = getGrippingHandTexture(appearance.body === "female");
     this.handSprite.texture = handTex;
     this.secondaryHandSprite.texture = handTex;
     this.offhandHandSprite.texture = handTex;
     const visual = getHeldWeaponVisual(snap.heldItem, timeSec);
     const layout = gearLayoutFor(snap, visual, timeSec);
     const tint = skinTint(appearance.skin);
-    const ax = snap.aimX ?? snap.facingX;
-    const ay = snap.aimY ?? snap.facingY;
-    const aimDir = resolveFacingDir(ax, ay);
-    const facing = Math.hypot(ax, ay) < 0.01 ? active.facing : cardinalFromDir(aimDir.dir, aimDir.flipX);
+    const facing = resolveAimCardinal(snap.aimX ?? snap.facingX, snap.aimY ?? snap.facingY, active.facing);
     const rig = computeArmRig({
-      facing, female, pose: active.pose, airborneState: active.airborne, grips: visual?.grips ?? null, layout,
+      facing, female: appearance.body === "female", pose: active.pose, airborneState: active.airborne,
+      grips: visual?.grips ?? null, layout, bowCharge: snap.bowCharge ?? 0, swinging: Boolean(snap.swingProgress),
     });
     this.syncMainHand(tint, visual, layout.main);
     this.syncOffhand(tint, layout.offhand, timeSec);
+    this.syncShield(layout.shield);
     this.syncArm(this.rightArmSprite, rig.right);
     this.syncArm(this.leftArmSprite, rig.left);
+  }
+
+  private syncShield(shield: ShieldPlacement): void {
+    if (!shield.equipped) { this.shieldSprite.visible = false; return; }
+    this.shieldSprite.position.set(shield.x, shield.y);
+    this.shieldSprite.rotation = shield.rotation;
+    this.shieldSprite.scale.set(shield.scaleX, CHARACTER_WORLD_SCALE);
+    this.shieldSprite.visible = true;
+    attachToSlot(shield.behindBody ? this.backSlot : this.frontSlot, this.shieldSprite);
   }
 
   private syncArm(sprite: Sprite, arm: ArmPlacement): void {

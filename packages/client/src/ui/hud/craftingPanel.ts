@@ -21,7 +21,7 @@ export class CraftingPanel {
   constructor(
     host: HTMLElement,
     private readonly onCraft: (recipeId: string) => void,
-    onClose: () => void,
+    nav: { readonly onClose: () => void; readonly onOpenInventory: () => void },
   ) {
     this.el = domNode("section", "ow-modal ow-craft-modal");
     this.el.hidden = true;
@@ -33,13 +33,13 @@ export class CraftingPanel {
       this.lastFingerprint = "";
     });
 
-    this.el.append(this.buildHeader(onClose));
+    this.el.append(this.buildHeader(nav));
     this.listEl = domNode(TAG_DIV, "ow-craft-list");
     this.el.append(this.listEl);
     host.append(this.el);
   }
 
-  private buildHeader(onClose: () => void): HTMLDivElement {
+  private buildHeader(nav: { readonly onClose: () => void; readonly onOpenInventory: () => void }): HTMLDivElement {
     const head = domNode(TAG_DIV, "ow-modal-head");
     const left = domNode(TAG_DIV);
     left.style.display = "flex";
@@ -52,11 +52,15 @@ export class CraftingPanel {
     const right = domNode(TAG_DIV);
     right.style.display = "flex";
     right.style.gap = "6px";
+    const bagBtn = domNode(TAG_BTN, CLS_PILL);
+    bagBtn.type = TAG_BTN;
+    bagBtn.textContent = "Bag";
+    bagBtn.addEventListener("click", nav.onOpenInventory);
     const closeBtn = domNode(TAG_BTN, CLS_PILL);
     closeBtn.type = TAG_BTN;
     closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", onClose);
-    right.append(this.lockedToggleBtn, closeBtn);
+    closeBtn.addEventListener("click", nav.onClose);
+    right.append(bagBtn, this.lockedToggleBtn, closeBtn);
     head.append(left, right);
     return head;
   }

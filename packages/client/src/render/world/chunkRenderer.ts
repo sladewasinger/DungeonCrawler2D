@@ -2,9 +2,10 @@
 import { FOREST_LIGHT_STYLE } from "@dc2d/content";
 import {
   CHUNK_SIZE, TILE_PX, WorldChunkCache, chunkKey, worldToChunkCoord,
-  type PlayerSnapshot, type PointLightSpec, type PropKind,
+  type PlayerSnapshot, type PointLightSpec, type PropKind, type WorldEntitySnapshot,
 } from "@dc2d/engine";
 import { Sprite } from "pixi.js";
+import { EntityRenderer } from "../combat/entitySprites.js";
 import type { ShadowCaster } from "../shaders/castShadows.js";
 import type { PropTextureSet } from "../textures/propTextures.js";
 import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
@@ -17,6 +18,7 @@ export class ChunkRenderer {
   private readonly mounted = new Map<string, MountedChunk>();
   private readonly playerViews = new Map<string, PlayerView>();
   private readonly cliffSprites = new Set<Sprite>();
+  private readonly entities = new EntityRenderer();
 
   constructor(
     private readonly layers: WorldLayers,
@@ -49,13 +51,22 @@ export class ChunkRenderer {
   syncPlayersAndAtmosphere(input: {
     readonly cache: WorldChunkCache;
     readonly players: readonly PlayerSnapshot[];
+    readonly entities?: readonly WorldEntitySnapshot[];
     readonly timeSec: number;
   }): { lights: PointLightSpec[]; campfires: PointLightSpec[]; casters: ShadowCaster[] } {
     this.reconcilePlayerViews(input.cache, input.players, input.timeSec);
+    this.entities.sync(this.layers.ysort, input.entities ?? [], input.timeSec);
     const out = { lights: [] as PointLightSpec[], campfires: [] as PointLightSpec[], casters: [] as ShadowCaster[] };
     for (const player of input.players) this.appendPlayerVisuals(player, out);
+    for (const entity of input.entities ?? []) this.appendEntityShadow(entity, out.casters);
     for (const chunk of this.mounted.values()) this.appendChunkVisuals(chunk, input, out);
     return out;
+  }
+
+  private appendEntityShadow(entity: WorldEntitySnapshot, casters: ShadowCaster[]): void {
+    if (entity.hp <= 0) return;
+    const liftTiles = entity.elevation * (ELEVATION_LIFT_PX / TILE_PX);
+    casters.push({ x: entity.x, y: entity.y - liftTiles, widthPx: 9, lengthPx: 14 });
   }
 
   private appendPlayerVisuals(player: PlayerSnapshot, out: { readonly lights: PointLightSpec[]; readonly casters: ShadowCaster[] }): void {

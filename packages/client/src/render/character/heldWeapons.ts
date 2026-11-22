@@ -90,6 +90,18 @@ export function getGrippingHandTexture(female = false): Texture {
   return bake("hand:male", { w: 5, h: 5 }, [[1, 1, 3, 3, "#ffffff"], [1, 3, 3, 1, "#d4d4d8"]]);
 }
 
+export function getShieldTexture(): Texture {
+  return bake("shield", { w: 10, h: 12 }, [
+    [2, 0, 6, 1, "#18181b"], [1, 1, 8, 1, "#18181b"], [0, 2, 10, 7, "#18181b"],
+    [1, 9, 8, 1, "#18181b"], [2, 10, 6, 1, "#18181b"], [3, 11, 4, 1, "#18181b"],
+    [2, 1, 6, 1, "#94a3b8"], [1, 2, 8, 7, "#64748b"], [2, 9, 6, 1, "#475569"],
+    [3, 10, 4, 1, "#475569"],
+    [2, 2, 6, 6, "#92400e"], [3, 8, 4, 1, "#78350f"],
+    [2, 3, 2, 4, "#b45309"], [5, 2, 1, 6, "#78350f"],
+    [4, 4, 2, 2, "#94a3b8"], [4, 4, 1, 1, "#e2e8f0"],
+  ]);
+}
+
 export function getInHandTorchFrames(): readonly Texture[] {
   if (torchAnim.length > 0) return torchAnim;
   for (let f = 0; f < 4; f++) {

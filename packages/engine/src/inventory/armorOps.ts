@@ -8,7 +8,7 @@ import {
   type StackLimitLookup,
 } from "./slotModel.js";
 
-export const ARMOR_SLOT_KEYS: readonly ArmorSlotKey[] = ["head", "chest", "legs", "feet"];
+export const ARMOR_SLOT_KEYS: readonly ArmorSlotKey[] = ["head", "chest", "legs", "feet", "offhand"];
 
 export interface ArmorItemRule {
   readonly armorSlot?: ArmorSlotKey | undefined;

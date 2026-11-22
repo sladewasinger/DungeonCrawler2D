@@ -95,12 +95,13 @@ function shoulderPair(facing: CardinalFacing, torsoHalf: number): { readonly rig
 
 function aimArmAt(opts: {
   readonly def: ShoulderDef; readonly sy: number; readonly target: Point2D;
-  readonly behindBody: boolean; readonly overWeapon: boolean;
+  readonly behindBody: boolean; readonly overWeapon: boolean; readonly maxStretch?: number;
 }): ArmPlacement {
   const dx = opts.target.x - opts.def.x;
   const dy = opts.target.y - opts.sy;
   const rotation = Math.atan2(dy, dx);
-  const stretch = Math.max(0.45, Math.min(1.25, Math.hypot(dx, dy) / ARM_WORLD_LEN));
+  const maxStretch = opts.maxStretch ?? 1.25;
+  const stretch = Math.max(0.45, Math.min(maxStretch, Math.hypot(dx, dy) / ARM_WORLD_LEN));
   return {
     x: opts.def.x, y: opts.sy, rotation,
     scaleX: CHARACTER_WORLD_SCALE * stretch,
@@ -125,9 +126,13 @@ function shouldTuckInFrontBack(facing: CardinalFacing, def: ShoulderDef, tx: num
 function connectOrTuck(opts: {
   readonly facing: CardinalFacing; readonly def: ShoulderDef; readonly sy: number;
   readonly target: Point2D; readonly behindBody: boolean; readonly overWeapon: boolean;
+  readonly forceReach?: boolean;
 }): ArmPlacement {
-  if (shouldTuckInFrontBack(opts.facing, opts.def, opts.target.x)) return tuckedArm(opts.def, opts.sy);
-  return aimArmAt(opts);
+  if (!opts.forceReach && shouldTuckInFrontBack(opts.facing, opts.def, opts.target.x)) return tuckedArm(opts.def, opts.sy);
+  return aimArmAt({
+    def: opts.def, sy: opts.sy, target: opts.target, behindBody: opts.behindBody,
+    overWeapon: opts.overWeapon, maxStretch: opts.forceReach ? 1.7 : 1.25,
+  });
 }
 
 function hangingArm(opts: {
@@ -161,14 +166,20 @@ function resolveShaftTargets(opts: {
   return facing === "west" ? { right: pFar, left: pNear } : { right: pNear, left: pFar };
 }
 
+function pulledSecondarySocket(grips: WeaponGripSockets, secondary: GripSocket, bowCharge: number): GripSocket {
+  if (grips.twoHandStyle !== "bowDraw" || bowCharge <= 0) return secondary;
+  return { ...secondary, x: secondary.x - bowCharge * 1.6 };
+}
+
 function resolveTwoHandArms(input: {
   readonly facing: CardinalFacing; readonly sy: number;
   readonly rightDef: ShoulderDef; readonly leftDef: ShoulderDef;
   readonly layout: HeldLayout; readonly grips: WeaponGripSockets; readonly secondary: GripSocket;
+  readonly bowCharge: number;
 }): ArmRigPose {
-  const { facing, sy, rightDef, leftDef, layout, grips, secondary } = input;
+  const { facing, sy, rightDef, leftDef, layout, grips, secondary, bowCharge } = input;
   const p1 = transformWeaponSocket(layout.main, grips.primary);
-  const p2 = transformWeaponSocket(layout.main, secondary);
+  const p2 = transformWeaponSocket(layout.main, pulledSecondarySocket(grips, secondary, bowCharge));
   if (grips.twoHandStyle === "shaftTwoHand") {
     const targets = resolveShaftTargets({ facing, rightDef, p1, p2 });
     return {
@@ -185,6 +196,20 @@ function resolveTwoHandArms(input: {
   };
 }
 
+function resolveLeftSingleArm(input: {
+  readonly facing: CardinalFacing; readonly def: ShoulderDef; readonly sy: number;
+  readonly pose: CharacterPose; readonly airborne: AirborneState; readonly layout: HeldLayout;
+}): ArmPlacement {
+  const { facing, def, sy, pose, airborne, layout } = input;
+  if (layout.shield.equipped) {
+    return connectOrTuck({ facing, def, sy, target: { x: layout.shield.x, y: layout.shield.y }, behindBody: layout.shield.behindBody, overWeapon: false });
+  }
+  if (layout.offhand.kind === "handLantern") {
+    return connectOrTuck({ facing, def, sy, target: { x: layout.offhand.x, y: layout.offhand.y }, behindBody: layout.offhand.behindBody, overWeapon: false });
+  }
+  return hangingArm({ def, sy, facing, pose, airborne, isRight: false });
+}
+
 export function computeArmRig(input: {
   readonly facing: CardinalFacing;
   readonly female: boolean;
@@ -192,18 +217,21 @@ export function computeArmRig(input: {
   readonly airborneState: AirborneState;
   readonly grips: WeaponGripSockets | null;
   readonly layout: HeldLayout;
+  readonly bowCharge?: number;
+  readonly swinging?: boolean;
 }): ArmRigPose {
   const { facing, female, pose, airborneState, grips, layout } = input;
   const sy = -10.3 + pose.bobY * CHARACTER_WORLD_SCALE;
   const { right: rightDef, left: leftDef } = shoulderPair(facing, female ? 3.5 : 4.2);
   if (grips?.secondary) {
-    return resolveTwoHandArms({ facing, sy, rightDef, leftDef, layout, grips, secondary: grips.secondary });
+    return resolveTwoHandArms({ facing, sy, rightDef, leftDef, layout, grips, secondary: grips.secondary, bowCharge: input.bowCharge ?? 0 });
   }
+  const forceReach = Boolean(input.swinging);
   const right = grips
-    ? connectOrTuck({ facing, def: rightDef, sy, target: transformWeaponSocket(layout.main, grips.primary), behindBody: layout.main.behindBody, overWeapon: Boolean(grips.primary.overWeapon) })
+    ? connectOrTuck({ facing, def: rightDef, sy, target: transformWeaponSocket(layout.main, grips.primary), behindBody: layout.main.behindBody, overWeapon: Boolean(grips.primary.overWeapon), forceReach })
     : hangingArm({ def: rightDef, sy, facing, pose, airborne: airborneState, isRight: true });
-  const left = layout.offhand.kind === "handLantern"
-    ? connectOrTuck({ facing, def: leftDef, sy, target: { x: layout.offhand.x, y: layout.offhand.y }, behindBody: layout.offhand.behindBody, overWeapon: false })
-    : hangingArm({ def: leftDef, sy, facing, pose, airborne: airborneState, isRight: false });
-  return { right, left };
+  return {
+    right,
+    left: resolveLeftSingleArm({ facing, def: leftDef, sy, pose, airborne: airborneState, layout }),
+  };
 }
