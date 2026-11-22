@@ -8,6 +8,7 @@ import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { AudioPopover } from "./ui/audioPopover.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
+import { TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
   readonly scene: WorldScene;
@@ -17,6 +18,7 @@ interface AppCtx {
   readonly hud: HudRoot;
   readonly audio: AudioEngine;
   readonly audioPopover: AudioPopover;
+  readonly titleScreen: TitleScreen | null;
 }
 
 function resolveAimVector(ctx: AppCtx & { readonly nowMs: number }, forceMouse: boolean): { readonly x: number; readonly y: number } | undefined {
@@ -96,6 +98,15 @@ function syncUiAndAudio(opts: {
 
 function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
   const pre = ctx.client.snapshot();
+  if (ctx.titleScreen?.isOpen()) {
+    ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
+    const idleView = ctx.client.snapshot();
+    ctx.scene.renderFrame({
+      dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idleView.dayPhase, cache: idleView.cache,
+      players: idleView.players, localPlayerId: idleView.localPlayerId,
+    });
+    return;
+  }
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
   ctx.input.setGearState({
     isBowHeld: preLocal?.heldItem === "bow",
@@ -169,12 +180,30 @@ async function bootOverworldClient(): Promise<void> {
   const host = document.getElementById("app");
   if (!host) throw new Error("Missing #app mount node");
   installMobileAutoFullscreen();
+  const skipTitle = new URLSearchParams(window.location.search).get("skipTitle") === "1";
   const scene = await WorldScene.mount(host);
-  const client = new WorldClient();
+  const client = new WorldClient(undefined, { autoConnect: skipTitle });
   const audio = new AudioEngine();
   const ui = mountHudAndControls({ host, scene, client, audio });
   scene.setInteractHandler(() => ui.input.queueInteract());
-  startRenderLoop({ scene, client, audio, ...ui });
+  const snap = client.snapshot();
+  let titleScreen: TitleScreen | null = null;
+  if (!skipTitle) {
+    ui.input.setEnabled(false);
+    titleScreen = new TitleScreen(host, {
+      initialName: snap.localName,
+      initialAppearance: snap.localAppearance,
+      onPreviewChange: (req) => client.setCharacter(req),
+      onEnterWorld: (req) => {
+        client.setCharacter(req);
+        audio.playUi("open");
+        client.connect();
+        ui.input.setEnabled(true);
+        titleScreen?.dismiss();
+      },
+    });
+  }
+  startRenderLoop({ scene, client, audio, titleScreen, ...ui });
 }
 
 void bootOverworldClient();
