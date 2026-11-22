@@ -12,7 +12,10 @@ export function isFullscreenActive(): boolean {
 
 export function isCoarsePointerDevice(): boolean {
   if (typeof window === "undefined") return false;
-  return window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+  return window.matchMedia("(pointer: coarse)").matches
+    || window.matchMedia("(hover: none)").matches
+    || navigator.maxTouchPoints > 0
+    || "ontouchstart" in window;
 }
 
 export async function toggleFullscreen(): Promise<void> {
@@ -32,11 +35,17 @@ export async function toggleFullscreen(): Promise<void> {
 
 export function installMobileAutoFullscreen(target: HTMLElement = document.documentElement): void {
   if (!isFullscreenSupported() || !isCoarsePointerDevice()) return;
-  const triggerOnce = (): void => {
-    if (manualExit || isFullscreenActive()) return;
-    void target.requestFullscreen().catch(() => undefined);
+  void target.requestFullscreen().catch(() => undefined);
+  const cleanup = (): void => {
+    window.removeEventListener("touchend", onGesture);
+    window.removeEventListener("click", onGesture);
   };
-  target.addEventListener("pointerdown", triggerOnce, { once: true, passive: true });
+  const onGesture = (): void => {
+    if (manualExit || isFullscreenActive()) { cleanup(); return; }
+    void target.requestFullscreen().then(cleanup, () => undefined);
+  };
+  window.addEventListener("touchend", onGesture, { passive: true });
+  window.addEventListener("click", onGesture, { passive: true });
 }
 
 export function onFullscreenChange(listener: () => void): void {

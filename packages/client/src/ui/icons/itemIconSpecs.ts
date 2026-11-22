@@ -38,6 +38,11 @@ export const ITEM_ICON_SPECS: Readonly<Record<string, readonly PixelRect[]>> = {
     [7, 5, 2, 9, WOOD_LT], [3, 3, 10, 2, STEEL_MD], [5, 2, 6, 2, STEEL_LT],
     [2, 5, 2, 2, STEEL_DK], [12, 5, 2, 2, STEEL_DK],
   ],
+  "wooden-shield": [
+    [4, 2, 8, 12, STEEL_MD], [2, 4, 12, 8, STEEL_MD],
+    [5, 3, 6, 10, WOOD_LT], [3, 5, 10, 6, WOOD_LT],
+    [6, 5, 4, 6, WOOD_DK], [7, 7, 2, 2, STEEL_LT],
+  ],
   "leather-hood": [
     [6, 1, 4, 2, LTH_LT], [4, 3, 8, 3, LTH_LT], [3, 5, 10, 5, LTH_MD],
     [5, 5, 6, 5, DARK_SLATE], [6, 6, 4, 3, "#0f172a"],

@@ -55,7 +55,7 @@ export function canCraftRecipe(input: {
   readonly maxStackFor: StackLimitLookup;
 }): boolean {
   const result = craftRecipeInState(
-    { slots: [...input.slots], armor: { head: null, chest: null, legs: null, feet: null } },
+    { slots: [...input.slots], armor: { head: null, chest: null, legs: null, feet: null, offhand: null } },
     { recipe: input.recipe, nearCampfire: input.nearCampfire, maxStackFor: input.maxStackFor },
   );
   return result !== null;

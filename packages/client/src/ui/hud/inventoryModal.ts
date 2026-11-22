@@ -2,7 +2,7 @@
 import { getItemDef } from "@dc2d/content";
 import {
   ARMOR_SLOT_KEYS, BACKPACK_SLOT_COUNT, HOTBAR_SLOT_COUNT, computeArmorDefense,
-  type ArmorSlotKey, type InventorySnapshot,
+  type ArmorSlotKey, type InventorySnapshot, type PlayerSnapshot,
 } from "@dc2d/engine";
 import type { DragSource, SlotDragManager } from "./slotDragManager.js";
 import { armorLabel, domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
@@ -11,10 +11,19 @@ const TAG_DIV = "div";
 const TAG_BTN = "button";
 const CLS_SLOT = "ow-slot ow-bag-slot";
 
-function buildInventoryFingerprint(inv: InventorySnapshot, heldId: string, tapSource: DragSource | null): string {
+function playerStatsFp(player: PlayerSnapshot | undefined): string {
+  if (!player) return "100/100:100";
+  return `${Math.round(player.hp ?? 100)}/${Math.round(player.maxHp ?? 100)}:${Math.round(player.stamina ?? 100)}`;
+}
+
+function buildInventoryFingerprint(
+  inv: InventorySnapshot,
+  heldId: string,
+  extra: { readonly tapSource: DragSource | null; readonly player: PlayerSnapshot | undefined },
+): string {
   const armorFp = ARMOR_SLOT_KEYS.map((k) => inv.armor[k] ?? "-").join(",");
   const bagFp = slotsFingerprint(inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
-  return `${armorFp}#${bagFp}#${heldId}#${tapSourceFingerprint(tapSource)}`;
+  return `${armorFp}#${bagFp}#${heldId}#${tapSourceFingerprint(extra.tapSource)}#${playerStatsFp(extra.player)}`;
 }
 
 function tapSourceFingerprint(tap: DragSource | null): string {
@@ -31,10 +40,14 @@ export class InventoryModal {
   private readonly statsEl: HTMLDivElement;
   private lastFingerprint = "";
 
-  constructor(host: HTMLElement, drag: SlotDragManager, onClose: () => void) {
+  constructor(
+    host: HTMLElement,
+    drag: SlotDragManager,
+    nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void },
+  ) {
     this.el = domNode("section", "ow-modal ow-inv-modal");
     this.el.hidden = true;
-    this.el.append(buildModalHeader(onClose));
+    this.el.append(buildModalHeader(nav));
     const body = domNode(TAG_DIV, "ow-inv-body");
     const leftCol = domNode(TAG_DIV, "ow-armor-wrap");
     leftCol.append(this.buildArmorGrid(drag));
@@ -72,20 +85,24 @@ export class InventoryModal {
     return grid;
   }
 
-  sync(inv: InventorySnapshot, opts: { readonly open: boolean; readonly tapSource: DragSource | null }): void {
+  sync(inv: InventorySnapshot, opts: {
+    readonly open: boolean;
+    readonly tapSource: DragSource | null;
+    readonly player?: PlayerSnapshot | undefined;
+  }): void {
     this.el.hidden = !opts.open;
-    if (opts.open) this.syncOpenModal(inv, opts.tapSource);
+    if (opts.open) this.syncOpenModal(inv, opts.tapSource, opts.player);
   }
 
-  private syncOpenModal(inv: InventorySnapshot, tapSource: DragSource | null): void {
+  private syncOpenModal(inv: InventorySnapshot, tapSource: DragSource | null, player: PlayerSnapshot | undefined): void {
     const heldId = inv.slots[inv.selectedHotbar]?.itemId ?? "-";
-    const fp = buildInventoryFingerprint(inv, heldId, tapSource);
+    const fp = buildInventoryFingerprint(inv, heldId, { tapSource, player });
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
     for (const key of ARMOR_SLOT_KEYS) this.syncSingleArmor(key, inv, tapSource);
     const tapIdx = tapSource?.kind === "slot" ? tapSource.index : -1;
     for (let i = 0; i < BACKPACK_SLOT_COUNT; i++) this.syncSingleBagSlot(i, inv, tapIdx);
-    this.syncStats(inv, heldId);
+    this.syncStats(inv, heldId, player);
   }
 
   private syncSingleArmor(key: ArmorSlotKey, inv: InventorySnapshot, tapSource: DragSource | null): void {
@@ -117,10 +134,8 @@ export class InventoryModal {
     renderSlotContent(btn, { item, tapSource: tap });
   }
 
-  private syncStats(inv: InventorySnapshot, heldId: string): void {
-    const defense = computeArmorDefense(inv.armor, getItemDef);
-    const heldName = heldId === "-" ? "Unarmed" : (getItemDef(heldId)?.name ?? heldId);
-    const rows = [`HP: 100 / 100`, `Stamina: 100`, `Defense: ${defense}`, `Held: ${heldName}`];
+  private syncStats(inv: InventorySnapshot, heldId: string, player: PlayerSnapshot | undefined): void {
+    const rows = formatStatRows({ inv, heldId, player });
     this.statsEl.replaceChildren(...rows.map((text) => {
       const line = domNode(TAG_DIV);
       line.textContent = text;
@@ -129,14 +144,38 @@ export class InventoryModal {
   }
 }
 
-function buildModalHeader(onClose: () => void): HTMLDivElement {
+function formatHeldName(heldId: string): string {
+  if (heldId === "-") return "Unarmed";
+  return getItemDef(heldId)?.name ?? heldId;
+}
+
+function formatStatRows(opts: {
+  readonly inv: InventorySnapshot; readonly heldId: string; readonly player: PlayerSnapshot | undefined;
+}): readonly string[] {
+  const defense = computeArmorDefense(opts.inv.armor, getItemDef);
+  const p = opts.player;
+  const hp = p?.hp ?? 100;
+  const maxHp = p?.maxHp ?? 100;
+  const stam = p?.stamina ?? 100;
+  return [`HP: ${Math.round(hp)} / ${Math.round(maxHp)}`, `Stamina: ${Math.round(stam)}`, `Defense: ${defense}`, `Held: ${formatHeldName(opts.heldId)}`];
+}
+
+function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void }): HTMLDivElement {
   const head = domNode(TAG_DIV, "ow-modal-head");
   const title = domNode("span");
   title.textContent = "Inventory";
+  const right = domNode(TAG_DIV);
+  right.style.display = "flex";
+  right.style.gap = "6px";
+  const craftBtn = domNode(TAG_BTN, "ow-pill");
+  craftBtn.type = TAG_BTN;
+  craftBtn.textContent = "Craft";
+  craftBtn.addEventListener("click", nav.onOpenCrafting);
   const closeBtn = domNode(TAG_BTN, "ow-pill");
   closeBtn.type = TAG_BTN;
   closeBtn.textContent = "Close";
-  closeBtn.addEventListener("click", onClose);
-  head.append(title, closeBtn);
+  closeBtn.addEventListener("click", nav.onClose);
+  right.append(craftBtn, closeBtn);
+  head.append(title, right);
   return head;
 }

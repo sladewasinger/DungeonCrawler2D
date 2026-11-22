@@ -5,7 +5,8 @@ const TOOLBAR_CSS = `
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
   left: max(10px, env(safe-area-inset-left));
-  right: max(92px, calc(env(safe-area-inset-right) + 84px));
+  width: max-content;
+  max-width: calc(100vw - 180px);
   z-index: 20;
   pointer-events: none;
   display: flex;
@@ -111,31 +112,76 @@ const TOOLBAR_CSS = `
   font-size: 15px;
   line-height: 1;
 }
-.ow-jump-btn {
+.ow-audio-popover {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 44px);
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 32;
+  width: min(230px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(12, 18, 26, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  color: #f8fafc;
+  font-size: 13px;
+}
+.ow-audio-popover[hidden] { display: none; }
+.ow-audio-head, .ow-audio-row-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+.ow-audio-row { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #cbd5e1; }
+.ow-audio-pct { font-variant-numeric: tabular-nums; color: #94a3b8; }
+.ow-jump-btn, .ow-combat-cluster {
   display: none;
   position: fixed;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + clamp(35px, calc((100vw - 74px) / 9), 58px) + 26px);
+  right: max(12px, env(safe-area-inset-right));
   z-index: 35;
-  width: 56px;
-  height: 56px;
+}
+.ow-jump-btn {
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 124px);
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   border: 2px solid rgba(248, 250, 252, 0.35);
-  background: rgba(15, 23, 42, 0.68);
+  background: rgba(15, 23, 42, 0.72);
   backdrop-filter: blur(8px);
   color: #f8fafc;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.02em;
   touch-action: none;
   cursor: pointer;
 }
-.ow-jump-btn:active {
-  background: rgba(180, 83, 9, 0.8);
+.ow-combat-cluster {
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 54px);
+  align-items: flex-end;
+  gap: 8px;
+}
+.ow-touch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid rgba(248, 250, 252, 0.35);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  font-weight: 800;
+  touch-action: none;
+  cursor: pointer;
+}
+.ow-touch-btn[hidden] { display: none; }
+.ow-atk-btn { width: 60px; height: 60px; font-size: 13px; border-color: rgba(248, 113, 113, 0.55); }
+.ow-roll-btn, .ow-block-btn { width: 50px; height: 50px; font-size: 9px; padding: 0; }
+.ow-jump-btn:active, .ow-touch-btn:active, .ow-touch-btn[data-active="true"] {
+  background: rgba(180, 83, 9, 0.85);
   border-color: #f59e0b;
 }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
   .ow-jump-btn { display: flex; align-items: center; justify-content: center; }
+  .ow-combat-cluster { display: flex; }
 }
 `;
 
