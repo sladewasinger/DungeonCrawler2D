@@ -55,6 +55,12 @@ describe("WorldSim", () => {
     const afterArmor = must(sim.inventorySnapshot(id));
     expect(afterArmor.armor.head).toBe("leather-hood");
     expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(2);
+    expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
+
+    const customLook = { body: "slender", skin: "tan", hairStyle: "ponytail", hairColor: "red" } as const;
+    sim.setAppearance(id, { name: "Slade", appearance: customLook });
+    expect(must(sim.snapshots()[0]).name).toBe("Slade");
+    expect(must(sim.snapshots()[0]).appearance).toEqual(customLook);
   });
 
   it("enforces campfire proximity for campfire crafting recipes", () => {

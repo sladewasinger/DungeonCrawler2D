@@ -46,6 +46,26 @@ export type { ArmorItemRule, ArmorRuleLookup } from "./inventory/armorOps.js";
 export { canCraftRecipe, countItemInSlots, craftRecipeInState } from "./inventory/crafting.js";
 export type { CraftRecipe, RecipeIngredient } from "./inventory/crafting.js";
 export {
+  BODY_STYLES,
+  BodyStyleSchema,
+  CharacterAppearanceSchema,
+  DEFAULT_APPEARANCE,
+  HAIR_COLORS,
+  HAIR_STYLES,
+  HairColorIdSchema,
+  HairStyleIdSchema,
+  SKIN_TONES,
+  SkinToneIdSchema,
+  sanitizeCharacterAppearance,
+} from "./character/appearance.js";
+export type {
+  BodyStyle,
+  CharacterAppearance,
+  HairColorId,
+  HairStyleId,
+  SkinToneId,
+} from "./character/appearance.js";
+export {
   ArmorSlotKeySchema,
   ClientMessageSchema,
   InventorySnapshotSchema,

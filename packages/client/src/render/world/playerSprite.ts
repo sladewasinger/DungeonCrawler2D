@@ -1,49 +1,11 @@
-/** Loads crisp knight sprite frames from /assets/atlas.json and renders players. */
-import { TILE_PX, type PlayerSnapshot } from "@dc2d/engine";
-import { Container, ImageSource, Rectangle, Sprite, Text, Texture } from "pixi.js";
+/** Renders modular HD-pixel paper-doll characters with equipped armor, held items, torch, and HiDPI names. */
+import { DEFAULT_APPEARANCE, TILE_PX, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
+import { Container, Sprite, Text, type Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
+import { characterCacheKey, getCharacterSpriteSet, type CharacterSpriteSet } from "../character/characterSprites.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
-export interface KnightFrames {
-  readonly idle: readonly Texture[];
-  readonly run: readonly Texture[];
-}
-
-interface AtlasFrameEntry {
-  readonly frame: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
-}
-
-interface AtlasJson {
-  readonly frames: Readonly<Record<string, AtlasFrameEntry>>;
-}
-
-export async function loadKnightFrames(fallback: Texture): Promise<KnightFrames> {
-  try {
-    const [jsonRes, img] = await Promise.all([fetch("/assets/atlas.json"), loadImage("/assets/atlas.png")]);
-    if (!jsonRes.ok) return { idle: [fallback], run: [fallback] };
-    const data = (await jsonRes.json()) as AtlasJson;
-    const source = new ImageSource({ resource: img, scaleMode: "nearest" });
-    const slice = (prefix: string): Texture[] =>
-      [0, 1, 2, 3]
-        .map((i) => data.frames[`${prefix}${i}`]?.frame)
-        .filter((f): f is AtlasFrameEntry["frame"] => Boolean(f))
-        .map((f) => new Texture({ source, frame: new Rectangle(f.x, f.y, f.w, f.h) }));
-    const idle = slice("knight_m_idle_anim_f");
-    const run = slice("knight_m_run_anim_f");
-    return idle.length > 0 && run.length > 0 ? { idle, run } : { idle: [fallback], run: [fallback] };
-  } catch {
-    return { idle: [fallback], run: [fallback] };
-  }
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load ${src}`));
-    img.src = src;
-  });
-}
+const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null };
 
 export class PlayerView {
   readonly root = new Container();
@@ -52,9 +14,15 @@ export class PlayerView {
   private readonly held: Sprite;
   private readonly label: Text;
   private renderedItemId: string | null = null;
+  private appearanceKey = "";
+  private sprites: CharacterSpriteSet;
 
-  constructor(frames: KnightFrames, torchTex: Texture, name: string) {
-    this.body = new Sprite(frames.idle[0]);
+  constructor(torchTex: Texture, snap: PlayerSnapshot) {
+    const appearance = snap.appearance ?? DEFAULT_APPEARANCE;
+    const armor = snap.armor ?? EMPTY_ARMOR;
+    this.appearanceKey = characterCacheKey(appearance, armor);
+    this.sprites = getCharacterSpriteSet(appearance, armor);
+    this.body = new Sprite(this.sprites.idle[0]);
     this.body.anchor.set(0.5, 0.92);
     this.torch = new Sprite(torchTex);
     this.torch.anchor.set(0.5, 0.85);
@@ -65,30 +33,39 @@ export class PlayerView {
     this.held.position.set(-6, -4);
     this.held.scale.set(0.65);
     this.held.visible = false;
-    this.label = createNameLabel(name);
+    this.label = createNameLabel(snap.name);
     this.root.addChild(this.torch, this.held, this.body, this.label);
   }
 
   sync(input: {
     readonly snap: PlayerSnapshot;
-    readonly frames: KnightFrames;
     readonly torchFrames: readonly Texture[];
     readonly timeSec: number;
     readonly visualElev?: number;
     readonly sortBoost?: number;
   }): void {
-    const { snap, frames, torchFrames, timeSec } = input;
+    const { snap, torchFrames, timeSec } = input;
     const elev = input.visualElev ?? snap.elevation;
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - elev * ELEVATION_LIFT_PX);
     this.root.zIndex = Math.round(snap.y * TILE_PX) + (input.sortBoost ?? snap.elevation * 2);
-    this.syncPose(snap, frames, timeSec);
+    this.syncAppearanceSet(snap);
+    this.syncPose(snap, timeSec);
     this.syncTorch(snap.torchLit, torchFrames, timeSec);
     this.syncHeldItem(snap);
   }
 
-  private syncPose(snap: PlayerSnapshot, frames: KnightFrames, timeSec: number): void {
+  private syncAppearanceSet(snap: PlayerSnapshot): void {
+    const appearance = snap.appearance ?? DEFAULT_APPEARANCE;
+    const armor = snap.armor ?? EMPTY_ARMOR;
+    const key = characterCacheKey(appearance, armor);
+    if (key === this.appearanceKey) return;
+    this.appearanceKey = key;
+    this.sprites = getCharacterSpriteSet(appearance, armor);
+  }
+
+  private syncPose(snap: PlayerSnapshot, timeSec: number): void {
     if (this.label.text !== snap.name) this.label.text = snap.name;
-    const list = snap.moving ? frames.run : frames.idle;
+    const list = snap.moving ? this.sprites.run : this.sprites.idle;
     const nextTex = list[Math.floor(timeSec * (snap.moving ? 10 : 6)) % list.length];
     if (nextTex) this.body.texture = nextTex;
     if (Math.abs(snap.facingX) > 0.1) this.body.scale.x = snap.facingX < 0 ? -1 : 1;

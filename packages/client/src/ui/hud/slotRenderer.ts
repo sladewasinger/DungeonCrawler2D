@@ -1,6 +1,6 @@
 /** Shared DOM builders and stack-count-safe slot rendering for Phase 2 HUD. */
 import { getItemDef, maxStackForItem } from "@dc2d/content";
-import type { ArmorSlotKey, InventorySlot, SlotItem } from "@dc2d/engine";
+import type { ArmorSlotKey, CharacterAppearance, InventorySlot, SlotItem } from "@dc2d/engine";
 import { getItemIconUrl } from "../icons/itemIcons.js";
 
 const ARMOR_LABELS: Readonly<Record<ArmorSlotKey, string>> = {
@@ -16,6 +16,7 @@ export interface HudActions {
   readonly onEquipArmor: (req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }) => void;
   readonly onUnequipArmor: (req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }) => void;
   readonly onCraft: (recipeId: string) => void;
+  readonly onSetCharacter: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
 }
 
 export function domNode<K extends keyof HTMLElementTagNameMap>(

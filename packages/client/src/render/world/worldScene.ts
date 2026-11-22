@@ -11,7 +11,6 @@ import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
-import { loadKnightFrames } from "./playerSprite.js";
 
 export interface SceneFrameInput {
   readonly dt: number;
@@ -62,9 +61,7 @@ export class WorldScene {
     this.chunks = new ChunkRenderer(
       { ground: groundCam!, water: waterCam!, grass: grassCam!, ysort: ysortCam!, canopy: canopyCam! },
       { terrain, props },
-      { idle: [props.fallbackKnight], run: [props.fallbackKnight] },
     );
-    void loadKnightFrames(props.fallbackKnight).then((frames) => this.chunks.setKnightFrames(frames));
     reportShaderDiagnostics(app.renderer, [
       { name: "water", filter: this.waterEffect.filter },
       { name: "wind", filter: this.grassWind.filter },
