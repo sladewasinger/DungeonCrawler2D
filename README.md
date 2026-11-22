@@ -52,6 +52,7 @@ npm run lint:working-tree # Fast ESLint + folder-size check for changed/untracke
 npm run lint              # Full-repository ESLint + folder-size standards gate
 npm test                  # Vitest suite across @dc2d/engine, @dc2d/game-server, and @dc2d/client
 npm run build             # Production build: packages/game-server/dist/main.cjs + packages/client/dist/
+npm run preview-prod      # Serve frozen built client (:4173) + built server (:4174) with zero watchers
 node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws protocol against a running server
 ```
 
@@ -91,6 +92,8 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 | `GAME_HOST` | `0.0.0.0`; bind host for `@dc2d/game-server`. |
 | `WORLD_SEED` | `1337`; numeric world seed parsed on server startup. |
 | `VITE_GAME_WS_URL` | Unset (uses `ws(s)://<location.host>/ws` same-origin proxy); optional explicit WebSocket URL override for Vite client builds. |
+| `PREVIEW_PORT` | `4173`; static Vite preview HTTP port used by `npm run preview-prod`. |
+| `PREVIEW_GAME_PORT` | `4174`; frozen built game-server port spawned by `npm run preview-prod`. |
 
 ## Branch & release workflow
 
