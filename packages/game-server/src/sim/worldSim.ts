@@ -142,6 +142,11 @@ export class WorldSim {
     return true;
   }
 
+  debugSpawnNearPlayer(playerId: string, kind: Parameters<CombatWorld["debugSpawnNearPlayer"]>[1], count = 1): void {
+    const p = this.players.get(playerId);
+    if (p) this.combat.debugSpawnNearPlayer(p, kind, count);
+  }
+
   inventorySnapshot(playerId: string): InventorySnapshot | undefined {
     const p = this.players.get(playerId);
     if (!p) return undefined;

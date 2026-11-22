@@ -1,4 +1,4 @@
-/** Specialized archetype steering and combat helpers for wildlife & POI guards. */
+/** Specialized archetype steering, separation, and combat helpers for wildlife & POI guards. */
 import { AI_TUNING, WorldChunkCache, computeFlankRingSlot, isInSanctuary, resolveMovement } from "@dc2d/engine";
 import {
   CREATURE_SPECS, ITEM_RAW_MEAT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_FEED, ST_FLANK, ST_PATROL,
@@ -11,22 +11,46 @@ export interface CombatPlayerCandidate {
 }
 export interface EcologyFoodSource { readonly x: number; readonly y: number; readonly isMeatLoot?: boolean }
 export type StrikePlayerFn = (entity: WildlifeEntity, target: CombatPlayerCandidate) => void;
+export type BoarAction =
+  | { readonly mode: "done" }
+  | { readonly mode: "melee" }
+  | { readonly mode: "steer"; readonly steer: SteerTarget };
+
+export function computeSeparation(e: WildlifeEntity, entities: readonly WildlifeEntity[]): { readonly x: number; readonly y: number } {
+  let sx = 0;
+  let sy = 0;
+  for (const other of entities) {
+    if (other.corpse || other.hp <= 0 || other.id === e.id) continue;
+    const dx = e.x - other.x;
+    const dy = e.y - other.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 0.01 && d < 0.95) {
+      const push = (0.95 - d) / d;
+      sx += dx * push;
+      sy += dy * push;
+    }
+  }
+  return { x: sx, y: sy };
+}
 
 export function moveCreatureToward(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
   readonly tx: number; readonly ty: number; readonly speed: number; readonly dt: number;
+  readonly stopRadius?: number; readonly sep?: { readonly x: number; readonly y: number };
 }): void {
   const { cache, e, tx, ty, speed, dt } = opts;
   const dist = Math.hypot(tx - e.x, ty - e.y);
-  if (dist < 0.08) return;
-  const nx = (tx - e.x) / dist;
-  const ny = (ty - e.y) / dist;
-  e.facingX = nx;
-  e.facingY = ny;
-  const step = Math.min(dist, speed * dt);
-  const res = resolveMovement({
-    cache, x: e.x, y: e.y, dx: nx * step, dy: ny * step, radius: 0.28, elevation: e.elevation, airborne: false,
-  });
+  const stopR = opts.stopRadius ?? 0.08;
+  if (dist > 0.22) {
+    e.facingX = (tx - e.x) / dist;
+    e.facingY = (ty - e.y) / dist;
+  }
+  const sep = opts.sep ?? { x: 0, y: 0 };
+  const moveDist = dist > stopR ? Math.min(dist - stopR, speed * dt) : 0;
+  const dx = (moveDist > 0 ? ((tx - e.x) / dist) * moveDist : 0) + sep.x * dt * 2.1;
+  const dy = (moveDist > 0 ? ((ty - e.y) / dist) * moveDist : 0) + sep.y * dt * 2.1;
+  if (Math.hypot(dx, dy) < 0.002) return;
+  const res = resolveMovement({ cache, x: e.x, y: e.y, dx, dy, radius: 0.28, elevation: e.elevation, airborne: false });
   e.x = res.x;
   e.y = res.y;
   e.elevation = res.elevation;
@@ -116,29 +140,47 @@ function advanceActiveBoarCharge(opts: {
     e.chargeHitDealt = true;
     onStrike(e, target);
   }
-  if (e.chargeTimer === 0) e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
+  if (e.chargeTimer === 0) {
+    e.aiState = ST_CHASE;
+    e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
+  }
+}
+
+function resolveBoarCooldownSteer(e: WildlifeEntity, offset: { readonly dx: number; readonly dy: number; readonly dist: number }): BoarAction {
+  if (e.attackCooldown > 0 && offset.dist < 2.2) {
+    const nx = offset.dx / Math.max(0.05, offset.dist);
+    const ny = offset.dy / Math.max(0.05, offset.dist);
+    return { mode: "steer", steer: { x: e.x - nx * 1.4, y: e.y - ny * 1.4, speedMult: 0.6 } };
+  }
+  return { mode: "steer", steer: { x: e.x + offset.dx, y: e.y + offset.dy, speedMult: 1.0 } };
+}
+
+function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidate): BoarAction {
+  const dx = target.x - e.x;
+  const dy = target.y - e.y;
+  const dist = Math.hypot(dx, dy);
+  if (e.telegraphTimer > 0 || dist <= 1.55) return { mode: "melee" };
+  if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 6.2) {
+    e.telegraphTimer = AI_TUNING.boarWindupSec;
+    e.windupDuration = AI_TUNING.boarWindupSec;
+    e.aiState = ST_CHARGE;
+    return { mode: "done" };
+  }
+  return resolveBoarCooldownSteer(e, { dx, dy, dist });
 }
 
 export function stepBoarBehavior(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
   readonly target: CombatPlayerCandidate; readonly dt: number; readonly onStrike: StrikePlayerFn;
-}): SteerTarget | null {
+}): BoarAction {
   const { e, target, dt } = opts;
-  if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return null; }
-  if (e.telegraphTimer > 0) {
+  if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return { mode: "done" }; }
+  if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) {
     e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
-    e.aiState = ST_CHARGE;
     if (e.telegraphTimer === 0) beginBoarCharge(e, target);
-    return null;
+    return { mode: "done" };
   }
-  const dist = Math.hypot(target.x - e.x, target.y - e.y);
-  if (e.attackCooldown <= 0 && dist <= 5.5 && dist >= 1.6) {
-    e.telegraphTimer = AI_TUNING.boarWindupSec;
-    e.windupDuration = AI_TUNING.boarWindupSec;
-    e.aiState = ST_CHARGE;
-    return null;
-  }
-  return { x: target.x, y: target.y, speedMult: 1.0 };
+  return resolveBoarMoveOrCharge(e, target);
 }
 
 export function stepSpiderAmbushCheck(opts: {

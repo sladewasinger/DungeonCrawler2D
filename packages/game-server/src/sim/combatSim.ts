@@ -126,6 +126,10 @@ export class CombatWorld {
     return out;
   }
 
+  debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void {
+    this.ecology.debugSpawnNearPlayer(p, kind, count);
+  }
+
   private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {
     const c = p.combat;
     if (c.dodgeCooldown > 0 || c.dodgeTimer > 0 || c.stamina < DODGE_STAMINA_COST) return;

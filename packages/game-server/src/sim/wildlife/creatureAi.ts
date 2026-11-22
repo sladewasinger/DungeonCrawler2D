@@ -2,7 +2,7 @@
 import { AI_TUNING, WorldChunkCache, canPerceiveTarget, isInSanctuary, type WorldEvent } from "@dc2d/engine";
 import { CREATURE_SPECS, ST_ALERT, ST_CHASE, ST_DEAD, ST_INVESTIGATE, type WildlifeEntity } from "./creatureSpecs.js";
 import {
-  moveCreatureToward, stepBearScavenge, stepBoarBehavior, stepHomePatrol,
+  computeSeparation, moveCreatureToward, stepBearScavenge, stepBoarBehavior, stepHomePatrol,
   stepSpiderAmbushCheck, stepWolfPack, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn,
 } from "./creatureBehaviors.js";
 import type { ScentTrail } from "./scentTrail.js";
@@ -72,6 +72,7 @@ function stepMeleeAttack(opts: {
   if (e.telegraphTimer > 0) { finishWindupStrike({ e, target, events, dt, onStrike }); return true; }
   const spec = CREATURE_SPECS[e.kind];
   if (e.attackCooldown <= 0 && Math.hypot(target.x - e.x, target.y - e.y) <= spec.range) {
+    e.aiState = ST_CHASE;
     e.telegraphTimer = spec.windupSec;
     e.windupDuration = spec.windupSec;
     events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id });
@@ -105,17 +106,29 @@ function pickSteerTarget(input: StepCreatureInput, target: CombatPlayerCandidate
   return { x: target.x, y: target.y, speedMult: 1.0 };
 }
 
-function steerOrChargeTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {
-  const { cache, e, events, dt, onStrike } = input;
-  const spec = CREATURE_SPECS[e.kind];
-  if (e.kind === "boar") {
-    const boarSteer = stepBoarBehavior({ cache, e, target, dt, onStrike });
-    if (boarSteer) moveCreatureToward({ cache, e, tx: boarSteer.x, ty: boarSteer.y, speed: spec.speed * boarSteer.speedMult, dt });
+function stepBoarTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {
+  const { cache, e, allEntities, events, dt, onStrike } = input;
+  const spec = CREATURE_SPECS.boar;
+  const stopRadius = Math.max(0.75, spec.range * 0.68);
+  const boar = stepBoarBehavior({ cache, e, target, dt, onStrike });
+  if (boar.mode === "done") return;
+  if (boar.mode === "melee") {
+    if (!stepMeleeAttack({ e, target, events, dt, onStrike })) {
+      moveCreatureToward({ cache, e, tx: target.x, ty: target.y, speed: spec.speed, dt, stopRadius, sep: computeSeparation(e, allEntities) });
+    }
     return;
   }
+  moveCreatureToward({ cache, e, tx: boar.steer.x, ty: boar.steer.y, speed: spec.speed * boar.steer.speedMult, dt, stopRadius, sep: computeSeparation(e, allEntities) });
+}
+
+function steerOrChargeTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {
+  const { cache, e, allEntities, events, dt, onStrike } = input;
+  if (e.kind === "boar") { stepBoarTarget(input, target); return; }
   if (stepMeleeAttack({ e, target, events, dt, onStrike })) return;
+  const spec = CREATURE_SPECS[e.kind];
   const steer = pickSteerTarget(input, target);
-  moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult, dt });
+  const stopRadius = e.kind === "wolf" && e.aiState === "flank" ? 0.16 : Math.max(0.75, spec.range * 0.68);
+  moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult, dt, stopRadius, sep: computeSeparation(e, allEntities) });
 }
 
 function pursueKnownTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {

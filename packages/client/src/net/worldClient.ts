@@ -87,16 +87,20 @@ export class WorldClient {
   private readonly remoteSmoother = new RemotePlayerSmoother();
   private readonly swing = new LocalSwingTracker();
   private inventory: InventorySnapshot = createStarterInventorySnapshot();
+  private readonly autoReconnect: boolean;
   private connectTimer: number | null = null;
+  private reconnectTimer: number | null = null;
 
   constructor(wsUrl = defaultWsUrl(), opts?: { readonly autoConnect?: boolean }) {
     this.wsUrl = wsUrl;
+    this.autoReconnect = opts?.autoConnect !== false;
     this.localPlayer = createDefaultPlayer("local", loadCharacterPrefs());
-    if (opts?.autoConnect !== false) this.connect();
+    if (this.autoReconnect) this.connect();
   }
 
   connect(): void {
     if (this.ws || this.mode === "connecting") return;
+    if (this.reconnectTimer !== null) { window.clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     this.mode = "connecting";
     this.openSocket(this.wsUrl);
   }
@@ -118,7 +122,19 @@ export class WorldClient {
     this.send({ t: "hello", version: PROTOCOL_VERSION, name: this.localPlayer.name, appearance });
   }
 
-  private switchToLocal(): void { if (this.connectTimer !== null) window.clearTimeout(this.connectTimer); this.mode = "local"; this.ws = null; }
+  private switchToLocal(): void {
+    if (this.connectTimer !== null) { window.clearTimeout(this.connectTimer); this.connectTimer = null; }
+    this.mode = "local";
+    this.ws = null;
+    this.entities = [];
+    this.projectiles = [];
+    this.localPlayer = {
+      ...this.localPlayer, dodging: false, blocking: false, staggerTimer: 0, bowCharge: 0, swingProgress: 0,
+    };
+    if (this.autoReconnect && this.reconnectTimer === null) {
+      this.reconnectTimer = window.setTimeout(() => { this.reconnectTimer = null; this.connect(); }, 2500);
+    }
+  }
 
   private handleMessage(raw: string): void {
     let json: unknown;

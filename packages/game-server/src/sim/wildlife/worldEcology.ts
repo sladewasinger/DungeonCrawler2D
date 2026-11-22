@@ -1,6 +1,6 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, GroundKind, WorldChunkCache, hashUnit2d, isInSanctuary, isWithinSector,
+  AI_TUNING, GroundKind, WorldChunkCache, hashUnit2d, isInSanctuary, isWithinSector, worldToChunkCoord,
   type ChunkPoi, type GoreStyle, type GroundLootSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -151,6 +151,18 @@ export class WorldEcology {
     return this.loot.tryInteractChest(player, events);
   }
 
+  debugSpawnNearPlayer(player: { readonly x: number; readonly y: number; readonly facingX: number; readonly facingY: number }, kind: WildlifeKind, count = 1): void {
+    const mag = Math.max(0.01, Math.hypot(player.facingX, player.facingY));
+    const nx = player.facingX / mag;
+    const ny = player.facingY / mag;
+    const packId = count > 1 ? `dbg-${this.nextId}` : null;
+    for (let i = 0; i < Math.min(5, Math.max(1, count)); i++) {
+      const spawned = this.spawnEntity({ kind, x: player.x + nx * 4.0 + (i - (count - 1) * 0.5) * 1.1, y: player.y + ny * 4.0 + (i % 2) * 0.6, homeRadius: 16, poiId: null, packId, packSlot: i });
+      spawned.facingX = -nx;
+      spawned.facingY = -ny;
+    }
+  }
+
   hitSector(opts: {
     readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
     readonly damage: number; readonly range: number; readonly halfArcRad: number;
@@ -163,11 +175,26 @@ export class WorldEcology {
     }
   }
 
+  private pruneDistantEntities(players: readonly CombatPlayerCandidate[]): void {
+    if (players.length === 0) return;
+    const maxDist = 96;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const e = this.list[i]!;
+      const nearAny = players.some((p) => Math.hypot(p.x - e.x, p.y - e.y) <= maxDist);
+      if (nearAny) continue;
+      this.list.splice(i, 1);
+      const hcx = worldToChunkCoord(Math.floor(e.homeX));
+      const hcy = worldToChunkCoord(Math.floor(e.homeY));
+      this.spawnedChunks.delete(`${hcx},${hcy}`);
+    }
+  }
+
   step(opts: {
     readonly dt: number; readonly timeSec: number; readonly dayPhase: number;
     readonly players: readonly (CombatPlayerRef & { readonly moving: boolean })[];
     readonly events: WorldEvent[]; readonly onStrike: StrikePlayerFn;
   }): void {
+    this.pruneDistantEntities(opts.players);
     this.ensureAroundPlayers(opts.players);
     this.scent.step(opts.dt);
     this.scent.samplePlayers(opts.players.map((p) => ({ id: p.id, x: p.x, y: p.y, moving: p.moving, bleedTimer: p.combat.bleedTimer })));
