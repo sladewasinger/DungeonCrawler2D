@@ -44,7 +44,7 @@ flowchart LR
 ### Phase 0 — Clean Orphan Monorepo Foundation ✅
 - Fresh `overworld` orphan branch keeping tooling (`eslint.config.js`, `tsconfig.base.json`, `vitest.config.ts`), `AGENTS.md`, `docs/LESSONS.md`, and `packages/client/public/` art/font assets.
 - Zero Three.js / Phaser dependencies; PixiJS v8 installed cleanly.
-- Strict modular limits (`<=150` lines/file, `<=35` lines/fn, max nesting 3, `<=12` files/folder, domain-based names, zero baseline exemptions).
+- Strict modular limits (`<=250` lines/file, `<=35` lines/fn, max nesting 3, `<=12` files/folder, domain-based names, zero baseline exemptions).
 
 ### Phase 1 — Infinite Forest & Core-Keeper / Eastward Shader Showcase ✅
 - **1A Engine & Server**: Seeded 2D value/fBm/ridge noise; deterministic `32×32` chunk generator (`DeepWater`, `ShallowWater`, `Sand`, `Grass`, `MeadowGrass`, `ForestFloor`, `DirtPath`, `CliffStone`, `MossStone`); elevation tiers `0..2` with walkable stairs; sunlit spawn glade with warm campfire, river & cliffs; continuous sliding collision; Day/Night clock (`480s` cycle) + WebSocket multiplayer server (`@dc2d/game-server`).
@@ -68,12 +68,12 @@ flowchart LR
 - Unified pointer drag-and-drop (backpack <-> backpack swap/stack, backpack <-> bottom hotbar, backpack <-> armor, armor <-> bottom hotbar) plus tap-source -> tap-target mobile fallback.
 - Dedicated **Crafting & Storage Panel** (hand recipes + nearby station recipes with clean craftability filtering).
 
-### Phase 3 — Custom Layered Characters & Visible Multiplayer Equipment *(Next)*
+### Phase 3 — Custom Layered Characters & Visible Multiplayer Equipment ✅
 - Replace the static knight sprite with a custom modular HD-pixel paper-doll rig matching the Knight's chunky outlined pixel style (idle, run, and action frames).
 - **Base Character Creator**: selectable body/gender silhouette, skin tone, hair color, and expandable hair styles saved per player and synced over WebSocket.
 - **Visible Multiplayer Gear Layers**: real-time layered equipment rendering for both local and remote players — helmets/hoods, chestplates/tunics, leggings/pants, boots, plus extensible layers for gloves, capes, and held weapons/tools/shields.
 
-### Phase 4 — Tactile Action Combat, Wildlife & Overworld POIs
+### Phase 4 — Tactile Action Combat, Wildlife & Overworld POIs *(Next)*
 - **Melee Combat**: Directional 3-hit weapon combos, arc VFX, brief hitstop, knockback, and stamina-cost dodge-roll with brief invulnerability frames.
 - **Shield & Bow**: Directional shield block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, and elemental arrow hooks (zero melee cone or lob-arc).
 - **Overworld Wildlife & AI**: Coordinated Wolf Packs (pack-hunter target sharing), solitary Grizzly Bears, Forest Spiders (web/poison lunge), and charging Wild Boars with outlined pixel-art animations.

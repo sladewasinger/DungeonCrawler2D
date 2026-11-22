@@ -9,6 +9,10 @@ export interface RunningGameServer {
   close(): Promise<void>;
 }
 
+const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
+  "hello", "setAppearance", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch",
+]);
+
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -25,13 +29,8 @@ function sendJson(ws: WebSocket, message: ServerMessage): void {
 
 function buildClientSnapshot(sim: WorldSim, playerId: string, players: PlayerSnapshot[]): ServerMessage {
   return {
-    t: "snapshot",
-    tick: sim.tick,
-    dayPhase: sim.dayPhase,
-    dayPaused: sim.dayPaused,
-    actionAckSeq: sim.actionAckSeq(playerId),
-    players,
-    selfInventory: sim.inventorySnapshot(playerId),
+    t: "snapshot", tick: sim.tick, dayPhase: sim.dayPhase, dayPaused: sim.dayPaused,
+    actionAckSeq: sim.actionAckSeq(playerId), players, selfInventory: sim.inventorySnapshot(playerId),
   };
 }
 
@@ -41,16 +40,13 @@ function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, string>;
 }
 
 function dispatchMessage(ctx: {
-  readonly msg: ClientMessage;
-  readonly playerId: string;
-  readonly sim: WorldSim;
-  readonly ws: WebSocket;
-  readonly clients: Map<WebSocket, string>;
+  readonly msg: ClientMessage; readonly playerId: string; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, string>;
 }): void {
   const { msg, playerId, sim, ws, clients } = ctx;
   if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(playerId, msg.seq);
   const handlers: Record<ClientMessage["t"], () => void> = {
-    hello: () => msg.t === "hello" && sim.setPlayerName(playerId, msg.name),
+    hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
+    setAppearance: () => msg.t === "setAppearance" && sim.setAppearance(playerId, msg),
     input: () => msg.t === "input" && sim.queueInput(playerId, msg),
     toggleTorch: () => sim.toggleTorch(playerId),
     setDayPhase: () => msg.t === "setDayPhase" && sim.setDayPhase(msg.dayPhase, msg.paused),
@@ -61,22 +57,17 @@ function dispatchMessage(ctx: {
     craft: () => msg.t === "craft" && sim.craftRecipe(playerId, msg.recipeId),
   };
   handlers[msg.t]();
-  if (msg.t === "setDayPhase") broadcastTickSnapshots({ clients, sim });
-  else if (msg.t !== "input" && msg.t !== "hello") sendJson(ws, buildClientSnapshot(sim, playerId, sim.snapshots()));
+  if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim });
+  else if (msg.t !== "input") sendJson(ws, buildClientSnapshot(sim, playerId, sim.snapshots()));
 }
 
 function handleSocketMessage(ctx: {
-  readonly raw: string;
-  readonly playerId: string;
-  readonly sim: WorldSim;
-  readonly ws: WebSocket;
-  readonly clients: Map<WebSocket, string>;
+  readonly raw: string; readonly playerId: string; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, string>;
 }): void {
   let parsedJson: unknown;
   try { parsedJson = JSON.parse(ctx.raw); } catch { return; }
   const msg = ClientMessageSchema.safeParse(parsedJson);
-  if (!msg.success) return;
-  dispatchMessage({ ...ctx, msg: msg.data });
+  if (msg.success) dispatchMessage({ ...ctx, msg: msg.data });
 }
 
 function resolveServerConfig(options: { readonly port?: number; readonly worldSeed?: number }) {
@@ -94,15 +85,11 @@ export async function startGameServer(options: { readonly port?: number; readonl
   const clients = new Map<WebSocket, string>();
   wss.on("connection", (ws) => attachClient({ ws, sim, clients }));
   const timer = setInterval(() => { sim.step(1 / TICK_RATE); broadcastTickSnapshots({ clients, sim }); }, 1000 / TICK_RATE);
-
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
   const address = httpServer.address();
   const actualPort = typeof address === "object" && address ? address.port : port;
   console.log(`[game-server] listening on http://${host}:${actualPort}`);
-  return {
-    port: actualPort,
-    close: () => new Promise((resolve) => { clearInterval(timer); wss.close(() => httpServer.close(() => resolve())); }),
-  };
+  return { port: actualPort, close: () => new Promise((resolve) => { clearInterval(timer); wss.close(() => httpServer.close(() => resolve())); }) };
 }
 
 function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, string> }): void {

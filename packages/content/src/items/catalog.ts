@@ -57,6 +57,8 @@ export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [
   { slot: 13, itemId: "flint", count: 4 },
   { slot: 14, itemId: "raw-meat", count: 3 },
   { slot: 15, itemId: "herb", count: 4 },
+  { slot: 16, itemId: "leather-boots", count: 1 },
+  { slot: 17, itemId: "leather-leggings", count: 1 },
 ];
 
 const ITEM_MAP = new Map<string, ItemDef>(ITEM_CATALOG.map((item) => [item.id, item]));

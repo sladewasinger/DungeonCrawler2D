@@ -12,6 +12,8 @@ export interface ToolbarCallbacks {
   readonly onSetQuality: (preset: QualityPresetId) => void;
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
+  readonly onToggleCharacter: () => void;
+  readonly onZoom: (factor: number) => void;
 }
 
 const PRESET_ORDER: readonly QualityPresetId[] = ["high", "balanced", "performance"];
@@ -29,6 +31,7 @@ export class AtmosphereToolbar {
   private readonly timeLabel: HTMLSpanElement;
   private readonly bagBtn: HTMLButtonElement;
   private readonly craftBtn: HTMLButtonElement;
+  private readonly heroBtn: HTMLButtonElement;
   private readonly torchBtn: HTMLButtonElement;
   private readonly qualityBtn: HTMLButtonElement;
   private readonly fsBtn: HTMLButtonElement;
@@ -49,13 +52,14 @@ export class AtmosphereToolbar {
 
     this.bagBtn = btn("Bag", () => callbacks.onToggleInventory());
     this.craftBtn = btn("Craft", () => callbacks.onToggleCrafting());
-    this.torchBtn = btn("Torch", () => callbacks.onToggleTorch());
+    this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
+    this.torchBtn = btn("Lantern", () => callbacks.onToggleTorch());
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
     this.fsBtn = btn("FS", () => void toggleFullscreen());
     this.fsBtn.hidden = !isFullscreenSupported();
     onFullscreenChange(() => this.syncFullscreenButton());
     const timeBtn = btn("Atmosphere ▾", () => this.toggleDrawer());
-    bar.append(statusPill, this.bagBtn, this.craftBtn, this.torchBtn, this.qualityBtn, this.fsBtn, timeBtn);
+    bar.append(statusPill, this.bagBtn, this.craftBtn, this.heroBtn, this.torchBtn, this.qualityBtn, this.fsBtn, timeBtn);
 
     this.drawer = el("div", "ow-drawer");
     this.slider = makeSlider((val) => callbacks.onSetDayPhase(val, true));
@@ -68,7 +72,7 @@ export class AtmosphereToolbar {
     presets.append(this.pauseBtn);
     this.drawer.append(presets, this.slider);
     root.append(bar, this.drawer);
-    host.appendChild(root);
+    host.append(root, makeZoomControls(callbacks.onZoom));
     this.syncFullscreenButton();
   }
 
@@ -85,8 +89,9 @@ export class AtmosphereToolbar {
     this.timeLabel.textContent = `· ${periodForPhase(state.dayPhase)}`;
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.craftBtn.dataset.active = String(state.activePanel === "crafting");
+    this.heroBtn.dataset.active = String(state.activePanel === "character");
     this.torchBtn.dataset.active = String(state.torchLit);
-    this.torchBtn.textContent = state.torchLit ? "Torch: ON" : "Torch: OFF";
+    this.torchBtn.textContent = state.torchLit ? "Lantern: ON" : "Lantern: OFF";
     this.qualityBtn.textContent = `FX: ${QUALITY_PRESETS[state.quality].label}`;
     this.slider.value = state.dayPhase.toFixed(2);
     this.pauseBtn.dataset.paused = String(state.dayPaused);
@@ -124,6 +129,22 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
   b.textContent = label;
   b.addEventListener("click", onClick);
   return b;
+}
+
+function makeZoomControls(onZoom: (factor: number) => void): HTMLDivElement {
+  const box = el("div", "ow-zoom-controls");
+  const zoomOut = el("button", "ow-pill ow-zoom-btn");
+  zoomOut.type = "button";
+  zoomOut.textContent = "−";
+  zoomOut.setAttribute("aria-label", "Zoom out");
+  zoomOut.addEventListener("click", () => onZoom(1 / 1.18));
+  const zoomIn = el("button", "ow-pill ow-zoom-btn");
+  zoomIn.type = "button";
+  zoomIn.textContent = "+";
+  zoomIn.setAttribute("aria-label", "Zoom in");
+  zoomIn.addEventListener("click", () => onZoom(1.18));
+  box.append(zoomOut, zoomIn);
+  return box;
 }
 
 function makeSlider(onInput: (val: number) => void): HTMLInputElement {

@@ -5,7 +5,7 @@ const TOOLBAR_CSS = `
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
   left: max(10px, env(safe-area-inset-left));
-  right: max(10px, env(safe-area-inset-right));
+  right: max(92px, calc(env(safe-area-inset-right) + 84px));
   z-index: 20;
   pointer-events: none;
   display: flex;
@@ -90,6 +90,52 @@ const TOOLBAR_CSS = `
   transform: translate(-50%, -50%);
   background: rgba(248, 250, 252, 0.72);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.ow-zoom-controls {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 25;
+  display: inline-flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(12, 18, 26, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  backdrop-filter: blur(8px);
+}
+.ow-zoom-btn {
+  min-width: 30px;
+  justify-content: center;
+  padding: 5px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+.ow-jump-btn {
+  display: none;
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + clamp(35px, calc((100vw - 74px) / 9), 58px) + 26px);
+  z-index: 35;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 2px solid rgba(248, 250, 252, 0.35);
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  touch-action: none;
+  cursor: pointer;
+}
+.ow-jump-btn:active {
+  background: rgba(180, 83, 9, 0.8);
+  border-color: #f59e0b;
+}
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  .ow-jump-btn { display: flex; align-items: center; justify-content: center; }
 }
 `;
 

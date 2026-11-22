@@ -14,10 +14,11 @@ Concise, durable technical gotchas discovered in this repository. Keep architect
 - **Validate admitted rooms, not candidates**: Room entrance registration can drop candidates; enforce admitted counts after entrance registration.
 - **Do not pre-union disconnected maze crossings**: Only merge topology regions when physical walkable connections are carved and validated.
 - **Survive room-isolation chunks & atlas transitions**: Always admit room-isolation chunks outside finite bounds, and invalidate active terrain roots when atlas readiness changes.
-- **Keep worldgen and folder-size rules clean**: `scripts/check-folder-size.mjs` caps new directories at 12 direct source files (and blocks growing legacy folders past their baseline), and `eslint.config.js` caps files at 150 lines and functions at 35 lines.
+- **Keep worldgen and folder-size rules clean**: `scripts/check-folder-size.mjs` caps new directories at 12 direct source files (and blocks growing legacy folders past their baseline), and `eslint.config.js` caps files at 250 lines and functions at 35 lines.
 
 ## Async Loading, Editor & Testing
 
 - **Cancel superseded floor loads**: When a newer floor load begins, cancel/dispose the prior in-flight worker rather than only ignoring its callback.
 - **Reset preview state atomically**: Clear prior generation preview state before starting/failing a generation attempt, and recompute stationary hover metadata whenever preview stages switch.
 - **Test invariants, not magic tuning literals or coordinates**: Assert behavioral invariants (reachability, feature counts, bounds) with fixture configs instead of hard-coding tuning constants or world cell coordinates.
+- **Watch sibling workspace sources in Vite**: Add `packages/engine/src` and `packages/content/src` to `server.watcher` (with `optimizeDeps.exclude` and `server.fs.allow`) in [vite.config.ts](file:///d:/repos/dungeoncrawler2D/packages/client/vite.config.ts) so edits to shared workspace exports invalidate `/@fs/...` HMR modules reliably.

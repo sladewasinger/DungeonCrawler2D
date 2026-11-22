@@ -17,6 +17,14 @@ export type { TileSample } from "./world/biomeSampler.js";
 export { generateChunk } from "./world/chunkGenerator.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
+export {
+  ELEVATION_DROP_TO_JUMP_Z,
+  JUMP_GRAVITY_TILES_PER_SEC2,
+  JUMP_VELOCITY_TILES_PER_SEC,
+  JUMP_VISUAL_PX_PER_TILE,
+  stepJumpArc,
+} from "./world/jumpPhysics.js";
+export type { JumpState } from "./world/jumpPhysics.js";
 export { DAY_DURATION_SECONDS, periodForPhase, sampleDayNight, wrapDayPhase } from "./time/dayNight.js";
 export type { DayNightState, RgbTuple, TimeOfDayPeriod } from "./time/dayNight.js";
 export {
@@ -45,6 +53,29 @@ export {
 export type { ArmorItemRule, ArmorRuleLookup } from "./inventory/armorOps.js";
 export { canCraftRecipe, countItemInSlots, craftRecipeInState } from "./inventory/crafting.js";
 export type { CraftRecipe, RecipeIngredient } from "./inventory/crafting.js";
+export {
+  BODY_STYLES,
+  BodyStyleSchema,
+  CharacterAppearanceSchema,
+  DEFAULT_APPEARANCE,
+  EYE_COLORS,
+  EyeColorIdSchema,
+  HAIR_COLORS,
+  HAIR_STYLES,
+  HairColorIdSchema,
+  HairStyleIdSchema,
+  SKIN_TONES,
+  SkinToneIdSchema,
+  sanitizeCharacterAppearance,
+} from "./character/appearance.js";
+export type {
+  BodyStyle,
+  CharacterAppearance,
+  EyeColorId,
+  HairColorId,
+  HairStyleId,
+  SkinToneId,
+} from "./character/appearance.js";
 export {
   ArmorSlotKeySchema,
   ClientMessageSchema,

@@ -10,7 +10,7 @@ import type { PropTextureSet } from "../textures/propTextures.js";
 import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
 import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "./chunkProps.js";
 import { ELEVATION_LIFT_PX, bakeElevatedChunkRows, playerVisualElevation } from "./cliffStrips.js";
-import { PlayerView, type KnightFrames } from "./playerSprite.js";
+import { PlayerView } from "./playerSprite.js";
 import { bakeChunkTextures } from "./tileBuilder.js";
 
 export class ChunkRenderer {
@@ -21,10 +21,7 @@ export class ChunkRenderer {
   constructor(
     private readonly layers: WorldLayers,
     private readonly atlases: { readonly terrain: TerrainTileAtlas; readonly props: PropTextureSet },
-    private knightFrames: KnightFrames,
   ) {}
-
-  setKnightFrames(frames: KnightFrames): void { this.knightFrames = frames; }
 
   syncVisibleChunks(cache: WorldChunkCache, focus: { readonly x: number; readonly y: number; readonly radius: number }): void {
     const centerCx = worldToChunkCoord(Math.floor(focus.x));
@@ -94,12 +91,12 @@ export class ChunkRenderer {
     for (const snap of players) {
       let view = this.playerViews.get(snap.id);
       if (!view) {
-        view = new PlayerView(this.knightFrames, this.atlases.props.torchFrames[0]!, snap.name);
+        view = new PlayerView(this.atlases.props.torchFrames[0]!, snap);
         this.playerViews.set(snap.id, view);
         this.layers.ysort.addChild(view.root);
       }
       const { visualElev, sortBoost } = playerVisualElevation({ cache, x: snap.x, y: snap.y, baseElev: snap.elevation });
-      view.sync({ snap, frames: this.knightFrames, torchFrames: this.atlases.props.torchFrames, timeSec, visualElev, sortBoost });
+      view.sync({ snap, torchFrames: this.atlases.props.torchFrames, timeSec, visualElev, sortBoost });
     }
   }
 

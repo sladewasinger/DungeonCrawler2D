@@ -11,7 +11,6 @@ import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
-import { loadKnightFrames } from "./playerSprite.js";
 
 export interface SceneFrameInput {
   readonly dt: number;
@@ -36,7 +35,7 @@ export class WorldScene {
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
-  private zoom = 2.8;
+  private zoom = 3.8;
 
   private constructor(private readonly app: Application) {
     const [groundCam, waterCam, shadowCam, grassCam, ysortCam, canopyCam, emissiveCam] =
@@ -62,9 +61,7 @@ export class WorldScene {
     this.chunks = new ChunkRenderer(
       { ground: groundCam!, water: waterCam!, grass: grassCam!, ysort: ysortCam!, canopy: canopyCam! },
       { terrain, props },
-      { idle: [props.fallbackKnight], run: [props.fallbackKnight] },
     );
-    void loadKnightFrames(props.fallbackKnight).then((frames) => this.chunks.setKnightFrames(frames));
     reportShaderDiagnostics(app.renderer, [
       { name: "water", filter: this.waterEffect.filter },
       { name: "wind", filter: this.grassWind.filter },
@@ -91,6 +88,18 @@ export class WorldScene {
   qualityPreset(): QualityPresetId { return this.qualityId; }
 
   adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, 1.6, 5); }
+
+  screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
+    const rect = this.app.canvas.getBoundingClientRect();
+    const sw = this.app.screen.width;
+    const sh = this.app.screen.height;
+    const sx = ((clientX - rect.left) * sw) / Math.max(1, rect.width);
+    const sy = ((clientY - rect.top) * sh) / Math.max(1, rect.height);
+    return {
+      x: ((sx - sw * 0.5) / this.zoom + this.camX * TILE_PX) / TILE_PX,
+      y: ((sy - sh * 0.5) / this.zoom + this.camY * TILE_PX) / TILE_PX,
+    };
+  }
 
   renderFrame(input: SceneFrameInput): void {
     const preset = QUALITY_PRESETS[this.qualityId];
