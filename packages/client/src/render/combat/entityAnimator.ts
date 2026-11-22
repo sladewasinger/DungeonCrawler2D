@@ -61,7 +61,7 @@ function resolveFrameIndex(input: {
   const len = input.clip.frames.length;
   if (len <= 1) return 0;
   if (input.state === STATE_ATTACK && input.snap.telegraphProgress > 0) {
-    return input.snap.telegraphProgress < 0.62 ? 0 : Math.min(len - 1, 1);
+    return Math.min(len - 1, Math.floor(Math.max(0, input.snap.telegraphProgress) * len));
   }
   const phase = Math.abs(input.snap.x * 0.37 + input.snap.y * 0.19);
   return Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % len;
