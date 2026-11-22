@@ -7,12 +7,13 @@ A fresh, mobile-first, server-authoritative 2D action-RPG & light-survival overw
 ## Core Design Pillars
 
 1. **Lush HD-Pixel Visuals & Real WebGL2 Atmosphere**: Crisp nearest-neighbor pixel art enhanced with smooth real-time 2D lightmaps, directional sun/moon shadows, generated normal-map relief lighting, flickering warm torch/campfire bloom, animated reflective water shaders, coherent foliage wind-wave shaders, canopy god-rays, drifting cloud shadows, valley ground mist, and dusk fireflies.
-2. **Mobile-First Browser UX**: Designed for portrait & landscape phones from day one (`100dvh`, `viewport-fit=cover`, floating touch thumbstick, large touch-friendly bottom hotbar, direct pointer drag-and-drop with tap-to-move fallback, quality scaling presets) while remaining effortless on desktop keyboard/mouse.
+2. **Mobile-First Browser UX**: Designed for portrait & landscape phones from day one (`100dvh`, `viewport-fit=cover`, auto-fullscreen on mobile first touch + manual fullscreen toggle, floating touch thumbstick, large touch-friendly bottom hotbar, direct pointer drag-and-drop with tap-to-move fallback, quality scaling presets) while remaining effortless on desktop keyboard/mouse.
 3. **Server-Authoritative Multiplayer (`@dc2d/*`)**: Clean 4-package monorepo (`@dc2d/engine`, `@dc2d/content`, `@dc2d/game-server`, `@dc2d/client`) supporting WebSocket co-op, client-side prediction, synced Day/Night & weather, plus seamless deterministic local preview when offline.
 4. **Deterministic Infinite Overworld + Enterable Dark Dungeons**: Seeded noise + macro biome fields generate `32×32` chunks on demand in milliseconds; persistence stores only world deltas (chopped resources, looted chests, placed campfires/torches/stations). Caves and ancient dungeon entrances transition into pitch-black torch-lit multi-floor interiors.
 5. **Action-RPG + Light Survival (Valheim-lite)**: Chop trees, mine ore/stone, forage herbs/flint, hunt wildlife, cook at campfires for rested/well-fed buffs (no punitive starvation deaths), place campfires/torches/chests/workbenches, and forge tiered equipment.
 6. **True Minimalist 36-Slot Inventory Model**: Slots `0..8` are the larger, always-visible **bottom hotbar** (rendered cleanly at the bottom of the gameplay screen, never duplicated inside the inventory modal); slots `9..35` are the `3×9` backpack. Weapons, bows, tools, and armor have `maxStack = 1` (no stack counts). The inventory screen contains ONLY backpack + 4 armor slots + stats, dragging straight onto the bottom hotbar; crafting lives in its own dedicated panel showing craftable/discovered recipes cleanly.
 7. **Hybrid Web Audio Engine**: Layered biome & time-of-day soundscapes, surface-aware footsteps, crisp melee/bow/harvest/UI SFX, and adaptive atmospheric music.
+8. **Composable Effects Engine & Real-Time AI Crafting**: Preserve the data-driven spirit of `archive/v1`'s effects system inside `@dc2d/engine` while expanding it flexibly — composable primitives (`modify_health`, `modify_stat`, `apply_status`, `remove_status`, `spawn_area`, triggers, projectiles, custom visuals), elemental area reactions, cross-referenced content registries, and validated AI invention pipelines so AI can craft novel items, recipes, and interactions safely in real time.
 
 ---
 
@@ -45,7 +46,7 @@ flowchart LR
 - Zero Three.js / Phaser dependencies; PixiJS v8 installed cleanly.
 - Strict modular limits (`<=150` lines/file, `<=35` lines/fn, max nesting 3, `<=12` files/folder, domain-based names, zero baseline exemptions).
 
-### Phase 1 — Infinite Forest & Core-Keeper / Eastward Shader Showcase *(Active)*
+### Phase 1 — Infinite Forest & Core-Keeper / Eastward Shader Showcase ✅
 - **1A Engine & Server**: Seeded 2D value/fBm/ridge noise; deterministic `32×32` chunk generator (`DeepWater`, `ShallowWater`, `Sand`, `Grass`, `MeadowGrass`, `ForestFloor`, `DirtPath`, `CliffStone`, `MossStone`); elevation tiers `0..2` with walkable stairs; sunlit spawn glade with warm campfire, river & cliffs; continuous sliding collision; Day/Night clock (`480s` cycle) + WebSocket multiplayer server (`@dc2d/game-server`).
 - **1B PixiJS v8 HD-Pixel Renderer & WebGL2 Shaders**:
   - Multi-variant pixel-art terrain tiles + organic auto-tile edge blends + generated tangent-space normal maps.
@@ -58,7 +59,8 @@ flowchart LR
   - Pooled GPU particles (sun-motes, falling leaves, dusk/night fireflies, rising embers & smoke).
   - Mobile-first floating thumbstick, desktop WASD/scroll-zoom, and collapsible time-of-day + quality preset (`High / Balanced / Performance`) debug bar.
 
-### Phase 2 — Mobile-First Controls & True 36-Slot Inventory / Bottom Hotbar
+### Phase 2 — Mobile-First Controls & True 36-Slot Inventory / Bottom Hotbar ✅
+- Mobile auto-fullscreen on initial touch gesture + manual fullscreen toggle in the HUD bar; touch-only floating movement joystick (leaving desktop mouse free).
 - Server-authoritative **36-slot array** (`0..8` hotbar, `9..35` backpack) synced cleanly over WebSocket.
 - Non-stackable gear (`maxStack: 1` for swords, bows, axes, pickaxes, armor pieces) — never renders stack counts (`×2`) on equipable gear; stackables combine cleanly up to `maxStack`.
 - **Larger Always-Visible Bottom Hotbar (`0..8`)**: sized generously for both thumbs and mouse clicking, remaining visible and droppable even while the Inventory modal is open.
@@ -66,7 +68,7 @@ flowchart LR
 - Unified pointer drag-and-drop (backpack <-> backpack swap/stack, backpack <-> bottom hotbar, backpack <-> armor, armor <-> bottom hotbar) plus tap-source -> tap-target mobile fallback.
 - Dedicated **Crafting & Storage Panel** (hand recipes + nearby station recipes with clean craftability filtering).
 
-### Phase 3 — Tactile Action Combat, Wildlife & Overworld POIs
+### Phase 3 — Tactile Action Combat, Wildlife & Overworld POIs *(Next)*
 - **Melee Combat**: Directional 3-hit weapon combos, arc VFX, brief hitstop, knockback, and stamina-cost dodge-roll with brief invulnerability frames.
 - **Shield & Bow**: Directional shield block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, and elemental arrow hooks (zero melee cone or lob-arc).
 - **Overworld Wildlife & AI**: Coordinated Wolf Packs (pack-hunter target sharing), solitary Grizzly Bears, Forest Spiders (web/poison lunge), and charging Wild Boars with outlined pixel-art animations.

@@ -99,7 +99,7 @@ export class LightingSystem {
       const sprite = this.acquireSprite(used++);
       const screenX = halfW + (light.x * TILE_PX - camera.x * TILE_PX) * camera.zoom;
       const screenY = halfH + (light.y * TILE_PX - camera.y * TILE_PX) * camera.zoom;
-      const flicker = 0.92 + 0.08 * Math.sin(timeSec * 8.5 + light.x * 1.7 + light.y * 2.3);
+      const flicker = 0.94 + 0.06 * Math.sin(timeSec * 2.1 + light.x * 1.7 + light.y * 2.3);
       const dia = light.radiusPx * 2 * camera.zoom * flicker;
       sprite.position.set(screenX * scaleX, screenY * scaleY);
       sprite.width = dia * scaleX;
