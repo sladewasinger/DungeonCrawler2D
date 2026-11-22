@@ -1,10 +1,12 @@
 /** CLI baker turning Blender turntable color+depth frames into a game-ready Cainos sel-out spritesheet. */
 import fs from "node:fs";
 import path from "node:path";
+import { updateCreatureManifest } from "./manifestSync.mjs";
 import { postProcessFrame, measureSpriteBounds } from "./pixelPost.mjs";
 import { decodePng, encodePng } from "./pngCodec.mjs";
 
-const DIRS = ["south", "side", "north"];
+const DEFAULT_CREATURES_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/creatures";
+const DEFAULT_MANIFEST = "D:/repos/dungeoncrawler2D/packages/client/public/assets/sprite-manifest.json";
 
 function readFlagMap(argv) {
   const map = new Map();
@@ -21,28 +23,40 @@ function parseCliArgs(argv) {
     creature: opt("creature", "goblin"),
     clip: opt("clip", "idle"),
     rawDir: opt("rawDir", ""),
-    outCreatures: opt("outCreatures", "D:/repos/dungeoncrawler2D/packages/client/public/assets/creatures"),
+    outCreatures: opt("outCreatures", DEFAULT_CREATURES_DIR),
+    manifestPath: opt("manifestPath", DEFAULT_MANIFEST),
     reviewPath: opt("reviewPath", ""),
     frames: Number(opt("frames", "6")),
     groundY: Number(opt("groundY", "52")),
   };
 }
 
+function loadClipsMetadata(args) {
+  const metaFile = path.join(args.rawDir, "clips.json");
+  if (!fs.existsSync(metaFile)) {
+    return {
+      directions: ["south", "side", "north"],
+      clips: [{ state: args.clip, frameCount: args.frames, fps: 7 }],
+    };
+  }
+  return JSON.parse(fs.readFileSync(metaFile, "utf8"));
+}
+
 function processDirectionClip(opts) {
-  const { rawDir, dir, clip, frames, groundY } = opts;
+  const { rawDir, dir, state, frameCount, groundY, baseAnchor } = opts;
   const rawFrames = [];
   const processed = [];
-  let anchorShift = null;
-  for (let f = 1; f <= frames; f++) {
-    const colorImg = decodePng(fs.readFileSync(path.join(rawDir, `${dir}_${clip}_f${f}.png`)));
-    const depthFile = path.join(rawDir, `${dir}_${clip}_f${f}_depth.png`);
+  let anchorShift = baseAnchor ?? null;
+  for (let f = 1; f <= frameCount; f++) {
+    const colorImg = decodePng(fs.readFileSync(path.join(rawDir, `${dir}_${state}_f${f}.png`)));
+    const depthFile = path.join(rawDir, `${dir}_${state}_f${f}_depth.png`);
     const depthImg = fs.existsSync(depthFile) ? decodePng(fs.readFileSync(depthFile)) : null;
     rawFrames.push(colorImg);
     const res = postProcessFrame({ colorImg, depthImg, groundY, dx: anchorShift?.dx, dy: anchorShift?.dy });
     anchorShift ??= { dx: res.dx, dy: res.dy };
     processed.push(res.frame);
   }
-  return { rawFrames, processed };
+  return { rawFrames, processed, anchorShift };
 }
 
 function blitCell(opts) {
@@ -58,7 +72,7 @@ function blitCell(opts) {
 }
 
 function packRows(rows, cellW, cellH) {
-  const cols = rows[0].length;
+  const cols = rows.reduce((maxCols, r) => Math.max(maxCols, r.length), 1);
   const sheetW = cols * cellW;
   const sheetH = rows.length * cellH;
   const rgba = new Uint8Array(sheetW * sheetH * 4);
@@ -89,9 +103,9 @@ function paintReviewPixel(opts) {
 }
 
 function writeReviewContactSheet(opts) {
-  const { rawRows, postRows, cellW, cellH, groundY, reviewPath } = opts;
+  const { rows, cellW, cellH, groundY, reviewPath } = opts;
   if (!reviewPath) return;
-  const combined = packRows([...rawRows, ...postRows], cellW, cellH);
+  const combined = packRows(rows, cellW, cellH);
   const zoom = 4;
   const rw = combined.width * zoom;
   const rh = combined.height * zoom;
@@ -104,24 +118,45 @@ function writeReviewContactSheet(opts) {
   fs.writeFileSync(reviewPath, encodePng(rw, rh, out));
 }
 
+function bakeDirectionRow(opts) {
+  const { args, state, frameCount, dir, anchorsByDir } = opts;
+  const isCorpse = state === "corpse";
+  const baseAnchor = isCorpse ? null : anchorsByDir.get(dir);
+  const res = processDirectionClip({ rawDir: args.rawDir, dir, state, frameCount, groundY: args.groundY, baseAnchor });
+  if (!isCorpse && !anchorsByDir.has(dir)) anchorsByDir.set(dir, res.anchorShift);
+  return res.processed;
+}
+
+function bakeAllClips(args, meta) {
+  const postRows = [];
+  const anchorsByDir = new Map();
+  const clipEntries = [];
+  for (const clip of meta.clips) {
+    const dirs = clip.state === "corpse" ? ["south"] : meta.directions;
+    const rowsMap = new Map();
+    for (const dir of dirs) {
+      rowsMap.set(dir, postRows.length);
+      postRows.push(bakeDirectionRow({ args, state: clip.state, frameCount: clip.frameCount, dir, anchorsByDir }));
+    }
+    clipEntries.push({ ...clip, rows: rowsMap });
+  }
+  return { postRows, clipEntries };
+}
+
 function run() {
   const args = parseCliArgs(process.argv.slice(2));
-  const rawRows = [];
-  const postRows = [];
-  for (const dir of DIRS) {
-    const res = processDirectionClip({ rawDir: args.rawDir, dir, clip: args.clip, frames: args.frames, groundY: args.groundY });
-    rawRows.push(res.rawFrames);
-    postRows.push(res.processed);
-  }
+  const meta = loadClipsMetadata(args);
+  const { postRows, clipEntries } = bakeAllClips(args, meta);
   const cellW = postRows[0][0].width;
   const cellH = postRows[0][0].height;
   const sheet = packRows(postRows, cellW, cellH);
   fs.mkdirSync(args.outCreatures, { recursive: true });
   fs.writeFileSync(path.join(args.outCreatures, `${args.creature}-sheet.png`), encodePng(sheet.width, sheet.height, sheet.rgba));
   fs.writeFileSync(path.join(args.outCreatures, `${args.creature}.png`), encodePng(cellW, cellH, postRows[0][0].rgba));
-  writeReviewContactSheet({ rawRows, postRows, cellW, cellH, groundY: args.groundY, reviewPath: args.reviewPath });
-  const bounds = measureSpriteBounds(postRows[0][0]);
-  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, sheet: `${sheet.width}x${sheet.height}`, bounds });
+  writeReviewContactSheet({ rows: postRows, cellW, cellH, groundY: args.groundY, reviewPath: args.reviewPath });
+  const idleBounds = measureSpriteBounds(postRows[0][0]);
+  updateCreatureManifest({ manifestPath: args.manifestPath, creature: args.creature, cellW, cellH, idleBounds, groundY: args.groundY, clipEntries });
+  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, sheet: `${sheet.width}x${sheet.height}`, rows: postRows.length, bounds: idleBounds });
 }
 
 run();
