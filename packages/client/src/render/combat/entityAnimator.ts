@@ -14,6 +14,7 @@ const DIR_NORTH: SpriteDirection = "north";
 
 const STATE_IDLE: SpriteAnimState = "idle";
 const STATE_WALK: SpriteAnimState = "walk";
+const STATE_RUN: SpriteAnimState = "run";
 const STATE_ATTACK: SpriteAnimState = "attack";
 const STATE_CORPSE: SpriteAnimState = "corpse";
 
@@ -26,8 +27,10 @@ export interface AnimatorTrackState {
   prevState: SpriteAnimState | null;
   lastAttackClip: LoadedSpriteClip | null;
   lastAttackFlipX: 1 | -1;
+  lastAttackWasCharge: boolean;
   outroClip: LoadedSpriteClip | null;
   outroFlipX: 1 | -1;
+  outroStartIdx: number;
   outroStartSec: number;
   outroDurationSec: number;
 }
@@ -37,8 +40,10 @@ export function createAnimatorTrackState(): AnimatorTrackState {
     prevState: null,
     lastAttackClip: null,
     lastAttackFlipX: 1,
+    lastAttackWasCharge: false,
     outroClip: null,
     outroFlipX: 1,
+    outroStartIdx: 0,
     outroStartSec: 0,
     outroDurationSec: 0,
   };
@@ -61,7 +66,15 @@ export function resolveAnimState(input: {
 }): SpriteAnimState {
   if (input.dead) return STATE_CORPSE;
   if (input.snap.telegraphProgress > 0 || input.snap.aiState === "charge") return STATE_ATTACK;
-  return input.moving ? STATE_WALK : STATE_IDLE;
+  if (!input.moving) return STATE_IDLE;
+  return input.snap.aiState === "chase" || input.snap.aiState === "flank" ? STATE_RUN : STATE_WALK;
+}
+
+function pickDirClip(
+  byDir: Partial<Record<SpriteDirection, LoadedSpriteClip>>,
+  dir: SpriteDirection,
+): LoadedSpriteClip | null {
+  return [byDir[dir], byDir[DIR_SIDE], byDir[DIR_SOUTH], byDir[DIR_NORTH]].find((c) => c !== undefined) ?? null;
 }
 
 function pickClipForState(
@@ -69,9 +82,9 @@ function pickClipForState(
   state: SpriteAnimState,
   dir: SpriteDirection,
 ): LoadedSpriteClip | null {
-  const byDir = anims.clips[state] ?? anims.clips[STATE_IDLE];
-  if (!byDir) return null;
-  return byDir[dir] ?? byDir[DIR_SIDE] ?? byDir[DIR_SOUTH] ?? byDir[DIR_NORTH] ?? null;
+  const runFallback = state === STATE_RUN ? anims.clips[STATE_WALK] : undefined;
+  const byDir = anims.clips[state] ?? runFallback ?? anims.clips[STATE_IDLE];
+  return byDir ? pickDirClip(byDir, dir) : null;
 }
 
 function resolveLoopSpan(clip: LoadedSpriteClip, len: number): { readonly start: number; readonly count: number } {
@@ -97,30 +110,42 @@ function resolveFrameIndex(input: {
   return start + (Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % count);
 }
 
+function resolveOutroDuration(count: number, wasCharge: boolean, fps: number): number {
+  return wasCharge ? Math.max(0.3, count / 7) : Math.max(0.26, count / Math.max(8, fps));
+}
+
+function resolveOutroStartIdx(track: AnimatorTrackState, atk: LoadedSpriteClip | null): number | null {
+  if (!atk) return null;
+  const idx = track.lastAttackWasCharge ? atk.loopEnd : atk.loopStart;
+  return idx !== undefined && idx < atk.frames.length ? idx : null;
+}
+
 function maybeBeginAttackOutro(track: AnimatorTrackState, state: SpriteAnimState, timeSec: number): void {
   const prev = track.prevState;
   track.prevState = state;
   if (state === STATE_CORPSE || state === STATE_ATTACK) { track.outroClip = null; return; }
   if (prev !== STATE_ATTACK) return;
   const atk = track.lastAttackClip;
-  if (!atk || atk.loopEnd === undefined || atk.loopEnd >= atk.frames.length) return;
+  const startIdx = resolveOutroStartIdx(track, atk);
+  if (!atk || startIdx === null) return;
   track.outroClip = atk;
   track.outroFlipX = track.lastAttackFlipX;
+  track.outroStartIdx = startIdx;
   track.outroStartSec = timeSec;
-  track.outroDurationSec = Math.max(0.3, (atk.frames.length - atk.loopEnd) / 7);
+  track.outroDurationSec = resolveOutroDuration(atk.frames.length - startIdx, track.lastAttackWasCharge, atk.fps);
 }
 
 function sampleOutroFrame(track: AnimatorTrackState, timeSec: number): SampledSpriteFrame | null {
   const clip = track.outroClip;
-  if (!clip || clip.loopEnd === undefined) return null;
+  if (!clip) return null;
   const elapsed = timeSec - track.outroStartSec;
   if (elapsed < 0 || elapsed >= track.outroDurationSec) {
     track.outroClip = null;
     return null;
   }
-  const count = clip.frames.length - clip.loopEnd;
+  const count = clip.frames.length - track.outroStartIdx;
   const offset = Math.min(count - 1, Math.floor((elapsed / track.outroDurationSec) * count));
-  const texture = clip.frames[clip.loopEnd + offset];
+  const texture = clip.frames[track.outroStartIdx + offset];
   return texture ? { texture, flipX: track.outroFlipX } : null;
 }
 
@@ -128,6 +153,7 @@ function resolveTrackOutro(
   track: AnimatorTrackState | undefined,
   opts: {
     readonly state: SpriteAnimState;
+    readonly isCharge: boolean;
     readonly clip: LoadedSpriteClip | null;
     readonly flipX: 1 | -1;
     readonly timeSec: number;
@@ -137,6 +163,7 @@ function resolveTrackOutro(
   if (opts.state === STATE_ATTACK && opts.clip) {
     track.lastAttackClip = opts.clip;
     track.lastAttackFlipX = opts.flipX;
+    track.lastAttackWasCharge = opts.isCharge;
   }
   maybeBeginAttackOutro(track, opts.state, opts.timeSec);
   return sampleOutroFrame(track, opts.timeSec);
@@ -153,7 +180,8 @@ export function sampleAnimatedFrame(input: {
   const { dir, flipX } = resolveFacingDirection(input.snap.facingX, input.snap.facingY);
   const state = resolveAnimState({ snap: input.snap, dead: input.dead, moving: input.moving });
   const clip = pickClipForState(input.animations, state, dir);
-  const outro = resolveTrackOutro(input.track, { state, clip, flipX, timeSec: input.timeSec });
+  const isCharge = input.snap.telegraphProgress <= 0 && input.snap.aiState === "charge";
+  const outro = resolveTrackOutro(input.track, { state, isCharge, clip, flipX, timeSec: input.timeSec });
   if (outro) return outro;
   if (!clip || clip.frames.length === 0) return null;
   const idx = resolveFrameIndex({ state, snap: input.snap, clip, timeSec: input.timeSec });

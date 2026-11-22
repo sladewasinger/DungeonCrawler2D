@@ -2,7 +2,7 @@
 import { Assets, Rectangle, Texture } from "pixi.js";
 
 export type SpriteDirection = "south" | "side" | "north";
-export type SpriteAnimState = "idle" | "walk" | "attack" | "corpse";
+export type SpriteAnimState = "idle" | "walk" | "run" | "attack" | "corpse";
 
 export interface SpriteAnimClipSpec {
   readonly fps: number;

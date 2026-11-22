@@ -42,7 +42,7 @@ export interface SandboxToolbarActions {
 
 const POSES: readonly { readonly id: SandboxPose; readonly label: string }[] = [
   { id: "idle", label: "Idle" }, { id: "walk", label: "Walk" },
-  { id: "windup", label: "Windup" }, { id: "corpse", label: "Corpse" },
+  { id: "run", label: "Run" }, { id: "windup", label: "Windup" }, { id: "corpse", label: "Corpse" },
 ];
 
 const FACINGS: readonly { readonly id: SandboxFacing; readonly label: string }[] = [

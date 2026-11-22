@@ -1,8 +1,13 @@
 /** Local client-side sandbox entity lineup, pose preview, and non-jitter combat AI. */
-import type { AiState, EntityKind, GoreSubstance, WorldEntitySnapshot, WorldEvent } from "@dc2d/engine";
+import type { WorldEntitySnapshot, WorldEvent } from "@dc2d/engine";
+import {
+  LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y,
+  applyFrozenPose, isDummyKind,
+  type LineupSpec, type SandboxFacing, type SandboxPose,
+} from "./sandboxPoses.js";
 
-export type SandboxPose = "idle" | "walk" | "windup" | "corpse";
-export type SandboxFacing = "auto" | "south" | "east" | "west" | "north";
+export { LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y, isDummyKind };
+export type { SandboxFacing, SandboxPose };
 
 export interface SandboxActor {
   readonly homeX: number;
@@ -16,36 +21,6 @@ export interface SandboxActor {
   chargeDx: number;
   chargeDy: number;
   snap: WorldEntitySnapshot;
-}
-
-interface LineupSpec {
-  readonly kind: EntityKind;
-  readonly label: string;
-  readonly maxHp: number;
-  readonly substance: GoreSubstance;
-}
-
-export const SANDBOX_LINEUP_Y = 22.4;
-export const SANDBOX_LINEUP_X0 = 4.5;
-export const SANDBOX_LINEUP_DX = 3.1;
-
-export const LINEUP_SPECS: readonly LineupSpec[] = [
-  { kind: "wolf", label: "Wolf", maxHp: 65, substance: "blood" },
-  { kind: "bear", label: "Bear", maxHp: 140, substance: "blood" },
-  { kind: "spider", label: "Spider", maxHp: 55, substance: "ichor" },
-  { kind: "boar", label: "Boar", maxHp: 85, substance: "blood" },
-  { kind: "slime", label: "Slime", maxHp: 45, substance: "slime" },
-  { kind: "goblin", label: "Goblin", maxHp: 60, substance: "blood" },
-  { kind: "orc", label: "Orc", maxHp: 120, substance: "blood" },
-  { kind: "skeleton", label: "Skeleton", maxHp: 75, substance: "bone" },
-  { kind: "golem", label: "Golem", maxHp: 220, substance: "bone" },
-  { kind: "dummy", label: "Dummy", maxHp: 100, substance: "straw" },
-  { kind: "slime-dummy", label: "Slime Dummy", maxHp: 100, substance: "slime" },
-  { kind: "spar-dummy", label: "Spar Dummy", maxHp: 120, substance: "straw" },
-];
-
-export function isDummyKind(kind: EntityKind): boolean {
-  return kind === "dummy" || kind === "slime-dummy" || kind === "spar-dummy";
 }
 
 function makeActor(opts: { readonly id: string; readonly spec: LineupSpec; readonly x: number; readonly y: number; readonly temporary: boolean }): SandboxActor {
@@ -76,46 +51,6 @@ export function createWolfPackActors(px: number, py: number, seq: number): Sandb
 const BOAR_BRAKE_SEC = 0.3;
 const BOAR_PAUSE_SEC = 0.85;
 const BOAR_RECOVER_SEC = BOAR_BRAKE_SEC + BOAR_PAUSE_SEC;
-
-function resolveFrozenAiState(pose: SandboxPose, timeSec: number): AiState {
-  if (pose === "walk") return "patrol";
-  if (pose !== "windup") return "idle";
-  return timeSec % 3.2 < 2.05 ? "charge" : "idle";
-}
-
-function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly facingX: number; readonly facingY: number } {
-  if (facing === "east") return { facingX: 1, facingY: 0 };
-  if (facing === "west") return { facingX: -1, facingY: 0 };
-  if (facing === "north") return { facingX: 0, facingY: -1 };
-  if (facing === "south") return { facingX: 0, facingY: 1 };
-  const dirs: readonly (readonly [number, number])[] = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-  const pair = dirs[Math.floor(timeSec / 1.8) % dirs.length]!;
-  return { facingX: pair[0], facingY: pair[1] };
-}
-
-function frozenWindupTelegraph(pose: SandboxPose, timeSec: number): number {
-  if (pose !== "windup") return 0;
-  const cyc = timeSec % 3.2;
-  return cyc < 0.55 ? Math.max(0.01, cyc / 0.55) : 0;
-}
-
-function applyFrozenPose(actor: SandboxActor, opts: {
-  readonly pose: SandboxPose;
-  readonly facing: SandboxFacing;
-  readonly timeSec: number;
-}): void {
-  const s = actor.snap;
-  if (opts.pose === "corpse") {
-    actor.snap = { ...s, x: actor.homeX, y: actor.homeY, hp: 0, corpse: true, aiState: "dead", telegraphProgress: 0 };
-    return;
-  }
-  const { facingX, facingY } = resolveFrozenFacing(opts.facing, opts.timeSec);
-  const telegraphProgress = frozenWindupTelegraph(opts.pose, opts.timeSec);
-  actor.snap = {
-    ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
-    facingX, facingY, aiState: resolveFrozenAiState(opts.pose, opts.timeSec), telegraphProgress,
-  };
-}
 
 function separationVector(actor: SandboxActor, allActors: readonly SandboxActor[]): { readonly x: number; readonly y: number } {
   let sx = 0; let sy = 0;
@@ -175,6 +110,8 @@ function triggerLiveStrike(opts: {
   actor.cooldownSec = 1.05;
 }
 
+const CHASE_SPEEDS: Readonly<Record<string, number>> = { spider: 3.4, wolf: 3.2, golem: 1.9 };
+
 function advanceLiveChase(opts: {
   readonly actor: SandboxActor; readonly allActors: readonly SandboxActor[];
   readonly nx: number; readonly ny: number; readonly dist: number; readonly stopDist: number; readonly dt: number;
@@ -182,7 +119,7 @@ function advanceLiveChase(opts: {
   const { actor, allActors, nx, ny, dist, stopDist, dt } = opts;
   const s = actor.snap;
   const sep = separationVector(actor, allActors);
-  const baseSpd = s.kind === "wolf" ? 3.2 : s.kind === "golem" ? 1.9 : 2.5;
+  const baseSpd = CHASE_SPEEDS[s.kind] ?? 2.5;
   const chaseSpd = dist > stopDist ? baseSpd : 0;
   const vx = nx * chaseSpd + sep.x * 2.4;
   const vy = ny * chaseSpd + sep.y * 2.4;
@@ -199,7 +136,8 @@ function advanceWindupPhase(opts: {
   const { actor, nx, ny, dist, stopDist, dt, onHitPlayer, events } = opts;
   if (actor.windupSec <= 0) return false;
   actor.windupSec = Math.max(0, actor.windupSec - dt);
-  actor.snap = { ...actor.snap, facingX: nx, facingY: ny, aiState: "charge", telegraphProgress: Math.min(1, 1 - actor.windupSec / 0.55) };
+  const aiState = actor.snap.kind === "boar" ? "charge" : "idle";
+  actor.snap = { ...actor.snap, facingX: nx, facingY: ny, aiState, telegraphProgress: Math.min(1, 1 - actor.windupSec / 0.55) };
   if (actor.windupSec === 0) triggerLiveStrike({ actor, nx, ny, dist, stopDist, onHitPlayer, events });
   return true;
 }
@@ -216,7 +154,7 @@ function tryStartWindup(opts: {
   const inBoarRange = s.kind === "boar" && dist >= 1.9 && dist <= 11.5;
   if (actor.cooldownSec > 0 || (dist > stopDist + 0.35 && !inBoarRange)) return false;
   actor.windupSec = 0.55;
-  actor.snap = { ...s, facingX: nx, facingY: ny, aiState: "charge", telegraphProgress: 0.1 };
+  actor.snap = { ...s, facingX: nx, facingY: ny, aiState: s.kind === "boar" ? "charge" : "idle", telegraphProgress: 0.1 };
   return true;
 }
 
