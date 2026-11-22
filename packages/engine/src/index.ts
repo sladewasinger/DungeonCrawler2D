@@ -36,12 +36,25 @@ export type {
   StackLimitLookup,
 } from "./inventory/slotModel.js";
 export {
+  ARMOR_SLOT_KEYS,
+  cloneInventoryState,
+  computeArmorDefense,
+  equipArmorFromSlot,
+  unequipArmorToSlot,
+} from "./inventory/armorOps.js";
+export type { ArmorItemRule, ArmorRuleLookup } from "./inventory/armorOps.js";
+export { canCraftRecipe, countItemInSlots, craftRecipeInState } from "./inventory/crafting.js";
+export type { CraftRecipe, RecipeIngredient } from "./inventory/crafting.js";
+export {
+  ArmorSlotKeySchema,
   ClientMessageSchema,
+  InventorySnapshotSchema,
   PROTOCOL_VERSION,
   ServerMessageSchema,
 } from "./net/protocol.js";
 export type {
   ClientMessage,
+  InventorySnapshot,
   PlayerSnapshot,
   ServerMessage,
 } from "./net/protocol.js";

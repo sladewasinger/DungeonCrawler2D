@@ -1,11 +1,12 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  DAY_DURATION_SECONDS,
-  WorldChunkCache,
-  resolveMovement,
-  wrapDayPhase,
-  type PlayerSnapshot,
+  DAY_DURATION_SECONDS, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement, wrapDayPhase,
+  type ArmorSlotKey, type InventorySnapshot, type PlayerInventoryState, type PlayerSnapshot,
 } from "@dc2d/engine";
+import {
+  buildInventorySnapshot, craftPlayerRecipe, createStarterInventory, equipPlayerArmor,
+  isPlayerNearCampfire, movePlayerInventorySlot, unequipPlayerArmor,
+} from "./playerInventory.js";
 
 export const TICK_RATE = 20;
 export const PLAYER_SPEED_TILES_PER_SEC = 5.4;
@@ -26,6 +27,8 @@ interface SimPlayer {
   torchLit: boolean;
   inWater: boolean;
   lastAckSeq: number;
+  selectedHotbar: number;
+  inventory: PlayerInventoryState;
 }
 
 export class WorldSim {
@@ -45,25 +48,21 @@ export class WorldSim {
     const id = `p${this.nextPlayerNum++}`;
     const offset = ((this.players.size % 4) - 1.5) * 0.6;
     this.players.set(id, {
-      id,
-      name,
-      x: 0.5 + offset,
-      y: 0.5,
-      elevation: 0,
-      facingX: 0,
-      facingY: 1,
-      moveX: 0,
-      moveY: 0,
-      moving: false,
-      torchLit: true,
-      inWater: false,
-      lastAckSeq: 0,
+      id, name, x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1,
+      moveX: 0, moveY: 0, moving: false, torchLit: true, inWater: false, lastAckSeq: 0,
+      selectedHotbar: 0, inventory: createStarterInventory(),
     });
     return id;
   }
 
   removePlayer(playerId: string): void {
     this.players.delete(playerId);
+  }
+
+  setPlayerName(playerId: string, name: string): void {
+    const player = this.players.get(playerId);
+    if (!player) return;
+    this.players.set(playerId, { ...player, name });
   }
 
   queueInput(playerId: string, input: { readonly seq: number; readonly moveX: number; readonly moveY: number }): void {
@@ -84,14 +83,51 @@ export class WorldSim {
     if (paused !== undefined) this.dayPaused = paused;
   }
 
+  selectHotbar(playerId: string, slot: number): void {
+    const player = this.players.get(playerId);
+    if (player && slot >= 0 && slot < HOTBAR_SLOT_COUNT) player.selectedHotbar = slot;
+  }
+
+  moveSlot(playerId: string, move: { readonly from: number; readonly to: number }): void {
+    const player = this.players.get(playerId);
+    if (player) movePlayerInventorySlot(player.inventory, move);
+  }
+
+  equipArmor(playerId: string, req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }): void {
+    const player = this.players.get(playerId);
+    if (!player) return;
+    const updated = equipPlayerArmor(player.inventory, req);
+    if (updated) player.inventory = updated;
+  }
+
+  unequipArmor(playerId: string, req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }): void {
+    const player = this.players.get(playerId);
+    if (!player) return;
+    const updated = unequipPlayerArmor(player.inventory, req);
+    if (updated) player.inventory = updated;
+  }
+
+  craftRecipe(playerId: string, recipeId: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    const nearCampfire = isPlayerNearCampfire(this.cache, player.x, player.y);
+    const updated = craftPlayerRecipe(player.inventory, { recipeId, nearCampfire });
+    if (!updated) return false;
+    player.inventory = updated;
+    return true;
+  }
+
+  inventorySnapshot(playerId: string): InventorySnapshot | undefined {
+    const player = this.players.get(playerId);
+    if (!player) return undefined;
+    const nearCampfire = isPlayerNearCampfire(this.cache, player.x, player.y);
+    return buildInventorySnapshot({ state: player.inventory, selectedHotbar: player.selectedHotbar, nearCampfire });
+  }
+
   step(dtSeconds = 1 / TICK_RATE): void {
     this.tick += 1;
-    if (!this.dayPaused) {
-      this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
-    }
-    for (const player of this.players.values()) {
-      this.stepPlayer(player, dtSeconds);
-    }
+    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
+    for (const player of this.players.values()) this.stepPlayer(player, dtSeconds);
   }
 
   private stepPlayer(player: SimPlayer, dtSeconds: number): void {
@@ -107,13 +143,7 @@ export class WorldSim {
     player.moving = true;
     const step = PLAYER_SPEED_TILES_PER_SEC * dtSeconds;
     const result = resolveMovement({
-      cache: this.cache,
-      x: player.x,
-      y: player.y,
-      dx: nx * step,
-      dy: ny * step,
-      radius: PLAYER_RADIUS,
-      elevation: player.elevation,
+      cache: this.cache, x: player.x, y: player.y, dx: nx * step, dy: ny * step, radius: PLAYER_RADIUS, elevation: player.elevation,
     });
     player.x = result.x;
     player.y = result.y;
@@ -123,17 +153,9 @@ export class WorldSim {
 
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => ({
-      id: p.id,
-      name: p.name,
-      x: p.x,
-      y: p.y,
-      elevation: p.elevation,
-      facingX: p.facingX,
-      facingY: p.facingY,
-      moving: p.moving,
-      torchLit: p.torchLit,
-      inWater: p.inWater,
-      lastAckSeq: p.lastAckSeq,
+      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY,
+      moving: p.moving, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
+      heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
     }));
   }
 }
