@@ -7,6 +7,5 @@
     "rootDir": ".",
     "types": ["vite/client"]
   },
-  "include": ["src"],
-  "exclude": ["src/boot/sw/serviceWorkerEntry.ts"]
+  "include": ["src"]
 }

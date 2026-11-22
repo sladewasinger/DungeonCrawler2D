@@ -1,6 +1,4 @@
-// Flat ESLint config that mechanically enforces docs/ENGINEERING_STANDARDS.md:
-// file/function size limits, `any`/non-null/ts-comment bans, and the per-package
-// import boundaries from docs/ARCHITECTURE.md's dependency rule.
+// Flat ESLint config enforcing size limits, complexity caps, and package boundaries.
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import importXPlugin from "eslint-plugin-import-x";
@@ -17,8 +15,16 @@ const banNodeBuiltins = {
   message: "this package must stay platform-free — no Node built-ins.",
 };
 
+const rendererBan = [
+  { name: "pixi.js", message: "this package must stay renderer-free — no PixiJS." },
+  { name: "three", message: "Three.js has been removed from this branch." },
+  { name: "phaser", message: "Phaser has been removed from this branch." },
+];
+
+const wsBan = { name: "ws", message: "this package must not import ws directly." };
+
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", ".scratch/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", ".scratch/**", "packages/client/public/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -31,7 +37,6 @@ export default tseslint.config(
       "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "warn",
-      // Architecture guardrails: keep new code small, shallow, and easy to compose.
       complexity: ["error", { max: 8 }],
       "sonarjs/cognitive-complexity": ["error", 7],
       "max-lines-per-function": ["error", { max: 35, skipBlankLines: true, skipComments: true }],
@@ -41,7 +46,6 @@ export default tseslint.config(
       "max-statements-per-line": ["error", { max: 4 }],
       "sonarjs/no-duplicate-string": ["error", { threshold: 3 }],
       "@typescript-eslint/no-explicit-any": "error",
-      // Default-deny elsewhere; packages/engine escalates both to "error" below.
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/ban-ts-comment": ["warn", { minimumDescriptionLength: 10 }],
       "import-x/no-cycle": "error",
@@ -52,52 +56,26 @@ export default tseslint.config(
     rules: { "max-lines-per-function": "off" },
   },
   {
-    // This deterministic end-to-end benchmark keeps its scenario timeline and
-    // packet corpus orchestration together so reruns exercise one fixed workload.
-    // Keep explicit finite caps here without relaxing application source limits.
-    files: ["tools/network-baseline.ts"],
-    rules: {
-      "max-lines": ["error", { max: 850, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 340, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", { max: 20 }],
-    },
-  },
-  {
-    // engine: pure TS, zero deps except zod, forbidden `any`/`!`/ts-comments outright.
     files: ["packages/engine/**/*.ts"],
     rules: {
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/ban-ts-comment": "error",
       "no-restricted-imports": [
         "error",
-        {
-          paths: [
-            { name: "phaser", message: "engine must stay platform-free — no Phaser." },
-            { name: "ws", message: "engine must stay platform-free — no ws." },
-          ],
-          patterns: [banNodeBuiltins, banDc2d],
-        },
+        { paths: [...rendererBan, wsBan], patterns: [banNodeBuiltins, banDc2d] },
       ],
     },
   },
   {
-    // content: JSON data + zod schemas only.
     files: ["packages/content/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
-        {
-          paths: [
-            { name: "phaser", message: "content is data + schemas only — no Phaser." },
-            { name: "ws", message: "content is data + schemas only — no ws." },
-          ],
-          patterns: [banNodeBuiltins, banDc2d],
-        },
+        { paths: [...rendererBan, wsBan], patterns: [banNodeBuiltins, banDc2d] },
       ],
     },
   },
   {
-    // client: Phaser + engine + content; never the server transport.
     files: ["packages/client/**/*.ts"],
     languageOptions: { globals: { ...globals.browser } },
     rules: {
@@ -105,7 +83,9 @@ export default tseslint.config(
         "error",
         {
           paths: [
-            { name: "ws", message: "client runs in the browser — use the native WebSocket, not ws." },
+            { name: "ws", message: "client runs in the browser — use WebSocket, not ws." },
+            { name: "three", message: "Three.js has been removed from this branch." },
+            { name: "phaser", message: "Phaser has been removed from this branch." },
           ],
           patterns: [{ group: ["@dc2d/game-server"], message: "client must not depend on game-server." }],
         },
@@ -113,13 +93,12 @@ export default tseslint.config(
     },
   },
   {
-    // game-server: Node + ws + engine + content; never Phaser or the client.
     files: ["packages/game-server/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: [{ name: "phaser", message: "game-server is headless — no Phaser." }],
+          paths: rendererBan,
           patterns: [{ group: ["@dc2d/client"], message: "game-server must not depend on client." }],
         },
       ],
