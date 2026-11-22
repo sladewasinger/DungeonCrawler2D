@@ -6,13 +6,26 @@ import { OUTLINE_RGB } from "./characterTypes.js";
 
 export type HeldAimMode = "aim360" | "meleeCarry" | "upright";
 
+export interface GripSocket {
+  readonly x: number;
+  readonly y: number;
+  readonly showHand: boolean;
+  readonly overWeapon?: boolean | undefined;
+}
+
+export interface WeaponGripSockets {
+  readonly primary: GripSocket;
+  readonly secondary?: GripSocket | undefined;
+  readonly twoHandStyle?: "bowDraw" | "shaftTwoHand" | undefined;
+}
+
 export interface HeldWeaponVisual {
   readonly texture: Texture;
   readonly anchorX: number;
   readonly anchorY: number;
   readonly aimMode: HeldAimMode;
   readonly twoHanded: boolean;
-  readonly showHand: boolean;
+  readonly grips: WeaponGripSockets;
   readonly spriteScale: number;
 }
 
@@ -70,8 +83,11 @@ function makePickaxeTex(): Texture {
   ]);
 }
 
-export function getGrippingHandTexture(): Texture {
-  return bake("hand", { w: 6, h: 6 }, [[1, 1, 4, 4, "#ffffff"], [1, 4, 4, 1, "#d4d4d8"]]);
+export function getGrippingHandTexture(female = false): Texture {
+  if (female) {
+    return bake("hand:female", { w: 4, h: 4 }, [[1, 1, 2, 2, "#ffffff"], [1, 2, 2, 1, "#d4d4d8"]]);
+  }
+  return bake("hand:male", { w: 5, h: 5 }, [[1, 1, 3, 3, "#ffffff"], [1, 3, 3, 1, "#d4d4d8"]]);
 }
 
 export function getInHandTorchFrames(): readonly Texture[] {
@@ -89,9 +105,10 @@ export function getInHandTorchFrames(): readonly Texture[] {
 export function getWaistLanternFrames(): readonly Texture[] {
   if (lanternAnim.length > 0) return lanternAnim;
   for (let f = 0; f < 2; f++) {
-    lanternAnim.push(bake(`lantern:${f}`, { w: 10, h: 12 }, [
-      [3, 2, 4, 2, STEEL_DARK], [2, 4, 6, 6, GOLD],
-      [3, 5, 4, 4, f === 0 ? TORCH_GOLD : TORCH_ORANGE], [4, 6, 2, 2, "#fef9c3"], [3, 10, 4, 1, STEEL_DARK],
+    lanternAnim.push(bake(`lantern:${f}`, { w: 10, h: 13 }, [
+      [3, 1, 4, 1, STEEL_MID], [3, 2, 1, 2, STEEL_DARK], [6, 2, 1, 2, STEEL_DARK],
+      [3, 3, 4, 2, STEEL_DARK], [2, 5, 6, 6, GOLD],
+      [3, 6, 4, 4, f === 0 ? TORCH_GOLD : TORCH_ORANGE], [4, 7, 2, 2, "#fef9c3"], [3, 11, 4, 1, STEEL_DARK],
     ]));
   }
   return lanternAnim;
@@ -103,13 +120,22 @@ interface WeaponSpec {
   readonly anchorY: number;
   readonly aimMode: HeldAimMode;
   readonly twoHanded: boolean;
+  readonly grips: WeaponGripSockets;
 }
 
+const SINGLE_HAND_GRIP: WeaponGripSockets = { primary: { x: 0, y: 0, showHand: true } };
+const NO_HAND_GRIP: WeaponGripSockets = { primary: { x: 0, y: 0, showHand: false } };
+const BOW_GRIPS: WeaponGripSockets = {
+  primary: { x: 0, y: 0, showHand: true },
+  secondary: { x: -4, y: 0, showHand: true, overWeapon: true },
+  twoHandStyle: "bowDraw",
+};
+
 const WEAPON_SPECS: Readonly<Record<string, WeaponSpec>> = {
-  sword: { buildTex: makeSwordTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false },
-  bow: { buildTex: makeBowTex, anchorX: 0.44, anchorY: 0.5, aimMode: "aim360", twoHanded: true },
-  axe: { buildTex: makeAxeTex, anchorX: 0.22, anchorY: 0.42, aimMode: "meleeCarry", twoHanded: false },
-  pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false },
+  sword: { buildTex: makeSwordTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
+  bow: { buildTex: makeBowTex, anchorX: 0.44, anchorY: 0.5, aimMode: "aim360", twoHanded: true, grips: BOW_GRIPS },
+  axe: { buildTex: makeAxeTex, anchorX: 0.22, anchorY: 0.42, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
+  pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
 };
 
 export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: number): HeldWeaponVisual | null {
@@ -118,15 +144,15 @@ export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: 
   if (spec) {
     return {
       texture: spec.buildTex(), anchorX: spec.anchorX, anchorY: spec.anchorY,
-      aimMode: spec.aimMode, twoHanded: spec.twoHanded, showHand: true, spriteScale: 0.75,
+      aimMode: spec.aimMode, twoHanded: spec.twoHanded, grips: spec.grips, spriteScale: 0.75,
     };
   }
   if (itemId === "torch") {
     const frames = getInHandTorchFrames();
     const tex = frames[Math.floor(timeSec * 10) % frames.length] ?? frames[0]!;
-    return { texture: tex, anchorX: 0.5, anchorY: 0.72, aimMode: "upright", twoHanded: false, showHand: true, spriteScale: 0.75 };
+    return { texture: tex, anchorX: 0.5, anchorY: 0.72, aimMode: "upright", twoHanded: false, grips: SINGLE_HAND_GRIP, spriteScale: 0.75 };
   }
   const fallback = getItemHeldTexture(itemId);
   if (!fallback) return null;
-  return { texture: fallback, anchorX: 0.5, anchorY: 0.65, aimMode: "upright", twoHanded: false, showHand: false, spriteScale: 0.58 };
+  return { texture: fallback, anchorX: 0.5, anchorY: 0.65, aimMode: "upright", twoHanded: false, grips: NO_HAND_GRIP, spriteScale: 0.58 };
 }

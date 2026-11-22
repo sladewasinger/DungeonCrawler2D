@@ -18,6 +18,7 @@ export { generateChunk } from "./world/chunkGenerator.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
 export {
+  ELEVATION_DROP_TO_JUMP_Z,
   JUMP_GRAVITY_TILES_PER_SEC2,
   JUMP_VELOCITY_TILES_PER_SEC,
   JUMP_VISUAL_PX_PER_TILE,

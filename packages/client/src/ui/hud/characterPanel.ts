@@ -12,7 +12,7 @@ const TAG_DIV = "div";
 const CLS_PILL = "ow-pill";
 
 const LABELS: Readonly<Record<string, string>> = {
-  classic: "Classic", slender: "Slender",
+  male: "Male", female: "Female",
   short: "Short", long: "Long", spiky: "Spiky", ponytail: "Ponytail", bald: "Bald",
 };
 

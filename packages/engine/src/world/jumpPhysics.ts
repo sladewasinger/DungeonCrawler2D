@@ -3,6 +3,7 @@
 export const JUMP_VELOCITY_TILES_PER_SEC = 4.6;
 export const JUMP_GRAVITY_TILES_PER_SEC2 = 22.0;
 export const JUMP_VISUAL_PX_PER_TILE = 18;
+export const ELEVATION_DROP_TO_JUMP_Z = 10 / JUMP_VISUAL_PX_PER_TILE;
 
 export interface JumpState {
   readonly jumpZ: number;

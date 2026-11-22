@@ -60,11 +60,13 @@ export interface CharacterSpriteSet {
   readonly south: DirectionAnim;
   readonly north: DirectionAnim;
   readonly side: DirectionAnim;
+  readonly frontArm: Texture;
+  readonly backArm: Texture;
   readonly previewUrl: string;
 }
 
 export interface CharacterMetrics {
-  readonly slender: boolean;
+  readonly female: boolean;
   readonly torsoX: number;
   readonly torsoW: number;
   readonly armW: number;
@@ -87,13 +89,13 @@ export function resolveFacingDir(dx: number, dy: number): { readonly dir: Facing
 }
 
 export function getCharacterMetrics(appearance: CharacterAppearance, pose: CharacterPose): CharacterMetrics {
-  const slender = appearance.body === "slender";
-  const torsoW = slender ? 8 : 10;
-  const torsoX = slender ? 12 : 11;
-  const armW = slender ? 2 : 3;
-  const legW = slender ? 3 : 4;
+  const female = appearance.body === "female";
+  const torsoW = female ? 8 : 10;
+  const torsoX = female ? 12 : 11;
+  const armW = female ? 2 : 3;
+  const legW = female ? 3 : 4;
   return {
-    slender,
+    female,
     torsoX,
     torsoW,
     armW,
@@ -102,10 +104,25 @@ export function getCharacterMetrics(appearance: CharacterAppearance, pose: Chara
     legW,
     legLX: torsoX,
     legRX: torsoX + torsoW - legW,
-    sideTorsoX: slender ? 13 : 12,
-    sideTorsoW: slender ? 6 : 8,
+    sideTorsoX: female ? 13 : 12,
+    sideTorsoW: female ? 6 : 8,
     b: pose.bobY,
     hb: pose.hairBobY,
     pose,
   };
+}
+
+export interface SideLegMetrics {
+  readonly legW: number;
+  readonly footW: number;
+  readonly bootToeW: number;
+  readonly backLegX: number;
+  readonly frontLegX: number;
+}
+
+export function getSideLegMetrics(m: CharacterMetrics): SideLegMetrics {
+  const stride = Math.trunc((m.pose.stride * 2) / 3);
+  return m.female
+    ? { legW: 2, footW: 3, bootToeW: 3, backLegX: 15 - stride, frontLegX: 15 + stride }
+    : { legW: 3, footW: 4, bootToeW: 4, backLegX: 14 - stride, frontLegX: 15 + stride };
 }

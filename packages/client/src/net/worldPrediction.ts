@@ -1,5 +1,8 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
-import { DEFAULT_APPEARANCE, WorldChunkCache, resolveMovement, stepJumpArc, type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot } from "@dc2d/engine";
+import {
+  DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
+  type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot,
+} from "@dc2d/engine";
 
 const PLAYER_SPEED = 5.4;
 const PLAYER_RADIUS = 0.28;
@@ -16,10 +19,12 @@ export function createDefaultPlayer(
   };
 }
 
-function keepJump(current: PlayerSnapshot, serverMe: PlayerSnapshot): { readonly jumpZ: number; readonly jumpVz: number } {
+function keepJump(current: PlayerSnapshot, serverMe: PlayerSnapshot): {
+  readonly jumpZ: number; readonly jumpVz: number; readonly elevation: number;
+} {
   const localAir = (current.jumpZ ?? 0) > 0 || (current.jumpVz ?? 0) > 0;
   const src = localAir ? current : serverMe;
-  return { jumpZ: src.jumpZ ?? 0, jumpVz: src.jumpVz ?? 0 };
+  return { jumpZ: src.jumpZ ?? 0, jumpVz: src.jumpVz ?? 0, elevation: src.elevation };
 }
 
 function keepAim(current: PlayerSnapshot): { readonly aimX?: number; readonly aimY?: number } {
@@ -62,7 +67,7 @@ export function reconcilePredictedPlayer(
 ): PlayerSnapshot {
   const shared = preservedIdentity(current, serverMe, opts);
   const gap = Math.hypot(serverMe.x - current.x, serverMe.y - current.y);
-  if (gap > 0.75) return { ...serverMe, ...shared };
+  if (gap > 0.75) return { ...serverMe, ...shared, elevation: serverMe.elevation };
   return {
     ...current,
     id: serverMe.id,
@@ -70,7 +75,6 @@ export function reconcilePredictedPlayer(
     ...shared,
     x: current.x + (serverMe.x - current.x) * 0.2,
     y: current.y + (serverMe.y - current.y) * 0.2,
-    elevation: serverMe.elevation,
   };
 }
 
@@ -91,11 +95,13 @@ export function predictLocalPlayerMove(input: {
   const step = PLAYER_SPEED * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: input.player.x, y: input.player.y,
-    dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS, elevation: input.player.elevation,
+    dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS,
+    elevation: input.player.elevation, airborne: arc.jumpZ > 0.02,
   });
+  const nextJumpZ = arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z;
   return {
     ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: true, inWater: moved.inWater,
+    ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz, moving: true, inWater: moved.inWater,
   };
 }
 
