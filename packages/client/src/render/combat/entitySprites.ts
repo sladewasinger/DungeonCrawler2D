@@ -1,9 +1,10 @@
 /** Renders interactive combat training targets, wildlife, POI guards, and fallen bodies. */
 import { TILE_PX, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite } from "pixi.js";
-import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
+import { getLoadedSpriteAsset, type LoadedSpriteAnimations } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { drawCreatureBody } from "./creatureDrawers.js";
+import { sampleAnimatedFrame } from "./entityAnimator.js";
 
 type WorldEntityKind = WorldEntitySnapshot["kind"];
 
@@ -38,6 +39,7 @@ function createEntityBody(kind: WorldEntityKind): {
   readonly baseScale: number;
   readonly hpTopY: number;
   readonly shadowRx: number;
+  readonly animations: LoadedSpriteAnimations | null;
 } {
   const asset = getLoadedSpriteAsset(kind);
   if (asset) {
@@ -51,11 +53,12 @@ function createEntityBody(kind: WorldEntityKind): {
       baseScale: asset.scale,
       hpTopY: -Math.round(visualH) - 4,
       shadowRx: Math.max(6, Math.round(visualW * 0.36)),
+      animations: asset.loadedAnimations ?? null,
     };
   }
   const gfx = new Graphics();
   drawCreatureBody(kind, gfx);
-  return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7 };
+  return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7, animations: null };
 }
 
 class EntityView {
@@ -64,6 +67,7 @@ class EntityView {
   private readonly telegraph = new Graphics();
   private readonly body: Sprite | Graphics;
   private readonly baseScale: number;
+  private readonly animations: LoadedSpriteAnimations | null;
   private readonly hpBg = new Graphics();
   private readonly hpFill = new Graphics();
   private readonly kind: WorldEntityKind;
@@ -75,6 +79,7 @@ class EntityView {
     const built = createEntityBody(kind);
     this.body = built.body;
     this.baseScale = built.baseScale;
+    this.animations = built.animations;
     this.shadow.ellipse(0, 0, built.shadowRx, Math.max(2.2, built.shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
     this.hpBg.rect(-9, built.hpTopY, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
@@ -95,9 +100,28 @@ class EntityView {
     this.syncTelegraph(snap);
   }
 
+  private syncAnimatedSprite(opts: {
+    readonly snap: WorldEntitySnapshot;
+    readonly timeSec: number;
+    readonly moving: boolean;
+    readonly dead: boolean;
+  }): boolean {
+    if (!this.animations || !(this.body instanceof Sprite)) return false;
+    const frame = sampleAnimatedFrame({ animations: this.animations, ...opts });
+    if (!frame) return false;
+    this.body.texture = frame.texture;
+    this.body.alpha = opts.dead ? 0.82 : this.resolveBodyAlpha(opts.snap, false);
+    this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
+    this.body.position.y = 0;
+    this.body.tint = resolveBodyTint(opts.snap);
+    this.body.scale.set(frame.flipX * this.baseScale, this.baseScale);
+    return true;
+  }
+
   private syncBodyState(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean }): void {
     const { snap, timeSec, moving } = opts;
     const dead = isCorpseState(snap);
+    if (this.syncAnimatedSprite({ snap, timeSec, moving, dead })) return;
     const slime = this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME;
     if (dead && slime) {
       this.body.alpha = 0.25;

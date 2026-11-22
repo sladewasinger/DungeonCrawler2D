@@ -144,7 +144,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
   renderSandboxAtmosphere(st, { timeSec, pl });
   st.hud.sync({ inventory: cur.inventory, name: pl.name, appearance: pl.appearance ?? DEFAULT_APPEARANCE, localPlayer: pl, cache: st.sim.cache, players: [pl], entities: cur.entities, chests: cur.chests });
   st.compass.sync(pl.x, pl.y);
-  st.toolbar.sync({ aiLive: st.sim.isAiLive(), pose: st.sim.getPose(), dayPhase: st.dayPhase });
+  st.toolbar.sync({ aiLive: st.sim.isAiLive(), pose: st.sim.getPose(), facing: st.sim.getFacing(), dayPhase: st.dayPhase });
   st.rig.app.render();
 }
 
@@ -207,8 +207,8 @@ function createSandboxControls(opts: {
   const toolbar = new SandboxToolbar(host, {
     onToggleAi: () => sim.setAiLive(!sim.isAiLive()), onWakeNearest: () => sim.wakeNearest(),
     onSpawnPack: () => sim.spawnWolfPack(), onSetPose: (pose) => sim.setPose(pose),
-    onSetDayPhase: (phase) => { getState().dayPhase = phase; }, onZoom: setZoom,
-    onJumpGallery: () => jumpTo(21, 26.2), onJumpTerrain: () => jumpTo(68, 16.5),
+    onSetFacing: (facing) => sim.setFacing(facing), onSetDayPhase: (phase) => { getState().dayPhase = phase; },
+    onZoom: setZoom, onJumpGallery: () => jumpTo(21, 26.2), onJumpTerrain: () => jumpTo(68, 16.5),
     onReset: () => { sim.resetArena(); hud.closePanels(); jumpTo(21, 26.2); },
   }, getLoadedSpriteIds().length);
   return { input, toolbar };

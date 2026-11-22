@@ -11,7 +11,7 @@ import {
 import { SandboxChunkCache } from "./sandboxTerrain.js";
 import {
   createLineupActors, createWolfPackActors, isDummyKind, stepSandboxActors,
-  type SandboxActor, type SandboxPose,
+  type SandboxActor, type SandboxFacing, type SandboxPose,
 } from "./sandboxAi.js";
 import {
   advanceSandboxBow, advanceSandboxMelee, advanceSandboxPlayer, applySandboxPlayerHit,
@@ -86,6 +86,7 @@ export class SandboxSim {
   private packSeq = 0;
   private projSeq = 0;
   private pose: SandboxPose = "idle";
+  private facing: SandboxFacing = "auto";
   private aiLive = false;
   private player: PlayerSnapshot;
   private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0 };
@@ -107,11 +108,13 @@ export class SandboxSim {
   }
 
   getPose(): SandboxPose { return this.pose; }
+  getFacing(): SandboxFacing { return this.facing; }
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } {
     return { x: this.player.x, y: this.player.y, elevation: this.player.elevation };
   }
   isAiLive(): boolean { return this.aiLive; }
   setPose(pose: SandboxPose): void { this.pose = pose; this.aiLive = false; }
+  setFacing(facing: SandboxFacing): void { this.facing = facing; this.aiLive = false; }
   setAiLive(live: boolean): void { this.aiLive = live; for (const a of this.actors) if (live && !isDummyKind(a.snap.kind)) a.awake = true; }
 
   wakeNearest(): void {
@@ -139,6 +142,7 @@ export class SandboxSim {
     this.chests = createSandboxChests();
     this.aiLive = false;
     this.pose = "idle";
+    this.facing = "auto";
     this.player = this.initialPlayer();
   }
 
@@ -226,7 +230,7 @@ export class SandboxSim {
     this.projectiles = projRes.nextProjectiles;
     events.push(...projRes.events);
     events.push(...stepSandboxActors({
-      actors: this.actors, player: this.player, pose: this.pose, aiLive: this.aiLive,
+      actors: this.actors, player: this.player, pose: this.pose, facing: this.facing, aiLive: this.aiLive,
       dt: input.dt, timeSec: input.timeSec,
       onHitPlayer: () => { const h = applySandboxPlayerHit(this.player, 8); this.player = h.nextPlayer; return h.event; },
     }));

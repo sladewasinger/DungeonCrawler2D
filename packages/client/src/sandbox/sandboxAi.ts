@@ -2,6 +2,7 @@
 import type { AiState, EntityKind, GoreSubstance, WorldEntitySnapshot, WorldEvent } from "@dc2d/engine";
 
 export type SandboxPose = "idle" | "walk" | "windup" | "corpse";
+export type SandboxFacing = "auto" | "south" | "east" | "west" | "north";
 
 export interface SandboxActor {
   readonly homeX: number;
@@ -76,16 +77,30 @@ function resolveFrozenAiState(pose: SandboxPose): AiState {
   return pose === "windup" ? "charge" : "idle";
 }
 
-function applyFrozenPose(actor: SandboxActor, pose: SandboxPose, timeSec: number): void {
+function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly facingX: number; readonly facingY: number } {
+  if (facing === "east") return { facingX: 1, facingY: 0 };
+  if (facing === "west") return { facingX: -1, facingY: 0 };
+  if (facing === "north") return { facingX: 0, facingY: -1 };
+  if (facing === "south") return { facingX: 0, facingY: 1 };
+  const dirs: readonly (readonly [number, number])[] = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+  const pair = dirs[Math.floor(timeSec / 1.8) % dirs.length]!;
+  return { facingX: pair[0], facingY: pair[1] };
+}
+
+function applyFrozenPose(actor: SandboxActor, opts: {
+  readonly pose: SandboxPose;
+  readonly facing: SandboxFacing;
+  readonly timeSec: number;
+}): void {
   const s = actor.snap;
-  if (pose === "corpse") {
+  if (opts.pose === "corpse") {
     actor.snap = { ...s, x: actor.homeX, y: actor.homeY, hp: 0, corpse: true, aiState: "dead", telegraphProgress: 0 };
     return;
   }
-  const facingX = pose === "walk" && Math.floor(timeSec / 2.2) % 2 !== 0 ? -1 : 1;
+  const { facingX, facingY } = resolveFrozenFacing(opts.facing, opts.timeSec);
   actor.snap = {
     ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
-    facingX, facingY: 0.4, aiState: resolveFrozenAiState(pose), telegraphProgress: pose === "windup" ? 0.78 : 0,
+    facingX, facingY, aiState: resolveFrozenAiState(opts.pose), telegraphProgress: opts.pose === "windup" ? 0.78 : 0,
   };
 }
 
@@ -198,6 +213,7 @@ export function stepSandboxActors(opts: {
   readonly actors: SandboxActor[];
   readonly player: { readonly x: number; readonly y: number };
   readonly pose: SandboxPose;
+  readonly facing: SandboxFacing;
   readonly aiLive: boolean;
   readonly dt: number;
   readonly timeSec: number;
@@ -215,7 +231,7 @@ export function stepSandboxActors(opts: {
     if (active) {
       stepLiveActor({ actor, allActors: opts.actors, px: opts.player.x, py: opts.player.y, dt: opts.dt, onHitPlayer: opts.onHitPlayer, events });
     } else {
-      applyFrozenPose(actor, opts.pose, opts.timeSec);
+      applyFrozenPose(actor, { pose: opts.pose, facing: opts.facing, timeSec: opts.timeSec });
     }
   }
   return events;

@@ -1,6 +1,6 @@
 /** Top overlay toolbar for the localhost Asset & Enemy Sandbox (/?sandbox=1). */
 import { domNode } from "../ui/hud/slotRenderer.js";
-import type { SandboxPose } from "./sandboxAi.js";
+import type { SandboxFacing, SandboxPose } from "./sandboxAi.js";
 
 const SANDBOX_CSS = `
 .ow-sandbox-bar {
@@ -32,6 +32,7 @@ export interface SandboxToolbarActions {
   readonly onWakeNearest: () => void;
   readonly onSpawnPack: () => void;
   readonly onSetPose: (pose: SandboxPose) => void;
+  readonly onSetFacing: (facing: SandboxFacing) => void;
   readonly onSetDayPhase: (phase: number) => void;
   readonly onZoom: (factor: number) => void;
   readonly onJumpGallery: () => void;
@@ -42,6 +43,11 @@ export interface SandboxToolbarActions {
 const POSES: readonly { readonly id: SandboxPose; readonly label: string }[] = [
   { id: "idle", label: "Idle" }, { id: "walk", label: "Walk" },
   { id: "windup", label: "Windup" }, { id: "corpse", label: "Corpse" },
+];
+
+const FACINGS: readonly { readonly id: SandboxFacing; readonly label: string }[] = [
+  { id: "auto", label: "Auto" }, { id: "south", label: "S" },
+  { id: "east", label: "E" }, { id: "west", label: "W" }, { id: "north", label: "N" },
 ];
 
 const TIMES: readonly { readonly phase: number; readonly label: string }[] = [
@@ -59,10 +65,29 @@ function makeBtn(label: string, onClick: () => void): HTMLButtonElement {
   return btn;
 }
 
+function buildOptionGroup<T extends string>(opts: {
+  readonly label: string;
+  readonly items: readonly { readonly id: T; readonly label: string }[];
+  readonly map: Map<T, HTMLButtonElement>;
+  readonly onSelect: (id: T) => void;
+}): HTMLDivElement {
+  const grp = domNode("div", CLS_GROUP);
+  const lbl = domNode("span", "ow-sbx-lbl");
+  lbl.textContent = opts.label;
+  grp.append(lbl);
+  for (const item of opts.items) {
+    const btn = makeBtn(item.label, () => opts.onSelect(item.id));
+    opts.map.set(item.id, btn);
+    grp.append(btn);
+  }
+  return grp;
+}
+
 export class SandboxToolbar {
   readonly el: HTMLDivElement;
   private readonly aiBtn: HTMLButtonElement;
   private readonly poseBtns = new Map<SandboxPose, HTMLButtonElement>();
+  private readonly facingBtns = new Map<SandboxFacing, HTMLButtonElement>();
   private readonly timeBtns: { readonly phase: number; readonly btn: HTMLButtonElement }[] = [];
 
   constructor(host: HTMLElement, actions: SandboxToolbarActions, spriteCount: number) {
@@ -72,31 +97,18 @@ export class SandboxToolbar {
     const badge = domNode("span", "ow-sbx-title");
     badge.textContent = `SANDBOX (${spriteCount} PNGs)`;
     this.aiBtn = makeBtn("AI: Frozen", actions.onToggleAi);
-    const wakeBtn = makeBtn("Wake Nearest", actions.onWakeNearest);
-    const packBtn = makeBtn("Spawn Wolf Pack", actions.onSpawnPack);
-    const poseGrp = this.buildPoseGroup(actions.onSetPose);
-    const timeGrp = this.buildTimeGroup(actions.onSetDayPhase);
-    const zoomGrp = buildZoomGroup(actions.onZoom);
-    const jumpGrp = buildJumpGroup(actions.onJumpGallery, actions.onJumpTerrain);
-    const resetBtn = makeBtn("Reset Arena", actions.onReset);
+    const poseGrp = buildOptionGroup({ label: "Pose", items: POSES, map: this.poseBtns, onSelect: actions.onSetPose });
+    const dirGrp = buildOptionGroup({ label: "Dir", items: FACINGS, map: this.facingBtns, onSelect: actions.onSetFacing });
     const titleLink = domNode("a", "ow-sbx-link");
     titleLink.href = "/";
     titleLink.textContent = "Back to Title";
-    this.el.append(badge, this.aiBtn, wakeBtn, packBtn, poseGrp, timeGrp, zoomGrp, jumpGrp, resetBtn, titleLink);
+    this.el.append(
+      badge, this.aiBtn, makeBtn("Wake Nearest", actions.onWakeNearest), makeBtn("Spawn Wolf Pack", actions.onSpawnPack),
+      poseGrp, dirGrp, this.buildTimeGroup(actions.onSetDayPhase),
+      buildZoomGroup(actions.onZoom), buildJumpGroup(actions.onJumpGallery, actions.onJumpTerrain),
+      makeBtn("Reset Arena", actions.onReset), titleLink,
+    );
     host.append(this.el);
-  }
-
-  private buildPoseGroup(onSetPose: (pose: SandboxPose) => void): HTMLDivElement {
-    const grp = domNode("div", CLS_GROUP);
-    const lbl = domNode("span", "ow-sbx-lbl");
-    lbl.textContent = "Pose";
-    grp.append(lbl);
-    for (const p of POSES) {
-      const btn = makeBtn(p.label, () => onSetPose(p.id));
-      this.poseBtns.set(p.id, btn);
-      grp.append(btn);
-    }
-    return grp;
   }
 
   private buildTimeGroup(onSetTime: (phase: number) => void): HTMLDivElement {
@@ -112,10 +124,11 @@ export class SandboxToolbar {
     return grp;
   }
 
-  sync(opts: { readonly aiLive: boolean; readonly pose: SandboxPose; readonly dayPhase: number }): void {
+  sync(opts: { readonly aiLive: boolean; readonly pose: SandboxPose; readonly facing: SandboxFacing; readonly dayPhase: number }): void {
     this.aiBtn.textContent = opts.aiLive ? "AI: Live" : "AI: Frozen";
     this.aiBtn.dataset.active = String(opts.aiLive);
     for (const [id, btn] of this.poseBtns) btn.dataset.active = String(!opts.aiLive && opts.pose === id);
+    for (const [id, btn] of this.facingBtns) btn.dataset.active = String(!opts.aiLive && opts.facing === id);
     for (const t of this.timeBtns) t.btn.dataset.active = String(Math.abs(opts.dayPhase - t.phase) < 0.08);
   }
 }

@@ -14,4 +14,4 @@ Localhost-only interactive `96×32` asset gallery, terrain biome diorama, and co
 
 ## Controls & Modes
 - Walk with `WASD` / Arrows (swim barrier, shallow wade, walk behind trees, climb stairs), attack (`LMB`), block (`RMB`), dodge (`Space`), select hotbar (`1–9`, `9` shows live minimap), open chests (`E`).
-- Live top-right `FpsCounter` + `CompassBadge`, quick **Gallery** / **Terrain** jump buttons, and AI/Pose/Time controls (`AI: Frozen / Live`, `Wake Nearest`, `Spawn Wolf Pack`, `Pose`, `Time`, zoom, `Reset Arena`).
+- Live top-right `FpsCounter` + `CompassBadge`, quick **Gallery** / **Terrain** jump buttons, and AI/Pose/Direction/Time controls (`AI: Frozen / Live`, `Wake Nearest`, `Spawn Wolf Pack`, `Pose`, `Dir: Auto / S / E / W / N`, `Time`, zoom, `Reset Arena`).

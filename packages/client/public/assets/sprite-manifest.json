@@ -26,10 +26,193 @@
       "width": 64,
       "height": 64,
       "contentWidth": 46,
-      "contentHeight": 35,
+      "contentHeight": 32,
       "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.94
+      "anchorY": 0.94,
+      "animations": {
+        "sheetPath": "/assets/creatures/boar-sheet.png",
+        "frameWidth": 64,
+        "frameHeight": 64,
+        "clips": {
+          "idle": {
+            "south": {
+              "fps": 2.5,
+              "frames": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            "side": {
+              "fps": 2.5,
+              "frames": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  1
+                ]
+              ]
+            },
+            "north": {
+              "fps": 2.5,
+              "frames": [
+                [
+                  0,
+                  2
+                ],
+                [
+                  1,
+                  2
+                ]
+              ]
+            }
+          },
+          "walk": {
+            "south": {
+              "fps": 9,
+              "frames": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  3,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  5,
+                  0
+                ]
+              ]
+            },
+            "side": {
+              "fps": 9,
+              "frames": [
+                [
+                  2,
+                  1
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  4,
+                  1
+                ],
+                [
+                  5,
+                  1
+                ]
+              ]
+            },
+            "north": {
+              "fps": 9,
+              "frames": [
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  2
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  5,
+                  2
+                ]
+              ]
+            }
+          },
+          "attack": {
+            "south": {
+              "fps": 7,
+              "frames": [
+                [
+                  6,
+                  0
+                ],
+                [
+                  7,
+                  0
+                ]
+              ]
+            },
+            "side": {
+              "fps": 7,
+              "frames": [
+                [
+                  6,
+                  1
+                ],
+                [
+                  7,
+                  1
+                ]
+              ]
+            },
+            "north": {
+              "fps": 7,
+              "frames": [
+                [
+                  6,
+                  2
+                ],
+                [
+                  7,
+                  2
+                ]
+              ]
+            }
+          },
+          "corpse": {
+            "south": {
+              "fps": 1,
+              "frames": [
+                [
+                  0,
+                  3
+                ]
+              ]
+            },
+            "side": {
+              "fps": 1,
+              "frames": [
+                [
+                  0,
+                  3
+                ]
+              ]
+            },
+            "north": {
+              "fps": 1,
+              "frames": [
+                [
+                  0,
+                  3
+                ]
+              ]
+            }
+          }
+        }
+      }
     },
     "spider": {
       "path": "/assets/creatures/spider.png",
