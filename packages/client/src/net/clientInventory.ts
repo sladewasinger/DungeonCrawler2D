@@ -73,3 +73,22 @@ export function applySelectHotbar(inv: InventorySnapshot, slot: number): Invento
 export function heldItemForInventory(inv: InventorySnapshot): string | null {
   return inv.slots[inv.selectedHotbar]?.itemId ?? null;
 }
+
+export function reconcileInventorySnapshot(input: {
+  readonly current: InventorySnapshot;
+  readonly incoming: InventorySnapshot;
+  readonly pendingSeq: number;
+  readonly elapsedMs: number;
+  readonly timeoutMs?: number;
+}): { readonly inventory: InventorySnapshot; readonly clearedPending: boolean } {
+  if (input.pendingSeq <= 0) return { inventory: input.incoming, clearedPending: false };
+  const timeoutMs = input.timeoutMs ?? 1500;
+  const ack = input.incoming.ackSeq ?? 0;
+  if (ack >= input.pendingSeq || input.elapsedMs >= timeoutMs) {
+    return { inventory: input.incoming, clearedPending: true };
+  }
+  return {
+    inventory: { ...input.current, nearCampfire: input.incoming.nearCampfire },
+    clearedPending: false,
+  };
+}

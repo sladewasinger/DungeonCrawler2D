@@ -39,7 +39,12 @@ describe("WorldSim", () => {
     expect(must(sim.snapshots()[0]).heldItem).toBe("sword");
 
     sim.selectHotbar(id, 1);
+    sim.ackActionSeq(id, 4);
     expect(must(sim.snapshots()[0]).heldItem).toBe("bow");
+    expect(sim.actionAckSeq(id)).toBe(4);
+    expect(must(sim.inventorySnapshot(id)).ackSeq).toBe(4);
+    sim.ackActionSeq(id, 2);
+    expect(sim.actionAckSeq(id)).toBe(4);
 
     sim.moveSlot(id, { from: 11, to: 5 });
     const afterMove = must(sim.inventorySnapshot(id));

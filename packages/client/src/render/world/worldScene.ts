@@ -98,7 +98,7 @@ export class WorldScene {
     this.followTarget(local, input.dt);
     this.syncCameraContainers();
     this.chunks.syncVisibleChunks(input.cache, { x: this.camX, y: this.camY, radius: preset.chunkRadius });
-    const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({ players: input.players, timeSec: input.timeSec });
+    const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({ cache: input.cache, players: input.players, timeSec: input.timeSec });
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });
@@ -118,7 +118,7 @@ export class WorldScene {
     if (!local) return;
     const follow = Math.min(1, dt * 9);
     this.camX += (local.x - this.camX) * follow;
-    this.camY += (local.y - this.camY) * follow;
+    this.camY += (local.y - local.elevation * 0.625 - this.camY) * follow;
   }
 
   private syncCameraContainers(): void {

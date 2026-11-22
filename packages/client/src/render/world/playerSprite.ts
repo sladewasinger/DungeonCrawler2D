@@ -2,6 +2,7 @@
 import { TILE_PX, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, ImageSource, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
+import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
 export interface KnightFrames {
   readonly idle: readonly Texture[];
@@ -73,17 +74,24 @@ export class PlayerView {
     readonly frames: KnightFrames;
     readonly torchFrames: readonly Texture[];
     readonly timeSec: number;
+    readonly visualElev?: number;
+    readonly sortBoost?: number;
   }): void {
     const { snap, frames, torchFrames, timeSec } = input;
-    this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX);
-    this.root.zIndex = Math.round(snap.y * TILE_PX);
+    const elev = input.visualElev ?? snap.elevation;
+    this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - elev * ELEVATION_LIFT_PX);
+    this.root.zIndex = Math.round(snap.y * TILE_PX) + (input.sortBoost ?? snap.elevation * 2);
+    this.syncPose(snap, frames, timeSec);
+    this.syncTorch(snap.torchLit, torchFrames, timeSec);
+    this.syncHeldItem(snap);
+  }
+
+  private syncPose(snap: PlayerSnapshot, frames: KnightFrames, timeSec: number): void {
     if (this.label.text !== snap.name) this.label.text = snap.name;
     const list = snap.moving ? frames.run : frames.idle;
     const nextTex = list[Math.floor(timeSec * (snap.moving ? 10 : 6)) % list.length];
     if (nextTex) this.body.texture = nextTex;
     if (Math.abs(snap.facingX) > 0.1) this.body.scale.x = snap.facingX < 0 ? -1 : 1;
-    this.syncTorch(snap.torchLit, torchFrames, timeSec);
-    this.syncHeldItem(snap);
   }
 
   private syncTorch(lit: boolean, torchFrames: readonly Texture[], timeSec: number): void {

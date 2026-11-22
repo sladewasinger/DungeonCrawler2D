@@ -5,6 +5,7 @@ export const PROTOCOL_VERSION = 1;
 
 const SlotIndexSchema = z.number().int().min(0).max(35);
 const HotbarIndexSchema = z.number().int().min(0).max(8);
+const SeqSchema = z.number().int().nonnegative().optional();
 
 export const ArmorSlotKeySchema = z.enum(["head", "chest", "legs", "feet"]);
 
@@ -25,6 +26,7 @@ export const InventorySnapshotSchema = z.object({
   armor: ArmorEquipmentSchema,
   selectedHotbar: HotbarIndexSchema,
   nearCampfire: z.boolean(),
+  ackSeq: SeqSchema,
 });
 
 export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
@@ -42,30 +44,33 @@ export const ClientInputSchema = z.object({
   moveY: z.number().min(-1).max(1),
 });
 
-export const ClientTorchToggleSchema = z.object({ t: z.literal("toggleTorch") });
+export const ClientTorchToggleSchema = z.object({ t: z.literal("toggleTorch"), seq: SeqSchema });
 
 export const ClientSetDayPhaseSchema = z.object({
   t: z.literal("setDayPhase"),
   dayPhase: z.number().min(0).max(1),
   paused: z.boolean().optional(),
+  seq: SeqSchema,
 });
 
-export const ClientMoveSlotSchema = z.object({ t: z.literal("moveSlot"), from: SlotIndexSchema, to: SlotIndexSchema });
+export const ClientMoveSlotSchema = z.object({ t: z.literal("moveSlot"), from: SlotIndexSchema, to: SlotIndexSchema, seq: SeqSchema });
 
 export const ClientEquipArmorSchema = z.object({
   t: z.literal("equipArmor"),
   slotIndex: SlotIndexSchema,
   targetArmor: ArmorSlotKeySchema.optional(),
+  seq: SeqSchema,
 });
 
 export const ClientUnequipArmorSchema = z.object({
   t: z.literal("unequipArmor"),
   armorSlot: ArmorSlotKeySchema,
   targetSlot: SlotIndexSchema.optional(),
+  seq: SeqSchema,
 });
 
-export const ClientSelectHotbarSchema = z.object({ t: z.literal("selectHotbar"), slot: HotbarIndexSchema });
-export const ClientCraftSchema = z.object({ t: z.literal("craft"), recipeId: z.string().min(1).max(48) });
+export const ClientSelectHotbarSchema = z.object({ t: z.literal("selectHotbar"), slot: HotbarIndexSchema, seq: SeqSchema });
+export const ClientCraftSchema = z.object({ t: z.literal("craft"), recipeId: z.string().min(1).max(48), seq: SeqSchema });
 
 export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema,
@@ -112,6 +117,7 @@ export const ServerSnapshotSchema = z.object({
   tick: z.number().int().nonnegative(),
   dayPhase: z.number(),
   dayPaused: z.boolean(),
+  actionAckSeq: SeqSchema,
   players: z.array(PlayerSnapshotSchema),
   selfInventory: InventorySnapshotSchema.optional(),
 });
