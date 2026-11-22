@@ -1,0 +1,33 @@
+{
+  "name": "dungeoncrawler2d",
+  "version": "0.10.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
+    "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
+    "lint": "eslint . && node scripts/check-folder-size.mjs",
+    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.7.0",
+    "eslint-import-resolver-node": "^0.4.0",
+    "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-sonarjs": "^4.2.0",
+    "globals": "^17.7.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.64.0",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "frames": {
+    "chunk_tiny": {
+      "frame": {
+        "x": 7,
+        "y": 7,
+        "w": 2,
+        "h": 2
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 2
+      },
+      "sourceSize": {
+        "w": 2,
+        "h": 2
+      }
+    },
+    "chunk_small": {
+      "frame": {
+        "x": 22,
+        "y": 6,
+        "w": 4,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 4
+      }
+    },
+    "chunk_square": {
+      "frame": {
+        "x": 37,
+        "y": 5,
+        "w": 6,
+        "h": 6
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 6
+      },
+      "sourceSize": {
+        "w": 6,
+        "h": 6
+      }
+    },
+    "chunk_large": {
+      "frame": {
+        "x": 52,
+        "y": 4,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      }
+    },
+    "chunk_wide": {
+      "frame": {
+        "x": 3,
+        "y": 22,
+        "w": 10,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 10,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 10,
+        "h": 4
+      }
+    },
+    "chunk_tall": {
+      "frame": {
+        "x": 22,
+        "y": 19,
+        "w": 4,
+        "h": 10
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 10
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 10
+      }
+    },
+    "chunk_bar": {
+      "frame": {
+        "x": 34,
+        "y": 23,
+        "w": 12,
+        "h": 2
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 2
+      },
+      "sourceSize": {
+        "w": 12,
+        "h": 2
+      }
+    },
+    "chunk_diamond": {
+      "frame": {
+        "x": 53,
+        "y": 21,
+        "w": 6,
+        "h": 6
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 6
+      },
+      "sourceSize": {
+        "w": 6,
+        "h": 6
+      }
+    }
+  },
+  "meta": {
+    "app": "dc2d-particle-bake",
+    "version": "1.0",
+    "image": "particle-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 64,
+      "h": 32
+    },
+    "scale": "1"
+  }
+}

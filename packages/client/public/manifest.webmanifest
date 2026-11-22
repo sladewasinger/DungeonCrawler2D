@@ -1,0 +1,16 @@
+{
+  "name": "Dungeon Crawler 2D",
+  "short_name": "DC2D",
+  "description": "A torchlit multiplayer dungeon crawl.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "theme_color": "#14141c",
+  "background_color": "#14141c",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
