@@ -1,0 +1,135 @@
+/** Dedicated crafting panel showing craftable recipes by default (optional Show Locked toggle). */
+import { RECIPE_CATALOG, getItemDef, maxStackForItem, type RecipeDef } from "@dc2d/content";
+import { canCraftRecipe, countItemInSlots, type InventorySnapshot } from "@dc2d/engine";
+import { getItemIconUrl } from "../icons/itemIcons.js";
+import { domNode, slotsFingerprint } from "./slotRenderer.js";
+
+const TAG_DIV = "div";
+const TAG_BTN = "button";
+const TAG_SPAN = "span";
+const CLS_PILL = "ow-pill";
+const CLS_SUB = "ow-craft-sub";
+
+export class CraftingPanel {
+  readonly el: HTMLElement;
+  private readonly listEl: HTMLDivElement;
+  private readonly campfireBadge: HTMLSpanElement;
+  private readonly lockedToggleBtn: HTMLButtonElement;
+  private showLocked = false;
+  private lastFingerprint = "";
+
+  constructor(
+    host: HTMLElement,
+    private readonly onCraft: (recipeId: string) => void,
+    onClose: () => void,
+  ) {
+    this.el = domNode("section", "ow-modal ow-craft-modal");
+    this.el.hidden = true;
+    this.campfireBadge = domNode(TAG_SPAN, CLS_SUB);
+    this.lockedToggleBtn = domNode(TAG_BTN, CLS_PILL);
+    this.lockedToggleBtn.type = TAG_BTN;
+    this.lockedToggleBtn.addEventListener("click", () => {
+      this.showLocked = !this.showLocked;
+      this.lastFingerprint = "";
+    });
+
+    this.el.append(this.buildHeader(onClose));
+    this.listEl = domNode(TAG_DIV, "ow-craft-list");
+    this.el.append(this.listEl);
+    host.append(this.el);
+  }
+
+  private buildHeader(onClose: () => void): HTMLDivElement {
+    const head = domNode(TAG_DIV, "ow-modal-head");
+    const left = domNode(TAG_DIV);
+    left.style.display = "flex";
+    left.style.alignItems = "center";
+    left.style.gap = "8px";
+    const title = domNode(TAG_SPAN);
+    title.textContent = "Crafting";
+    left.append(title, this.campfireBadge);
+
+    const right = domNode(TAG_DIV);
+    right.style.display = "flex";
+    right.style.gap = "6px";
+    const closeBtn = domNode(TAG_BTN, CLS_PILL);
+    closeBtn.type = TAG_BTN;
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", onClose);
+    right.append(this.lockedToggleBtn, closeBtn);
+    head.append(left, right);
+    return head;
+  }
+
+  sync(inv: InventorySnapshot, open: boolean): void {
+    this.el.hidden = !open;
+    if (!open) return;
+
+    const fp = `${slotsFingerprint(inv.slots, 0, inv.slots.length)}#${inv.nearCampfire}#${this.showLocked}`;
+    if (fp === this.lastFingerprint) return;
+    this.lastFingerprint = fp;
+
+    this.campfireBadge.textContent = inv.nearCampfire ? "· Campfire Nearby" : "· Hand Crafting";
+    this.lockedToggleBtn.dataset.active = String(this.showLocked);
+    this.lockedToggleBtn.textContent = this.showLocked ? "Show Locked: ON" : "Show Locked";
+    this.renderRecipes(inv);
+  }
+
+  private renderRecipes(inv: InventorySnapshot): void {
+    const rows: HTMLElement[] = [];
+    for (const recipe of RECIPE_CATALOG) {
+      const craftable = canCraftRecipe({
+        slots: inv.slots,
+        recipe,
+        nearCampfire: inv.nearCampfire,
+        maxStackFor: maxStackForItem,
+      });
+      if (!craftable && !this.showLocked) continue;
+      rows.push(this.buildRecipeRow(inv, recipe, craftable));
+    }
+    if (rows.length === 0) {
+      const empty = domNode(TAG_DIV, CLS_SUB);
+      empty.textContent = "No craftable recipes with current materials.";
+      rows.push(empty);
+    }
+    this.listEl.replaceChildren(...rows);
+  }
+
+  private buildRecipeRow(inv: InventorySnapshot, recipe: RecipeDef, craftable: boolean): HTMLDivElement {
+    const row = domNode(TAG_DIV, "ow-craft-row");
+    const icon = domNode("img", "ow-slot-img");
+    icon.style.width = "32px";
+    icon.style.height = "32px";
+    icon.src = getItemIconUrl(recipe.outputItemId);
+    icon.alt = recipe.outputItemId;
+
+    const info = this.buildRecipeInfo(inv, recipe);
+    const craftBtn = domNode(TAG_BTN, CLS_PILL);
+    craftBtn.type = TAG_BTN;
+    craftBtn.textContent = "Craft";
+    craftBtn.disabled = !craftable;
+    craftBtn.style.opacity = craftable ? "1" : "0.45";
+    craftBtn.addEventListener("click", () => this.onCraft(recipe.id));
+
+    row.append(icon, info, craftBtn);
+    return row;
+  }
+
+  private buildRecipeInfo(inv: InventorySnapshot, recipe: RecipeDef): HTMLDivElement {
+    const info = domNode(TAG_DIV, "ow-craft-info");
+    const itemName = getItemDef(recipe.outputItemId)?.name ?? recipe.outputItemId;
+    const countSuffix = maxStackForItem(recipe.outputItemId) > 1 && recipe.outputCount > 1 ? ` x${recipe.outputCount}` : "";
+    const title = domNode(TAG_DIV, "ow-craft-title");
+    title.textContent = `${itemName}${countSuffix}${recipe.requiresCampfire ? " (Campfire)" : ""}`;
+
+    const parts = recipe.ingredients.map((ing) => {
+      const name = getItemDef(ing.itemId)?.name ?? ing.itemId;
+      const have = countItemInSlots(inv.slots, ing.itemId);
+      return `${name} ${have}/${ing.count}`;
+    });
+    const sub = domNode(TAG_DIV, CLS_SUB);
+    sub.textContent = parts.join(" · ");
+    info.append(title, sub);
+    return info;
+  }
+}

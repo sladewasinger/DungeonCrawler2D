@@ -7,7 +7,7 @@ const PLAYER_RADIUS = 0.28;
 export function createDefaultPlayer(id: string): PlayerSnapshot {
   return {
     id, name: "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, moving: false, torchLit: true, inWater: false, lastAckSeq: 0,
+    facingX: 0, facingY: 1, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, heldItem: null,
   };
 }
 
@@ -16,6 +16,9 @@ export function reconcilePredictedPlayer(current: PlayerSnapshot, serverMe: Play
   if (gap > 0.75) return { ...serverMe };
   return {
     ...current,
+    id: serverMe.id,
+    name: serverMe.name,
+    heldItem: serverMe.heldItem ?? current.heldItem ?? null,
     torchLit: serverMe.torchLit,
     x: current.x + (serverMe.x - current.x) * 0.2,
     y: current.y + (serverMe.y - current.y) * 0.2,
