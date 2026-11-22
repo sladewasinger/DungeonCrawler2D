@@ -11,21 +11,38 @@ export function createDefaultPlayer(
 ): PlayerSnapshot {
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, heldItem: null,
-    appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...EMPTY_ARMOR },
+    facingX: 0, facingY: 1, aimX: 0, aimY: 1, moving: false, torchLit: true, inWater: false,
+    lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...EMPTY_ARMOR },
   };
+}
+
+function keepAim(current: PlayerSnapshot): { readonly aimX?: number; readonly aimY?: number } {
+  return current.aimX !== undefined && current.aimY !== undefined
+    ? { aimX: current.aimX, aimY: current.aimY }
+    : {};
+}
+
+export function normalizeDirection(vec?: { readonly x: number; readonly y: number }, clampLength = false): { readonly x: number; readonly y: number } | undefined {
+  if (!vec) return undefined;
+  const mag = Math.hypot(vec.x, vec.y);
+  if (mag <= 0.05) return undefined;
+  const denom = clampLength ? Math.max(1, mag) : mag;
+  return { x: vec.x / denom, y: vec.y / denom };
 }
 
 function preservedIdentity(
   current: PlayerSnapshot,
   serverMe: PlayerSnapshot,
   opts: { readonly preserveTorch?: boolean; readonly preserveAppearance?: boolean },
-): { readonly torchLit: boolean; readonly name: string; readonly appearance?: CharacterAppearance; readonly armor?: ArmorEquipment } {
+) {
   const appearance = opts.preserveAppearance ? current.appearance : (serverMe.appearance ?? current.appearance);
   const armor = serverMe.armor ?? current.armor;
   return {
     torchLit: opts.preserveTorch ? current.torchLit : serverMe.torchLit,
     name: opts.preserveAppearance ? current.name : serverMe.name,
+    facingX: current.facingX,
+    facingY: current.facingY,
+    ...keepAim(current),
     ...(appearance ? { appearance } : {}),
     ...(armor ? { armor } : {}),
   };
@@ -51,10 +68,13 @@ export function reconcilePredictedPlayer(
 }
 
 export function predictLocalPlayerMove(input: {
-  readonly cache: WorldChunkCache; readonly player: PlayerSnapshot; readonly nx: number; readonly ny: number; readonly dt: number;
+  readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
+  readonly nx: number; readonly ny: number; readonly dt: number;
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
 }): PlayerSnapshot {
   const moving = Math.hypot(input.nx, input.ny) > 0.05;
-  if (!moving) return { ...input.player, moving: false };
+  const aimVec = resolveAim(input);
+  if (!moving) return { ...input.player, ...aimVec, moving: false };
   const step = PLAYER_SPEED * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: input.player.x, y: input.player.y,
@@ -62,7 +82,25 @@ export function predictLocalPlayerMove(input: {
   });
   return {
     ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    facingX: input.nx, facingY: input.ny, moving: true, inWater: moved.inWater,
+    ...aimVec, moving: true, inWater: moved.inWater,
+  };
+}
+
+function resolveAim(input: {
+  readonly player: PlayerSnapshot; readonly nx: number; readonly ny: number;
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
+}): { readonly facingX: number; readonly facingY: number; readonly aimX: number; readonly aimY: number } {
+  if (input.aim && Math.hypot(input.aim.x, input.aim.y) > 0.05) {
+    return { facingX: input.aim.x, facingY: input.aim.y, aimX: input.aim.x, aimY: input.aim.y };
+  }
+  if (Math.hypot(input.nx, input.ny) > 0.05) {
+    return { facingX: input.nx, facingY: input.ny, aimX: input.nx, aimY: input.ny };
+  }
+  return {
+    facingX: input.player.facingX,
+    facingY: input.player.facingY,
+    aimX: input.player.aimX ?? input.player.facingX,
+    aimY: input.player.aimY ?? input.player.facingY,
   };
 }
 

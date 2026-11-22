@@ -89,6 +89,18 @@ export class WorldScene {
 
   adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, 1.6, 5); }
 
+  screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
+    const rect = this.app.canvas.getBoundingClientRect();
+    const sw = this.app.screen.width;
+    const sh = this.app.screen.height;
+    const sx = ((clientX - rect.left) * sw) / Math.max(1, rect.width);
+    const sy = ((clientY - rect.top) * sh) / Math.max(1, rect.height);
+    return {
+      x: ((sx - sw * 0.5) / this.zoom + this.camX * TILE_PX) / TILE_PX,
+      y: ((sy - sh * 0.5) / this.zoom + this.camY * TILE_PX) / TILE_PX,
+    };
+  }
+
   renderFrame(input: SceneFrameInput): void {
     const preset = QUALITY_PRESETS[this.qualityId];
     const local = input.players.find((p) => p.id === input.localPlayerId) ?? input.players[0];

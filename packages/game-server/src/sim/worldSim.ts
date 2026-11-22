@@ -23,6 +23,9 @@ interface SimPlayer {
   elevation: number;
   facingX: number;
   facingY: number;
+  aimX: number;
+  aimY: number;
+  hasExplicitAim: boolean;
   moveX: number;
   moveY: number;
   moving: boolean;
@@ -52,9 +55,9 @@ export class WorldSim {
     const offset = ((this.players.size % 4) - 1.5) * 0.6;
     this.players.set(id, {
       id, name, appearance: sanitizeCharacterAppearance(appearance),
-      x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, moveX: 0, moveY: 0,
-      moving: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0, selectedHotbar: 0,
-      inventory: createStarterInventory(),
+      x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, aimX: 0, aimY: 1, hasExplicitAim: false,
+      moveX: 0, moveY: 0, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
+      selectedHotbar: 0, inventory: createStarterInventory(),
     });
     return id;
   }
@@ -69,12 +72,16 @@ export class WorldSim {
     p.appearance = sanitizeCharacterAppearance(req.appearance);
   }
 
-  queueInput(playerId: string, input: { readonly seq: number; readonly moveX: number; readonly moveY: number }): void {
+  queueInput(playerId: string, input: {
+    readonly seq: number; readonly moveX: number; readonly moveY: number;
+    readonly aimX?: number | undefined; readonly aimY?: number | undefined;
+  }): void {
     const p = this.players.get(playerId);
     if (!p) return;
     p.moveX = input.moveX;
     p.moveY = input.moveY;
     p.lastAckSeq = input.seq;
+    applyAimInput(p, input);
   }
 
   toggleTorch(playerId: string): void { const p = this.players.get(playerId); if (p) p.torchLit = !p.torchLit; }
@@ -124,8 +131,7 @@ export class WorldSim {
     if (mag < 0.05) { p.moving = false; return; }
     const nx = p.moveX / Math.max(1, mag);
     const ny = p.moveY / Math.max(1, mag);
-    p.facingX = nx;
-    p.facingY = ny;
+    if (!p.hasExplicitAim) setPlayerAim(p, nx, ny);
     p.moving = true;
     const step = PLAYER_SPEED_TILES_PER_SEC * dtSeconds;
     const res = resolveMovement({ cache: this.cache, x: p.x, y: p.y, dx: nx * step, dy: ny * step, radius: PLAYER_RADIUS, elevation: p.elevation });
@@ -137,11 +143,26 @@ export class WorldSim {
 
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => ({
-      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY,
+      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
+      facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
       moving: p.moving, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
       heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
-      appearance: p.appearance,
-      armor: { ...p.inventory.armor },
+      appearance: p.appearance, armor: { ...p.inventory.armor },
     }));
   }
+}
+
+function setPlayerAim(p: SimPlayer, ax: number, ay: number): void {
+  p.aimX = ax;
+  p.aimY = ay;
+  p.facingX = ax;
+  p.facingY = ay;
+}
+
+function applyAimInput(p: SimPlayer, input: { readonly aimX?: number | undefined; readonly aimY?: number | undefined }): void {
+  if (input.aimX === undefined || input.aimY === undefined) { p.hasExplicitAim = false; return; }
+  const mag = Math.hypot(input.aimX, input.aimY);
+  if (mag <= 0.05) { p.hasExplicitAim = false; return; }
+  setPlayerAim(p, input.aimX / mag, input.aimY / mag);
+  p.hasExplicitAim = true;
 }

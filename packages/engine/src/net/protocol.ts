@@ -47,6 +47,8 @@ export const ClientInputSchema = z.object({
   seq: z.number().int().nonnegative(),
   moveX: z.number().min(-1).max(1),
   moveY: z.number().min(-1).max(1),
+  aimX: z.number().min(-1).max(1).optional(),
+  aimY: z.number().min(-1).max(1).optional(),
 });
 
 export const ClientTorchToggleSchema = z.object({ t: z.literal("toggleTorch"), seq: SeqSchema });
@@ -80,6 +82,8 @@ export const PlayerSnapshotSchema = z.object({
   elevation: z.number(),
   facingX: z.number(),
   facingY: z.number(),
+  aimX: z.number().optional(),
+  aimY: z.number().optional(),
   moving: z.boolean(),
   torchLit: z.boolean(),
   inWater: z.boolean(),
