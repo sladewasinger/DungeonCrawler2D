@@ -50,6 +50,14 @@ describe("collision", () => {
       elevation: 0,
     });
     expect(climber.elevation).toBe(1);
+
+    // Approaching south cliff edge (wy = -7 at y = -6.0) stops cleanly at footDepth (0.14).
+    const atSouthBase = resolveMovement({ cache, x: -7.5, y: -5.8, dx: 0, dy: -0.5, radius: 0.28, elevation: 0 });
+    expect(atSouthBase.y).toBe(-5.8);
+
+    // Approaching north cliff back edge (wy = -13 at y = -13.0) allows standing close behind the rim.
+    const atNorthBack = resolveMovement({ cache, x: -7.5, y: -13.2, dx: 0, dy: 0.04, radius: 0.28, elevation: 0 });
+    expect(atNorthBack.y).toBeCloseTo(-13.16, 3);
   });
 
   it("slows movement in shallow water without blocking", () => {

@@ -1,4 +1,4 @@
-/** Bakes chunk ground tiles, cliff walls, stairs, biome fringes, and water masks into 512x512 canvases. */
+/** Bakes chunk ground tiles, ambient-occlusion cliff shadows, and rounded water masks into 512x512 canvases. */
 import { CHUNK_SIZE, GroundKind, TILE_PX, worldTileIndex, type WorldChunkCache } from "@dc2d/engine";
 import { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas } from "../textures/pixelCanvas.js";
@@ -15,6 +15,9 @@ const BIOME_FRINGE_COLOR: Partial<Record<GroundKind, string>> = {
   [GroundKind.MeadowGrass]: "rgba(82, 162, 70, 0.4)",
   [GroundKind.Grass]: "rgba(62, 139, 67, 0.4)",
 };
+
+const AO_DEEP = "rgba(10, 14, 22, 0.36)";
+const AO_SOFT = "rgba(10, 14, 22, 0.16)";
 
 function isWater(kind: GroundKind): boolean {
   return kind === GroundKind.DeepWater || kind === GroundKind.ShallowWater;
@@ -33,23 +36,69 @@ function paintEdgeStrip(input: {
   input.ctx.fillRect(...input.rect);
 }
 
-function drawTileEdges(input: {
+function paintGroundCliffAo(input: {
   readonly ctx: CanvasRenderingContext2D;
   readonly cache: WorldChunkCache;
   readonly wx: number;
   readonly wy: number;
   readonly px: number;
   readonly py: number;
-  readonly kind: GroundKind;
+  readonly elev: number;
 }): void {
-  const { ctx, cache, wx, wy, px, py, kind } = input;
-  paintEdgeStrip({ ctx, neighbor: cache.tileAt(wx, wy - 1).ground, kind, rect: [px, py, TILE_PX, 2] });
-  paintEdgeStrip({ ctx, neighbor: cache.tileAt(wx - 1, wy).ground, kind, rect: [px, py, 2, TILE_PX] });
-  const tile = cache.tileAt(wx, wy);
+  const { ctx, cache, wx, wy, px, py, elev } = input;
+  const north = cache.tileAt(wx, wy - 1);
+  if (north.elevation > elev && !north.stairs) {
+    ctx.fillStyle = AO_DEEP;
+    ctx.fillRect(px, py, TILE_PX, 3);
+    ctx.fillStyle = AO_SOFT;
+    ctx.fillRect(px, py + 3, TILE_PX, 3);
+  }
+  if (cache.tileAt(wx - 1, wy).elevation > elev) {
+    ctx.fillStyle = AO_DEEP;
+    ctx.fillRect(px, py, 2, TILE_PX);
+    ctx.fillStyle = AO_SOFT;
+    ctx.fillRect(px + 2, py, 2, TILE_PX);
+  }
+  if (cache.tileAt(wx + 1, wy).elevation > elev) {
+    ctx.fillStyle = AO_SOFT;
+    ctx.fillRect(px + TILE_PX - 3, py, 3, TILE_PX);
+  }
   const south = cache.tileAt(wx, wy + 1);
-  if (tile.elevation > south.elevation && !tile.stairs) {
-    ctx.fillStyle = "rgba(18, 24, 34, 0.35)";
+  if (south.elevation > elev && !south.stairs) {
+    ctx.fillStyle = AO_SOFT;
     ctx.fillRect(px, py + TILE_PX - 3, TILE_PX, 3);
+  }
+}
+
+function carveCornerCutouts(ctx: CanvasRenderingContext2D, input: {
+  readonly px: number;
+  readonly py: number;
+  readonly rightEdge: boolean;
+  readonly bottomEdge: boolean;
+}): void {
+  const bands = [4, 2, 1];
+  for (let i = 0; i < bands.length; i++) {
+    const w = bands[i] ?? 1;
+    const x = input.rightEdge ? input.px + TILE_PX - w : input.px;
+    const y = input.bottomEdge ? input.py + TILE_PX - 1 - i : input.py + i;
+    ctx.clearRect(x, y, w, 1);
+  }
+}
+
+function carveRoundedShoreCorners(input: PaintCellInput): void {
+  const { wCtx, cache, wx, wy, px, py } = input;
+  const n = !isWater(cache.tileAt(wx, wy - 1).ground);
+  const s = !isWater(cache.tileAt(wx, wy + 1).ground);
+  const w = !isWater(cache.tileAt(wx - 1, wy).ground);
+  const e = !isWater(cache.tileAt(wx + 1, wy).ground);
+  const corners: readonly (readonly [boolean, boolean, boolean])[] = [
+    [n && w, false, false],
+    [n && e, true, false],
+    [s && w, false, true],
+    [s && e, true, true],
+  ];
+  for (const [carve, rightEdge, bottomEdge] of corners) {
+    if (carve) carveCornerCutouts(wCtx, { px, py, rightEdge, bottomEdge });
   }
 }
 
@@ -70,25 +119,21 @@ function paintWaterCell(input: PaintCellInput, ground: GroundKind): void {
   if (shore) input.gCtx.drawImage(shore, input.px, input.py);
   const wTile = input.atlas.variants.get(ground)?.[input.variant];
   if (!wTile) return;
-  input.wCtx.globalAlpha = ground === GroundKind.ShallowWater ? 0.84 : 1;
+  input.wCtx.globalAlpha = ground === GroundKind.ShallowWater ? 0.86 : 1;
   input.wCtx.drawImage(wTile, input.px, input.py);
   input.wCtx.globalAlpha = 1;
+  carveRoundedShoreCorners(input);
 }
 
-function paintCliffOrBaseTile(input: PaintCellInput): void {
+function paintGroundTile(input: PaintCellInput): void {
   const { gCtx, atlas, cache, wx, wy, px, py, variant } = input;
   const tile = cache.tileAt(wx, wy);
   if (isWater(tile.ground)) { paintWaterCell(input, tile.ground); return; }
-  if (tile.stairs) { gCtx.drawImage(atlas.stairFace, px, py); return; }
-  const north = cache.tileAt(wx, wy - 1);
-  if (north.elevation > tile.elevation && !north.stairs) { gCtx.drawImage(atlas.cliffFace, px, py); return; }
   const img = atlas.variants.get(tile.ground)?.[variant % 4];
   if (img) gCtx.drawImage(img, px, py);
-  drawTileEdges({ ctx: gCtx, cache, wx, wy, px, py, kind: tile.ground });
-  if (north.elevation > tile.elevation) {
-    gCtx.fillStyle = "rgba(10, 14, 22, 0.24)";
-    gCtx.fillRect(px, py, TILE_PX, 4);
-  }
+  paintEdgeStrip({ ctx: gCtx, neighbor: cache.tileAt(wx, wy - 1).ground, kind: tile.ground, rect: [px, py, TILE_PX, 2] });
+  paintEdgeStrip({ ctx: gCtx, neighbor: cache.tileAt(wx - 1, wy).ground, kind: tile.ground, rect: [px, py, 2, TILE_PX] });
+  if (!tile.stairs) paintGroundCliffAo({ ctx: gCtx, cache, wx, wy, px, py, elev: tile.elevation });
 }
 
 export function bakeChunkTextures(
@@ -100,26 +145,15 @@ export function bakeChunkTextures(
   const gCanvas = createPixelCanvas(size, size);
   const wCanvas = createPixelCanvas(size, size);
   const chunk = cache.getChunk(coords.cx, coords.cy);
-
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const wy = coords.cy * CHUNK_SIZE + ly;
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const wx = coords.cx * CHUNK_SIZE + lx;
-      paintCliffOrBaseTile({
-        gCtx: gCanvas.ctx,
-        wCtx: wCanvas.ctx,
-        atlas,
-        cache,
-        wx,
-        wy,
-        px: lx * TILE_PX,
-        py: ly * TILE_PX,
+      paintGroundTile({
+        gCtx: gCanvas.ctx, wCtx: wCanvas.ctx, atlas, cache,
+        wx: coords.cx * CHUNK_SIZE + lx, wy, px: lx * TILE_PX, py: ly * TILE_PX,
         variant: chunk.variant[worldTileIndex(lx, ly)] ?? 0,
       });
     }
   }
-  return {
-    ground: canvasToNearestTexture(gCanvas.canvas),
-    water: canvasToNearestTexture(wCanvas.canvas),
-  };
+  return { ground: canvasToNearestTexture(gCanvas.canvas), water: canvasToNearestTexture(wCanvas.canvas) };
 }
