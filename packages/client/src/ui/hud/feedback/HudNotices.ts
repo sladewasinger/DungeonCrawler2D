@@ -30,6 +30,7 @@ export function contextualHelpText(
 interface NoticeActionHint {
   key: string;
   label: string;
+  title?: string;
   touchKey?: string;
   touchLabel?: string;
 }
@@ -37,7 +38,8 @@ interface NoticeActionHint {
 const actionText = (hint: NoticeActionHint, touchDevice: boolean): string => {
   const key = touchDevice ? hint.touchKey ?? "USE" : hint.key;
   const label = touchDevice ? hint.touchLabel ?? hint.label : hint.label;
-  return `[${key}] ${label}`;
+  const line = `[${key}] ${label}`;
+  return hint.title ? `${hint.title}\n${line}` : line;
 };
 
 export function latestVisibleToast(

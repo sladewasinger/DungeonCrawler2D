@@ -33,10 +33,9 @@ describe("inventory: adding and removing stacks", () => {
     invAdd(sim, slot, "rag", 3);
     expect(invQty(slot, "rag")).toBe(5);
     expect(slot.inventory).toEqual([{ item: "rag", qty: 5 }]);
-
-    expect(invRemove(slot, "rag", 10)).toBe(false); // short stack, no partial removal
+    expect(invRemove(slot, "rag", 10)).toBe(false);
     expect(invRemove(slot, "rag", 5)).toBe(true);
-    expect(invIndex(slot, "rag")).toBe(-1); // pruned at zero
+    expect(invIndex(slot, "rag")).toBe(-1);
   });
 
   it("auto-equips the first weapon picked up, never a second", () => {
@@ -45,10 +44,10 @@ describe("inventory: adding and removing stacks", () => {
     invAdd(sim, slot, "sword", 1);
     expect(slot.weapon).toBe("sword");
     invAdd(sim, slot, "hammer", 1);
-    expect(slot.weapon).toBe("sword"); // first weapon wins, hammer sits unequipped
+    expect(slot.weapon).toBe("sword");
   });
 
-  it("migrates a legacy hotbar once, then preserves its customized layout", () => {
+  it("migrates a legacy hotbar once, keeps owned slots, and clears depleted stacks", () => {
     const sim = buildSim(fakeWorld());
     const slot = buildSlot(0, 0);
     invAdd(sim, slot, "sword", 1);
@@ -56,16 +55,25 @@ describe("inventory: adding and removing stacks", () => {
     slot.hotbar[0] = "bandage";
     ensureStarterKit(sim, slot);
     expect(invQty(slot, "bandage")).toBe(3);
-    expect(slot.stored.starterHotbarSchema).toBe(1);
     expect(slot.stored.hotbar?.slice(0, 3)).toEqual(["sword", "torch", "bandage"]);
-    const customized = [null, null, null, "torch", null, null, null, null, "bandage"];
-    slot.hotbar = [...customized];
+    slot.hotbar = [null, null, null, "torch", null, null, null, null, "bandage"];
     sim.store.recordHotbar(slot.stored, slot.hotbar);
     invRemove(slot, "bandage", 3);
     ensureStarterKit(sim, slot);
-    expect(slot.hotbar).toEqual(customized);
-    expect(slot.stored.hotbar).toEqual(customized);
-    expect(invQty(slot, "bandage")).toBe(0);
+    const expected = [null, null, null, "torch", null, null, null, null, null];
+    expect(slot.hotbar).toEqual(expected);
+    expect(slot.stored.hotbar).toEqual(expected);
+  });
+
+  it("prunes unowned ghost items (such as bow) from saved hotbar on join", () => {
+    const sim = buildSim(fakeWorld());
+    const slot = buildSlot(0, 0);
+    slot.stored.starterHotbarSchema = 1;
+    slot.hotbar = ["sword", "torch", "bandage", "bow", null, null, null, null, null];
+    slot.weapon = "bow";
+    ensureStarterKit(sim, slot);
+    expect(slot.hotbar[3]).toBeNull();
+    expect(slot.weapon).toBe("sword");
   });
 });
 

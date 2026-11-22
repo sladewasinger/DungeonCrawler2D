@@ -38,6 +38,7 @@ export function spawnPlayerLootChest(sim: SimState, slot: PlayerSlot): LootChest
   const entity = makeChestEntity(sim, slot, position);
   const chest = createLootChest({ sim, slot, entity, killer });
   slot.inventory = [];
+  slot.hotbar.fill(null);
   slot.weapon = null;
   sim.lootChests.set(entity.id, chest);
   return chest;

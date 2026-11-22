@@ -1,4 +1,5 @@
 import type { PlayerSlot, SimState } from "../state/state.js";
+import { reconcileHotbar, restoreOwnedSavedHotbar } from "./hotbarSync.js";
 import { invAdd, invQty } from "./inventory.js";
 
 const STARTER_SWORD_DEF = "sword";
@@ -11,11 +12,14 @@ const STARTER_HOTBAR_SCHEMA = 1;
 export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
   if (lacksStarterKit(slot)) grantStarterItems(sim, slot);
   migrateStarterItems(sim, slot);
+  reconcileHotbar(sim, slot);
 }
 
 export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
   grantMissingStarterItems(sim, slot);
   if (slot.weapon === null) slot.weapon = STARTER_SWORD_DEF;
+  restoreOwnedSavedHotbar(sim, slot);
+  reconcileHotbar(sim, slot);
 }
 
 function lacksStarterKit(slot: PlayerSlot): boolean {

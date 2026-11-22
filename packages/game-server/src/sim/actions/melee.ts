@@ -10,6 +10,7 @@ import {
   type ItemRangedDef,
 } from "@dc2d/engine";
 import { damageGivenMultiplierFor } from "../core/helpers.js";
+import { reconcileHotbar } from "../inventory/hotbarSync.js";
 import { invRemove } from "../inventory/inventory.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import { startActiveMeleeAttack } from "./melee/attackWindow.js";
@@ -64,6 +65,7 @@ function fireRangedWeapon(request: RangedFireRequest): void {
     slot.outbox.push({ t: "toast", msg: `Out of ${ranged.ammoItem}s` });
     return;
   }
+  reconcileHotbar(sim, slot);
   slot.attackReadyAtTick = sim.tickCount + attackCooldownTicks(ranged.cooldownMs);
   const ratio = Math.max(0.15, Math.min(1, drawRatio ?? 0.65));
   const projectile = createRangedProjectile({ sim, attacker: slot.entity, ranged, dirX, dirY, ratio });

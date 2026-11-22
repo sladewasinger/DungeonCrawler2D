@@ -42,7 +42,8 @@ export function syncCombatants(frame: CombatantSyncFrame): void {
   const facing = assistedSelfAimFacing(state.cosmetics, nowMs);
   const aimAngle = resolveSelfAimAngle({ assistedAim, faceX: facing.x, faceY: facing.y, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
   const selectedSlot = inputController.selectedHotbarSlot();
-  const heldItemId = selectedSlot !== null ? (conn.hotbar[selectedSlot] ?? conn.weapon) : conn.weapon;
+  const rawHeld = selectedSlot !== null ? (conn.hotbar[selectedSlot] ?? null) : conn.weapon;
+  const heldItemId = rawHeld && conn.inventory.some((s) => s.item === rawHeld && s.qty > 0) ? rawHeld : null;
   const bowChargeRatio = inputController.bowDrawRatio(performance.now());
   const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId, bowChargeRatio });
   const monsters = mapFrameInto({ source: buckets.enemies, out: state.entityViews.enemies, records: state.entityViews.enemyRecords, map: monsterView });

@@ -50,6 +50,8 @@ describe("resolveInteractionPrompt", () => {
   it("prompts pickup near a ground item when no interactable is in range", () => {
     const world = worldWithTileAt(99, 99, TILE.CraftingTable);
     expect(resolveInteractionPrompt({ world, x: 5, y: 5, items: [{ x: 5.3, y: 5 }] })).toEqual({ key: "R", label: "pick up" });
+    expect(resolveInteractionPrompt({ world, x: 5, y: 5, items: [{ x: 5.3, y: 5, defId: "raw-meat" }] }))
+      .toEqual({ key: "R", label: "pick up", title: "RAW MEAT" });
   });
 
   it("prefers interact over pickup when both are in range", () => {

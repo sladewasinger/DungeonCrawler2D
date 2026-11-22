@@ -12,6 +12,7 @@ import {
   stepTorch,
   throwLaunchOrigin,
 } from "@dc2d/engine";
+import { reconcileHotbar } from "../inventory/hotbarSync.js";
 import { invQty, invRemove } from "../inventory/inventory.js";
 import { ACTIVE_FIRE_TORCH_BURN_TICKS } from "./configuration/torchLifecycleTuning.js";
 import { resolveTorchFireContact } from "./torchFireContact.js";
@@ -63,15 +64,25 @@ export function doThrowTorch({
 
   const thrower = slot.entity;
   faceEntity(thrower, targetX - thrower.body.x, targetY - thrower.body.y);
+  const torch = createFlyingTorch({ sim, thrower, defId, targetX, targetY });
+  sim.torches.set(torch.id, torch);
+  invRemove(slot, defId, 1);
+  reconcileHotbar(sim, slot);
+}
+
+function createFlyingTorch(input: {
+  readonly sim: SimState;
+  readonly thrower: PlayerSlot["entity"];
+  readonly defId: string;
+  readonly targetX: number;
+  readonly targetY: number;
+}) {
+  const { sim, thrower, defId, targetX, targetY } = input;
   const from = throwLaunchOrigin(thrower.body);
-  const { vel, ballisticFlight } = launchTorch({
-    world: sim.world,
-    from,
-    target: { x: targetX, y: targetY },
-  });
+  const { vel, ballisticFlight } = launchTorch({ world: sim.world, from, target: { x: targetX, y: targetY } });
   const body = createBody(from.x, from.y, from.z);
   body.grounded = false;
-  const torch = makeEntity("torch", body, {
+  return makeEntity("torch", body, {
     id: newEntityId("t"),
     defId,
     ownerId: thrower.id,
@@ -79,8 +90,6 @@ export function doThrowTorch({
     vel,
     ballisticFlight,
   });
-  sim.torches.set(torch.id, torch);
-  invRemove(slot, defId, 1);
 }
 
 /** Converts the retired direction protocol into the target-based contract. */

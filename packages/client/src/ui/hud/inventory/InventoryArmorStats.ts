@@ -1,25 +1,14 @@
-/** Renders the 4 Armor slots, player vitals summary, and selected item inspector bar. */
+/** Renders the 4 Armor slots and player vitals summary inside the inventory modal. */
 import {
   ARMOR_SLOTS,
   playerDamageMultiplierForLevel,
   type ArmorSlot,
 } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
-import {
-  isArmorItem,
-  isConsumableItem,
-  isWeaponItem,
-  itemArmorDef,
-  itemArmorSlot,
-  itemFlavor,
-  itemName,
-} from "../../../ui/presentation/itemCatalog.js";
-import {
-  armorSlotSilhouetteDataUrl,
-  itemIconDataUrl,
-} from "../../../ui/presentation/itemIcons.js";
-import { createHudButton } from "../styles/HudStyles.js";
-import type { InventoryGridState } from "./InventoryGrid.js";
+import { itemArmorDef, itemArmorSlot, itemName } from "../../../ui/presentation/itemCatalog.js";
+import { armorSlotSilhouetteDataUrl, itemIconDataUrl } from "../../../ui/presentation/itemIcons.js";
+import { readInventoryDragPayload, writeInventoryDragPayload } from "./inventoryDragPayload.js";
+import type { InventoryGridState } from "./InventoryHotbarGrid.js";
 
 export function buildArmorAndStatsSection(
   connection: Connection,
@@ -49,36 +38,68 @@ function createArmorSlotButton(
   state: InventoryGridState,
 ): HTMLButtonElement {
   const equippedId = connection.armor?.[slot] ?? null;
+  const btn = createArmorElement(slot, equippedId);
+  if (equippedId) {
+    btn.draggable = true;
+    btn.addEventListener("dragstart", (e) =>
+      writeInventoryDragPayload(e.dataTransfer, { source: "armor", itemId: equippedId, armorSlot: slot }));
+  }
+  bindArmorInteractions({ btn, connection, slot, equippedId, state });
+  return btn;
+}
+
+function createArmorElement(slot: ArmorSlot, equippedId: string | null): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "hud-mc-slot hud-mc-slot--armor";
   btn.dataset.armorSlot = slot;
   btn.dataset.occupied = String(Boolean(equippedId));
-  btn.title = equippedId ? `${itemName(equippedId)} (Click to unequip)` : `${slot.toUpperCase()} Armor Slot`;
-
+  btn.title = equippedId ? `${itemName(equippedId)} (Click or drag to backpack)` : `${slot.toUpperCase()} Armor Slot`;
   const img = document.createElement("img");
   img.className = "hud-mc-slot__icon";
   img.src = equippedId ? itemIconDataUrl(equippedId) : armorSlotSilhouetteDataUrl(slot);
   img.alt = slot;
+  img.draggable = false;
   const label = document.createElement("span");
   label.className = "hud-mc-slot__tag";
   label.textContent = slot.slice(0, 4).toUpperCase();
   btn.append(label, img);
+  return btn;
+}
 
+function bindArmorInteractions(input: {
+  readonly btn: HTMLButtonElement;
+  readonly connection: Connection;
+  readonly slot: ArmorSlot;
+  readonly equippedId: string | null;
+  readonly state: InventoryGridState;
+}): void {
+  const { btn, connection, slot, equippedId, state } = input;
   btn.addEventListener("click", () => {
     if (state.selectedItemId && itemArmorSlot(state.selectedItemId) === slot) {
-      connection.equip(state.selectedItemId, slot);
+      equipArmorFromInventory(connection, slot, state.selectedItemId);
+      state.selectItem(null);
       return;
     }
-    if (equippedId) connection.equip(null, slot);
+    if (equippedId) {
+      connection.equip(null, slot);
+      state.selectItem(null);
+    }
   });
   btn.addEventListener("dragover", (e) => e.preventDefault());
   btn.addEventListener("drop", (e) => {
     e.preventDefault();
-    const itemId = e.dataTransfer?.getData("text/plain")?.trim();
-    if (itemId && itemArmorSlot(itemId) === slot) connection.equip(itemId, slot);
+    const payload = readInventoryDragPayload(e.dataTransfer);
+    if (!payload || itemArmorSlot(payload.itemId) !== slot) return;
+    equipArmorFromInventory(connection, slot, payload.itemId);
+    state.selectItem(null);
   });
-  return btn;
+}
+
+export function equipArmorFromInventory(connection: Connection, slot: ArmorSlot, itemId: string): void {
+  const hotbarIndex = connection.hotbar.indexOf(itemId);
+  if (hotbarIndex >= 0) connection.assignSlot(hotbarIndex, null);
+  connection.equip(itemId, slot);
 }
 
 function buildStatsSummary(connection: Connection): HTMLElement {
@@ -102,51 +123,4 @@ function buildStatsSummary(connection: Connection): HTMLElement {
     box.append(line);
   }
   return box;
-}
-
-export function buildSelectedInspector(
-  connection: Connection,
-  state: InventoryGridState,
-): HTMLElement {
-  const bar = document.createElement("div");
-  bar.className = "hud-mc-inspector";
-  const itemId = state.selectedItemId;
-  const stack = itemId ? connection.inventory.find((s) => s.item === itemId) : undefined;
-  if (!itemId || !stack) {
-    bar.textContent = "Tip: Click/tap any item to inspect, use, equip, or tap a hotbar slot [1–9] to assign.";
-    return bar;
-  }
-  const copy = document.createElement("div");
-  copy.className = "hud-mc-inspector__copy";
-  const title = document.createElement("strong");
-  title.textContent = `${itemName(itemId)} ×${stack.qty}`;
-  const flavor = document.createElement("span");
-  flavor.textContent = itemFlavor(itemId) ?? "";
-  copy.append(title, flavor);
-
-  const actions = document.createElement("div");
-  actions.className = "hud-inventory__actions";
-  appendInspectorButtons(connection, itemId, actions);
-  bar.append(copy, actions);
-  return bar;
-}
-
-function appendInspectorButtons(
-  connection: Connection,
-  itemId: string,
-  actions: HTMLElement,
-): void {
-  if (isWeaponItem(itemId)) {
-    const equipped = connection.weapon === itemId;
-    actions.append(createHudButton(equipped ? "unequip" : "equip hand", () => connection.equip(equipped ? null : itemId)));
-  }
-  if (isArmorItem(itemId)) {
-    const slot = itemArmorSlot(itemId)!;
-    const equipped = connection.armor?.[slot] === itemId;
-    actions.append(createHudButton(equipped ? "unequip armor" : `wear (${slot})`, () => connection.equip(equipped ? null : itemId, slot)));
-  }
-  if (isConsumableItem(itemId)) {
-    actions.append(createHudButton("use / heal", () => connection.useItem(itemId)));
-  }
-  actions.append(createHudButton("drop 1", () => connection.drop(itemId)));
 }

@@ -1,6 +1,7 @@
 import type { ArmorSlot } from "@dc2d/engine";
 import { doWho } from "../combat/contacts.js";
 import { setArmorSlot } from "../inventory/armor.js";
+import { assignHotbarSlot } from "../inventory/hotbarSync.js";
 import { invIndex } from "../inventory/inventory.js";
 import { doModeration } from "../moderation.js";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
@@ -90,29 +91,7 @@ function doSuicide(slot: PlayerSlot): void {
 }
 
 function doAssign({ sim, slot, hotbarSlot, item }: { sim: SimState; slot: PlayerSlot; hotbarSlot: number; item: string | null }): void {
-  if (item === null) return clearAssignedItem({ sim, slot, hotbarSlot });
-  if (isAssignableItem(sim, slot, item)) recordAssignedItem({ sim, slot, hotbarSlot, item });
-}
-
-function clearAssignedItem({ sim, slot, hotbarSlot }: Omit<Assignment, "item">): void {
-  recordAssignedItem({ sim, slot, hotbarSlot, item: null });
-}
-
-function isAssignableItem(sim: SimState, slot: PlayerSlot, item: string): boolean {
-  const def = sim.content.items.get(item);
-  return invIndex(slot, item) >= 0 && Boolean(def?.weapon || def?.consumable || def?.throwable);
-}
-
-interface Assignment {
-  sim: SimState;
-  slot: PlayerSlot;
-  hotbarSlot: number;
-  item: string | null;
-}
-
-function recordAssignedItem({ sim, slot, hotbarSlot, item }: Assignment): void {
-  slot.hotbar[hotbarSlot] = item;
-  sim.store.recordHotbar(slot.stored, slot.hotbar);
+  assignHotbarSlot(sim, slot, { hotbarSlot, item });
 }
 
 function doEquip(

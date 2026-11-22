@@ -70,7 +70,7 @@ describe("GameSim: items and inventory", () => {
     expect(snap.self.hp).toBe(25);
     expect(snap.self.fx).not.toContain("bleeding");
     expect(inv.find((s) => s.item === "bandage")).toBeUndefined(); // consumed
-    expect(hotbar[2]).toBe("bandage"); // binding survives the empty stack
+    expect(hotbar[2]).toBeNull(); // Minecraft-style: depleted item clears its hotbar slot
   });
 
   it("a thrown vodka bottle leaves an oil slick; a torch onto it ignites", () => {
@@ -116,7 +116,7 @@ describe("GameSim: items and inventory", () => {
     sim.queueAction(a.playerId, { type: "assign", slot: 3, item: "sword" });
     sim.step();
     expect(sim.getWeapon(a.playerId)).toBe("sword");
-    expect(sim.getHotbar(a.playerId)![0]).toBe("sword");
+    expect(sim.getHotbar(a.playerId)![0]).toBeNull();
     expect(sim.getHotbar(a.playerId)![1]).toBe("torch");
     expect(sim.getHotbar(a.playerId)![2]).toBe("bandage");
     expect(sim.getHotbar(a.playerId)![3]).toBe("sword");

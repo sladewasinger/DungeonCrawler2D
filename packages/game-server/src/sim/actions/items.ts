@@ -8,6 +8,7 @@ import {
   resolveBallisticThrow,
   throwLaunchOrigin,
 } from "@dc2d/engine";
+import { reconcileHotbar } from "../inventory/hotbarSync.js";
 import { invQty, invRemove } from "../inventory/inventory.js";
 import type { PlayerSlot } from "../state/state.js";
 import {
@@ -78,6 +79,7 @@ function useBandageOnPlayer(context: ItemUseContext & { targetId: string }): voi
   if (!consumable) return;
   sim.effects.runPrimitives({ entity: target.entity, primitives: consumable.effects, events: effectEvents, rng: () => sim.rng.next() });
   invRemove(slot, defId, 1);
+  reconcileHotbar(sim, slot);
 }
 
 function bandageTargetFor({ sim, slot, defId, targetId }: ItemUseContext & { targetId: string }): PlayerSlot | undefined {
@@ -104,6 +106,7 @@ function consumeItem({ sim, slot, defId, effectEvents }: ItemUseContext): void {
   if (!consumable) return;
   sim.effects.runPrimitives({ entity: slot.entity, primitives: consumable.effects, events: effectEvents, rng: () => sim.rng.next() });
   invRemove(slot, defId, 1);
+  reconcileHotbar(sim, slot);
 }
 
 function throwItem({ sim, slot, defId, tags, targetX, targetY }: ItemThrowContext): void {
@@ -125,6 +128,7 @@ function throwItem({ sim, slot, defId, tags, targetX, targetY }: ItemThrowContex
   });
   sim.projectiles.set(projectile.id, projectile);
   invRemove(slot, defId, 1);
+  reconcileHotbar(sim, slot);
 }
 
 /** Dispatches the three inventory-use action shapes split from actions/index.ts. */

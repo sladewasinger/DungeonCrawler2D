@@ -89,8 +89,8 @@ export const hudWindowSpecs = (
   spec({ id: "three-party", title: "Party", width: 260, height: 230, anchor: "top-right", content: content.party }),
   spec({ id: "three-telemetry", title: "World status", width: 244, height: 150, anchor: "center-right", content: content.telemetry, defaultVisible: false }),
   spec({ id: "three-contacts", title: "Contacts", width: 260, height: 340, anchor: "center", content: content.contacts, interactive: true, defaultVisible: false }),
-  spec({ id: "three-craft", title: "Crafting", width: 390, height: 420, anchor: "center", content: content.craft, interactive: true, defaultVisible: false }),
-  spec({ id: "three-stash", title: "Stash", width: 460, height: 420, anchor: "center", content: content.stash, interactive: true, defaultVisible: false }),
+  spec({ id: "three-craft", title: "Crafting", width: 480, height: 500, anchor: "center", content: content.craft, interactive: true, defaultVisible: false, mobile: { width: 340, height: 420, anchor: "center" } }),
+  spec({ id: "three-stash", title: "Stash", width: 540, height: 500, anchor: "center", content: content.stash, interactive: true, defaultVisible: false, mobile: { width: 340, height: 420, anchor: "center" } }),
   spec({
     id: ADMIN_DEBUG_WINDOW_ID,
     title: "Admin overlays",

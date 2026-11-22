@@ -4,7 +4,7 @@
 .hud-notices__boss-label { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; text-shadow: 0 1px 3px #000; }
 .hud-notices__toast, .hud-notices__prompt { position: absolute; left: 50%; translate: -50% 0; text-align: center; }
 .hud-notices__toast { top: 12%; max-width: 70vw; padding: 6px 10px; background: rgb(17 18 29 / 82%); color: var(--hud-gold); }
-.hud-notices__prompt { bottom: 25%; max-width: min(720px,88vw); padding: 5px 9px; box-sizing: border-box; background: rgb(17 18 29 / 72%); border: 1px solid var(--hud-button-border); color: var(--hud-text); }
+.hud-notices__prompt { bottom: 25%; max-width: min(720px,88vw); padding: 6px 12px; box-sizing: border-box; background: rgb(17 18 29 / 78%); border: 1px solid var(--hud-button-border); color: var(--hud-text); white-space: pre-line; line-height: 1.35; }
 .hud-notices__reconnect { position: absolute; left: 50%; top: 5%; translate: -50% 0; color: var(--hud-gold); }
 .hud-health-feedback { position: absolute; left: 50%; top: 38%; translate: -50% 0; z-index: 1090; pointer-events: none; font: 700 22px monospace; }
 .hud-health-feedback { color: var(--hud-feedback-color, var(--hud-text)); }

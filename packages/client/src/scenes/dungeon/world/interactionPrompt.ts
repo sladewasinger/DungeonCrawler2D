@@ -7,6 +7,7 @@ import {
   type TileType,
   type WorldInteractionKind,
 } from "@dc2d/engine";
+import { itemName } from "../../../ui/presentation/itemCatalog.js";
 import { descentPromptLabel } from "./descentPrompt.js";
 import { resolveStairwayPrompt, type StairwayWorld } from "./stairwayProximity.js";
 
@@ -17,6 +18,8 @@ export interface PromptWorld extends StairwayWorld {
 export interface PromptTarget {
   readonly x: number;
   readonly y: number;
+  readonly defId?: string | undefined;
+  readonly name?: string | undefined;
 }
 
 export interface PetPromptTarget extends PromptTarget {
@@ -24,8 +27,21 @@ export interface PetPromptTarget extends PromptTarget {
   readonly ownerName?: string;
 }
 
-function hasNearbyItem(items: readonly PromptTarget[], x: number, y: number): boolean {
-  return items.some((item) => Math.hypot(item.x - x, item.y - y) <= PICKUP_RANGE);
+function nearestNearbyItem(
+  items: readonly PromptTarget[],
+  x: number,
+  y: number,
+): PromptTarget | undefined {
+  let nearest: PromptTarget | undefined;
+  let bestDistance = PICKUP_RANGE;
+  for (const item of items) {
+    const distance = Math.hypot(item.x - x, item.y - y);
+    if (distance <= bestDistance) {
+      bestDistance = distance;
+      nearest = item;
+    }
+  }
+  return nearest;
 }
 
 const worldPrompt = (kind: WorldInteractionKind): InteractionPrompt => {
@@ -40,6 +56,7 @@ const worldPrompt = (kind: WorldInteractionKind): InteractionPrompt => {
 export interface InteractionPrompt {
   readonly key: string;
   readonly label: string;
+  readonly title?: string | undefined;
 }
 
 /** The contextual prompt for the player's current position, or null when nothing is in range. */
@@ -83,7 +100,11 @@ function nearbyWorldPrompt(world: PromptWorld, x: number, y: number): Interactio
 }
 
 function itemPrompt(items: readonly PromptTarget[], x: number, y: number): InteractionPrompt | undefined {
-  return hasNearbyItem(items, x, y) ? { key: "R", label: "pick up" } : undefined;
+  const item = nearestNearbyItem(items, x, y);
+  if (!item) return undefined;
+  const rawName = item.defId ? itemName(item.defId) : item.name;
+  if (!rawName) return { key: "R", label: "pick up" };
+  return { key: "R", label: "pick up", title: rawName.toUpperCase() };
 }
 
 function lootChestPrompt(

@@ -30,6 +30,8 @@ describe("contextualHelpText", () => {
   it("renders nearby and contextual actions with desktop controls", () => {
     expect(contextualHelpText({ key: "R", label: "pick up" }, hints, false))
       .toBe("[R] pick up   ·   [E] Use Bandage   ·   [LMB] Attack with Rusty Sword   ·   [G] Hold to aim, release to throw Torch");
+    expect(contextualHelpText({ key: "R", label: "pick up", title: "RAW MEAT" }, [], false))
+      .toBe("RAW MEAT\n[R] pick up");
   });
 
   it("uses the real touch action labels", () => {

@@ -32,7 +32,7 @@ export const createStaticParts = (
     weapon: new HudWeapon(), telemetry: new HudTelemetry(),
     party: new PartyTracker(options.connection), tutorials,
     notices: new HudNotices(),
-    inventory: new HudInventory(options.connection, actions.closeInventory, options.touchDevice),
+    inventory: new HudInventory(options.connection, actions.closeInventory),
   };
 };
 

@@ -62,8 +62,14 @@ export function resolveFrameInteractionPrompt(
 ): InteractionPrompt | null {
   if (!conn.world || !conn.body) return null;
   const { x, y } = conn.body;
+  const items = buckets.pickupTargets.map((item) => ({
+    x: item.x,
+    y: item.y,
+    ...(item.snap.defId ? { defId: item.snap.defId } : {}),
+    ...(item.snap.name ? { name: item.snap.name } : {}),
+  }));
   return resolveInteractionPrompt({
-    world: conn.world, x, y, items: buckets.pickupTargets,
+    world: conn.world, x, y, items,
     reviveTarget: nearestDownedPlayer(buckets, x, y),
     lootChest: nearestLootChestFromFrame(conn.body, buckets.lootChests) ?? undefined,
     pet: nearestPet(buckets, x, y),

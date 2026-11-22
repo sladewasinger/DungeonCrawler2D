@@ -1,6 +1,7 @@
 import { PICKUP_RANGE, findWorldInteractionTarget, type Entity } from "@dc2d/engine";
 import { spawnItem } from "../core/helpers.js";
 import { clearAllArmor, clearUnequippedArmorItem } from "./armor.js";
+import { pruneDepletedItemFromSlot, reconcileHotbar } from "./hotbarSync.js";
 export { ensureStarterKit, grantRespawnKit } from "./starterKit.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
@@ -49,7 +50,10 @@ export function invRemove(slot: PlayerSlot, defId: string, qty: number): boolean
   // Every slot.inventory[i] access below is guarded by the i < 0 check above.
   if (i < 0 || slot.inventory[i]!.qty < qty) return false;
   slot.inventory[i]!.qty -= qty;
-  if (slot.inventory[i]!.qty <= 0) slot.inventory.splice(i, 1);
+  if (slot.inventory[i]!.qty <= 0) {
+    slot.inventory.splice(i, 1);
+    pruneDepletedItemFromSlot(slot, defId);
+  }
   return true;
 }
 
@@ -119,7 +123,7 @@ export function doDrop(sim: SimState, slot: PlayerSlot, defId: string): void {
   if (!invRemove(slot, defId, 1)) return;
   spawnItem(sim, { defId, x: slot.entity.body.x, y: slot.entity.body.y, qty: 1 });
   if (invQty(slot, defId) === 0) {
-    if (slot.weapon === defId) slot.weapon = null;
+    reconcileHotbar(sim, slot);
     clearUnequippedArmorItem(sim, slot, defId);
   }
 }
@@ -132,6 +136,7 @@ export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
     spawnItem(sim, { defId: stack.item, x: slot.entity.body.x + jx, y: slot.entity.body.y + jy, qty: stack.qty });
   }
   slot.inventory = [];
+  slot.hotbar.fill(null);
   slot.weapon = null;
   clearAllArmor(sim, slot);
 }
@@ -148,6 +153,7 @@ export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void
   const missing = recipe.inputs.find((input) => invQty(slot, input.item) < input.qty);
   if (missing) return void slot.outbox.push({ t: "toast", msg: `Missing ${missing.item}` });
   for (const input of recipe.inputs) invRemove(slot, input.item, input.qty);
+  reconcileHotbar(sim, slot);
   invAdd(sim, slot, recipe.output.item, recipe.output.qty);
   sim.store.recordCraft(slot.stored, recipe.id);
   slot.outbox.push({ t: "toast", msg: `Crafted ${recipe.output.item}` });
@@ -171,6 +177,7 @@ function stashInventory(sim: SimState, slot: PlayerSlot, index: number): void {
   if (slot.weapon === stack.item) slot.weapon = null;
   clearUnequippedArmorItem(sim, slot, stack.item);
   slot.inventory.splice(index, 1);
+  reconcileHotbar(sim, slot);
 }
 
 function unstashInventory(sim: SimState, slot: PlayerSlot, index: number): void {

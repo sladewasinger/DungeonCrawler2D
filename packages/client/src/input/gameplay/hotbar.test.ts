@@ -10,7 +10,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     canAct: true,
     downed: false,
     hotbar: ["sword", "bomb", undefined],
-    inventory: [{ item: "sword", qty: 1 }],
+    inventory: [{ item: "sword", qty: 1 }, { item: "bomb", qty: 1 }],
     stash: undefined,
     pendingInvite: false,
     weapon: null,
@@ -90,10 +90,13 @@ describe("activateHotbar", () => {
     expect(state.selectedSlot).toBe(0);
   });
 
-  it("does nothing for an empty slot", () => {
-    const state = makeState(); const conn = makeConn();
+  it("does nothing for an empty slot and clears held weapon if armed", () => {
+    const state = makeState();
+    const equips: Array<string | null> = [];
+    const conn = makeConn({ weapon: "sword", equip: (item) => equips.push(item) });
     activateHotbar(state, conn, 2);
     expect(state.selectedSlot).toBeNull();
+    expect(equips).toEqual([null]);
   });
 });
 

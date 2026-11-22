@@ -32,13 +32,17 @@ export function activeThrowableSlot(state: InputState, conn: InputConnection, qu
 /** [1-9]/hotbar click selects a slot and holds its item in the active hand. */
 export function activateHotbar(state: InputState, conn: InputConnection, index: number): void {
   const defId = conn.hotbar[index];
-  if (!defId) return;
-  state.selectedSlot = state.selectedSlot === index ? null : index;
-  syncActiveHandEquipment(state.selectedSlot, defId, conn);
+  const owned = Boolean(defId && conn.inventory.some((stack) => stack.item === defId && stack.qty > 0));
+  if (!defId || !owned || state.selectedSlot === index) {
+    state.selectedSlot = null;
+    if (conn.weapon !== null) conn.equip(null);
+    return;
+  }
+  state.selectedSlot = index;
+  syncActiveHandEquipment(defId, conn);
 }
 
-function syncActiveHandEquipment(selectedSlot: number | null, defId: string, conn: InputConnection): void {
-  if (selectedSlot === null) return;
+function syncActiveHandEquipment(defId: string, conn: InputConnection): void {
   if (isWeaponItem(defId)) {
     if (conn.weapon !== defId) conn.equip(defId);
   } else if ((isConsumableItem(defId) || isThrowableItem(defId)) && conn.weapon !== null) {

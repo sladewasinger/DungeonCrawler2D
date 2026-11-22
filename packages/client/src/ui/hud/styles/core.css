@@ -113,3 +113,27 @@
   justify-content: space-between;
   gap: 8px;
 }
+
+.dc2d-hud * {
+  scrollbar-width: thin;
+  scrollbar-color: #5b607a #12141f;
+}
+
+.dc2d-hud *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dc2d-hud *::-webkit-scrollbar-track {
+  background: #12141f;
+}
+
+.dc2d-hud *::-webkit-scrollbar-thumb {
+  background: #4a5068;
+  border-radius: 4px;
+  border: 1px solid #12141f;
+}
+
+.dc2d-hud *::-webkit-scrollbar-thumb:hover {
+  background: var(--hud-gold);
+}

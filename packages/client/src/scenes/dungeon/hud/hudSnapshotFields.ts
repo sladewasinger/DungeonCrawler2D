@@ -11,7 +11,8 @@ import type { HudSnapshotSource } from "./hudSnapshot.js";
 function hotbarSlots(hotbar: readonly (string | null)[], inventory: readonly InvStack[]): HotbarSlotData[] {
   return hotbar.map((itemId) => {
     if (!itemId) return { itemId: null, count: 0 };
-    return { itemId, count: inventory.find((stack) => stack.item === itemId)?.qty ?? 0 };
+    const count = inventory.find((stack) => stack.item === itemId)?.qty ?? 0;
+    return count > 0 ? { itemId, count } : { itemId: null, count: 0 };
   });
 }
 
