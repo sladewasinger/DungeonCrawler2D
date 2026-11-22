@@ -129,10 +129,10 @@ interface WorldPresentationRequest {
   readonly scene: Phaser.Scene;
   readonly terrain: TerrainRendererLike | undefined;
   readonly lighting: LightingSystem | undefined;
-  readonly ambientMotes?: ForestAmbientMotes;
+  readonly ambientMotes?: ForestAmbientMotes | undefined;
   readonly personal: RenderPose;
   readonly nowMs: number;
-  readonly dtSeconds?: number;
+  readonly dtSeconds?: number | undefined;
   readonly cameraRotationRad: number;
 }
 

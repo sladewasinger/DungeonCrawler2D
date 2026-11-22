@@ -91,17 +91,27 @@ function tryAcquire(path: string, options: LeaseClaimOptions): string | null {
   const lease = `${path}.lock`;
   const token = randomUUID();
   const pending = `${lease}.${token}.pending`;
+  const payload = JSON.stringify({ token, pid: process.pid, threadId, timestamp: Date.now() });
   try {
     mkdirSync(dirname(lease), { recursive: true });
     if (!retireStaleLease(lease, options.staleMs, options.ownerIsAlive)) return null;
-    writeFileSync(pending, JSON.stringify({ token, pid: process.pid, threadId, timestamp: Date.now() }), { flag: "wx" });
+    writeFileSync(pending, payload, { flag: "wx" });
     options.beforePublish?.();
-    linkSync(pending, lease);
+    publishLease(pending, lease, payload);
     unlinkSync(pending);
     return token;
   } catch {
     if (existsSync(pending)) unlinkSync(pending);
     return null;
+  }
+}
+
+function publishLease(pending: string, lease: string, payload: string): void {
+  try {
+    linkSync(pending, lease);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    writeFileSync(lease, payload, { flag: "wx" });
   }
 }
 

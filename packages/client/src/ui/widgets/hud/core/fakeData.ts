@@ -96,6 +96,7 @@ export interface HudFakeSnapshot {
     interactionPrompt: {
         key: string;
         label: string;
+        title?: string | undefined;
     } | null;
     actionHints: ContextualActionHint[];
     pingMs: number;

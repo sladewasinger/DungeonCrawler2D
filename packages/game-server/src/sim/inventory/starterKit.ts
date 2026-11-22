@@ -10,6 +10,7 @@ const STARTER_BANDAGE_QTY = 3;
 const STARTER_HOTBAR_SCHEMA = 1;
 
 export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
+  if (slot.weapon !== null && invQty(slot, slot.weapon) <= 0) slot.weapon = null;
   if (lacksStarterKit(slot)) grantStarterItems(sim, slot);
   migrateStarterItems(sim, slot);
   reconcileHotbar(sim, slot);

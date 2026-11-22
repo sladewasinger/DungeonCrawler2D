@@ -15,8 +15,13 @@ const WOLF_STRIDES = [
   [0, 1, 0, -1],
 ] as const;
 
+function wolfBob(anim: "idle" | "run", frame: number): number {
+  if (anim === "idle") return frame === 1 || frame === 2 ? 1 : 0;
+  return frame % 2 === 0 ? -1 : 0;
+}
+
 function wolfFrame(anim: "idle" | "run", frame: number): readonly PixelRect[] {
-  const bob = anim === "idle" ? (frame === 1 || frame === 2 ? 1 : 0) : (frame % 2 === 0 ? -1 : 0);
+  const bob = wolfBob(anim, frame);
   const [hlFar, hlNear, flFar, flNear] = anim === "run" ? WOLF_STRIDES[frame % 4]! : [0, 0, 0, 0];
   const tailWag = anim === "idle" && frame % 2 === 1 ? -1 : 0;
   return [

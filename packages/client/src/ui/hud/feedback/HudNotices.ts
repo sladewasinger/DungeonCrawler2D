@@ -30,7 +30,7 @@ export function contextualHelpText(
 interface NoticeActionHint {
   key: string;
   label: string;
-  title?: string;
+  title?: string | undefined;
   touchKey?: string;
   touchLabel?: string;
 }

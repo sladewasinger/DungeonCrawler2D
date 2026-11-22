@@ -11,10 +11,11 @@ Defined in [core/types.ts](core/types.ts):
 - `tiles`: base surface (`TILE.Floor`, `TILE.Bedrock`, `TILE.Void`).
 - `features`: overlay code (`TILE.Floor` when empty, or `Stairs`, doors,
   `CraftingTable`, `Stash`, `ArenaGate`, `Water`, `Bridge`, `Tree`, `Bush`,
-  `Boulder`).
+  `Boulder`, `CampTent`, `CampFence`, `RuinPillar`).
 - `SOLID_TILES`: occupancy values that block movement and projectiles outright
   (`CraftingTable`, `Stash`, `Void`, `Bedrock`, `ArenaGate`, `Water`, `Tree`,
-  `Boulder`). Walkable overlays (`Bridge`, `Bush`, `Stairs`) remain passable.
+  `Boulder`, `CampTent`, `CampFence`, `RuinPillar`). Walkable overlays
+  (`Bridge`, `Bush`, `Stairs`) remain passable.
 - `height`: continuous tile elevation (`Float32Array`), ramped linearly on
   `TILE.Stairs` via `groundAt` / `stairHeightAt`.
 
@@ -33,9 +34,11 @@ build a deterministic finite floor (`512×512` default bounds) once per
 3. **Glades, Rivers & Bridges (`openWorldGlades.ts`, `forestRivers.ts`)** —
    Distributes open meadow glades for enemy/loot spawning, carves winding rivers
    with sandy riverbanks (`territory = 2`), and stamps walkable wooden bridges.
-4. **Forest Props & Connectivity (`forestProps.ts`, `forestConnectivity.ts`)** —
-   Scatters clustered `Tree` groves on grass, `Bush` cover, and `Boulder`
-   outcrops, then runs a 0-1 BFS connectivity repair guaranteeing 100%
-   reachability from spawn.
+4. **Landmarks, Forest Props & Connectivity
+   ([generate/forest/landmarks/README.md](generate/forest/landmarks/README.md),
+   `forestProps.ts`, `forestConnectivity.ts`)** —
+   Stamps `7×7` Bandit Camps and Ancient Ruins on flat clearings, scatters
+   clustered `Tree` groves on grass, `Bush` cover, and `Boulder` outcrops, then
+   runs a 0-1 BFS connectivity repair guaranteeing 100% reachability from spawn.
 5. **Materialization** — Converts uncarved cells to `Bedrock`/`Void` boundaries
    and emits immutable `GeneratedFloor` buffers.

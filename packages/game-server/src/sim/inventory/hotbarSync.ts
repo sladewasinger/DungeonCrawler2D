@@ -15,8 +15,17 @@ export function reconcileHotbar(
   if (slot.weapon !== null && ownedQty(slot, slot.weapon) <= 0) {
     slot.weapon = null;
   }
-  if (changed && persist) sim.store.recordHotbar(slot.stored, slot.hotbar);
+  const shouldRecord = persist && (changed || !hotbarMatchesStored(slot.hotbar, slot.stored.hotbar));
+  if (shouldRecord) sim.store.recordHotbar(slot.stored, slot.hotbar);
   return changed;
+}
+
+function hotbarMatchesStored(
+  hotbar: readonly (string | null)[],
+  stored: readonly (string | null)[] | undefined,
+): boolean {
+  if (!stored || stored.length !== hotbar.length) return false;
+  return hotbar.every((item, index) => (item ?? null) === (stored[index] ?? null));
 }
 
 function dedupeAndPruneHotbar(sim: SimState, slot: PlayerSlot): boolean {

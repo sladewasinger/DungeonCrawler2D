@@ -4,7 +4,7 @@ import type { WorldFeatures } from "../core/worldFeatures.js";
 import type { BiomeKind, DistrictKind } from "./layout/district.js";
 import { DEFAULT_TERRITORY_ROSTER, type TerritoryId, type TerritoryProfile } from "./territories/territoryCatalog.js";
 
-export const FINITE_GENERATOR_VERSION = 9;
+export const FINITE_GENERATOR_VERSION = 10;
 export const FLOOR_SEMANTIC = {
   Solid: 0, Corridor: 1, Room: 2, SpawnExterior: 3, SafeRoom: 4,
   StairwayUp: 5, StairwayDown: 6, MiniBossArena: 7, BossArena: 8, Transition: 9,
