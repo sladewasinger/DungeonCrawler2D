@@ -21,6 +21,16 @@ describe("WorldSim", () => {
     const moved = must(sim.snapshots()[0]);
     expect(moved.y).toBeGreaterThan(before.y);
     expect(moved.lastAckSeq).toBe(1);
+    expect(moved.aimY).toBeCloseTo(1, 4);
+
+    sim.queueInput(id, { seq: 2, moveX: 0, moveY: 0, aimX: 3, aimY: -4 });
+    sim.step();
+    const aimed = must(sim.snapshots()[0]);
+    expect(aimed.moving).toBe(false);
+    expect(aimed.aimX).toBeCloseTo(0.6, 3);
+    expect(aimed.aimY).toBeCloseTo(-0.8, 3);
+    expect(aimed.facingX).toBeCloseTo(0.6, 3);
+    expect(aimed.facingY).toBeCloseTo(-0.8, 3);
 
     sim.toggleTorch(id);
     expect(must(sim.snapshots()[0]).torchLit).toBe(false);

@@ -47,7 +47,7 @@ const HUD_CSS = `
 .ow-craft-title { font-size: 13px; font-weight: 700; color: #f8fafc; }
 .ow-craft-sub { font-size: 11px; color: #94a3b8; }
 .ow-hero-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.ow-hero-preview { width: 60px; height: 78px; image-rendering: pixelated; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.85); padding: 4px; }
+.ow-hero-preview { width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.85); padding: 4px; }
 .ow-hero-input { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.35); background: rgba(15, 23, 42, 0.9); color: #f8fafc; font-size: 14px; font-weight: 600; }
 .ow-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ow-hero-lbl { width: 82px; font-size: 12px; font-weight: 700; color: #94a3b8; }

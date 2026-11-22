@@ -1,31 +1,33 @@
-/** Cached procedural character sprite-sheet builder with bounded 64-entry LRU eviction. */
+/** Cached 32x32 4-directional procedural character sprite builder with 64-entry LRU cache. */
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
-import type { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline } from "../textures/pixelCanvas.js";
-import { buildCharacterFrameRects, type CharacterPose } from "./characterLayers.js";
+import { buildArmorRects } from "./characterArmorLayers.js";
+import { buildBodyRects } from "./characterBodyLayers.js";
+import { buildHairRects } from "./characterHairLayers.js";
+import {
+  FRAME_SIZE, OUTLINE_RGB,
+  type CharacterPose, type CharacterSpriteSet, type DirectionAnim, type FacingDir,
+} from "./characterTypes.js";
 
-export interface CharacterSpriteSet {
-  readonly idle: readonly Texture[];
-  readonly run: readonly Texture[];
-  readonly previewUrl: string;
-}
+export type { CharacterAnimState, CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
+export { CHARACTER_WORLD_SCALE, resolveFacingDir } from "./characterTypes.js";
 
-const FRAME_SIZE = { w: 20, h: 26 } as const;
-const OUTLINE_RGB = [20, 16, 24] as const;
 const MAX_CACHED_SETS = 64;
 
 const IDLE_POSES: readonly CharacterPose[] = [
-  { bobY: 0, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
-  { bobY: 0, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
-  { bobY: 1, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
-  { bobY: 0, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: 1, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 1, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
 ];
 
 const RUN_POSES: readonly CharacterPose[] = [
-  { bobY: -1, leftLegDy: -1, rightLegDy: 0, armSwing: 1 },
-  { bobY: 0, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
-  { bobY: -1, leftLegDy: 0, rightLegDy: -1, armSwing: -1 },
-  { bobY: 0, leftLegDy: 0, rightLegDy: 0, armSwing: 0 },
+  { bobY: -1, hairBobY: 0, stride: 3, liftL: 2, liftR: 0, armSwing: 2, shadowShrink: 1 },
+  { bobY: -1, hairBobY: -1, stride: 2, liftL: 1, liftR: 0, armSwing: 1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
+  { bobY: -1, hairBobY: 0, stride: -3, liftL: 0, liftR: 2, armSwing: -2, shadowShrink: 1 },
+  { bobY: -1, hairBobY: -1, stride: -2, liftL: 0, liftR: 1, armSwing: -1, shadowShrink: 0 },
+  { bobY: 0, hairBobY: 0, stride: 0, liftL: 0, liftR: 0, armSwing: 0, shadowShrink: 0 },
 ];
 
 const spriteCache = new Map<string, CharacterSpriteSet>();
@@ -37,15 +39,60 @@ export function characterCacheKey(appearance: CharacterAppearance, armor: ArmorE
   ].join("|");
 }
 
+function drawContactShadow(ctx: CanvasRenderingContext2D, shadowShrink: number): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "rgba(12, 16, 24, 0.34)";
+  ctx.beginPath();
+  ctx.ellipse(16, 29, 8 - shadowShrink, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(12, 16, 24, 0.2)";
+  ctx.beginPath();
+  ctx.ellipse(16, 29, 6 - shadowShrink, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function renderPoseFrame(input: {
   readonly appearance: CharacterAppearance;
   readonly armor: ArmorEquipment;
+  readonly dir: FacingDir;
   readonly pose: CharacterPose;
-}): { readonly canvas: HTMLCanvasElement; readonly texture: Texture } {
+}): { readonly canvas: HTMLCanvasElement; readonly texture: DirectionAnim["idle"][number] } {
   const { canvas, ctx } = createPixelCanvas(FRAME_SIZE.w, FRAME_SIZE.h);
-  drawRects(ctx, buildCharacterFrameRects(input));
+  const { appearance, armor, dir, pose } = input;
+  const rects = [
+    ...buildBodyRects({ appearance, dir, pose }),
+    ...buildArmorRects({ appearance, armor, dir, pose }),
+    ...buildHairRects({ appearance, dir, pose, hooded: Boolean(armor.head) }),
+  ];
+  drawRects(ctx, rects);
   stampDarkOutline(ctx, FRAME_SIZE, OUTLINE_RGB);
+  drawContactShadow(ctx, pose.shadowShrink);
   return { canvas, texture: canvasToNearestTexture(canvas) };
+}
+
+function buildDirectionAnim(input: {
+  readonly appearance: CharacterAppearance;
+  readonly armor: ArmorEquipment;
+  readonly dir: FacingDir;
+}): { readonly anim: DirectionAnim; readonly previewUrl?: string } {
+  const idleFrames = IDLE_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
+  const runFrames = RUN_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
+  const anim: DirectionAnim = {
+    idle: idleFrames.map((f) => f.texture),
+    run: runFrames.map((f) => f.texture),
+  };
+  const firstCanvas = idleFrames[0]?.canvas;
+  return firstCanvas ? { anim, previewUrl: firstCanvas.toDataURL() } : { anim };
+}
+
+function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
+  if (!set) return;
+  for (const dirAnim of [set.south, set.north, set.side]) {
+    const all = [...dirAnim.idle, ...dirAnim.run, ...(dirAnim.jump ?? []), ...(dirAnim.fall ?? [])];
+    for (const tex of all) tex.destroy(true);
+  }
 }
 
 function evictOldestIfFull(): void {
@@ -54,9 +101,7 @@ function evictOldestIfFull(): void {
   if (!oldestKey) return;
   const evicted = spriteCache.get(oldestKey);
   spriteCache.delete(oldestKey);
-  if (!evicted) return;
-  for (const tex of evicted.idle) tex.destroy(true);
-  for (const tex of evicted.run) tex.destroy(true);
+  destroySpriteSet(evicted);
 }
 
 export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
@@ -68,12 +113,14 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     return existing;
   }
   evictOldestIfFull();
-  const idleRendered = IDLE_POSES.map((pose) => renderPoseFrame({ appearance, armor, pose }));
-  const runRendered = RUN_POSES.map((pose) => renderPoseFrame({ appearance, armor, pose }));
+  const southBuilt = buildDirectionAnim({ appearance, armor, dir: "south" });
+  const northBuilt = buildDirectionAnim({ appearance, armor, dir: "north" });
+  const sideBuilt = buildDirectionAnim({ appearance, armor, dir: "side" });
   const created: CharacterSpriteSet = {
-    idle: idleRendered.map((f) => f.texture),
-    run: runRendered.map((f) => f.texture),
-    previewUrl: idleRendered[0]?.canvas.toDataURL() ?? "",
+    south: southBuilt.anim,
+    north: northBuilt.anim,
+    side: sideBuilt.anim,
+    previewUrl: southBuilt.previewUrl ?? "",
   };
   spriteCache.set(key, created);
   return created;

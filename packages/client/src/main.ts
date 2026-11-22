@@ -14,8 +14,21 @@ interface AppCtx {
   readonly hud: HudRoot;
 }
 
+function resolveAimVector(ctx: AppCtx & { readonly nowMs: number }, moving: boolean): { readonly x: number; readonly y: number } | undefined {
+  const mouse = ctx.input.mouseAim(ctx.nowMs);
+  if (!mouse || (moving && !mouse.recent)) return undefined;
+  const me = ctx.client.localPose();
+  const target = ctx.scene.screenToWorldTile(mouse.x, mouse.y);
+  const dx = target.x - me.x;
+  const dy = target.y - (me.y - me.elevation * 0.625 - 0.6);
+  const mag = Math.hypot(dx, dy);
+  return mag > 0.05 ? { x: dx / mag, y: dy / mag } : undefined;
+}
+
 function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
-  ctx.client.stepInput(ctx.input.movement(), ctx.dt);
+  const move = ctx.input.movement();
+  const moving = Math.hypot(move.x, move.y) > 0.05;
+  ctx.client.stepInput({ move, dt: ctx.dt, aim: resolveAimVector(ctx, moving) });
   const view = ctx.client.snapshot();
   ctx.scene.renderFrame({
     dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase,

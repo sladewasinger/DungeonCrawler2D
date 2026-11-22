@@ -25,6 +25,8 @@ export class InputController {
   private pointerId: number | null = null;
   private origin = { x: 0, y: 0 };
   private touchVector = { x: 0, y: 0 };
+  private mouseClient: { x: number; y: number } | null = null;
+  private mouseMovedAtMs = 0;
   private readonly stickEl: HTMLDivElement;
   private readonly knobEl: HTMLDivElement;
 
@@ -42,6 +44,11 @@ export class InputController {
     const x = (this.down("KeyD", "ArrowRight") ? 1 : 0) - (this.down("KeyA", "ArrowLeft") ? 1 : 0);
     const y = (this.down("KeyS", "ArrowDown") ? 1 : 0) - (this.down("KeyW", "ArrowUp") ? 1 : 0);
     return { x, y };
+  }
+
+  mouseAim(nowMs: number): { readonly x: number; readonly y: number; readonly recent: boolean } | null {
+    if (!this.mouseClient) return null;
+    return { x: this.mouseClient.x, y: this.mouseClient.y, recent: nowMs - this.mouseMovedAtMs < 1500 };
   }
 
   private down(...codes: readonly string[]): boolean {
@@ -74,9 +81,16 @@ export class InputController {
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
     host.addEventListener("wheel", (e) => { e.preventDefault(); callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
     host.addEventListener("pointerdown", (e) => this.startTouch(e));
-    host.addEventListener("pointermove", (e) => this.moveTouch(e));
+    host.addEventListener("pointermove", (e) => { this.moveTouch(e); this.trackMouseAim(e); });
     host.addEventListener("pointerup", (e) => this.endTouch(e));
     host.addEventListener("pointercancel", (e) => this.endTouch(e));
+  }
+
+  private trackMouseAim(e: PointerEvent): void {
+    if (e.pointerType !== "mouse") return;
+    if ((e.target as HTMLElement | null)?.closest(".ow-modal")) return;
+    this.mouseClient = { x: e.clientX, y: e.clientY };
+    this.mouseMovedAtMs = performance.now();
   }
 
   private startTouch(e: PointerEvent): void {

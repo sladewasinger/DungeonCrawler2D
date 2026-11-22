@@ -1,7 +1,8 @@
 # Modular Layered Character Renderer (`render/character/`)
 
-Builds chunky, 1px-outlined `20×26` HD-pixel paper-doll sprite animations from
-player appearance + equipped armor, matching the world's pixel scale:
+Builds high-detail `32×32` (rendered at `0.75×` world scale for natural human proportions and future monster headroom), 1px-outlined 4-directional paper-doll sprites and held gear:
 
-- Layer order (back to front): optional cape -> body/limbs/under-tunic -> legs armor -> boots -> chest armor -> gloves -> hair (tucked when hooded) -> head armor (`leather-hood`).
-- `characterSprites.ts` maintains a bounded 64-entry LRU cache (`idle` 4 frames, `run` 4 frames, and UI `previewUrl`), destroying evicted Pixi textures cleanly.
+- **Directions, Stride & Future Motion States (`characterTypes.ts`, `characterSprites.ts`)**: Generates `south`, `north`, and `side` (mirrored East/West) variants with a 6-frame run cycle (leg stride, foot lift, counter-swinging arms, follow-through hair bounce) and 4-frame breathing idle, plus a post-outline translucent ground contact shadow. All body, armor, and hair layers are purely pose-driven (`CharacterPose`), so additive future pose tables (`jump`, `fall`, and later `crouch`/`layDown` postures) automatically inherit every armor slot, hairstyle, body style, and skin tone.
+- **Layer Order (back to front)**: body/limbs/under-tunic (`characterBodyLayers.ts`) -> legs/boots/chest/head armor (`characterArmorLayers.ts`) -> directional hair tucked cleanly beneath equipped hoods (`characterHairLayers.ts`).
+- **Held Gear & Torch (`heldWeapons.ts`, `heldPlacement.ts`)**: Keeps main weapon consistently in the character's dominant right hand and off-hand torch (or left-hip lantern with 2-handed `bow`) in the left hand across all angles — melee/tools rest in a natural ~60° upward hero carry with subtle stride sway, `bow` aims smoothly 360° (Y-flipped when aiming left), and rear gear Z-sorts behind the body.
+- **Cache**: `characterSprites.ts` maintains a bounded 64-entry LRU cache (`south`/`north`/`side` + `previewUrl`), destroying evicted Pixi textures cleanly.

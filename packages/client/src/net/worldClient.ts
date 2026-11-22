@@ -9,7 +9,7 @@ import {
   applyCraftRecipe, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor,
   createStarterInventorySnapshot, heldItemForInventory, isNearCampfire, reconcileInventorySnapshot,
 } from "./clientInventory.js";
-import { createDefaultPlayer, defaultWsUrl, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
+import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 const INITIAL_DAY_PHASE = 0.62;
 export type ConnectionMode = "connecting" | "server" | "local";
@@ -110,14 +110,20 @@ export class WorldClient {
     if (rec.clearedPending) this.invGate = IDLE_GATE;
   }
 
-  stepInput(move: { readonly x: number; readonly y: number }, dt: number): void {
-    const mag = Math.hypot(move.x, move.y);
-    const nx = mag > 0.05 ? move.x / Math.max(1, mag) : 0;
-    const ny = mag > 0.05 ? move.y / Math.max(1, mag) : 0;
-    if (this.mode === "server") this.send({ t: "input", seq: ++this.seq, moveX: nx, moveY: ny });
-    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: this.localPlayer, nx, ny, dt });
+  localPose(): { readonly x: number; readonly y: number; readonly elevation: number } { return this.localPlayer; }
+
+  stepInput(input: {
+    readonly move: { readonly x: number; readonly y: number }; readonly dt: number;
+    readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  }): void {
+    const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
+    const normAim = normalizeDirection(input.aim, false);
+    if (this.mode === "server") {
+      this.send({ t: "input", seq: ++this.seq, moveX: moveDir.x, moveY: moveDir.y, ...(normAim ? { aimX: normAim.x, aimY: normAim.y } : {}) });
+    }
+    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: this.localPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim });
     if (this.mode === "server") return;
-    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dt / DAY_DURATION_SECONDS);
+    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + input.dt / DAY_DURATION_SECONDS);
     this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
   }
 
