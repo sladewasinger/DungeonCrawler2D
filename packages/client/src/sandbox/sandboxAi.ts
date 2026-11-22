@@ -98,9 +98,10 @@ function applyFrozenPose(actor: SandboxActor, opts: {
     return;
   }
   const { facingX, facingY } = resolveFrozenFacing(opts.facing, opts.timeSec);
+  const telegraphProgress = opts.pose === "windup" ? (opts.timeSec * 0.85) % 1 : 0;
   actor.snap = {
     ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
-    facingX, facingY, aiState: resolveFrozenAiState(opts.pose), telegraphProgress: opts.pose === "windup" ? 0.78 : 0,
+    facingX, facingY, aiState: resolveFrozenAiState(opts.pose), telegraphProgress,
   };
 }
 
