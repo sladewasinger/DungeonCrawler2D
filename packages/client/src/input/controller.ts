@@ -6,6 +6,7 @@ export interface InputCallbacks {
   readonly onSelectHotbar: (slot: number) => void;
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
+  readonly onToggleCharacter: () => void;
   readonly onClosePanels: () => void;
 }
 
@@ -13,6 +14,11 @@ const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
   Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
   Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
 };
+
+function isEditingText(target: EventTarget | null): boolean {
+  const tag = (target as HTMLElement | null)?.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA";
+}
 
 export class InputController {
   private readonly keys = new Set<string>();
@@ -44,34 +50,29 @@ export class InputController {
 
   private bindKeyboard(callbacks: InputCallbacks): void {
     window.addEventListener("keydown", (e) => {
+      if (isEditingText(e.target)) {
+        if (e.code === "Escape") (e.target as HTMLElement).blur();
+        return;
+      }
       this.keys.add(e.code);
-      if (e.repeat) return;
-      this.handleShortcut(e, callbacks);
+      if (!e.repeat) this.handleShortcut(e, callbacks);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
+    window.addEventListener("blur", () => this.keys.clear());
   }
 
   private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
-    if (hotbarIdx !== undefined) {
-      callbacks.onSelectHotbar(hotbarIdx);
-      return;
-    }
-    if (e.code === "Tab") {
-      e.preventDefault();
-      callbacks.onToggleInventory();
-      return;
-    }
+    if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return; }
+    if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
     if (e.code === "KeyC") callbacks.onToggleCrafting();
+    else if (e.code === "KeyH") callbacks.onToggleCharacter();
     else if (e.code === "KeyF") callbacks.onToggleTorch();
     else if (e.code === "Escape") callbacks.onClosePanels();
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
-    host.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89);
-    }, { passive: false });
+    host.addEventListener("wheel", (e) => { e.preventDefault(); callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
     host.addEventListener("pointerdown", (e) => this.startTouch(e));
     host.addEventListener("pointermove", (e) => this.moveTouch(e));
     host.addEventListener("pointerup", (e) => this.endTouch(e));

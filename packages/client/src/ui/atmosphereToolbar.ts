@@ -12,6 +12,7 @@ export interface ToolbarCallbacks {
   readonly onSetQuality: (preset: QualityPresetId) => void;
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
+  readonly onToggleCharacter: () => void;
 }
 
 const PRESET_ORDER: readonly QualityPresetId[] = ["high", "balanced", "performance"];
@@ -29,6 +30,7 @@ export class AtmosphereToolbar {
   private readonly timeLabel: HTMLSpanElement;
   private readonly bagBtn: HTMLButtonElement;
   private readonly craftBtn: HTMLButtonElement;
+  private readonly heroBtn: HTMLButtonElement;
   private readonly torchBtn: HTMLButtonElement;
   private readonly qualityBtn: HTMLButtonElement;
   private readonly fsBtn: HTMLButtonElement;
@@ -49,13 +51,14 @@ export class AtmosphereToolbar {
 
     this.bagBtn = btn("Bag", () => callbacks.onToggleInventory());
     this.craftBtn = btn("Craft", () => callbacks.onToggleCrafting());
+    this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
     this.torchBtn = btn("Torch", () => callbacks.onToggleTorch());
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
     this.fsBtn = btn("FS", () => void toggleFullscreen());
     this.fsBtn.hidden = !isFullscreenSupported();
     onFullscreenChange(() => this.syncFullscreenButton());
     const timeBtn = btn("Atmosphere ▾", () => this.toggleDrawer());
-    bar.append(statusPill, this.bagBtn, this.craftBtn, this.torchBtn, this.qualityBtn, this.fsBtn, timeBtn);
+    bar.append(statusPill, this.bagBtn, this.craftBtn, this.heroBtn, this.torchBtn, this.qualityBtn, this.fsBtn, timeBtn);
 
     this.drawer = el("div", "ow-drawer");
     this.slider = makeSlider((val) => callbacks.onSetDayPhase(val, true));
@@ -85,6 +88,7 @@ export class AtmosphereToolbar {
     this.timeLabel.textContent = `· ${periodForPhase(state.dayPhase)}`;
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.craftBtn.dataset.active = String(state.activePanel === "crafting");
+    this.heroBtn.dataset.active = String(state.activePanel === "character");
     this.torchBtn.dataset.active = String(state.torchLit);
     this.torchBtn.textContent = state.torchLit ? "Torch: ON" : "Torch: OFF";
     this.qualityBtn.textContent = `FX: ${QUALITY_PRESETS[state.quality].label}`;

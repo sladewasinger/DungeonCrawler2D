@@ -1,4 +1,4 @@
-/** Client boot entry: mounts PixiJS v8 shader scene, networking, input, and Phase 2 HUD. */
+/** Client boot entry: mounts PixiJS v8 shader scene, networking, input, and HUD. */
 import { InputController } from "./input/controller.js";
 import { WorldClient } from "./net/worldClient.js";
 import { WorldScene } from "./render/world/worldScene.js";
@@ -22,7 +22,7 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
     cache: view.cache, players: view.players, localPlayerId: view.localPlayerId,
   });
   const local = view.players.find((p) => p.id === view.localPlayerId);
-  ctx.hud.sync(view.inventory);
+  ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance });
   ctx.toolbar.sync({
     mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused,
     torchLit: Boolean(local?.torchLit), quality: ctx.scene.qualityPreset(), activePanel: ctx.hud.activePanel(),
@@ -52,6 +52,7 @@ async function bootOverworldClient(): Promise<void> {
     onEquipArmor: (req) => client.equipArmor(req),
     onUnequipArmor: (req) => client.unequipArmor(req),
     onCraft: (recipeId) => client.craftRecipe(recipeId),
+    onSetCharacter: (req) => client.setCharacter(req),
   });
   const input = new InputController(host, {
     onToggleTorch: () => client.toggleTorch(),
@@ -59,6 +60,7 @@ async function bootOverworldClient(): Promise<void> {
     onSelectHotbar: (slot) => client.selectHotbar(slot),
     onToggleInventory: () => hud.toggleInventory(),
     onToggleCrafting: () => hud.toggleCrafting(),
+    onToggleCharacter: () => hud.toggleCharacter(),
     onClosePanels: () => hud.closePanels(),
   });
   const toolbar = new AtmosphereToolbar(host, {
@@ -67,6 +69,7 @@ async function bootOverworldClient(): Promise<void> {
     onSetQuality: (preset) => scene.setQualityPreset(preset),
     onToggleInventory: () => hud.toggleInventory(),
     onToggleCrafting: () => hud.toggleCrafting(),
+    onToggleCharacter: () => hud.toggleCharacter(),
   });
   startRenderLoop({ scene, client, input, toolbar, hud });
 }

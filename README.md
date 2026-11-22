@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.10.0** (Phase 2 shipped on `overworld` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.0** (Phase 3 shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 
@@ -26,9 +26,11 @@ Documentation lives next to the code it describes:
 | [packages/engine/README.md](packages/engine/README.md) | Platform-free simulation core, noise, collision, Day/Night, Zod wire protocol |
 | [packages/engine/src/world/README.md](packages/engine/src/world/README.md) | Deterministic `32×32` chunk generator, elevation, and spatial collision |
 | [packages/engine/src/inventory/README.md](packages/engine/src/inventory/README.md) | True 36-slot inventory rules, `maxStack=1` gear, armor stats, crafting validation |
+| [packages/engine/src/character/README.md](packages/engine/src/character/README.md) | Modular character customization schemas and validation |
 | [packages/content/README.md](packages/content/README.md) | Authoritative item catalog, recipes, light palettes, quality presets |
 | [packages/game-server/README.md](packages/game-server/README.md) | Authoritative 20 Hz simulation loop and WebSocket `/health` + game server |
 | [packages/client/README.md](packages/client/README.md) | PixiJS v8 WebGL2 client, prediction, input, and HUD |
+| [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `20×26` HD-pixel paper-doll compositor & LRU texture cache |
 | [packages/client/src/render/README.md](packages/client/src/render/README.md) | Terrain/prop texture builders, world layers, and shader atmosphere pipeline |
 | [packages/client/src/ui/hud/README.md](packages/client/src/ui/hud/README.md) | Larger bottom hotbar, minimalist inventory modal, crafting panel, pointer drag/drop |
 | [infra/README.md](infra/README.md) | Terraform AWS deployment, CloudFront, SSM, and EC2 server setup |
@@ -62,9 +64,10 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 - **Movement**:
   - **Desktop**: `W A S D` or Arrow keys move; scroll wheel zooms camera.
   - **Touch / Mobile**: Touch anywhere outside HUD panels to summon the floating analog thumbstick (mouse clicks do not trigger the mobile joystick).
-- **Inventory & Hotbar**:
-  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the Knight's hand).
-  - **`Tab` or `Bag` button**: Open minimalist Inventory (`27`-slot Backpack + `4` Armor slots + Stats). Drag items directly (or tap source -> tap target) between Backpack, Armor, and the always-visible bottom hotbar.
+- **Inventory, Character & Hotbar**:
+  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand).
+  - **`Tab` or `Bag` button**: Open minimalist Inventory (`27`-slot Backpack + `4` Armor slots + Stats). Equipped armor (`Leather Hood`, `Tunic`, `Leggings`, `Boots`) renders visibly on your character for all players; drag items directly (or tap source -> tap target) between Backpack, Armor, and the always-visible bottom hotbar.
+  - **`H` or `Hero` button**: Open Hero Appearance creator (name, body silhouette, skin tone, hair style, and hair pigment; auto-saved in `localStorage` and synced over WebSocket).
   - **`C` or `Craft` button**: Open Crafting panel (craftable recipes only by default, with optional `Show Locked` toggle).
   - **`Esc`**: Close open panels.
 - **Atmosphere & Fullscreen**:
@@ -84,6 +87,6 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 
 ## Branch & release workflow
 
-- Active development happens on `overworld`.
-- After completing a phase and verifying tests, linting, builds, and live browser checks, merge/promote the verified state through `develop` into `main` and push (`git push origin overworld develop main`).
-- Pushing `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish to S3/EC2/CloudFront, and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.
+- Active development happens on `overworld` and is merged cleanly into `develop`.
+- When a phase is verified (tests, lint, build, and live browser checks), open and merge a versioned release PR from `develop` into `main` with a clear release title (`release: vX.Y.Z — <Release Title>`).
+- Merging into `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish to S3/EC2/CloudFront, and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.
