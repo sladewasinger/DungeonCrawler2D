@@ -1,12 +1,12 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
 import {
-  DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
+  COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
   type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
-const PLAYER_SPEED = 5.4;
-const PLAYER_RADIUS = 0.28;
-const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null };
+const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
+const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles;
+const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 
 export function createDefaultPlayer(
   id: string,
@@ -60,6 +60,15 @@ function preservedIdentity(
   };
 }
 
+function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
+  return {
+    hp: serverMe.hp, maxHp: serverMe.maxHp, stamina: serverMe.stamina, maxStamina: serverMe.maxStamina,
+    comboStep: serverMe.comboStep, swingProgress: serverMe.swingProgress, bowCharge: serverMe.bowCharge,
+    blocking: serverMe.blocking, dodging: serverMe.dodging,
+    staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer, inSanctuary: serverMe.inSanctuary,
+  };
+}
+
 export function reconcilePredictedPlayer(
   current: PlayerSnapshot,
   serverMe: PlayerSnapshot,
@@ -70,12 +79,22 @@ export function reconcilePredictedPlayer(
   if (gap > 0.75) return { ...serverMe, ...shared, elevation: serverMe.elevation };
   return {
     ...current,
+    ...serverCombatFields(serverMe),
     id: serverMe.id,
     heldItem: serverMe.heldItem ?? current.heldItem ?? null,
     ...shared,
     x: current.x + (serverMe.x - current.x) * 0.2,
     y: current.y + (serverMe.y - current.y) * 0.2,
   };
+}
+
+function movementMultiplier(player: PlayerSnapshot): number {
+  const m = COMBAT_TUNING.movementMults;
+  if (player.dodging) return m.dodge;
+  if ((player.swingProgress ?? 0) > 0) return m.swing;
+  if (player.blocking) return m.block;
+  if ((player.bowCharge ?? 0) > 0.05) return m.bowDraw;
+  return 1;
 }
 
 export function predictLocalPlayerMove(input: {
@@ -92,7 +111,7 @@ export function predictLocalPlayerMove(input: {
   const moving = Math.hypot(input.nx, input.ny) > 0.05;
   const aimVec = resolveAim(input);
   if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false };
-  const step = PLAYER_SPEED * input.dt;
+  const step = PLAYER_SPEED * movementMultiplier(input.player) * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: input.player.x, y: input.player.y,
     dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS,
@@ -112,8 +131,11 @@ function resolveAim(input: {
   if (input.aim && Math.hypot(input.aim.x, input.aim.y) > 0.05) {
     return { facingX: input.aim.x, facingY: input.aim.y, aimX: input.aim.x, aimY: input.aim.y };
   }
-  if (Math.hypot(input.nx, input.ny) > 0.05) {
-    return { facingX: input.nx, facingY: input.ny, aimX: input.nx, aimY: input.ny };
+  const moveMag = Math.hypot(input.nx, input.ny);
+  if (moveMag > 0.05) {
+    const ux = input.nx / moveMag;
+    const uy = input.ny / moveMag;
+    return { facingX: ux, facingY: uy, aimX: ux, aimY: uy };
   }
   return {
     facingX: input.player.facingX,

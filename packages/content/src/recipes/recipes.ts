@@ -88,6 +88,12 @@ export const RECIPE_CATALOG: readonly RecipeDef[] = [
       { itemId: ITEM_FLINT, count: 5 },
     ],
   },
+  {
+    id: "craft-wooden-shield",
+    outputItemId: "wooden-shield",
+    outputCount: 1,
+    ingredients: [{ itemId: ITEM_WOOD, count: 6 }],
+  },
 ];
 
 const RECIPE_MAP = new Map<string, RecipeDef>(RECIPE_CATALOG.map((recipe) => [recipe.id, recipe]));

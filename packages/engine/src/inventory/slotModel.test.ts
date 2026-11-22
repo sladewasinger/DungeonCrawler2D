@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyInventoryState, insertIntoSlots, moveOrSwapSlot } from "./slotModel.js";
+import { consumeItemFromSlots, createEmptyInventoryState, insertIntoSlots, moveOrSwapSlot } from "./slotModel.js";
 
 const limitFor = (id: string): number => (id === "sword" || id === "bow" ? 1 : 32);
 
@@ -20,5 +20,8 @@ describe("slotModel", () => {
     expect(moveOrSwapSlot(inv.slots, { from: 0, to: 9 }, limitFor)).toBe(true);
     expect(inv.slots[0]).toBeNull();
     expect(inv.slots[9]).toEqual({ itemId: "torch", count: 9 });
+    expect(consumeItemFromSlots(inv.slots, "torch", 10)).toBe(false);
+    expect(consumeItemFromSlots(inv.slots, "torch", 4)).toBe(true);
+    expect(inv.slots[9]).toEqual({ itemId: "torch", count: 5 });
   });
 });

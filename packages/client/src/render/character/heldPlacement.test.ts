@@ -136,9 +136,10 @@ describe("computeHeldLayout", () => {
     expect(rigSword.right.rotation).toBeGreaterThan(Math.PI / 2);
     expect(rigSword.left.rotation).toBeLessThan(Math.PI / 2);
 
+    const noShield = { equipped: false, x: 0, y: 0, rotation: 0, scaleX: CHARACTER_WORLD_SCALE, behindBody: false };
     const staffRig = computeArmRig({
       facing: "south", female: false, pose, airborneState: "ground", grips: STAFF_GRIPS,
-      layout: { main: { x: 0, y: -7.2, rotation: 0, scaleX: CHARACTER_WORLD_SCALE, scaleY: CHARACTER_WORLD_SCALE, behindBody: false }, offhand: { kind: "none", x: 0, y: 0, rotation: 0, behindBody: false } },
+      layout: { main: { x: 0, y: -7.2, rotation: 0, scaleX: CHARACTER_WORLD_SCALE, scaleY: CHARACTER_WORLD_SCALE, behindBody: false }, offhand: { kind: "none", x: 0, y: 0, rotation: 0, behindBody: false }, shield: noShield },
     });
     expect(staffRig.right.scaleX).toBeGreaterThanOrEqual(0.45 * CHARACTER_WORLD_SCALE);
     expect(staffRig.left.scaleX).toBeGreaterThanOrEqual(0.45 * CHARACTER_WORLD_SCALE);
@@ -147,9 +148,41 @@ describe("computeHeldLayout", () => {
 
     const gsRig = computeArmRig({
       facing: "south", female: false, pose, airborneState: "ground", grips: GREATSWORD_GRIPS,
-      layout: { main: { x: -4.2, y: -7.2, rotation: 0.9, scaleX: CHARACTER_WORLD_SCALE, scaleY: CHARACTER_WORLD_SCALE, behindBody: false }, offhand: { kind: "none", x: 0, y: 0, rotation: 0, behindBody: false } },
+      layout: { main: { x: -4.2, y: -7.2, rotation: 0.9, scaleX: CHARACTER_WORLD_SCALE, scaleY: CHARACTER_WORLD_SCALE, behindBody: false }, offhand: { kind: "none", x: 0, y: 0, rotation: 0, behindBody: false }, shield: noShield },
     });
     expect(gsRig.right.scaleX).toBeGreaterThanOrEqual(0.45 * CHARACTER_WORLD_SCALE);
+
+    const shieldLayout = computeHeldLayout({
+      aimX: 0, aimY: 1, heldItem: "sword", torchLit: true, twoHanded: false, aimMode: "meleeCarry", timeSec: 0, moving: false, hasShield: true, blocking: false,
+    });
+    const blockingLayout = computeHeldLayout({
+      aimX: 0, aimY: 1, heldItem: "sword", torchLit: true, twoHanded: false, aimMode: "meleeCarry", timeSec: 0, moving: false, hasShield: true, blocking: true,
+    });
+    expect(shieldLayout.shield.equipped).toBe(true);
+    expect(shieldLayout.offhand.kind).toBe("hipLantern");
+    expect(blockingLayout.shield.x).toBeLessThan(shieldLayout.shield.x);
+    expect(blockingLayout.shield.y).toBeLessThan(shieldLayout.shield.y);
+    const shieldRig = computeArmRig({
+      facing: "south", female: false, pose, airborneState: "ground", grips: SWORD_GRIPS, layout: shieldLayout,
+    });
+    expect(shieldRig.left.rotation).toBeLessThan(Math.PI / 2);
+
+    const swingLayout = computeHeldLayout({
+      aimX: 0, aimY: 1, heldItem: "sword", torchLit: false, twoHanded: false, aimMode: "meleeCarry",
+      timeSec: 0, moving: false, swingProgress: 0.5, comboStep: 1,
+    });
+    expect(Math.hypot(swingLayout.main.x, (swingLayout.main.y + 9.2) / 0.78)).toBeGreaterThan(7.5);
+    const swingRig = computeArmRig({
+      facing: "south", female: false, pose, airborneState: "ground", grips: SWORD_GRIPS, layout: swingLayout, swinging: true,
+    });
+    expect(swingRig.right.scaleX).toBeGreaterThanOrEqual(CHARACTER_WORLD_SCALE);
+
+    const torchSwing = computeHeldLayout({
+      aimX: 1, aimY: 0, heldItem: "torch", torchLit: true, twoHanded: false, aimMode: "upright",
+      timeSec: 0, moving: false, swingProgress: 0.5, comboStep: 1,
+    });
+    expect(torchSwing.main.scaleY).toBeGreaterThan(0);
+    expect(torchSwing.main.rotation).toBeGreaterThan(Math.PI * 0.25);
   });
 
   it("hangs free arms straight down at idle rest and never tilts inward during run, jump, or fall", () => {
@@ -177,8 +210,8 @@ describe("computeHeldLayout", () => {
 const TEST_DIRS: readonly FacingDir[] = ["south", "north", "side"];
 const TEST_POSES = [...IDLE_POSES, ...RUN_POSES, ...JUMP_POSES, ...FALL_POSES];
 const TEST_ARMOR_SETS: readonly ArmorEquipment[] = [
-  { head: null, chest: null, legs: null, feet: null },
-  { head: "leather-hood", chest: "leather-tunic", legs: "leather-leggings", feet: "leather-boots" },
+  { head: null, chest: null, legs: null, feet: null, offhand: null },
+  { head: "leather-hood", chest: "leather-tunic", legs: "leather-leggings", feet: "leather-boots", offhand: null },
 ];
 
 function collectFrameRects(appearance: CharacterAppearance, armor: ArmorEquipment, includeArms: boolean): PixelRect[] {

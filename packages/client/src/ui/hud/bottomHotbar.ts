@@ -3,32 +3,59 @@ import { HOTBAR_SLOT_COUNT, type InventorySlot, type InventorySnapshot } from "@
 import type { DragSource, SlotDragManager } from "./slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
+const TAG_BTN = "button";
+const ATTR_ARIA_LABEL = "aria-label";
+
 function slotItemKey(item: InventorySlot): string {
   return item ? `${item.itemId}:${item.count}` : "-";
+}
+
+function createLanternIconSvg(): string {
+  return `<svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true" style="image-rendering:pixelated;pointer-events:none">
+    <rect x="6" y="1" width="4" height="2" fill="#94a3b8"/>
+    <rect x="4" y="3" width="8" height="2" fill="#b45309"/>
+    <rect x="4" y="5" width="8" height="7" fill="#1e293b"/>
+    <rect x="5" y="5" width="6" height="6" fill="currentColor"/>
+    <rect x="4" y="12" width="8" height="2" fill="#78350f"/>
+  </svg>`;
 }
 
 export class BottomHotbar {
   readonly el: HTMLDivElement;
   private readonly buttons: HTMLButtonElement[] = [];
+  private readonly lanternBtn: HTMLButtonElement;
   private readonly slotItemKeys: string[] = Array.from({ length: HOTBAR_SLOT_COUNT }, () => "");
   private lastFingerprint = "";
+  private lastTorchLit: boolean | null = null;
 
-  constructor(host: HTMLElement, drag: SlotDragManager) {
+  constructor(host: HTMLElement, drag: SlotDragManager, onToggleTorch: () => void) {
     this.el = domNode("div", "ow-hotbar");
     this.el.setAttribute("role", "toolbar");
-    this.el.setAttribute("aria-label", "Hotbar");
+    this.el.setAttribute(ATTR_ARIA_LABEL, "Hotbar");
     for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) {
-      const btn = domNode("button", "ow-slot");
-      btn.type = "button";
-      btn.setAttribute("aria-label", `Hotbar slot ${i + 1}`);
+      const btn = domNode(TAG_BTN, "ow-slot");
+      btn.type = TAG_BTN;
+      btn.setAttribute(ATTR_ARIA_LABEL, `Hotbar slot ${i + 1}`);
       drag.bindSlot(btn, { kind: "slot", index: i });
       this.buttons.push(btn);
       this.el.append(btn);
     }
+    this.lanternBtn = domNode(TAG_BTN, "ow-slot ow-lantern-btn");
+    this.lanternBtn.type = TAG_BTN;
+    this.lanternBtn.setAttribute(ATTR_ARIA_LABEL, "Toggle lantern (F)");
+    this.lanternBtn.innerHTML = `<span class="ow-slot-key">F</span>${createLanternIconSvg()}`;
+    this.lanternBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    this.lanternBtn.addEventListener("click", (e) => { e.stopPropagation(); onToggleTorch(); });
+    this.el.append(this.lanternBtn);
     host.append(this.el);
   }
 
-  sync(inv: InventorySnapshot, tapSource: DragSource | null): void {
+  sync(inv: InventorySnapshot, tapSource: DragSource | null, torchLit = true): void {
+    if (this.lastTorchLit !== torchLit) {
+      this.lastTorchLit = torchLit;
+      this.lanternBtn.dataset.lit = String(torchLit);
+      this.lanternBtn.style.color = torchLit ? "#fde047" : "#64748b";
+    }
     const tapIdx = tapSource?.kind === "slot" ? tapSource.index : -1;
     const fp = `${slotsFingerprint(inv.slots, 0, HOTBAR_SLOT_COUNT)}#${inv.selectedHotbar}#${tapIdx}`;
     if (fp === this.lastFingerprint) return;

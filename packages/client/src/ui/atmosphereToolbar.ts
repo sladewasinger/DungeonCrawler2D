@@ -7,13 +7,17 @@ import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { ensureToolbarStyles } from "./toolbarStyles.js";
 
 export interface ToolbarCallbacks {
-  readonly onToggleTorch: () => void;
   readonly onSetDayPhase: (phase: number, paused?: boolean) => void;
   readonly onSetQuality: (preset: QualityPresetId) => void;
   readonly onToggleInventory: () => void;
-  readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
+  readonly onToggleAudio: () => void;
   readonly onZoom: (factor: number) => void;
+}
+
+function isDebugMode(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return ["1", "true"].includes(params.get("debug") ?? "") || ["1", "true"].includes(params.get("admin") ?? "");
 }
 
 const PRESET_ORDER: readonly QualityPresetId[] = ["high", "balanced", "performance"];
@@ -26,14 +30,14 @@ const TIME_PRESETS = [
 ] as const;
 
 export class AtmosphereToolbar {
+  private readonly debug = isDebugMode();
   private readonly dot: HTMLSpanElement;
   private readonly modeLabel: HTMLSpanElement;
   private readonly timeLabel: HTMLSpanElement;
   private readonly bagBtn: HTMLButtonElement;
-  private readonly craftBtn: HTMLButtonElement;
   private readonly heroBtn: HTMLButtonElement;
-  private readonly torchBtn: HTMLButtonElement;
   private readonly qualityBtn: HTMLButtonElement;
+  private readonly audioBtn: HTMLButtonElement;
   private readonly fsBtn: HTMLButtonElement;
   private readonly drawer: HTMLDivElement;
   private readonly slider: HTMLInputElement;
@@ -51,52 +55,70 @@ export class AtmosphereToolbar {
     statusPill.append(this.dot, this.modeLabel, this.timeLabel);
 
     this.bagBtn = btn("Bag", () => callbacks.onToggleInventory());
-    this.craftBtn = btn("Craft", () => callbacks.onToggleCrafting());
     this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
-    this.torchBtn = btn("Lantern", () => callbacks.onToggleTorch());
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
-    this.fsBtn = btn("FS", () => void toggleFullscreen());
-    this.fsBtn.hidden = !isFullscreenSupported();
-    onFullscreenChange(() => this.syncFullscreenButton());
     const timeBtn = btn("Atmosphere ▾", () => this.toggleDrawer());
-    bar.append(statusPill, this.bagBtn, this.craftBtn, this.heroBtn, this.torchBtn, this.qualityBtn, this.fsBtn, timeBtn);
+    if (this.debug) bar.append(statusPill, this.bagBtn, this.heroBtn, this.qualityBtn, timeBtn);
+    else bar.append(this.bagBtn, this.heroBtn);
 
-    this.drawer = el("div", "ow-drawer");
-    this.slider = makeSlider((val) => callbacks.onSetDayPhase(val, true));
-    this.pauseBtn = btn("Pause Clock", () => {
-      const paused = this.pauseBtn.dataset.paused !== "true";
-      callbacks.onSetDayPhase(Number(this.slider.value), paused);
+    this.drawer = this.buildDrawer(callbacks.onSetDayPhase);
+    this.slider = this.drawer.querySelector("input") as HTMLInputElement;
+    this.pauseBtn = this.drawer.querySelector("[data-role='pause']") as HTMLButtonElement;
+    if (this.debug) root.append(bar, this.drawer);
+    else root.append(bar);
+
+    const topRight = makeRightControls({
+      onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
     });
-    const presets = el("div", "ow-presets");
-    for (const p of TIME_PRESETS) presets.append(btn(p.label, () => callbacks.onSetDayPhase(p.phase, true)));
-    presets.append(this.pauseBtn);
-    this.drawer.append(presets, this.slider);
-    root.append(bar, this.drawer);
-    host.append(root, makeZoomControls(callbacks.onZoom));
+    this.audioBtn = topRight.audioBtn;
+    this.fsBtn = topRight.fsBtn;
+    onFullscreenChange(() => this.syncFullscreenButton());
+    host.append(root, topRight.box);
     this.syncFullscreenButton();
+  }
+
+  private buildDrawer(onSetDayPhase: (phase: number, paused?: boolean) => void): HTMLDivElement {
+    const drawer = el("div", "ow-drawer");
+    const slider = makeSlider((val) => onSetDayPhase(val, true));
+    const pauseBtn = btn("Pause Clock", () => {
+      const paused = pauseBtn.dataset.paused !== "true";
+      onSetDayPhase(Number(slider.value), paused);
+    });
+    pauseBtn.dataset.role = "pause";
+    const presets = el("div", "ow-presets");
+    for (const p of TIME_PRESETS) presets.append(btn(p.label, () => onSetDayPhase(p.phase, true)));
+    presets.append(pauseBtn);
+    drawer.append(presets, slider);
+    return drawer;
   }
 
   sync(state: {
     readonly mode: ConnectionMode;
     readonly dayPhase: number;
     readonly dayPaused: boolean;
-    readonly torchLit: boolean;
     readonly quality: QualityPresetId;
     readonly activePanel: ActiveHudPanel;
+    readonly audioOpen: boolean;
+    readonly audioMuted: boolean;
+  }): void {
+    this.bagBtn.dataset.active = String(state.activePanel === "inventory");
+    this.heroBtn.dataset.active = String(state.activePanel === "character");
+    this.audioBtn.dataset.active = String(state.audioOpen);
+    this.audioBtn.textContent = state.audioMuted ? "Muted" : "Audio";
+    if (this.debug) this.syncDebugBar(state);
+    this.syncFullscreenButton();
+  }
+
+  private syncDebugBar(state: {
+    readonly mode: ConnectionMode; readonly dayPhase: number; readonly dayPaused: boolean; readonly quality: QualityPresetId;
   }): void {
     this.dot.dataset.mode = state.mode;
     this.modeLabel.textContent = state.mode === "server" ? "Server" : state.mode === "local" ? "Local" : "Sync";
     this.timeLabel.textContent = `· ${periodForPhase(state.dayPhase)}`;
-    this.bagBtn.dataset.active = String(state.activePanel === "inventory");
-    this.craftBtn.dataset.active = String(state.activePanel === "crafting");
-    this.heroBtn.dataset.active = String(state.activePanel === "character");
-    this.torchBtn.dataset.active = String(state.torchLit);
-    this.torchBtn.textContent = state.torchLit ? "Lantern: ON" : "Lantern: OFF";
     this.qualityBtn.textContent = `FX: ${QUALITY_PRESETS[state.quality].label}`;
     this.slider.value = state.dayPhase.toFixed(2);
     this.pauseBtn.dataset.paused = String(state.dayPaused);
     this.pauseBtn.textContent = state.dayPaused ? "Play Clock" : "Pause";
-    this.syncFullscreenButton();
   }
 
   private syncFullscreenButton(): void {
@@ -131,20 +153,29 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
   return b;
 }
 
-function makeZoomControls(onZoom: (factor: number) => void): HTMLDivElement {
+function makeRightControls(opts: {
+  readonly onZoom: (factor: number) => void;
+  readonly onToggleAudio: () => void;
+}): { readonly box: HTMLDivElement; readonly audioBtn: HTMLButtonElement; readonly fsBtn: HTMLButtonElement } {
   const box = el("div", "ow-zoom-controls");
+  const audioBtn = el("button", "ow-pill ow-audio-btn");
+  audioBtn.type = "button";
+  audioBtn.textContent = "Audio";
+  audioBtn.addEventListener("click", opts.onToggleAudio);
+  const fsBtn = btn("FS", () => void toggleFullscreen());
+  fsBtn.hidden = !isFullscreenSupported();
   const zoomOut = el("button", "ow-pill ow-zoom-btn");
   zoomOut.type = "button";
   zoomOut.textContent = "−";
   zoomOut.setAttribute("aria-label", "Zoom out");
-  zoomOut.addEventListener("click", () => onZoom(1 / 1.18));
+  zoomOut.addEventListener("click", () => opts.onZoom(1 / 1.18));
   const zoomIn = el("button", "ow-pill ow-zoom-btn");
   zoomIn.type = "button";
   zoomIn.textContent = "+";
   zoomIn.setAttribute("aria-label", "Zoom in");
-  zoomIn.addEventListener("click", () => onZoom(1.18));
-  box.append(zoomOut, zoomIn);
-  return box;
+  zoomIn.addEventListener("click", () => opts.onZoom(1.18));
+  box.append(audioBtn, fsBtn, zoomOut, zoomIn);
+  return { box, audioBtn, fsBtn };
 }
 
 function makeSlider(onInput: (val: number) => void): HTMLInputElement {

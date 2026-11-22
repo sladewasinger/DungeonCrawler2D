@@ -1,0 +1,56 @@
+/** Editable mix, pitch, and timing levers for all procedural and spatial audio layers. */
+
+export const AUDIO_TUNING = {
+  wind: {
+    dayGain: 0.042,
+    nightGain: 0.03,
+    dayFreqHz: 500,
+    nightFreqHz: 350,
+  },
+  campfire: {
+    maxDistTiles: 9.5,
+    rumbleGain: 0.044,
+    rumbleFreqHz: 160,
+    crackleGain: 0.042,
+    crackleFreqMinHz: 420,
+    crackleFreqRangeHz: 480,
+    crackleIntervalMinSec: 0.12,
+    crackleIntervalRangeSec: 0.24,
+    popChance: 0.38,
+    popGain: 0.032,
+    popFreqMinHz: 1550,
+    popFreqRangeHz: 650,
+  },
+  river: {
+    maxDistTiles: 8.5,
+    gain: 0.028,
+    freqHz: 520,
+  },
+  biosphere: {
+    dayIntervalMinSec: 5.5,
+    dayIntervalRangeSec: 6.0,
+    birdGain: 0.006,
+    nightIntervalMinSec: 4.5,
+    nightIntervalRangeSec: 5.0,
+    cricketGain: 0.0055,
+  },
+  footsteps: {
+    masterGain: 0.55,
+    pitchScale: 0.72,
+    crunchMix: 0.45,
+    crunchFreqHz: 1350,
+    stepIntervalSec: 0.32,
+    waterSplashGain: 0.20,
+    waterSplashFreqHz: 920,
+    waterDropletGain: 0.20,
+    landThudGain: 0.28,
+    landCrunchGain: 0.10,
+    waterLandSplashMult: 1.55,
+  },
+  combat: {
+    swingGain: 0.18,
+    impactGain: 0.20,
+    parryGain: 0.24,
+    tensionGain: 0.05,
+  },
+} as const;
