@@ -400,11 +400,23 @@
       "path": "/assets/creatures/goblin.png",
       "width": 64,
       "height": 64,
-      "contentWidth": 48,
-      "contentHeight": 47,
+      "contentWidth": 24,
+      "contentHeight": 30,
       "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.94
+      "anchorY": 0.8125,
+      "animations": {
+        "sheetPath": "/assets/creatures/goblin-sheet.png",
+        "frameWidth": 64,
+        "frameHeight": 64,
+        "clips": {
+          "idle": {
+            "south": { "fps": 7, "frames": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]] },
+            "side": { "fps": 7, "frames": [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1]] },
+            "north": { "fps": 7, "frames": [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2]] }
+          }
+        }
+      }
     },
     "skeleton": {
       "path": "/assets/creatures/skeleton.png",
