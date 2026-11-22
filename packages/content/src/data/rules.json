@@ -1,4 +1,0 @@
-[
-  { "when": ["burning", "wet"], "removeTags": ["fire", "wet"] },
-  { "when": ["burning", "oil"], "removeTags": ["oil"] }
-]

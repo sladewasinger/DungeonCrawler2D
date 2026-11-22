@@ -1,6 +1,6 @@
 {
-  "name": "dungeoncrawler2d-v2",
-  "version": "0.9.0",
+  "name": "dungeoncrawler2d",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,22 +10,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n client,server -c blue,green \"npm run dev -w @dc2d/client\" \"npm run dev -w @dc2d/game-server\"",
+    "dev": "concurrently -n server,client -c cyan,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
-    "preview-prod": "concurrently -n client,server -c blue,green \"vite preview packages/client --host 0.0.0.0 --port 4001 --strictPort\" \"npm run preview-prod -w @dc2d/game-server\"",
     "test": "vitest run",
-    "benchmark:network": "tsx tools/network-baseline.ts",
-    "benchmark:network-load": "tsx tools/network-load.ts",
-    "benchmark:codecs": "tsx tools/network-codec-assessment.ts",
-    "benchmark:render": "tsx tools/render/presentation-benchmark.ts",
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
-    "lint": "eslint . && node scripts/check-config-docs.mjs && node scripts/check-folder-size.mjs",
-    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-config-docs.mjs && node scripts/check-folder-size.mjs --changed"
+    "lint": "eslint . && node scripts/check-folder-size.mjs",
+    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@msgpack/msgpack": "^3.1.3",
-    "@playwright/test": "^1.61.1",
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.3",
     "eslint": "^10.7.0",
@@ -33,7 +26,6 @@
     "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-sonarjs": "^4.2.0",
     "globals": "^17.7.0",
-    "protobufjs": "^8.7.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.64.0",
     "vitest": "^4.1.10"

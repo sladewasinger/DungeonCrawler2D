@@ -1,57 +1,47 @@
-// Public facade for @dc2d/engine — consumers import from here, never from siblings.
-export * from "./core/constants.js";
-export * from "./core/math.js";
-export * from "./core/rng.js";
-export * from "./core/noise.js";
-export * from "./world/core/types.js";
-export * from "./world/core/level.js";
-export * from "./world/combatSandbox/combatSandboxLayout.js";
-export * from "./world/core/worldFeatures.js";
-export * from "./world/stairs/stairs.js";
-export * from "./world/perception/terrainLineOfSight.js";
-export * from "./world/interactions/interactions.js";
-export * from "./world/features/fixed/fixed.js";
-export * from "./world/features/fixed/safeRoomEntranceDoor.js";
-export * from "./world/features/descent/descent.js";
-export * from "./world/features/bossArena/bossArena.js";
-export * from "./world/features/miniBossArena/miniBossArena.js";
-export * from "./world/features/miniBossArena/miniBossArenaKey.js";
-export * from "./world/core/pockets.js";
-export * from "./world/generate.js";
-export * from "./world/generate/finiteFloor.js";
-export * from "./world/generate/artifact/finiteFloorArtifact.js";
-export * from "./world/generate/terrain/biome.js";
-export * from "./world/generate/layout/district.js";
-export * from "./world/generate/populationRooms.js";
-export * from "./world/generate/tuning.js";
-export * from "./world/features/rooms/rooms.js";
-export * from "./world/core/world.js";
-export * from "./entities/entity.js";
-export * from "./entities/petDefinitions.js";
-export * from "./entities/playerAppearance.js";
-export * from "./entities/movement/index.js";
-export * from "./entities/projectile.js";
-export * from "./entities/playerResources.js";
-export * from "./entities/torch.js";
-export * from "./navigation/gridPath.js";
-export * from "./effects/types.js";
-export * from "./effects/system.js";
-export * from "./effects/movementSpeed.js";
-export * from "./effects/areas/types.js";
-export * from "./effects/areas/system.js";
-export * from "./combat/melee/melee.js";
-export * from "./combat/geometry/guardCollision.js";
-export * from "./combat/geometry/hurtboxes.js";
-export * from "./combat/weapons/weaponProfiles.js";
-export * from "./combat/weapons/weaponHitboxTuning.js";
-export * from "./combat/weapons/weaponTargeting.js";
-export * from "./combat/ai/ai.js";
+/** Public API for @dc2d/engine. */
+export { clamp, fbm2d, hash2d, hashUnit2d, lerp, ridgeNoise2d, smoothstep, valueNoise2d } from "./math/noise.js";
+export type { FbmOptions } from "./math/noise.js";
+export {
+  CHUNK_SIZE,
+  GroundKind,
+  PropKind,
+  TILE_PX,
+  chunkKey,
+  worldTileIndex,
+  worldToChunkCoord,
+  worldToLocalCoord,
+} from "./world/types.js";
+export type { BiomeKind, ChunkProp, PointLightSpec, WorldChunk } from "./world/types.js";
+export { sampleWorldTile } from "./world/biomeSampler.js";
+export type { TileSample } from "./world/biomeSampler.js";
+export { generateChunk } from "./world/chunkGenerator.js";
+export { WorldChunkCache, resolveMovement } from "./world/collision.js";
+export type { MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
+export { DAY_DURATION_SECONDS, periodForPhase, sampleDayNight, wrapDayPhase } from "./time/dayNight.js";
+export type { DayNightState, RgbTuple, TimeOfDayPeriod } from "./time/dayNight.js";
+export {
+  BACKPACK_SLOT_COUNT,
+  HOTBAR_SLOT_COUNT,
+  TOTAL_INVENTORY_SLOTS,
+  createEmptyInventoryState,
+  insertIntoSlots,
+  moveOrSwapSlot,
+} from "./inventory/slotModel.js";
 export type {
-  EnemyBrain,
-  EnemyDecision,
-  RememberedEnemyTarget,
-} from "./combat/ai/types.js";
-export * from "./combat/ai/enemyMemory.js";
-export * from "./debug/debugFlags.js";
-export * from "./net/messages.js";
-export * from "./net/metrics.js";
+  ArmorEquipment,
+  ArmorSlotKey,
+  InventorySlot,
+  PlayerInventoryState,
+  SlotItem,
+  StackLimitLookup,
+} from "./inventory/slotModel.js";
+export {
+  ClientMessageSchema,
+  PROTOCOL_VERSION,
+  ServerMessageSchema,
+} from "./net/protocol.js";
+export type {
+  ClientMessage,
+  PlayerSnapshot,
+  ServerMessage,
+} from "./net/protocol.js";

@@ -1,4 +1,4 @@
-// Bundles the game-server into the single CJS file (dist/main.cjs) the EC2 systemd unit and deploy workflow expect.
+/** Bundles the authoritative game server into dist/main.cjs for Node execution. */
 import { build } from "esbuild";
 
 await build({
@@ -12,15 +12,4 @@ await build({
   sourcemap: true,
 });
 
-await build({
-  entryPoints: ["src/floors/floorPreparationWorker.ts"],
-  outfile: "dist/floorPreparationWorker.cjs",
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  target: "node22",
-  packages: "bundle",
-  sourcemap: true,
-});
-
-console.log("[build] wrote dist/main.cjs and dist/floorPreparationWorker.cjs");
+console.log("[build] wrote dist/main.cjs");
