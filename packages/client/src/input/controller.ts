@@ -1,9 +1,18 @@
-/** Mobile-first floating touch joystick, keyboard WASD/arrows, and wheel zoom input. */
+/** Touch-only floating joystick, desktop WASD/arrows, hotbar/panel shortcuts, and wheel zoom. */
 
 export interface InputCallbacks {
   readonly onToggleTorch: () => void;
   readonly onZoom: (factor: number) => void;
+  readonly onSelectHotbar: (slot: number) => void;
+  readonly onToggleInventory: () => void;
+  readonly onToggleCrafting: () => void;
+  readonly onClosePanels: () => void;
 }
+
+const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
+  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
+  Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
+};
 
 export class InputController {
   private readonly keys = new Set<string>();
@@ -36,9 +45,26 @@ export class InputController {
   private bindKeyboard(callbacks: InputCallbacks): void {
     window.addEventListener("keydown", (e) => {
       this.keys.add(e.code);
-      if (e.code === "KeyF" && !e.repeat) callbacks.onToggleTorch();
+      if (e.repeat) return;
+      this.handleShortcut(e, callbacks);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
+  }
+
+  private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
+    const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
+    if (hotbarIdx !== undefined) {
+      callbacks.onSelectHotbar(hotbarIdx);
+      return;
+    }
+    if (e.code === "Tab") {
+      e.preventDefault();
+      callbacks.onToggleInventory();
+      return;
+    }
+    if (e.code === "KeyC") callbacks.onToggleCrafting();
+    else if (e.code === "KeyF") callbacks.onToggleTorch();
+    else if (e.code === "Escape") callbacks.onClosePanels();
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
@@ -53,9 +79,9 @@ export class InputController {
   }
 
   private startTouch(e: PointerEvent): void {
+    if (e.pointerType !== "touch" || this.pointerId !== null) return;
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".ow-hud") || this.pointerId !== null) return;
-    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (target?.closest(".ow-hud, .ow-hotbar, .ow-modal")) return;
     this.pointerId = e.pointerId;
     this.origin = { x: e.clientX, y: e.clientY };
     this.touchVector = { x: 0, y: 0 };
