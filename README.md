@@ -32,7 +32,9 @@ Documentation lives next to the code it describes:
 | [packages/game-server/README.md](packages/game-server/README.md) | Authoritative 20 Hz simulation loop and WebSocket `/health` + game server |
 | [packages/client/README.md](packages/client/README.md) | PixiJS v8 WebGL2 client, prediction, input, and HUD |
 | [packages/client/src/audio/README.md](packages/client/src/audio/README.md) | Mobile-unlocked Hybrid Web Audio mixer, `AUDIO_TUNING` levers, spatial campfire/river & footsteps |
-| [packages/client/src/render/combat/README.md](packages/client/src/render/combat/README.md) | Actor-tracked progressive sword/torch smears, `combatVisualTuning`, 2.5D gore decals, and training dummies |
+| [packages/client/src/render/combat/README.md](packages/client/src/render/combat/README.md) | Actor-tracked progressive sword/torch smears, `combatVisualTuning`, 2.5D gore decals, wildlife & POI chests |
+| [packages/client/src/ui/title/README.md](packages/client/src/ui/title/README.md) | Pre-game Title Screen with Name entry, live Hero Creator, and localhost-only Sound Studio link |
+| [packages/client/src/soundStudio/README.md](packages/client/src/soundStudio/README.md) | Standalone local multi-track Web Audio synthesizer, live oscilloscope/FFT visualizer, and `.WAV` exporter |
 | [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `32×32` (`0.75×` world-scale) 4-directional paper-doll compositor, Hybrid Weapon Grip Socket arm rig, & LRU texture cache |
 | [packages/client/src/render/README.md](packages/client/src/render/README.md) | Terrain/prop texture builders, world layers, and shader atmosphere pipeline |
 | [packages/client/src/ui/hud/README.md](packages/client/src/ui/hud/README.md) | Clean public HUD (`?debug=1` admin gate), hotbar Lantern, Vitals bar, 5-slot Inventory/Craft swap |

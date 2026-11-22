@@ -55,5 +55,11 @@ export default defineConfig({
   build: {
     manifest: true,
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: resolve(clientRoot, "index.html"),
+        soundStudio: resolve(clientRoot, "sound-studio.html"),
+      },
+    },
   },
 });
