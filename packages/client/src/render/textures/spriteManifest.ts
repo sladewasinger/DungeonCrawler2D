@@ -5,6 +5,8 @@ export interface SpriteManifestEntry {
   readonly path: string;
   readonly width: number;
   readonly height: number;
+  readonly contentWidth?: number;
+  readonly contentHeight?: number;
   readonly scale: number;
   readonly anchorX: number;
   readonly anchorY: number;

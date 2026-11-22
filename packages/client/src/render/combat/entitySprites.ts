@@ -37,17 +37,25 @@ function createEntityBody(kind: WorldEntityKind): {
   readonly body: Sprite | Graphics;
   readonly baseScale: number;
   readonly hpTopY: number;
+  readonly shadowRx: number;
 } {
   const asset = getLoadedSpriteAsset(kind);
   if (asset) {
     const sprite = new Sprite(asset.texture);
     sprite.anchor.set(asset.anchorX, asset.anchorY);
     sprite.scale.set(asset.scale);
-    return { body: sprite, baseScale: asset.scale, hpTopY: -Math.round(asset.height * asset.scale) - 4 };
+    const visualW = (asset.contentWidth ?? asset.width) * asset.scale;
+    const visualH = (asset.contentHeight ?? asset.height) * asset.scale;
+    return {
+      body: sprite,
+      baseScale: asset.scale,
+      hpTopY: -Math.round(visualH) - 4,
+      shadowRx: Math.max(6, Math.round(visualW * 0.36)),
+    };
   }
   const gfx = new Graphics();
   drawCreatureBody(kind, gfx);
-  return { body: gfx, baseScale: 1, hpTopY: -27 };
+  return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7 };
 }
 
 class EntityView {
@@ -67,8 +75,7 @@ class EntityView {
     const built = createEntityBody(kind);
     this.body = built.body;
     this.baseScale = built.baseScale;
-    const shadowRx = Math.max(7, Math.round(built.baseScale * 20));
-    this.shadow.ellipse(0, 0, shadowRx, Math.max(2.2, shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
+    this.shadow.ellipse(0, 0, built.shadowRx, Math.max(2.2, built.shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
     this.hpBg.rect(-9, built.hpTopY, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);

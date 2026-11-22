@@ -1,133 +1,165 @@
 {
   "tilePx": 16,
   "assets": {
+    "slime": {
+      "path": "/assets/creatures/slime.png",
+      "width": 64,
+      "height": 64,
+      "contentWidth": 36,
+      "contentHeight": 27,
+      "scale": 0.5,
+      "anchorX": 0.5,
+      "anchorY": 0.94
+    },
     "wolf": {
       "path": "/assets/creatures/wolf.png",
       "width": 64,
       "height": 64,
-      "scale": 0.39,
-      "anchorX": 0.5,
-      "anchorY": 0.9
-    },
-    "bear": {
-      "path": "/assets/creatures/bear.png",
-      "width": 64,
-      "height": 64,
+      "contentWidth": 48,
+      "contentHeight": 38,
       "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.92
-    },
-    "spider": {
-      "path": "/assets/creatures/spider.png",
-      "width": 64,
-      "height": 64,
-      "scale": 0.39,
-      "anchorX": 0.5,
-      "anchorY": 0.88
+      "anchorY": 0.94
     },
     "boar": {
       "path": "/assets/creatures/boar.png",
       "width": 64,
       "height": 64,
-      "scale": 0.37,
+      "contentWidth": 46,
+      "contentHeight": 35,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.9
+      "anchorY": 0.94
     },
-    "slime": {
-      "path": "/assets/creatures/slime.png",
+    "spider": {
+      "path": "/assets/creatures/spider.png",
       "width": 64,
       "height": 64,
-      "scale": 0.29,
+      "contentWidth": 48,
+      "contentHeight": 37,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.88
+      "anchorY": 0.94
     },
     "goblin": {
       "path": "/assets/creatures/goblin.png",
       "width": 64,
       "height": 64,
-      "scale": 0.38,
+      "contentWidth": 48,
+      "contentHeight": 47,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.92
-    },
-    "orc": {
-      "path": "/assets/creatures/orc.png",
-      "width": 64,
-      "height": 64,
-      "scale": 0.48,
-      "anchorX": 0.5,
-      "anchorY": 0.92
+      "anchorY": 0.94
     },
     "skeleton": {
       "path": "/assets/creatures/skeleton.png",
       "width": 64,
       "height": 64,
-      "scale": 0.41,
+      "contentWidth": 46,
+      "contentHeight": 52,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.92
+      "anchorY": 0.94
+    },
+    "orc": {
+      "path": "/assets/creatures/orc.png",
+      "width": 64,
+      "height": 64,
+      "contentWidth": 58,
+      "contentHeight": 56,
+      "scale": 0.5,
+      "anchorX": 0.5,
+      "anchorY": 0.94
+    },
+    "bear": {
+      "path": "/assets/creatures/bear.png",
+      "width": 64,
+      "height": 64,
+      "contentWidth": 58,
+      "contentHeight": 58,
+      "scale": 0.5,
+      "anchorX": 0.5,
+      "anchorY": 0.94
     },
     "golem": {
       "path": "/assets/creatures/golem.png",
-      "width": 64,
-      "height": 64,
-      "scale": 0.64,
+      "width": 80,
+      "height": 80,
+      "contentWidth": 71,
+      "contentHeight": 74,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.93
+      "anchorY": 0.95
     },
     "palisade": {
       "path": "/assets/pois/palisade.png",
       "width": 64,
       "height": 64,
-      "scale": 0.28,
+      "contentWidth": 34,
+      "contentHeight": 39,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.9
+      "anchorY": 0.94
     },
     "bandit-tent": {
       "path": "/assets/pois/bandit-tent.png",
       "width": 64,
       "height": 64,
-      "scale": 0.52,
+      "contentWidth": 60,
+      "contentHeight": 56,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.9
+      "anchorY": 0.94
     },
     "ruin-pillar": {
       "path": "/assets/pois/ruin-pillar.png",
       "width": 64,
       "height": 64,
-      "scale": 0.45,
+      "contentWidth": 35,
+      "contentHeight": 56,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.9
+      "anchorY": 0.94
     },
     "chest-wood-closed": {
       "path": "/assets/pois/chest-wood-closed.png",
       "width": 64,
       "height": 64,
-      "scale": 0.3,
+      "contentWidth": 34,
+      "contentHeight": 32,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.86
+      "anchorY": 0.93
     },
     "chest-wood-open": {
       "path": "/assets/pois/chest-wood-open.png",
       "width": 64,
       "height": 64,
-      "scale": 0.3,
+      "contentWidth": 34,
+      "contentHeight": 32,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.86
+      "anchorY": 0.93
     },
     "chest-stone-closed": {
       "path": "/assets/pois/chest-stone-closed.png",
       "width": 64,
       "height": 64,
-      "scale": 0.3,
+      "contentWidth": 34,
+      "contentHeight": 32,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.86
+      "anchorY": 0.93
     },
     "chest-stone-open": {
       "path": "/assets/pois/chest-stone-open.png",
       "width": 64,
       "height": 64,
-      "scale": 0.3,
+      "contentWidth": 34,
+      "contentHeight": 32,
+      "scale": 0.5,
       "anchorX": 0.5,
-      "anchorY": 0.86
+      "anchorY": 0.93
     }
   }
 }

@@ -54,6 +54,7 @@ const TITLE_CSS = `
 }
 .ow-title-enter:hover { filter: brightness(1.1); }
 .ow-title-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #64748b; }
+.ow-title-links { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ow-studio-link {
   color: #7dd3fc; font-weight: 700; text-decoration: none;
   padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(56, 189, 248, 0.38);

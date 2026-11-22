@@ -179,6 +179,16 @@ const TOOLBAR_CSS = `
   background: rgba(180, 83, 9, 0.85);
   border-color: #f59e0b;
 }
+.ow-fps-pill {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 58px;
+  justify-content: center;
+}
+.ow-fps-pill[data-tier="good"] { color: #4ade80; border-color: rgba(74, 222, 128, 0.35); }
+.ow-fps-pill[data-tier="warn"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.45); }
+.ow-fps-pill[data-tier="low"] { color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
   .ow-jump-btn { display: flex; align-items: center; justify-content: center; }
   .ow-combat-cluster { display: flex; }

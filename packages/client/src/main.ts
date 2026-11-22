@@ -5,12 +5,13 @@ import { InputController } from "./input/controller.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { preloadSpriteManifest } from "./render/textures/spriteManifest.js";
 import { WorldScene } from "./render/world/worldScene.js";
+import { bootAssetSandbox } from "./sandbox/sandboxMode.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { AudioPopover } from "./ui/audioPopover.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import type { HudActions } from "./ui/hud/slotRenderer.js";
-import { TitleScreen } from "./ui/title/titleScreen.js";
+import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
   readonly scene: WorldScene;
@@ -103,6 +104,7 @@ function syncUiAndAudio(opts: {
 }
 
 function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
+  ctx.toolbar.tickFps(ctx.nowMs);
   const pre = ctx.client.snapshot();
   if (ctx.titleScreen?.isOpen()) {
     ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
@@ -201,7 +203,12 @@ async function bootOverworldClient(): Promise<void> {
   if (!host) throw new Error("Missing #app mount node");
   installMobileAutoFullscreen();
   await preloadSpriteManifest();
-  const skipTitle = new URLSearchParams(window.location.search).get("skipTitle") === "1";
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("sandbox") === "1" && isLocalhostOrigin()) {
+    await bootAssetSandbox(host);
+    return;
+  }
+  const skipTitle = params.get("skipTitle") === "1";
   const scene = await WorldScene.mount(host);
   const client = new WorldClient(undefined, { autoConnect: skipTitle });
   const audio = new AudioEngine();

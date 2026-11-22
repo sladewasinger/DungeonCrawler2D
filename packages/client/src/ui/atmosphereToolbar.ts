@@ -6,6 +6,7 @@ import { isFullscreenActive, isFullscreenSupported, onFullscreenChange, toggleFu
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
+import { FpsCounter } from "./fpsCounter.js";
 import { ensureToolbarStyles } from "./toolbarStyles.js";
 
 export interface ToolbarCallbacks {
@@ -43,6 +44,7 @@ export class AtmosphereToolbar {
   private readonly audioBtn: HTMLButtonElement;
   private readonly fsBtn: HTMLButtonElement;
   private readonly compass = new CompassBadge();
+  private readonly fps = new FpsCounter();
   private readonly drawer: HTMLDivElement;
   private readonly spawnPopover: DebugSpawnPopover | null;
   private readonly slider: HTMLInputElement;
@@ -75,7 +77,7 @@ export class AtmosphereToolbar {
     else root.append(bar);
 
     const topRight = makeRightControls({
-      compass: this.compass.el, onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
+      fps: this.fps.el, compass: this.compass.el, onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
     });
     this.audioBtn = topRight.audioBtn;
     this.fsBtn = topRight.fsBtn;
@@ -97,6 +99,10 @@ export class AtmosphereToolbar {
     presets.append(pauseBtn);
     drawer.append(presets, slider);
     return drawer;
+  }
+
+  tickFps(nowMs: number): void {
+    this.fps.tick(nowMs);
   }
 
   sync(state: {
@@ -164,6 +170,7 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
 }
 
 function makeRightControls(opts: {
+  readonly fps: HTMLDivElement;
   readonly compass: HTMLDivElement;
   readonly onZoom: (factor: number) => void;
   readonly onToggleAudio: () => void;
@@ -185,7 +192,7 @@ function makeRightControls(opts: {
   zoomIn.textContent = "+";
   zoomIn.setAttribute("aria-label", "Zoom in");
   zoomIn.addEventListener("click", () => opts.onZoom(1.18));
-  box.append(opts.compass, audioBtn, fsBtn, zoomOut, zoomIn);
+  box.append(opts.fps, opts.compass, audioBtn, fsBtn, zoomOut, zoomIn);
   return { box, audioBtn, fsBtn };
 }
 

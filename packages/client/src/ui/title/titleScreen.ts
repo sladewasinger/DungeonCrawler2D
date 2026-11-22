@@ -183,14 +183,22 @@ export class TitleScreen {
     ver.textContent = `v${__APP_VERSION__} (${__BUILD_SHA__})`;
     foot.append(ver);
     if (isLocalhostOrigin()) {
-      const studioLink = document.createElement("a");
-      studioLink.className = "ow-studio-link";
-      studioLink.href = "/sound-studio.html";
-      studioLink.target = "_blank";
-      studioLink.rel = "noopener";
-      studioLink.textContent = "Sound Studio";
-      foot.append(studioLink);
+      const links = domNode(TAG_DIV, "ow-title-links");
+      links.append(
+        makeFooterLink("Asset Sandbox", "/?sandbox=1", "_self"),
+        makeFooterLink("Sound Studio", "/sound-studio.html", "_blank"),
+      );
+      foot.append(links);
     }
     return foot;
   }
+}
+
+function makeFooterLink(label: string, href: string, target: "_self" | "_blank"): HTMLAnchorElement {
+  const link = document.createElement("a");
+  link.className = "ow-studio-link";
+  link.href = href;
+  if (target === "_blank") { link.target = target; link.rel = "noopener"; }
+  link.textContent = label;
+  return link;
 }
