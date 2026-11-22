@@ -229,6 +229,8 @@
             },
             "side": {
               "fps": 10,
+              "loopStart": 3,
+              "loopEnd": 7,
               "frames": [
                 [
                   0,

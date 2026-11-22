@@ -160,7 +160,7 @@ function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidat
   const dy = target.y - e.y;
   const dist = Math.hypot(dx, dy);
   if (e.telegraphTimer > 0 || dist <= 1.55) return { mode: "melee" };
-  if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 6.2) {
+  if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 10.0) {
     e.telegraphTimer = AI_TUNING.boarWindupSec;
     e.windupDuration = AI_TUNING.boarWindupSec;
     e.aiState = ST_CHARGE;

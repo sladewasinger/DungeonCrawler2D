@@ -7,6 +7,8 @@ export type SpriteAnimState = "idle" | "walk" | "attack" | "corpse";
 export interface SpriteAnimClipSpec {
   readonly fps: number;
   readonly frames: readonly (readonly [col: number, row: number])[];
+  readonly loopStart?: number | undefined;
+  readonly loopEnd?: number | undefined;
 }
 
 export interface SpriteSheetAnimSpec {
@@ -31,6 +33,8 @@ export interface SpriteManifestEntry {
 export interface LoadedSpriteClip {
   readonly fps: number;
   readonly frames: readonly Texture[];
+  readonly loopStart?: number | undefined;
+  readonly loopEnd?: number | undefined;
 }
 
 export interface LoadedSpriteAnimations {
@@ -66,7 +70,7 @@ function sliceDirectionClips(
     const frames = clip.frames.map(
       ([col, row]) => new Texture({ source: sheet.source, frame: new Rectangle(col * fw, row * fh, fw, fh) }),
     );
-    out[dir] = { fps: clip.fps, frames };
+    out[dir] = { fps: clip.fps, frames, loopStart: clip.loopStart, loopEnd: clip.loopEnd };
   }
   return out;
 }

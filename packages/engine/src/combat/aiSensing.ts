@@ -26,7 +26,7 @@ export const AI_TUNING = {
   bearFeedDurationSec: 5.5,
   boarWindupSec: 0.65,
   boarChargeSpeedMult: 2.3,
-  boarChargeDurationSec: 0.72,
+  boarChargeDurationSec: 1.35,
   spiderAmbushDayTiles: 4.2,
   spiderAmbushNightTiles: 6.0,
   corpseDurationSec: 18.0,

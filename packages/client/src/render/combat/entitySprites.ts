@@ -64,7 +64,6 @@ function createEntityBody(kind: WorldEntityKind): {
 class EntityView {
   readonly root = new Container();
   private readonly shadow = new Graphics();
-  private readonly telegraph = new Graphics();
   private readonly body: Sprite | Graphics;
   private readonly baseScale: number;
   private readonly animations: LoadedSpriteAnimations | null;
@@ -85,7 +84,7 @@ class EntityView {
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow, this.telegraph, this.body, this.hpBg, this.hpFill);
+    this.root.addChild(this.shadow, this.body, this.hpBg, this.hpFill);
   }
 
   sync(snap: WorldEntitySnapshot, timeSec: number): void {
@@ -97,7 +96,6 @@ class EntityView {
     this.root.zIndex = Math.round(snap.y * TILE_PX) + snap.elevation * 2;
     this.syncBodyState({ snap, timeSec, moving: moved || MOVE_STATES.has(snap.aiState ?? "") });
     this.syncHpBar(snap);
-    this.syncTelegraph(snap);
   }
 
   private syncAnimatedSprite(opts: {
@@ -168,22 +166,6 @@ class EntityView {
     const ratio = Math.max(0.05, Math.min(1, snap.hp / snap.maxHp));
     this.hpFill.scale.x = ratio;
     this.hpFill.position.x = -8 * (1 - ratio);
-  }
-
-  private syncTelegraph(snap: WorldEntitySnapshot): void {
-    this.telegraph.clear();
-    if (isCorpseState(snap) || snap.telegraphProgress <= 0 || snap.hp <= 0) return;
-    const ang = Math.atan2(snap.facingY || 0.01, snap.facingX || 1);
-    const radius = 18;
-    const a0 = ang - 0.85;
-    const a1 = ang + 0.85;
-    const urgent = snap.telegraphProgress > 0.72;
-    this.telegraph
-      .moveTo(0, -4)
-      .arc(0, -4, radius, a0, a1)
-      .lineTo(0, -4)
-      .fill({ color: urgent ? 0xef4444 : 0xf59e0b, alpha: 0.22 + snap.telegraphProgress * 0.25 });
-    this.telegraph.arc(0, -4, radius, a0, a1).stroke({ color: urgent ? 0xfca5a5 : 0xfbbf24, width: 1.4 });
   }
 }
 

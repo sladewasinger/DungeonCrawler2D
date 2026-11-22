@@ -52,6 +52,12 @@ function pickClipForState(
   return byDir[dir] ?? byDir[DIR_SIDE] ?? byDir[DIR_SOUTH] ?? byDir[DIR_NORTH] ?? null;
 }
 
+function resolveLoopSpan(clip: LoadedSpriteClip, len: number): { readonly start: number; readonly count: number } {
+  const start = Math.max(0, Math.min(len - 1, clip.loopStart ?? 0));
+  const end = Math.max(start + 1, Math.min(len, clip.loopEnd ?? len));
+  return { start, count: end - start };
+}
+
 function resolveFrameIndex(input: {
   readonly state: SpriteAnimState;
   readonly snap: WorldEntitySnapshot;
@@ -61,10 +67,12 @@ function resolveFrameIndex(input: {
   const len = input.clip.frames.length;
   if (len <= 1) return 0;
   if (input.state === STATE_ATTACK && input.snap.telegraphProgress > 0) {
-    return Math.min(len - 1, Math.floor(Math.max(0, input.snap.telegraphProgress) * len));
+    const introLen = input.clip.loopStart && input.clip.loopStart > 0 ? Math.min(len, input.clip.loopStart) : len;
+    return Math.min(introLen - 1, Math.floor(Math.max(0, input.snap.telegraphProgress) * introLen));
   }
+  const { start, count } = resolveLoopSpan(input.clip, len);
   const phase = Math.abs(input.snap.x * 0.37 + input.snap.y * 0.19);
-  return Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % len;
+  return start + (Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % count);
 }
 
 export function sampleAnimatedFrame(input: {

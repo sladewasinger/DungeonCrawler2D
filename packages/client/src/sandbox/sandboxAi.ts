@@ -87,6 +87,12 @@ function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly
   return { facingX: pair[0], facingY: pair[1] };
 }
 
+function frozenWindupTelegraph(pose: SandboxPose, timeSec: number): number {
+  if (pose !== "windup") return 0;
+  const cyc = timeSec % 2.4;
+  return cyc < 0.6 ? Math.max(0.01, cyc / 0.6) : 0;
+}
+
 function applyFrozenPose(actor: SandboxActor, opts: {
   readonly pose: SandboxPose;
   readonly facing: SandboxFacing;
@@ -98,7 +104,7 @@ function applyFrozenPose(actor: SandboxActor, opts: {
     return;
   }
   const { facingX, facingY } = resolveFrozenFacing(opts.facing, opts.timeSec);
-  const telegraphProgress = opts.pose === "windup" ? (opts.timeSec * 0.85) % 1 : 0;
+  const telegraphProgress = frozenWindupTelegraph(opts.pose, opts.timeSec);
   actor.snap = {
     ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
     facingX, facingY, aiState: resolveFrozenAiState(opts.pose), telegraphProgress,
@@ -120,7 +126,7 @@ function separationVector(actor: SandboxActor, allActors: readonly SandboxActor[
 function stepActorDash(actor: SandboxActor, dt: number): boolean {
   if (actor.chargeSec <= 0) return false;
   actor.chargeSec = Math.max(0, actor.chargeSec - dt);
-  const spd = 6.2;
+  const spd = 7.4;
   const s = actor.snap;
   actor.snap = {
     ...s, x: Math.max(2, Math.min(94, s.x + actor.chargeDx * spd * dt)),
@@ -137,7 +143,7 @@ function triggerLiveStrike(opts: {
 }): void {
   const { actor, nx, ny, dist, stopDist, onHitPlayer, events } = opts;
   if (actor.snap.kind === "boar" && dist > 1.7) {
-    actor.chargeDx = nx; actor.chargeDy = ny; actor.chargeSec = 0.52;
+    actor.chargeDx = nx; actor.chargeDy = ny; actor.chargeSec = 1.55;
     return;
   }
   if (dist <= stopDist + 0.55) {
@@ -185,7 +191,7 @@ function tryStartWindup(opts: {
 }): boolean {
   const { actor, nx, ny, dist, stopDist } = opts;
   const s = actor.snap;
-  const inBoarRange = s.kind === "boar" && dist >= 1.9 && dist <= 6.2;
+  const inBoarRange = s.kind === "boar" && dist >= 1.9 && dist <= 11.5;
   if (actor.cooldownSec > 0 || (dist > stopDist + 0.35 && !inBoarRange)) return false;
   actor.windupSec = 0.55;
   actor.snap = { ...s, facingX: nx, facingY: ny, aiState: "charge", telegraphProgress: 0.1 };
