@@ -1,5 +1,5 @@
-/** Entry point for the mobile-first PixiJS v8 overworld client. */
-import { OVERWORLD_ENGINE_READY } from "@dc2d/engine";
-import { OVERWORLD_CONTENT_READY } from "@dc2d/content";
+/** Entry point placeholder updated cleanly during Stage 2 before Stage 3 renderer mount. */
+import { CHUNK_SIZE } from "@dc2d/engine";
+import { QUALITY_PRESETS } from "@dc2d/content";
 
-export const CLIENT_BOOT_READY = OVERWORLD_ENGINE_READY && OVERWORLD_CONTENT_READY;
+export const CLIENT_CONFIG_READY = CHUNK_SIZE > 0 && Boolean(QUALITY_PRESETS.high);
