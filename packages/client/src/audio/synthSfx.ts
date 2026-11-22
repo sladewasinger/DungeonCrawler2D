@@ -1,6 +1,12 @@
 /** Procedural Web Audio API SFX synthesis with shared noise/tone envelope builders. */
 import type { GoreSubstance } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
+import {
+  applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
+  type NoiseColor, type ProceduralTrackSpec,
+} from "./proceduralSynth.js";
+
+export { playProceduralTracks, type NoiseColor, type ProceduralTrackSpec };
 
 interface NoiseBurstOpts {
   readonly ctx: AudioContext;
@@ -9,7 +15,10 @@ interface NoiseBurstOpts {
   readonly freq: number;
   readonly filterType: BiquadFilterType;
   readonly gain: number;
+  readonly noiseColor?: NoiseColor;
   readonly q?: number;
+  readonly holdSec?: number;
+  readonly pan?: number;
   readonly delay?: number;
 }
 
@@ -21,6 +30,8 @@ interface ToneOpts {
   readonly f1: number;
   readonly duration: number;
   readonly gain: number;
+  readonly holdSec?: number;
+  readonly pan?: number;
   readonly delay?: number;
 }
 
@@ -32,8 +43,11 @@ export interface SweptNoiseOpts {
   readonly f1: number;
   readonly filterType: BiquadFilterType;
   readonly gain: number;
+  readonly noiseColor?: NoiseColor;
   readonly q: number;
   readonly attackSec: number;
+  readonly holdSec?: number;
+  readonly pan?: number;
   readonly delay?: number;
 }
 
@@ -41,22 +55,14 @@ const WAVE_TRI: OscillatorType = "triangle";
 const WAVE_SINE: OscillatorType = "sine";
 const FILTER_BP: BiquadFilterType = "bandpass";
 
-let cachedNoiseBuf: AudioBuffer | null = null;
-
-export function getSharedNoiseBuffer(ctx: AudioContext): AudioBuffer {
-  if (cachedNoiseBuf && cachedNoiseBuf.sampleRate === ctx.sampleRate) return cachedNoiseBuf;
-  const len = Math.floor(ctx.sampleRate * 1.2);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-  cachedNoiseBuf = buf;
-  return buf;
+export function getSharedNoiseBuffer(ctx: AudioContext, color: NoiseColor = "white"): AudioBuffer {
+  return getColoredNoiseBuffer(ctx, color);
 }
 
 export function playNoiseBurst(opts: NoiseBurstOpts): void {
   const { ctx, dst, duration } = opts;
   const src = ctx.createBufferSource();
-  src.buffer = getSharedNoiseBuffer(ctx);
+  src.buffer = getColoredNoiseBuffer(ctx, opts.noiseColor ?? "white");
   src.playbackRate.value = 0.92 + Math.random() * 0.16;
   const filter = ctx.createBiquadFilter();
   filter.type = opts.filterType;
@@ -64,10 +70,12 @@ export function playNoiseBurst(opts: NoiseBurstOpts): void {
   filter.Q.value = opts.q ?? 1.2;
   const g = ctx.createGain();
   const now = ctx.currentTime + (opts.delay ?? 0);
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(opts.gain, now + Math.min(0.014, duration * 0.2));
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  src.connect(filter).connect(g).connect(dst);
+  applyTrackEnvelope({
+    gainParam: g.gain, now, peak: opts.gain,
+    attackSec: Math.min(0.014, duration * 0.2), holdSec: opts.holdSec ?? 0, durationSec: duration,
+  });
+  src.connect(filter).connect(g);
+  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
   src.start(now, Math.random() * 0.4, duration + 0.02);
 }
 
@@ -75,18 +83,20 @@ export function playSweptNoise(opts: SweptNoiseOpts): void {
   const { ctx, dst, duration } = opts;
   const now = ctx.currentTime + (opts.delay ?? 0);
   const src = ctx.createBufferSource();
-  src.buffer = getSharedNoiseBuffer(ctx);
+  src.buffer = getColoredNoiseBuffer(ctx, opts.noiseColor ?? "white");
   src.playbackRate.value = 0.88 + Math.random() * 0.24;
   const filter = ctx.createBiquadFilter();
   filter.type = opts.filterType;
   filter.Q.value = opts.q;
   filter.frequency.setValueAtTime(opts.f0, now);
-  filter.frequency.exponentialRampToValueAtTime(Math.max(80, opts.f1), now + duration);
+  filter.frequency.exponentialRampToValueAtTime(Math.max(40, opts.f1), now + duration);
   const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(opts.gain, now + opts.attackSec);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  src.connect(filter).connect(g).connect(dst);
+  applyTrackEnvelope({
+    gainParam: g.gain, now, peak: opts.gain,
+    attackSec: opts.attackSec, holdSec: opts.holdSec ?? 0, durationSec: duration,
+  });
+  src.connect(filter).connect(g);
+  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
   src.start(now, Math.random() * 0.5, duration + 0.03);
 }
 
@@ -96,12 +106,14 @@ export function playTone(opts: ToneOpts): void {
   const osc = ctx.createOscillator();
   osc.type = opts.wave;
   osc.frequency.setValueAtTime(opts.f0, now);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(30, opts.f1), now + duration);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(25, opts.f1), now + duration);
   const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(opts.gain, now + Math.min(0.012, duration * 0.25));
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.connect(g).connect(dst);
+  applyTrackEnvelope({
+    gainParam: g.gain, now, peak: opts.gain,
+    attackSec: Math.min(0.012, duration * 0.25), holdSec: opts.holdSec ?? 0, durationSec: duration,
+  });
+  osc.connect(g);
+  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
   osc.start(now);
   osc.stop(now + duration + 0.02);
 }

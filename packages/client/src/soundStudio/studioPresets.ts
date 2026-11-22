@@ -1,5 +1,5 @@
 /** Editable multi-track presets mirroring DungeonCrawler 2D's procedural Web Audio layers. */
-import type { SoundPreset, SoundTrackSpec } from "./studioTypes.js";
+import type { NoiseColor, SoundPreset, SoundTrackSpec } from "./studioTypes.js";
 
 const WAVE_SINE: OscillatorType = "sine";
 const WAVE_TRI: OscillatorType = "triangle";
@@ -8,9 +8,18 @@ const F_BP: BiquadFilterType = "bandpass";
 const T_NOISE = "noise" as const;
 const T_SWEPT = "sweptNoise" as const;
 const T_TONE = "tone" as const;
+const N_WHITE: NoiseColor = "white";
+const N_PINK: NoiseColor = "pink";
+const N_BROWN: NoiseColor = "brown";
 
-function trk(base: Omit<SoundTrackSpec, "enabled" | "solo">): SoundTrackSpec {
-  return { ...base, enabled: true, solo: false };
+type PresetTrackInit = Omit<SoundTrackSpec, "enabled" | "solo" | "noiseColor" | "holdSec" | "pan"> & {
+  readonly noiseColor?: NoiseColor;
+  readonly holdSec?: number;
+  readonly pan?: number;
+};
+
+function trk(base: PresetTrackInit): SoundTrackSpec {
+  return { noiseColor: N_WHITE, holdSec: 0, pan: 0, ...base, enabled: true, solo: false };
 }
 
 export const STUDIO_PRESETS: readonly SoundPreset[] = [
@@ -94,6 +103,16 @@ export const STUDIO_PRESETS: readonly SoundPreset[] = [
       trk({ id: "db1", name: "Chirp 1", kind: T_TONE, wave: WAVE_SINE, filterType: F_LP, f0: 2900, f1: 2680, q: 1, delaySec: 0, durationSec: 0.044, attackSec: 0.008, gain: 0.08 }),
       trk({ id: "db2", name: "Chirp 2", kind: T_TONE, wave: WAVE_SINE, filterType: F_LP, f0: 3250, f1: 2990, q: 1, delaySec: 0.075, durationSec: 0.044, attackSec: 0.008, gain: 0.075 }),
       trk({ id: "db3", name: "Chirp 3", kind: T_TONE, wave: WAVE_SINE, filterType: F_LP, f0: 3620, f1: 3400, q: 1, delaySec: 0.16, durationSec: 0.05, attackSec: 0.008, gain: 0.07 }),
+    ],
+  },
+  {
+    id: "storm-wind",
+    name: "Stereo Storm & Wind",
+    description: "Brown-noise thunder swell with Hold sustain, plus left Pink-noise wind gust and right shimmer breeze.",
+    tracks: [
+      trk({ id: "swd1", name: "Brown Thunder", kind: T_NOISE, wave: WAVE_SINE, filterType: F_LP, noiseColor: N_BROWN, f0: 150, f1: 150, q: 0.85, delaySec: 0, durationSec: 0.95, attackSec: 0.12, holdSec: 0.35, gain: 0.42, pan: 0 }),
+      trk({ id: "swd2", name: "Left Wind Gust", kind: T_SWEPT, wave: WAVE_SINE, filterType: F_BP, noiseColor: N_PINK, f0: 280, f1: 760, q: 1.5, delaySec: 0.08, durationSec: 0.82, attackSec: 0.18, holdSec: 0.24, gain: 0.26, pan: -0.65 }),
+      trk({ id: "swd3", name: "Right Breeze Shimmer", kind: T_SWEPT, wave: WAVE_SINE, filterType: F_BP, noiseColor: N_PINK, f0: 940, f1: 420, q: 1.4, delaySec: 0.25, durationSec: 0.72, attackSec: 0.15, holdSec: 0.18, gain: 0.18, pan: 0.65 }),
     ],
   },
 ];

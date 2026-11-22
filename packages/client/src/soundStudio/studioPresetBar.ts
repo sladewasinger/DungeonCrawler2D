@@ -1,4 +1,4 @@
-/** Preset toolbar (* Unsaved, Save, Save As) and DAW header/visualizer shell builders. */
+/** Preset toolbar (* Unsaved, Save, Save As) and full-screen DAW header/visualizer builders. */
 import type { LibraryPreset } from "./studioStorage.js";
 import type { SoundTrackSpec, TrackKind } from "./studioTypes.js";
 
@@ -8,7 +8,9 @@ export function cloneStudioTracks(tracks: readonly SoundTrackSpec[]): SoundTrack
 
 export function buildStudioTrackToolbar(opts: {
   readonly onAddTrack: (kind: TrackKind) => void;
+  readonly onImportJson: () => void;
   readonly onCopyJson: () => void;
+  readonly onCopyGameCode: () => void;
   readonly onExportWav: () => void;
 }): HTMLDivElement {
   const bar = document.createElement("div");
@@ -17,7 +19,9 @@ export function buildStudioTrackToolbar(opts: {
     makeStudioBtn("+ Swept Noise", () => opts.onAddTrack("sweptNoise")),
     makeStudioBtn("+ Noise Burst", () => opts.onAddTrack("noise")),
     makeStudioBtn("+ Tone Osc", () => opts.onAddTrack("tone")),
+    makeStudioBtn("Import JSON", opts.onImportJson),
     makeStudioBtn("Copy JSON", opts.onCopyJson),
+    makeStudioBtn("Copy Game Code", opts.onCopyGameCode),
     makeStudioBtn("Export .WAV", opts.onExportWav),
   );
   return bar;
@@ -47,8 +51,8 @@ function makeVizCanvas(parent: HTMLDivElement, title: string): HTMLCanvasElement
   lbl.textContent = title;
   const canvas = document.createElement("canvas");
   canvas.className = "st-canvas";
-  canvas.width = 480;
-  canvas.height = 120;
+  canvas.width = 640;
+  canvas.height = 150;
   card.append(lbl, canvas);
   parent.append(card);
   return canvas;
@@ -58,6 +62,7 @@ export function buildStudioTopBar(opts: {
   readonly loopBtn: HTMLButtonElement;
   readonly onJumpStart: () => void;
   readonly onPlay: () => void;
+  readonly onStop: () => void;
 }): HTMLDivElement {
   const top = document.createElement("div");
   top.className = "st-top";
@@ -72,6 +77,7 @@ export function buildStudioTopBar(opts: {
   controls.append(
     makeStudioBtn("|<", opts.onJumpStart),
     makeStudioBtn("Play [Space]", opts.onPlay, "st-btn st-btn-play"),
+    makeStudioBtn("Stop", opts.onStop),
     opts.loopBtn,
     back,
   );
@@ -79,26 +85,37 @@ export function buildStudioTopBar(opts: {
   return top;
 }
 
-export function buildStudioVisualizers(readout: HTMLSpanElement): {
+export function buildStudioVizRow(): {
   readonly row1: HTMLDivElement; readonly wave: HTMLCanvasElement; readonly spec: HTMLCanvasElement;
-  readonly row2: HTMLDivElement; readonly timeline: HTMLCanvasElement;
 } {
   const row1 = document.createElement("div");
   row1.className = "st-viz-row";
   const wave = makeVizCanvas(row1, "Oscilloscope Waveform (Auto-Gain)");
   const spec = makeVizCanvas(row1, "FFT Frequency Spectrum");
-  const row2 = document.createElement("div");
-  row2.className = "st-timeline-card";
-  const meta = document.createElement("div");
-  meta.className = "st-timeline-meta";
-  const title = document.createElement("span");
-  title.className = "st-viz-title";
-  title.textContent = "Multi-Track Envelope Timeline — drag bars to slide, right edge to resize, ruler to scrub";
-  meta.append(title, readout);
-  const timeline = document.createElement("canvas");
-  timeline.className = "st-timeline-canvas";
-  row2.append(meta, timeline);
-  return { row1, wave, spec, row2, timeline };
+  return { row1, wave, spec };
+}
+
+const TEXT_INPUT_TYPES = new Set(["text", "number", "search", "email", "url", "password"]);
+
+export function bindStudioSpacebar(onTrigger: () => void): void {
+  window.addEventListener("keydown", (e) => {
+    const el = e.target as HTMLElement | null;
+    const isText = el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(el.type));
+    if (e.code !== "Space" || isText) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat) onTrigger();
+  }, { capture: true });
+}
+
+export function buildInspectorHeader(opts: {
+  readonly titleEl: HTMLElement; readonly toggleBtn: HTMLButtonElement;
+}): HTMLDivElement {
+  const head = document.createElement("div");
+  head.className = "st-inspector-head";
+  opts.titleEl.className = "st-viz-title";
+  head.append(opts.titleEl, opts.toggleBtn);
+  return head;
 }
 
 function presetTag(p: LibraryPreset): string {

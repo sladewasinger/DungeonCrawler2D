@@ -1,139 +1,63 @@
-/** Web Audio synthesizer, playhead offset slicing, scrub preview, and OfflineAudioContext WAV exporter. */
+/** Sound Studio Web Audio transport wrapper: exact duration playback, Stop, scrub slice, and stereo WAV export. */
+import {
+  activeProceduralTracks, computeTrackWindow, exactTracksDurationSec, playProceduralTracks,
+  type ActiveTrackVoice, type TrackWindow,
+} from "../audio/proceduralSynth.js";
 import type { SoundTrackSpec } from "./studioTypes.js";
 
-export interface TrackWindow {
-  readonly startDelaySec: number;
-  readonly durationSec: number;
-  readonly f0: number;
-  readonly f1: number;
-  readonly attackSec: number;
-}
-
-export function computeTrackWindow(track: SoundTrackSpec, offsetSec: number): TrackWindow | null {
-  const endSec = track.delaySec + track.durationSec;
-  if (endSec <= offsetSec) return null;
-  if (track.delaySec >= offsetSec) {
-    return {
-      startDelaySec: track.delaySec - offsetSec, durationSec: track.durationSec,
-      f0: track.f0, f1: track.f1, attackSec: track.attackSec,
-    };
-  }
-  const frac = (offsetSec - track.delaySec) / Math.max(0.001, track.durationSec);
-  const fStart = Math.max(25, track.f0);
-  const fEnd = Math.max(25, track.f1);
-  const midF0 = track.kind === "noise" ? fStart : fStart * Math.pow(fEnd / fStart, frac);
-  return {
-    startDelaySec: 0,
-    durationSec: Math.max(0.015, endSec - offsetSec),
-    f0: midF0,
-    f1: track.f1,
-    attackSec: 0.006,
-  };
-}
-
-function makeNoiseBuffer(ctx: BaseAudioContext): AudioBuffer {
-  const len = Math.floor(ctx.sampleRate * 1.5);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-  return buf;
-}
-
-function scheduleToneWindow(opts: {
-  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: SoundTrackSpec;
-  readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
-}): void {
-  const { ctx, dst, track, win, baseTime } = opts;
-  const now = baseTime + win.startDelaySec;
-  const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);
-  const osc = ctx.createOscillator();
-  osc.type = track.wave;
-  osc.frequency.setValueAtTime(Math.max(25, win.f0), now);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(25, win.f1), now + Math.max(0.015, win.durationSec));
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, win.attackSec));
-  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-  osc.connect(g).connect(dst);
-  osc.start(now);
-  osc.stop(now + dur + 0.02);
-}
-
-function scheduleNoiseWindow(opts: {
-  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer;
-  readonly track: SoundTrackSpec; readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
-}): void {
-  const { ctx, dst, noise, track, win, baseTime } = opts;
-  const now = baseTime + win.startDelaySec;
-  const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);
-  const src = ctx.createBufferSource();
-  src.buffer = noise;
-  const filter = ctx.createBiquadFilter();
-  filter.type = track.filterType;
-  filter.Q.value = Math.max(0.1, track.q);
-  filter.frequency.setValueAtTime(Math.max(40, win.f0), now);
-  if (track.kind === "sweptNoise") {
-    filter.frequency.exponentialRampToValueAtTime(Math.max(40, win.f1), now + Math.max(0.015, win.durationSec));
-  }
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, win.attackSec));
-  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-  src.connect(filter).connect(g).connect(dst);
-  src.start(now, Math.random() * 0.35, dur + 0.03);
-}
+export { computeTrackWindow, type TrackWindow };
 
 export function activeStudioTracks(tracks: readonly SoundTrackSpec[]): readonly SoundTrackSpec[] {
-  const anySolo = tracks.some((t) => t.solo);
-  return tracks.filter((t) => (anySolo ? t.solo : t.enabled));
+  return activeProceduralTracks(tracks);
 }
 
 export function totalTracksDurationSec(tracks: readonly SoundTrackSpec[]): number {
-  let maxEnd = 0.25;
-  for (const t of tracks) maxEnd = Math.max(maxEnd, t.delaySec + t.durationSec + 0.04);
-  return maxEnd;
+  return exactTracksDurationSec(tracks);
 }
 
-function encodeWavPcm16(buf: AudioBuffer): Blob {
-  const samples = buf.getChannelData(0);
-  const ab = new ArrayBuffer(44 + samples.length * 2);
+function writeAsciiTag(view: DataView, off: number, tag: string): void {
+  for (let i = 0; i < tag.length; i++) view.setUint8(off + i, tag.charCodeAt(i));
+}
+
+function encodeWavPcm16Stereo(buf: AudioBuffer): Blob {
+  const chCount = Math.min(2, Math.max(1, buf.numberOfChannels));
+  const frames = buf.length;
+  const dataBytes = frames * chCount * 2;
+  const ab = new ArrayBuffer(44 + dataBytes);
   const view = new DataView(ab);
-  const writeStr = (off: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
-  writeStr(0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
-  writeStr(8, "WAVE");
-  writeStr(12, "fmt ");
+  writeAsciiTag(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataBytes, true);
+  writeAsciiTag(view, 8, "WAVE");
+  writeAsciiTag(view, 12, "fmt ");
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
+  view.setUint16(22, chCount, true);
   view.setUint32(24, buf.sampleRate, true);
-  view.setUint32(28, buf.sampleRate * 2, true);
-  view.setUint16(32, 2, true);
+  view.setUint32(28, buf.sampleRate * chCount * 2, true);
+  view.setUint16(32, chCount * 2, true);
   view.setUint16(34, 16, true);
-  writeStr(36, "data");
-  view.setUint32(40, samples.length * 2, true);
-  for (let i = 0; i < samples.length; i++) {
-    const clamped = Math.max(-1, Math.min(1, samples[i] ?? 0));
-    view.setInt16(44 + i * 2, Math.round(clamped * 32767), true);
+  writeAsciiTag(view, 36, "data");
+  view.setUint32(40, dataBytes, true);
+  const left = buf.getChannelData(0);
+  const right = chCount > 1 ? buf.getChannelData(1) : left;
+  for (let i = 0; i < frames; i++) {
+    const l = Math.max(-1, Math.min(1, left[i] ?? 0));
+    view.setInt16(44 + i * chCount * 2, Math.round(l * 32767), true);
+    if (chCount > 1) {
+      const r = Math.max(-1, Math.min(1, right[i] ?? 0));
+      view.setInt16(44 + (i * chCount + 1) * 2, Math.round(r * 32767), true);
+    }
   }
   return new Blob([ab], { type: "audio/wav" });
-}
-
-function scheduleWindow(opts: {
-  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer;
-  readonly track: SoundTrackSpec; readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
-}): void {
-  if (opts.track.kind === "tone") scheduleToneWindow(opts);
-  else scheduleNoiseWindow(opts);
 }
 
 export class StudioSynthEngine {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private masterGain: GainNode | null = null;
-  private noiseBuf: AudioBuffer | null = null;
+  private activeVoices: ActiveTrackVoice[] = [];
 
-  private ensureAudio(): { readonly ctx: AudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer } {
+  private ensureAudio(): { readonly ctx: AudioContext; readonly dst: AudioNode } {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this.masterGain = this.ctx.createGain();
@@ -141,10 +65,16 @@ export class StudioSynthEngine {
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.masterGain.connect(this.analyser).connect(this.ctx.destination);
-      this.noiseBuf = makeNoiseBuffer(this.ctx);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
-    return { ctx: this.ctx, dst: this.masterGain!, noise: this.noiseBuf! };
+    return { ctx: this.ctx, dst: this.masterGain! };
+  }
+
+  stopAll(): void {
+    if (!this.ctx || this.activeVoices.length === 0) return;
+    const now = this.ctx.currentTime;
+    for (const v of this.activeVoices) v.stop(now);
+    this.activeVoices = [];
   }
 
   play(tracks: readonly SoundTrackSpec[]): number {
@@ -152,25 +82,18 @@ export class StudioSynthEngine {
   }
 
   playFrom(tracks: readonly SoundTrackSpec[], offsetSec = 0): number {
-    const { ctx, dst, noise } = this.ensureAudio();
+    this.stopAll();
+    const { ctx, dst } = this.ensureAudio();
     const audible = activeStudioTracks(tracks);
-    const baseTime = ctx.currentTime + 0.015;
-    for (const track of audible) {
-      const win = computeTrackWindow(track, offsetSec);
-      if (win) scheduleWindow({ ctx, dst, noise, track, win, baseTime });
-    }
-    return Math.max(0.05, totalTracksDurationSec(audible) - offsetSec);
+    this.activeVoices = playProceduralTracks({ ctx, dst, tracks: audible, offsetSec });
+    const fullEnd = exactTracksDurationSec(tracks);
+    return Math.max(0.03, fullEnd - offsetSec);
   }
 
   playScrubSlice(tracks: readonly SoundTrackSpec[], offsetSec: number): void {
-    const { ctx, dst, noise } = this.ensureAudio();
-    const baseTime = ctx.currentTime + 0.008;
-    for (const track of activeStudioTracks(tracks)) {
-      const win = track.delaySec <= offsetSec + 0.075 ? computeTrackWindow(track, offsetSec) : null;
-      if (!win) continue;
-      const capped: TrackWindow = { ...win, startDelaySec: Math.max(0, track.delaySec - offsetSec), attackSec: 0.006 };
-      scheduleWindow({ ctx, dst, noise, track, win: capped, baseTime, maxDur: 0.075 });
-    }
+    this.stopAll();
+    const { ctx, dst } = this.ensureAudio();
+    this.activeVoices = playProceduralTracks({ ctx, dst, tracks, offsetSec, maxDur: 0.075 });
   }
 
   sampleAnalyser(floatTimeOut: Float32Array<ArrayBuffer>, freqOut: Uint8Array<ArrayBuffer>): number {
@@ -182,18 +105,92 @@ export class StudioSynthEngine {
 
   async renderWavBlob(tracks: readonly SoundTrackSpec[]): Promise<Blob> {
     const audible = activeStudioTracks(tracks);
-    const dur = Math.max(0.2, totalTracksDurationSec(audible));
+    const dur = Math.max(0.08, exactTracksDurationSec(audible) + 0.02);
     const sampleRate = 44100;
-    const off = new OfflineAudioContext(1, Math.ceil(dur * sampleRate), sampleRate);
+    const off = new OfflineAudioContext(2, Math.ceil(dur * sampleRate), sampleRate);
     const master = off.createGain();
     master.gain.value = 0.9;
     master.connect(off.destination);
-    const noise = makeNoiseBuffer(off);
-    for (const track of audible) {
-      const win = computeTrackWindow(track, 0);
-      if (win) scheduleWindow({ ctx: off, dst: master, noise, track, win, baseTime: 0.005 });
+    playProceduralTracks({ ctx: off, dst: master, tracks: audible });
+    return encodeWavPcm16Stereo(await off.startRendering());
+  }
+}
+
+export class StudioTransport {
+  private cueSec = 0;
+  private playheadSec = 0;
+  private playing = false;
+  private playOffsetSec = 0;
+  private playStartMs = 0;
+  private playDurMs = 0;
+  private scrubUntilMs = 0;
+  private lastScrubAtMs = 0;
+  private looping = false;
+  private loopTimer: number | null = null;
+
+  constructor(
+    readonly synth: StudioSynthEngine,
+    private readonly getTracks: () => readonly SoundTrackSpec[],
+  ) {}
+
+  resetCue(): void {
+    this.cueSec = 0;
+    this.stop();
+  }
+
+  playFromCue(): void {
+    const tracks = this.getTracks();
+    const total = exactTracksDurationSec(tracks);
+    if (this.cueSec >= total - 0.01) this.cueSec = 0;
+    this.playheadSec = this.cueSec;
+    this.playOffsetSec = this.cueSec;
+    this.playDurMs = this.synth.playFrom(tracks, this.cueSec) * 1000;
+    this.playStartMs = performance.now();
+    this.playing = true;
+  }
+
+  stop(): void {
+    this.synth.stopAll();
+    this.playing = false;
+    this.playheadSec = this.cueSec;
+  }
+
+  seek(sec: number, scrubbing: boolean): void {
+    this.playing = false;
+    this.cueSec = sec;
+    this.playheadSec = sec;
+    if (!scrubbing) return;
+    const now = performance.now();
+    if (now - this.lastScrubAtMs < 75) return;
+    this.lastScrubAtMs = now;
+    this.scrubUntilMs = now + 115;
+    this.synth.playScrubSlice(this.getTracks(), sec);
+  }
+
+  toggleLoop(): boolean {
+    this.looping = !this.looping;
+    if (this.loopTimer !== null) { window.clearInterval(this.loopTimer); this.loopTimer = null; }
+    if (!this.looping) return false;
+    this.playFromCue();
+    this.loopTimer = window.setInterval(() => {
+      if (!this.playing && performance.now() - this.playStartMs >= this.playDurMs + 160) this.playFromCue();
+    }, 80);
+    return true;
+  }
+
+  stepFrame(now: number): {
+    readonly totalSec: number; readonly cueSec: number; readonly playheadSec: number; readonly activeAudio: boolean;
+  } {
+    const totalSec = exactTracksDurationSec(this.getTracks());
+    if (this.cueSec > totalSec) this.cueSec = totalSec;
+    if (this.playing) {
+      const elapsed = now - this.playStartMs;
+      if (elapsed >= this.playDurMs) { this.playing = false; this.playheadSec = this.cueSec; }
+      else this.playheadSec = Math.min(totalSec, this.playOffsetSec + elapsed / 1000);
     }
-    const rendered = await off.startRendering();
-    return encodeWavPcm16(rendered);
+    return {
+      totalSec, cueSec: this.cueSec, playheadSec: this.playheadSec,
+      activeAudio: this.playing || now < this.scrubUntilMs,
+    };
   }
 }

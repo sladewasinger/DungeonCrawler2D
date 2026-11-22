@@ -4,6 +4,13 @@ const BG = "#090f17";
 const GRID = "rgba(148, 163, 184, 0.14)";
 const AXIS_LABELS = ["100", "500", "1k", "4k", "10k"] as const;
 
+function syncCanvasResolution(canvas: HTMLCanvasElement): void {
+  const targetW = Math.max(320, Math.round(canvas.clientWidth || 480));
+  const targetH = Math.max(110, Math.round(canvas.clientHeight || 150));
+  if (canvas.width !== targetW) canvas.width = targetW;
+  if (canvas.height !== targetH) canvas.height = targetH;
+}
+
 function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, w, h);
@@ -34,6 +41,8 @@ export class StudioVisualizer {
   ) {}
 
   drawLive(opts: { readonly sampleRate: number; readonly hasSignal: boolean }): void {
+    syncCanvasResolution(this.waveCanvas);
+    syncCanvasResolution(this.specCanvas);
     this.drawWaveform(opts.hasSignal);
     this.drawSpectrum(opts.sampleRate, opts.hasSignal);
   }
@@ -78,7 +87,7 @@ export class StudioVisualizer {
     ctx.stroke();
     ctx.fillStyle = "rgba(52, 211, 153, 0.8)";
     ctx.font = "11px system-ui, sans-serif";
-    ctx.fillText(`×${scale.toFixed(1)} auto-gain`, w - 76, 15);
+    ctx.fillText(`×${scale.toFixed(1)} auto-gain`, w - 82, 16);
   }
 
   private drawSpectrum(sampleRate: number, hasSignal: boolean): void {
@@ -86,7 +95,7 @@ export class StudioVisualizer {
     if (!ctx) return;
     const { width: w, height: h } = this.specCanvas;
     drawGrid(ctx, w, h);
-    const bars = 48;
+    const bars = 64;
     const nyquist = Math.max(8000, (sampleRate || 44100) / 2);
     const plotH = h - 16;
     for (let i = 0; i < bars; i++) {

@@ -1,9 +1,9 @@
 # Local Procedural Sound Studio (`packages/client/src/soundStudio/`)
 
-Standalone localhost-friendly multi-track Web Audio synthesizer, preset manager, visualizer, and exporter:
+Standalone full-screen localhost-friendly multi-track DAW synthesizer, visualizer, and code/audio exporter mounted at `/sound-studio.html`:
 
-- **`studioTypes.ts` & `studioPresets.ts`**: Track/preset models and 8 built-in presets mirroring the game's procedural layers (`Water Step Splash`, `Water Jump Plunge`, `Heavy Dirt Landing`, `Campfire Crackle & Pop`, `Iron Sword Slash`, `Shield Parry Ring`, `Treasure Chest Open`, `Dawn Songbird Phrase`).
-- **`studioStorage.ts`**: `localStorage` persistence for custom `Save As` presets and built-in overrides plus canonical dirty (`*`) track fingerprinting.
-- **`studioSynth.ts`**: Offset playhead playback (`playFrom`), live scrub preview (`playScrubSlice`), float `AnalyserNode` tapping, and `OfflineAudioContext` `.WAV` export.
-- **`studioVisualizer.ts` & `studioTimeline.ts`**: Row 1 high-amplitude auto-gain Oscilloscope Waveform + Log-Scale FFT Spectrum; Row 2 full-width interactive Multi-Track Envelope Timeline with ms ticks, draggable track delay bars, resize grips, and scrubbing golden playhead.
-- **`trackRowUi.ts`, `studioPresetBar.ts` & `studioMain.ts`**: Patch-only multi-track DAW rack UI, preset bar (`Save` / `Save As` / `* Unsaved`), and DAW controller mounted at `/sound-studio.html`.
+- **`studioTypes.ts` & `studioPresets.ts`**: Track/preset models aliasing `@dc2d/client` `audio/proceduralSynth.ts` plus 9 built-in presets (`Water Step Splash`, `Water Jump Plunge`, `Heavy Dirt Landing`, `Campfire Crackle & Pop`, `Iron Sword Slash`, `Shield Parry Ring`, `Treasure Chest Open`, `Dawn Songbird Phrase`, `Stereo Storm & Wind`).
+- **`studioStorage.ts`**: `localStorage` persistence & track normalization for custom `Save As` presets, built-in overrides, and canonical dirty (`*`) track fingerprinting.
+- **`studioSynth.ts`**: Exact-duration Web Audio playback (`stopAll`, `playFrom` cue offset, `playScrubSlice`), Float32 `AnalyserNode` sampling, and stereo 16-bit PCM `.WAV` export.
+- **`studioVisualizer.ts` & `timeline/`**: Full-screen dynamic-width high-DPI Row 1 Oscilloscope (auto-gain) + Log-Scale FFT Spectrum; Row 2 Classic DAW Timeline (`timelinePanel.ts`, `timelineCanvas.ts`, `timelineDraw.ts`, `timelineMath.ts`) with exact duration fit, left `TRACKS` gutter (`M`/`S`/`▲`/`▼`), Attack/Hold/Decay envelope curves inside gain-scaled bars, live left/right edge expansion & left-push (zero negative time), left/right trim grips, `Snap` grid, `Trim Start`, and cue-returning golden playhead.
+- **`trackRowUi.ts`, `studioPresetBar.ts`, `io/studioCodeExport.ts` & `studioMain.ts`**: Patch-only Focused Track Inspector (+ `"View: All Tracks"` toggle), synced sliders + numeric inputs (`White`/`Pink`/`Brown` noise, `Hold ms`, stereo `Pan`), capture-phase global `Space` transport, JSON import/export, and copy-pasteable TypeScript snippet generator (`playProceduralTracks`).
