@@ -6,6 +6,7 @@ import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
 import { FoliageWindEffect } from "../shaders/foliageWindFilter.js";
 import { LightingSystem } from "../shaders/lightingSystem.js";
+import { reportShaderDiagnostics } from "../shaders/shaderDiag.js";
 import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
@@ -64,12 +65,17 @@ export class WorldScene {
       { idle: [props.fallbackKnight], run: [props.fallbackKnight] },
     );
     void loadKnightFrames(props.fallbackKnight).then((frames) => this.chunks.setKnightFrames(frames));
+    reportShaderDiagnostics(app.renderer, [
+      { name: "water", filter: this.waterEffect.filter },
+      { name: "wind", filter: this.grassWind.filter },
+      { name: "lighting", filter: this.lighting.filter },
+    ]);
   }
 
   static async mount(host: HTMLElement): Promise<WorldScene> {
     const app = new Application();
     await app.init({
-      resizeTo: host, preference: "webgl", antialias: false, roundPixels: true,
+      resizeTo: host, preference: "webgl", antialias: false, roundPixels: true, autoStart: false,
       backgroundColor: 0x0d131a, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true,
     });
     host.appendChild(app.canvas);
@@ -105,6 +111,7 @@ export class WorldScene {
       lightmapScale: preset.lightmapScale, timeSec: input.timeSec, dayNight,
       camera: { x: this.camX, y: this.camY, zoom: this.zoom }, lights, godRaysEnabled: preset.godRays,
     });
+    this.app.render();
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {

@@ -3,6 +3,7 @@ import { PropKind } from "@dc2d/engine";
 import type { Texture } from "pixi.js";
 import {
   makeCampfireFrames,
+  makeCustomOutlinedTexture,
   makeFallbackKnight,
   makeOutlinedTexture,
   makeTorchFrames,
@@ -58,8 +59,9 @@ function makeBushVariants(): readonly Texture[] {
 }
 
 function makeTallGrassVariants(): readonly Texture[] {
+  const softOutline: readonly [number, number, number] = [26, 68, 30];
   return [0, 1, 2].map((v) =>
-    makeOutlinedTexture(16, 16, [
+    makeCustomOutlinedTexture({ w: 16, h: 16, outline: softOutline }, [
       [3 + v, 8, 2, 7, LEAF_MID], [4 + v, 5, 1, 4, LEAF_SUN], [7, 7, 2, 8, LEAF_DARK],
       [8, 4, 2, 6, LEAF_LIGHT], [11 - v, 8, 2, 7, LEAF_MID], [12 - v, 6, 1, 4, LEAF_SUN],
     ]),
@@ -77,8 +79,9 @@ function makeBoulderVariants(): readonly Texture[] {
 
 function makeWildflowerVariants(): readonly Texture[] {
   const colors = ["#fde047", "#c084fc", "#fb7185"] as const;
+  const softOutline: readonly [number, number, number] = [26, 68, 30];
   return colors.map((petal) =>
-    makeOutlinedTexture(14, 14, [
+    makeCustomOutlinedTexture({ w: 14, h: 14, outline: softOutline }, [
       [4, 7, 1, 5, LEAF_MID], [9, 6, 1, 6, LEAF_MID], [3, 5, 3, 3, petal],
       [4, 6, 1, 1, "#fef9c3"], [8, 4, 3, 3, petal], [9, 5, 1, 1, "#ffffff"],
     ]),

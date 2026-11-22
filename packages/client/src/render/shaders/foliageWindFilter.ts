@@ -30,7 +30,11 @@ export class FoliageWindEffect {
       uInvZoom: { value: 1, type: F32 },
       uWorldOrigin: { value: new Float32Array([0, 0]), type: "vec2<f32>" },
     });
-    const glProgram = GlProgram.from({ vertex: defaultFilterVert, fragment: FOLIAGE_WIND_FRAGMENT_GLSL });
+    const glProgram = GlProgram.from({
+      vertex: defaultFilterVert,
+      fragment: FOLIAGE_WIND_FRAGMENT_GLSL,
+      preferredFragmentPrecision: "highp",
+    });
     this.filter = new Filter({
       glProgram,
       resources: { windUniforms: this.uniforms },

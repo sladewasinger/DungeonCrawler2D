@@ -2,10 +2,21 @@
 import { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "./pixelCanvas.js";
 
-export function makeOutlinedTexture(w: number, h: number, rects: readonly PixelRect[]): Texture {
-  const { canvas, ctx } = createPixelCanvas(w, h);
+export function makeOutlinedTexture(
+  w: number,
+  h: number,
+  rects: readonly PixelRect[],
+): Texture {
+  return makeCustomOutlinedTexture({ w, h, outline: [20, 16, 24] }, rects);
+}
+
+export function makeCustomOutlinedTexture(
+  spec: { readonly w: number; readonly h: number; readonly outline: readonly [number, number, number] },
+  rects: readonly PixelRect[],
+): Texture {
+  const { canvas, ctx } = createPixelCanvas(spec.w, spec.h);
   drawRects(ctx, rects);
-  stampDarkOutline(ctx, { w, h });
+  stampDarkOutline(ctx, { w: spec.w, h: spec.h }, spec.outline);
   return canvasToNearestTexture(canvas);
 }
 

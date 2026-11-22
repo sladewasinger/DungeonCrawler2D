@@ -34,7 +34,11 @@ export class WaterSurfaceEffect {
       uWorldOrigin: { value: new Float32Array([0, 0]), type: "vec2<f32>" },
       uSunColor: { value: new Float32Array([1, 0.96, 0.88]), type: "vec3<f32>" },
     });
-    const glProgram = GlProgram.from({ vertex: defaultFilterVert, fragment: WATER_FRAGMENT_GLSL });
+    const glProgram = GlProgram.from({
+      vertex: defaultFilterVert,
+      fragment: WATER_FRAGMENT_GLSL,
+      preferredFragmentPrecision: "highp",
+    });
     this.filter = new Filter({
       glProgram,
       resources: { waterUniforms: this.uniforms },

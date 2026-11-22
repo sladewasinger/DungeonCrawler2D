@@ -1,12 +1,12 @@
 /** WebGL2 GLSL fragment shader for animated water caustics, shoreline foam, and glints. */
 
-export const WATER_FRAGMENT_GLSL = /* glsl */ `
+export const WATER_FRAGMENT_GLSL = /* glsl */ `#version 300 es
 in vec2 vTextureCoord;
 out vec4 finalColor;
 
 uniform sampler2D uTexture;
-uniform vec4 uInputSize;
-uniform vec4 uOutputFrame;
+uniform highp vec4 uInputSize;
+uniform highp vec4 uOutputFrame;
 uniform float uTime;
 uniform float uEnabled;
 uniform float uNightFactor;

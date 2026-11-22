@@ -1,13 +1,13 @@
 /** WebGL2 full-screen atmosphere composite: lightmap, rim light, bloom, sunbeams, clouds, mist, and grading. */
 
-export const LIGHTING_COMPOSITE_FRAGMENT_GLSL = /* glsl */ `
+export const LIGHTING_COMPOSITE_FRAGMENT_GLSL = /* glsl */ `#version 300 es
 in vec2 vTextureCoord;
 out vec4 finalColor;
 
 uniform sampler2D uTexture;
 uniform sampler2D uLightMap;
-uniform vec4 uInputSize;
-uniform vec4 uOutputFrame;
+uniform highp vec4 uInputSize;
+uniform highp vec4 uOutputFrame;
 uniform float uTime;
 uniform float uBloomStrength;
 uniform float uSunbeamStrength;
@@ -35,15 +35,17 @@ float smoothNoise(vec2 p) {
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+vec3 bloomTap(vec2 uv) {
+  vec3 c = texture(uTexture, uv).rgb;
+  float warmth = max(0.0, max(c.r, c.g * 0.92) - c.b * 0.35);
+  return c * smoothstep(0.62, 1.15, warmth);
+}
+
 vec3 sampleSelectiveBloom(vec2 uv, vec2 screenUv, vec2 texel) {
-  vec3 acc = vec3(0.0);
-  vec2 offs[4] = vec2[4](vec2(2.5, 0.0), vec2(-2.5, 0.0), vec2(0.0, 2.5), vec2(0.0, -2.5));
-  for (int i = 0; i < 4; i++) {
-    vec3 c = texture(uTexture, uv + offs[i] * texel).rgb;
-    float warmth = max(0.0, max(c.r, c.g * 0.92) - c.b * 0.35);
-    float bright = smoothstep(0.62, 1.15, warmth);
-    acc += c * bright;
-  }
+  vec3 acc = bloomTap(uv + vec2(2.5, 0.0) * texel)
+    + bloomTap(uv + vec2(-2.5, 0.0) * texel)
+    + bloomTap(uv + vec2(0.0, 2.5) * texel)
+    + bloomTap(uv + vec2(0.0, -2.5) * texel);
   vec3 lGlow = max(vec3(0.0), texture(uLightMap, screenUv).rgb - vec3(0.95));
   return acc * 0.22 + lGlow * 0.42;
 }
@@ -56,7 +58,6 @@ void main(void) {
   vec4 scene = texture(uTexture, vTextureCoord);
   vec3 light = max(texture(uLightMap, screenUv).rgb, vec3(0.18, 0.21, 0.34));
 
-  // Subtle normal-relief rim highlight from pixel-art luminance edges
   float lumL = dot(texture(uTexture, vTextureCoord - vec2(texel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
   float lumR = dot(texture(uTexture, vTextureCoord + vec2(texel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
   float lumU = dot(texture(uTexture, vTextureCoord - vec2(0.0, texel.y)).rgb, vec3(0.299, 0.587, 0.114));
@@ -64,18 +65,14 @@ void main(void) {
   float rim = max(0.0, (lumL - lumR) * 0.65 + (lumU - lumD) * 0.85);
   vec3 reliefLight = light + uSunColor * rim * (0.24 - 0.12 * uNightFactor);
 
-  // Drifting world-space cloud shadows
   float cloudField = smoothNoise(worldPx * 0.004 + vec2(uTime * 0.032, uTime * 0.012));
   float cloudMask = 1.0 - smoothstep(0.5, 0.82, cloudField) * uCloudAlpha;
-
   vec3 lit = scene.rgb * reliefLight * mix(cloudMask, 1.0, clamp((light.r - 0.9) * 1.4, 0.0, 1.0));
 
-  // Emissive preservation + selective warm bloom
   float fireMask = smoothstep(0.74, 1.05, max(scene.r, scene.g * 0.88) - scene.b * 0.45);
   lit = mix(lit, scene.rgb * 1.16, fireMask * 0.72);
   lit += sampleSelectiveBloom(vTextureCoord, screenUv, texel) * uBloomStrength;
 
-  // Diagonal canopy sunbeams / god-rays
   if (uSunbeamStrength > 0.01) {
     float rayAngle = worldPx.x * 0.022 + worldPx.y * 0.014;
     float rayWave = 0.5 + 0.5 * sin(rayAngle + uTime * 0.25 + smoothNoise(worldPx * 0.005) * 2.2);
@@ -84,16 +81,14 @@ void main(void) {
     lit += uSunColor * beams * 0.15;
   }
 
-  // Low valley ground mist drifting softly during dawn/dusk/night
   float mistPattern = smoothNoise(worldPx * 0.008 - vec2(uTime * 0.04, uTime * 0.015));
   float mistAmount = smoothstep(0.45, 0.92, mistPattern) * (0.06 + 0.12 * uNightFactor) * smoothstep(0.25, 0.95, screenUv.y);
   lit = mix(lit, uFogColor, mistAmount);
 
-  // Soft edge vignette & gentle warm filmic roll-off
   vec2 centered = screenUv - vec2(0.5);
   float vignette = 1.0 - dot(centered, centered) * (0.28 + 0.26 * uNightFactor);
-  vec3 graded = (lit * vignette) / (1.0 + max(vec3(0.0), lit - 0.92) * 0.35);
+  vec3 graded = (lit * vignette) / (vec3(1.0) + max(vec3(0.0), lit - vec3(0.92)) * 0.35);
 
-  finalColor = vec4(graded, scene.a);
+  finalColor = vec4(graded, max(scene.a, 1.0));
 }
 `;

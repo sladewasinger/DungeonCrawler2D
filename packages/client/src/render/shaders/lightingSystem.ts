@@ -55,7 +55,11 @@ export class LightingSystem {
       uSunColor: { value: new Float32Array([1, 0.96, 0.88]), type: "vec3<f32>" },
       uFogColor: { value: new Float32Array([0.7, 0.82, 0.78]), type: "vec3<f32>" },
     });
-    const glProgram = GlProgram.from({ vertex: defaultFilterVert, fragment: LIGHTING_COMPOSITE_FRAGMENT_GLSL });
+    const glProgram = GlProgram.from({
+      vertex: defaultFilterVert,
+      fragment: LIGHTING_COMPOSITE_FRAGMENT_GLSL,
+      preferredFragmentPrecision: "highp",
+    });
     this.filter = new Filter({
       glProgram,
       resources: {

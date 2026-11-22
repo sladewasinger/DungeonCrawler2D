@@ -1,6 +1,6 @@
 /** Loads crisp knight sprite frames from /assets/atlas.json and renders players. */
 import { TILE_PX, type PlayerSnapshot } from "@dc2d/engine";
-import { Container, Rectangle, Sprite, Text, Texture, TextureSource } from "pixi.js";
+import { Container, ImageSource, Rectangle, Sprite, Text, Texture } from "pixi.js";
 
 export interface KnightFrames {
   readonly idle: readonly Texture[];
@@ -20,7 +20,7 @@ export async function loadKnightFrames(fallback: Texture): Promise<KnightFrames>
     const [jsonRes, img] = await Promise.all([fetch("/assets/atlas.json"), loadImage("/assets/atlas.png")]);
     if (!jsonRes.ok) return { idle: [fallback], run: [fallback] };
     const data = (await jsonRes.json()) as AtlasJson;
-    const source = new TextureSource({ resource: img, scaleMode: "nearest" });
+    const source = new ImageSource({ resource: img, scaleMode: "nearest" });
     const slice = (prefix: string): Texture[] =>
       [0, 1, 2, 3]
         .map((i) => data.frames[`${prefix}${i}`]?.frame)
@@ -58,10 +58,20 @@ export class PlayerView {
     this.torch.scale.set(0.75);
     this.label = new Text({
       text: name,
-      style: { fontSize: 7, fill: 0xf8fafc, fontFamily: "monospace", stroke: { color: 0x0f172a, width: 2 } },
+      resolution: 2,
+      roundPixels: false,
+      textureStyle: { scaleMode: "linear" },
+      style: {
+        fontSize: 28,
+        fontWeight: "700",
+        fill: 0xf8fafc,
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        stroke: { color: 0x0f172a, width: 6, join: "round" },
+      },
     });
     this.label.anchor.set(0.5, 1);
-    this.label.position.set(0, -26);
+    this.label.scale.set(0.24);
+    this.label.position.set(0, -28);
     this.root.addChild(this.torch, this.body, this.label);
   }
 
