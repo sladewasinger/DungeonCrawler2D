@@ -60,6 +60,10 @@ class SoundStudioApp {
 
   private createTimelinePanel(): TimelinePanel {
     return new TimelinePanel({
+      loopBtn: this.loopBtn,
+      onJumpStart: () => this.transport.resetCue(),
+      onPlay: () => this.transport.playFromCue(),
+      onStop: () => this.transport.stop(),
       onSelectTrack: (id) => { if (this.selectedTrackId !== id) { this.selectedTrackId = id; this.renderTracks(); } },
       onSeek: (sec, scrubbing) => this.transport.seek(sec, scrubbing),
       onReplaceTracks: (next) => this.commitTrackList(next, false, true),
@@ -80,12 +84,7 @@ class SoundStudioApp {
     this.statusEl.className = "st-status";
     const shell = document.createElement("div");
     shell.className = "st-shell";
-    const topBar = buildStudioTopBar({
-      loopBtn: this.loopBtn,
-      onJumpStart: () => this.transport.resetCue(),
-      onPlay: () => this.transport.playFromCue(),
-      onStop: () => this.transport.stop(),
-    });
+    const topBar = buildStudioTopBar();
     const trackToolbar = buildStudioTrackToolbar({
       onAddTrack: (kind) => this.addTrack(kind),
       onImportJson: () => this.importDrawer.open(),

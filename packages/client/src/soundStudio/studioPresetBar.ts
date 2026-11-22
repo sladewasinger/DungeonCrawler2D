@@ -58,30 +58,16 @@ function makeVizCanvas(parent: HTMLDivElement, title: string): HTMLCanvasElement
   return canvas;
 }
 
-export function buildStudioTopBar(opts: {
-  readonly loopBtn: HTMLButtonElement;
-  readonly onJumpStart: () => void;
-  readonly onPlay: () => void;
-  readonly onStop: () => void;
-}): HTMLDivElement {
+export function buildStudioTopBar(): HTMLDivElement {
   const top = document.createElement("div");
   top.className = "st-top";
   const brand = document.createElement("div");
   brand.innerHTML = `<div class="st-brand">Sound Studio</div><div class="st-sub">Multi-Track Procedural Web Audio Synthesizer &amp; Visualizer</div>`;
-  const controls = document.createElement("div");
-  controls.className = "st-bar";
   const back = document.createElement("a");
   back.className = "st-btn";
   back.href = "/";
   back.textContent = "Back to Game";
-  controls.append(
-    makeStudioBtn("|<", opts.onJumpStart),
-    makeStudioBtn("Play [Space]", opts.onPlay, "st-btn st-btn-play"),
-    makeStudioBtn("Stop", opts.onStop),
-    opts.loopBtn,
-    back,
-  );
-  top.append(brand, controls);
+  top.append(brand, back);
   return top;
 }
 

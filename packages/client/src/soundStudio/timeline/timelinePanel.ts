@@ -1,10 +1,18 @@
-/** Classic DAW timeline panel: selected-track quick strip, aligned M/S/reorder gutter, and canvas lane. */
+/** Classic DAW timeline panel: docked transport bar, track quick strip, aligned gutter, and canvas lane. */
 import type { SoundTrackSpec } from "../studioTypes.js";
 import { TimelineCanvas, type TimelineCanvasCallbacks } from "./timelineCanvas.js";
 import { TRACK_COLORS } from "./timelineDraw.js";
 import { SNAP_STEPS_MS, minTrackDelaySec } from "./timelineMath.js";
 
+const MINI_BTN_CLS = "st-mini-btn";
+const BTN_CLS = "st-btn";
+const BAR_CLS = "st-bar";
+
 export interface TimelinePanelCallbacks extends TimelineCanvasCallbacks {
+  readonly loopBtn: HTMLButtonElement;
+  readonly onJumpStart: () => void;
+  readonly onPlay: () => void;
+  readonly onStop: () => void;
   readonly onToggle: (id: string, field: "enabled" | "solo") => void;
   readonly onMoveOrder: (id: string, delta: -1 | 1) => void;
   readonly onQuickGain: (id: string, gain: number) => void;
@@ -43,8 +51,6 @@ function buildSnapSelect(onChange: (ms: number) => void): HTMLSelectElement {
 function gutterSignature(tracks: readonly SoundTrackSpec[], selectedId: string): string {
   return `${selectedId}::${tracks.map((t) => `${t.id}|${t.name}|${t.kind}|${t.enabled}|${t.solo}`).join(";")}`;
 }
-
-const MINI_BTN_CLS = "st-mini-btn";
 
 function buildGutterRow(t: SoundTrackSpec, opts: {
   readonly idx: number; readonly total: number; readonly selected: boolean; readonly cb: TimelinePanelCallbacks;
@@ -92,8 +98,8 @@ export class TimelinePanel {
 
   constructor(private readonly cb: TimelinePanelCallbacks) {
     this.el.className = "st-timeline-card";
-    this.deleteBtn = makeMiniBtn({ label: "Delete", cls: "st-btn st-btn-danger", title: "Delete selected track", onClick: cb.onDeleteSelected });
-    this.trimBtn = makeMiniBtn({ label: "Trim Start", cls: "st-btn", title: "Shift all tracks left so earliest starts at 0ms", onClick: cb.onTrimStart });
+    this.deleteBtn = makeMiniBtn({ label: "Delete", cls: `${BTN_CLS} st-btn-danger`, title: "Delete selected track", onClick: cb.onDeleteSelected });
+    this.trimBtn = makeMiniBtn({ label: "Trim Start", cls: BTN_CLS, title: "Shift all tracks left so earliest starts at 0ms", onClick: cb.onTrimStart });
 
     const canvas = document.createElement("canvas");
     canvas.className = "st-timeline-canvas";
@@ -113,16 +119,24 @@ export class TimelinePanel {
     laneWrap.append(canvas);
     grid.append(gutter, laneWrap);
 
-    this.el.append(this.buildMetaRow(), this.buildQuickStrip(), grid);
+    this.el.append(this.buildTransportRow(), this.buildQuickStrip(), grid);
   }
 
-  private buildMetaRow(): HTMLDivElement {
+  private buildTransportRow(): HTMLDivElement {
     const meta = document.createElement("div");
     meta.className = "st-timeline-meta";
-    const title = document.createElement("span");
-    title.className = "st-viz-title";
-    title.textContent = "Multi-Track DAW Timeline — drag bars to slide (edge-scrolls L/R), grips to trim, ruler to cue";
-    meta.append(title, this.readout);
+    const transport = document.createElement("div");
+    transport.className = BAR_CLS;
+    transport.append(
+      makeMiniBtn({ label: "|<", cls: BTN_CLS, title: "Jump cue to 0ms", onClick: this.cb.onJumpStart }),
+      makeMiniBtn({ label: "Play [Space]", cls: `${BTN_CLS} st-btn-play`, title: "Play from cue [Space]", onClick: this.cb.onPlay }),
+      makeMiniBtn({ label: "Stop", cls: BTN_CLS, title: "Stop and return playhead to cue", onClick: this.cb.onStop }),
+      this.cb.loopBtn,
+    );
+    const rightTools = document.createElement("div");
+    rightTools.className = BAR_CLS;
+    rightTools.append(this.readout, this.trimBtn, buildSnapSelect((ms) => this.timeline.setSnapMs(ms)));
+    meta.append(transport, rightTools);
     return meta;
   }
 
@@ -145,16 +159,14 @@ export class TimelinePanel {
     gainWrap.append("Gain ", this.quickGainRange, this.quickGainVal);
 
     const rightBtns = document.createElement("div");
-    rightBtns.className = "st-bar";
+    rightBtns.className = BAR_CLS;
     rightBtns.append(
       gainWrap,
-      makeMiniBtn({ label: "Clone", cls: "st-btn", title: "Clone selected track", onClick: this.cb.onCloneSelected }),
+      makeMiniBtn({ label: "Clone", cls: BTN_CLS, title: "Clone selected track", onClick: this.cb.onCloneSelected }),
       this.deleteBtn,
-      this.trimBtn,
-      buildSnapSelect((ms) => this.timeline.setSnapMs(ms)),
     );
     const leftId = document.createElement("div");
-    leftId.className = "st-bar";
+    leftId.className = BAR_CLS;
     leftId.append(this.quickDot, this.quickName);
     strip.append(leftId, rightBtns);
     return strip;
