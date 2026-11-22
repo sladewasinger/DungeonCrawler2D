@@ -97,10 +97,11 @@ function rowPassable(check: StandCheck, ty: number, bounds: { minTx: number; max
 }
 
 function canStandAt(check: StandCheck): boolean {
+  const footDepth = Math.min(check.radius, 0.14);
   const minTx = Math.floor(check.x - check.radius);
   const maxTx = Math.floor(check.x + check.radius);
-  const minTy = Math.floor(check.y - check.radius);
-  const maxTy = Math.floor(check.y + check.radius);
+  const minTy = Math.floor(check.y - footDepth);
+  const maxTy = Math.floor(check.y + footDepth);
   for (let ty = minTy; ty <= maxTy; ty++) {
     if (!rowPassable(check, ty, { minTx, maxTx })) return false;
   }

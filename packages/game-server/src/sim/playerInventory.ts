@@ -71,6 +71,7 @@ export function buildInventorySnapshot(input: {
   readonly state: PlayerInventoryState;
   readonly selectedHotbar: number;
   readonly nearCampfire: boolean;
+  readonly ackSeq?: number | undefined;
 }): InventorySnapshot {
   const cloned = cloneInventoryState(input.state);
   return {
@@ -78,5 +79,6 @@ export function buildInventorySnapshot(input: {
     armor: cloned.armor,
     selectedHotbar: input.selectedHotbar,
     nearCampfire: input.nearCampfire,
+    ...(input.ackSeq !== undefined ? { ackSeq: input.ackSeq } : {}),
   };
 }

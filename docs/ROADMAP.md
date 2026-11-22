@@ -68,23 +68,28 @@ flowchart LR
 - Unified pointer drag-and-drop (backpack <-> backpack swap/stack, backpack <-> bottom hotbar, backpack <-> armor, armor <-> bottom hotbar) plus tap-source -> tap-target mobile fallback.
 - Dedicated **Crafting & Storage Panel** (hand recipes + nearby station recipes with clean craftability filtering).
 
-### Phase 3 — Tactile Action Combat, Wildlife & Overworld POIs *(Next)*
+### Phase 3 — Custom Layered Characters & Visible Multiplayer Equipment *(Next)*
+- Replace the static knight sprite with a custom modular HD-pixel paper-doll rig matching the Knight's chunky outlined pixel style (idle, run, and action frames).
+- **Base Character Creator**: selectable body/gender silhouette, skin tone, hair color, and expandable hair styles saved per player and synced over WebSocket.
+- **Visible Multiplayer Gear Layers**: real-time layered equipment rendering for both local and remote players — helmets/hoods, chestplates/tunics, leggings/pants, boots, plus extensible layers for gloves, capes, and held weapons/tools/shields.
+
+### Phase 4 — Tactile Action Combat, Wildlife & Overworld POIs
 - **Melee Combat**: Directional 3-hit weapon combos, arc VFX, brief hitstop, knockback, and stamina-cost dodge-roll with brief invulnerability frames.
 - **Shield & Bow**: Directional shield block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, and elemental arrow hooks (zero melee cone or lob-arc).
 - **Overworld Wildlife & AI**: Coordinated Wolf Packs (pack-hunter target sharing), solitary Grizzly Bears, Forest Spiders (web/poison lunge), and charging Wild Boars with outlined pixel-art animations.
 - **Deterministic Overworld POIs**: Stamped `7×7` Bandit Camps (wooden palisade fences, tents, campfire, loot chest, goblin/orc guards) and `7×7` Ancient Forest Ruins (mossy pillars, chests, undead/construct guards) with clean chest prompts & no `[DEAD]` labels.
 
-### Phase 4 — Gathering, Light Survival, Gear Tiers & Placeables
+### Phase 5 — Gathering, Light Survival, Gear Tiers & Composable AI Effects
 - Harvestable trees (wood + stumps with regrowth timers), boulders/ore veins (stone, flint, copper, iron), and herbs/berries with hit shake & chip particles.
 - Authoritative **Chunk Delta Store** saving chopped resources, looted chests, and player-placed campfires, torches, wooden chests, workbenches, and forges.
 - Campfire cooking (`raw-meat` -> `cooked-meat`, herb teas/salves) granting timed **Well-Fed** and **Rested** stamina/regen buffs near warm campfires.
-- Four clear gear progression tiers: **Wood & Flint -> Copper & Leather -> Iron & Grizzly -> Shadowsteel & Runic**.
+- Four clear gear progression tiers: **Wood & Flint -> Copper & Leather -> Iron & Grizzly -> Shadowsteel & Runic**, plus flexible composable effects & real-time AI-crafted items/recipes.
 
-### Phase 5 — Multi-Biome World, Dynamic Weather & Enterable Underground Dungeons
+### Phase 6 — Multi-Biome World, Dynamic Weather & Enterable Underground Dungeons
 - Seamless deterministic outer biomes radiating from the Verdant Forest hub: **Whispering Woods** (dense bioluminescent twilight canopy), **Misty Wetlands** (lily pads, bog mist, slimes), **Craggy Highlands** (multi-tier stone cliffs, ore veins, mountain wind), and **Sunken Ruins** (flooded stonework, ancient guardians).
 - Server-synced **Dynamic Weather**: Clear, Overcast, Light Rain, Thunderstorm (angled GLSL rain streaks, animated puddle splash ripples, lightning flashes casting temporary crisp shadows, wet specular sheen on ground/props).
 - **Enterable Underground Dungeons**: Cave arches and sunken staircases transitioning players into dark, multi-floor procedural dungeons illuminated strictly by carried/placed torches, wall sconces, lava/crystal glow, traps, mini-boss arenas, and floor bosses (The Warden).
 
-### Phase 6 — Hybrid Web Audio, Co-op Polish & Progression
+### Phase 7 — Hybrid Web Audio, Co-op Polish & Progression
 - **Hybrid Web Audio Engine**: Zero-latency mobile audio unlock, cross-fading biome & Dawn/Day/Night ambient beds, terrain-matched footsteps, spatial river/campfire audio, pitch-varied melee/bow/harvest/UI SFX, and toggleable music/SFX volume sliders.
 - **Multiplayer & QoL**: Party invites, revive hold-interaction, compact minimap & POI compass, XP/perk milestones, and full desktop/mobile Playwright visual regression & frame-time benchmarks across Quality Presets (`High / Balanced / Performance`).

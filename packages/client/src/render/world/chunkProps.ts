@@ -1,8 +1,9 @@
-/** Prop mounting, foliage rustling, canopy fading, and animated fire helpers. */
+/** Prop mounting with elevation lift, foliage rustling, canopy fading, and animated fire helpers. */
 import { PropKind, TILE_PX, type ChunkProp, type PlayerSnapshot, type PointLightSpec } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
 import { shadowCasterForProp, type ShadowCaster } from "../shaders/castShadows.js";
 import { isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
+import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
 export interface WorldLayers {
   readonly ground: Container;
@@ -34,11 +35,16 @@ interface MountTarget {
   readonly casters: ShadowCaster[];
 }
 
-export function addPropSprite(parent: Container, tex: Texture, prop: { readonly x: number; readonly y: number }): Sprite {
+export function addPropSprite(
+  parent: Container,
+  tex: Texture,
+  prop: { readonly x: number; readonly y: number; readonly elevation?: number },
+): Sprite {
+  const elev = prop.elevation ?? 0;
   const sprite = new Sprite(tex);
   sprite.anchor.set(0.5, 0.9);
-  sprite.position.set(prop.x * TILE_PX, prop.y * TILE_PX);
-  sprite.zIndex = Math.round(prop.y * TILE_PX);
+  sprite.position.set(prop.x * TILE_PX, prop.y * TILE_PX - elev * ELEVATION_LIFT_PX);
+  sprite.zIndex = Math.round(prop.y * TILE_PX) + elev * 2;
   parent.addChild(sprite);
   return sprite;
 }
@@ -60,8 +66,22 @@ function mountTreeProp(input: {
   const { prop, layers, propsAtlas, target } = input;
   const pine = prop.kind === PropKind.PineTree;
   target.ysortSprites.push(addPropSprite(layers.ysort, pine ? propsAtlas.pineTrunk : propsAtlas.oakTrunk, prop));
-  const crown = addPropSprite(layers.canopy, pine ? propsAtlas.pineCanopy : propsAtlas.oakCanopy, { ...prop, y: prop.y - 0.38 });
+  const crown = addPropSprite(layers.canopy, pine ? propsAtlas.pineCanopy : propsAtlas.oakCanopy, {
+    x: prop.x, y: prop.y - 0.38, elevation: prop.elevation,
+  });
   target.canopySprites.push({ sprite: crown, wx: prop.x, wy: prop.y });
+}
+
+function mountFoliageProp(input: {
+  readonly prop: ChunkProp;
+  readonly layers: WorldLayers;
+  readonly propsAtlas: PropTextureSet;
+  readonly target: MountTarget;
+}): void {
+  const { prop, layers, propsAtlas, target } = input;
+  const list = prop.kind === PropKind.TallGrass ? propsAtlas.tallGrass : propsAtlas.wildflower;
+  const parent = prop.elevation > 0 ? layers.ysort : layers.grass;
+  target.grassSprites.push({ sprite: addPropSprite(parent, list[prop.variant % list.length]!, prop), wx: prop.x, wy: prop.y });
 }
 
 export function mountChunkProp(input: {
@@ -73,11 +93,7 @@ export function mountChunkProp(input: {
   const { prop, layers, propsAtlas, target } = input;
   const caster = shadowCasterForProp(prop);
   if (caster) target.casters.push(caster);
-  if (prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower) {
-    const list = prop.kind === PropKind.TallGrass ? propsAtlas.tallGrass : propsAtlas.wildflower;
-    target.grassSprites.push({ sprite: addPropSprite(layers.grass, list[prop.variant % list.length]!, prop), wx: prop.x, wy: prop.y });
-    return;
-  }
+  if (prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower) { mountFoliageProp(input); return; }
   if (isTreeProp(prop.kind)) { mountTreeProp(input); return; }
   const sprite = addPropSprite(layers.ysort, propTextureFor(prop, propsAtlas), prop);
   target.ysortSprites.push(sprite);
@@ -86,11 +102,7 @@ export function mountChunkProp(input: {
   }
 }
 
-function animateFireSprite(
-  anim: { sprite: Sprite; kind: PropKind; phase: number },
-  propsAtlas: PropTextureSet,
-  timeSec: number,
-): void {
+function animateFireSprite(anim: { sprite: Sprite; kind: PropKind; phase: number }, propsAtlas: PropTextureSet, timeSec: number): void {
   const frames = anim.kind === PropKind.Campfire ? propsAtlas.campfireFrames : propsAtlas.torchFrames;
   const tex = frames[Math.floor(timeSec * 10 + anim.phase) % frames.length];
   if (tex) anim.sprite.texture = tex;

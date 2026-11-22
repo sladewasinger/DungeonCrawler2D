@@ -11,15 +11,20 @@ export function createDefaultPlayer(id: string): PlayerSnapshot {
   };
 }
 
-export function reconcilePredictedPlayer(current: PlayerSnapshot, serverMe: PlayerSnapshot): PlayerSnapshot {
+export function reconcilePredictedPlayer(
+  current: PlayerSnapshot,
+  serverMe: PlayerSnapshot,
+  opts: { readonly preserveTorch?: boolean } = {},
+): PlayerSnapshot {
+  const torchLit = opts.preserveTorch ? current.torchLit : serverMe.torchLit;
   const gap = Math.hypot(serverMe.x - current.x, serverMe.y - current.y);
-  if (gap > 0.75) return { ...serverMe };
+  if (gap > 0.75) return { ...serverMe, torchLit };
   return {
     ...current,
     id: serverMe.id,
     name: serverMe.name,
     heldItem: serverMe.heldItem ?? current.heldItem ?? null,
-    torchLit: serverMe.torchLit,
+    torchLit,
     x: current.x + (serverMe.x - current.x) * 0.2,
     y: current.y + (serverMe.y - current.y) * 0.2,
     elevation: serverMe.elevation,
