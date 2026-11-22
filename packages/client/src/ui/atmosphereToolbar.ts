@@ -53,7 +53,7 @@ export class AtmosphereToolbar {
     this.bagBtn = btn("Bag", () => callbacks.onToggleInventory());
     this.craftBtn = btn("Craft", () => callbacks.onToggleCrafting());
     this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
-    this.torchBtn = btn("Torch", () => callbacks.onToggleTorch());
+    this.torchBtn = btn("Lantern", () => callbacks.onToggleTorch());
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
     this.fsBtn = btn("FS", () => void toggleFullscreen());
     this.fsBtn.hidden = !isFullscreenSupported();
@@ -91,7 +91,7 @@ export class AtmosphereToolbar {
     this.craftBtn.dataset.active = String(state.activePanel === "crafting");
     this.heroBtn.dataset.active = String(state.activePanel === "character");
     this.torchBtn.dataset.active = String(state.torchLit);
-    this.torchBtn.textContent = state.torchLit ? "Torch: ON" : "Torch: OFF";
+    this.torchBtn.textContent = state.torchLit ? "Lantern: ON" : "Lantern: OFF";
     this.qualityBtn.textContent = `FX: ${QUALITY_PRESETS[state.quality].label}`;
     this.slider.value = state.dayPhase.toFixed(2);
     this.pauseBtn.dataset.paused = String(state.dayPaused);

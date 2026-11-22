@@ -66,12 +66,14 @@ export interface MovementQuery {
   readonly dy: number;
   readonly radius: number;
   readonly elevation: number;
+  readonly airborne?: boolean | undefined;
 }
 
 export interface MovementResult {
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
+  readonly elevationDrop: number;
   readonly speedMultiplier: number;
   readonly inWater: boolean;
 }
@@ -83,15 +85,19 @@ interface StandCheck {
   readonly radius: number;
   readonly fromElevation: number;
   readonly onStairs: boolean;
+  readonly airborne: boolean;
+}
+
+function tilePassable(check: StandCheck, tile: TileLookup): boolean {
+  if (tile.ground === GroundKind.DeepWater) return false;
+  if (check.airborne) return tile.elevation <= check.fromElevation;
+  const bridged = tile.stairs || check.onStairs;
+  return bridged ? Math.abs(tile.elevation - check.fromElevation) <= 1 : tile.elevation === check.fromElevation;
 }
 
 function rowPassable(check: StandCheck, ty: number, bounds: { minTx: number; maxTx: number }): boolean {
   for (let tx = bounds.minTx; tx <= bounds.maxTx; tx++) {
-    const tile = check.cache.tileAt(tx, ty);
-    if (tile.ground === GroundKind.DeepWater) return false;
-    const bridged = tile.stairs || check.onStairs;
-    const allowed = bridged ? Math.abs(tile.elevation - check.fromElevation) <= 1 : tile.elevation === check.fromElevation;
-    if (!allowed) return false;
+    if (!tilePassable(check, check.cache.tileAt(tx, ty))) return false;
   }
   return true;
 }
@@ -106,6 +112,43 @@ function canStandAt(check: StandCheck): boolean {
     if (!rowPassable(check, ty, { minTx, maxTx })) return false;
   }
   return true;
+}
+
+function maxRowElevation(cache: WorldChunkCache, ty: number, bounds: { minTx: number; maxTx: number }): number {
+  let highest = 0;
+  for (let tx = bounds.minTx; tx <= bounds.maxTx; tx++) {
+    highest = Math.max(highest, cache.tileAt(tx, ty).elevation);
+  }
+  return highest;
+}
+
+function maxElevationUnderFeet(cache: WorldChunkCache, pos: { readonly x: number; readonly y: number; readonly radius: number }): number {
+  const footDepth = Math.min(pos.radius, 0.14);
+  const minTx = Math.floor(pos.x - pos.radius);
+  const maxTx = Math.floor(pos.x + pos.radius);
+  const minTy = Math.floor(pos.y - footDepth);
+  const maxTy = Math.floor(pos.y + footDepth);
+  let highest = 0;
+  for (let ty = minTy; ty <= maxTy; ty++) {
+    highest = Math.max(highest, maxRowElevation(cache, ty, { minTx, maxTx }));
+  }
+  return highest;
+}
+
+function resolveDestElevation(
+  cache: WorldChunkCache,
+  dest: {
+    readonly x: number; readonly y: number; readonly radius: number;
+    readonly elevation: number; readonly airborne: boolean; readonly stairs: boolean;
+  },
+): { readonly nextElevation: number; readonly elevationDrop: number } {
+  if (dest.stairs) return { nextElevation: dest.elevation, elevationDrop: 0 };
+  if (!dest.airborne) {
+    return { nextElevation: clamp(cache.tileAt(Math.floor(dest.x), Math.floor(dest.y)).elevation, 0, 2), elevationDrop: 0 };
+  }
+  const support = clamp(maxElevationUnderFeet(cache, dest), 0, 2);
+  if (support < dest.elevation) return { nextElevation: support, elevationDrop: dest.elevation - support };
+  return { nextElevation: dest.elevation, elevationDrop: 0 };
 }
 
 function pushOutOfProps(input: {
@@ -132,17 +175,21 @@ function pushOutOfProps(input: {
 
 export function resolveMovement(query: MovementQuery): MovementResult {
   const { cache, dx, dy, radius, elevation } = query;
+  const airborne = Boolean(query.airborne);
   const onStairs = cache.tileAt(Math.floor(query.x), Math.floor(query.y)).stairs;
+  const checkBase = { cache, radius, fromElevation: elevation, onStairs, airborne };
   let { x, y } = query;
-  if (canStandAt({ cache, x: x + dx, y, radius, fromElevation: elevation, onStairs })) x += dx;
-  if (canStandAt({ cache, x, y: y + dy, radius, fromElevation: elevation, onStairs })) y += dy;
+  if (canStandAt({ ...checkBase, x: x + dx, y })) x += dx;
+  if (canStandAt({ ...checkBase, x, y: y + dy })) y += dy;
   const pushed = pushOutOfProps({ x, y, radius, props: cache.propsNear(x, y) });
-  if (canStandAt({ cache, x: pushed.x, y: pushed.y, radius, fromElevation: elevation, onStairs })) {
+  if (canStandAt({ ...checkBase, x: pushed.x, y: pushed.y })) {
     x = pushed.x;
     y = pushed.y;
   }
   const destTile = cache.tileAt(Math.floor(x), Math.floor(y));
-  const nextElevation = destTile.stairs ? elevation : clamp(destTile.elevation, 0, 2);
+  const { nextElevation, elevationDrop } = resolveDestElevation(cache, {
+    x, y, radius, elevation, airborne, stairs: destTile.stairs,
+  });
   const inWater = destTile.ground === GroundKind.ShallowWater;
-  return { x, y, elevation: nextElevation, speedMultiplier: inWater ? 0.65 : 1, inWater };
+  return { x, y, elevation: nextElevation, elevationDrop, speedMultiplier: inWater ? 0.65 : 1, inWater };
 }

@@ -58,6 +58,23 @@ describe("collision", () => {
     // Approaching north cliff back edge (wy = -13 at y = -13.0) allows standing close behind the rim.
     const atNorthBack = resolveMovement({ cache, x: -7.5, y: -13.2, dx: 0, dy: 0.04, radius: 0.28, elevation: 0 });
     expect(atNorthBack.y).toBeCloseTo(-13.16, 3);
+
+    // Walking grounded south off the raised cliff edge stays blocked.
+    const groundedEdge = resolveMovement({ cache, x: -7.5, y: -6.5, dx: 0, dy: 0.9, radius: 0.28, elevation: 1 });
+    expect(groundedEdge.elevation).toBe(1);
+    expect(groundedEdge.elevationDrop).toBe(0);
+    expect(groundedEdge.y).toBe(-6.5);
+
+    // Airborne jumping south off the raised cliff clears the rim and drops to elevation 0.
+    const jumpedOff = resolveMovement({ cache, x: -7.5, y: -6.5, dx: 0, dy: 0.9, radius: 0.28, elevation: 1, airborne: true });
+    expect(jumpedOff.y).toBeCloseTo(-5.6, 3);
+    expect(jumpedOff.elevation).toBe(0);
+    expect(jumpedOff.elevationDrop).toBe(1);
+
+    // Airborne movement cannot jump up into a cliff wall from below.
+    const blockedAirWall = resolveMovement({ cache, x: -7.5, y: -5.8, dx: 0, dy: -0.5, radius: 0.28, elevation: 0, airborne: true });
+    expect(blockedAirWall.y).toBe(-5.8);
+    expect(blockedAirWall.elevation).toBe(0);
   });
 
   it("slows movement in shallow water without blocking", () => {

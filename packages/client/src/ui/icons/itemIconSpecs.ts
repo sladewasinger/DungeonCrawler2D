@@ -18,6 +18,7 @@ const HERB_DK = "#15803d";
 const HERB_LT = "#4ade80";
 const LINEN_LT = "#f8fafc";
 const LINEN_MD = "#cbd5e1";
+const DARK_SLATE = "#1e293b";
 
 export const ITEM_ICON_SPECS: Readonly<Record<string, readonly PixelRect[]>> = {
   sword: [
@@ -38,15 +39,17 @@ export const ITEM_ICON_SPECS: Readonly<Record<string, readonly PixelRect[]>> = {
     [2, 5, 2, 2, STEEL_DK], [12, 5, 2, 2, STEEL_DK],
   ],
   "leather-hood": [
-    [5, 2, 6, 3, LTH_LT], [3, 4, 10, 4, LTH_MD], [3, 8, 3, 5, LTH_DK],
-    [10, 8, 3, 5, LTH_DK], [6, 5, 4, 5, "#1e293b"],
+    [6, 1, 4, 2, LTH_LT], [4, 3, 8, 3, LTH_LT], [3, 5, 10, 5, LTH_MD],
+    [5, 5, 6, 5, DARK_SLATE], [6, 6, 4, 3, "#0f172a"],
+    [2, 10, 12, 3, LTH_MD], [3, 12, 10, 2, LTH_DK], [7, 10, 2, 2, GOLD],
   ],
   "leather-tunic": [
     [3, 3, 10, 3, LTH_LT], [5, 5, 6, 8, LTH_MD], [2, 4, 3, 4, LTH_DK],
     [11, 4, 3, 4, LTH_DK], [5, 9, 6, 2, GOLD],
   ],
   "leather-leggings": [
-    [4, 3, 8, 3, LTH_LT], [4, 6, 3, 7, LTH_MD], [9, 6, 3, 7, LTH_MD],
+    [3, 2, 10, 2, DARK_SLATE], [7, 2, 2, 2, GOLD], [4, 4, 8, 2, LTH_LT],
+    [4, 6, 3, 8, LTH_MD], [9, 6, 3, 8, LTH_MD],
     [4, 9, 3, 2, LTH_DK], [9, 9, 3, 2, LTH_DK],
   ],
   "leather-boots": [
@@ -81,7 +84,7 @@ export const ITEM_ICON_SPECS: Readonly<Record<string, readonly PixelRect[]>> = {
     [4, 4, 8, 8, STEEL_DK], [3, 6, 10, 5, STEEL_MD], [5, 5, 5, 3, STEEL_LT],
   ],
   flint: [
-    [6, 3, 4, 3, FLINT_LT], [4, 6, 8, 5, FLINT_DK], [5, 10, 6, 3, "#1e293b"],
+    [6, 3, 4, 3, FLINT_LT], [4, 6, 8, 5, FLINT_DK], [5, 10, 6, 3, DARK_SLATE],
     [7, 5, 2, 4, STEEL_MD],
   ],
   herb: [

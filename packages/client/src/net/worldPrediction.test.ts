@@ -33,4 +33,14 @@ describe("worldPrediction", () => {
     expect(reconciled.facingX).toBeCloseTo(0.6, 3);
     expect(reconciled.facingY).toBeCloseTo(-0.8, 3);
   });
+
+  it("preserves local dropped elevation and jumpZ mid-fall during snapshot reconciliation", () => {
+    const midDrop = { ...createDefaultPlayer("p1"), elevation: 0, jumpZ: 0.72, jumpVz: -1.5, x: -7.5, y: -5.8 };
+    const staleServer = { ...createDefaultPlayer("p1"), elevation: 1, jumpZ: 0.2, jumpVz: 0.5, x: -7.5, y: -6.1 };
+
+    const reconciled = reconcilePredictedPlayer(midDrop, staleServer);
+    expect(reconciled.elevation).toBe(0);
+    expect(reconciled.jumpZ).toBeCloseTo(0.72, 3);
+    expect(reconciled.jumpVz).toBeCloseTo(-1.5, 3);
+  });
 });

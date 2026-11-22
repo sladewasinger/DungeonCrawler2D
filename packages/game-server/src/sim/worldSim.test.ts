@@ -82,7 +82,7 @@ describe("WorldSim", () => {
     expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(2);
     expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
 
-    const customLook = { body: "slender", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;
+    const customLook = { body: "female", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;
     sim.setAppearance(id, { name: "Slade", appearance: customLook });
     expect(must(sim.snapshots()[0]).name).toBe("Slade");
     expect(must(sim.snapshots()[0]).appearance).toEqual(customLook);
@@ -99,5 +99,36 @@ describe("WorldSim", () => {
     for (let i = 0; i < 60; i++) sim.step();
     expect(must(sim.inventorySnapshot(id)).nearCampfire).toBe(false);
     expect(sim.craftRecipe(id, "craft-cooked-meat")).toBe(false);
+  });
+
+  it("allows jumping off raised cliffs to drop down while keeping grounded ledge walking blocked", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("Jumper");
+    let seq = 1;
+    const walkUntil = (move: readonly [number, number], stop: () => boolean, maxSteps = 80): void => {
+      sim.queueInput(id, { seq: seq++, moveX: move[0], moveY: move[1] });
+      for (let i = 0; i < maxSteps && !stop(); i++) sim.step();
+    };
+    walkUntil([-1, 0], () => must(sim.snapshots()[0]).x <= -9.5);
+    walkUntil([0, -1], () => must(sim.snapshots()[0]).y <= -8.2);
+    expect(must(sim.snapshots()[0]).elevation).toBe(1);
+
+    walkUntil([1, 0], () => must(sim.snapshots()[0]).x >= -7.5);
+    walkUntil([0, 1], () => false, 20);
+    const blockedAtRim = must(sim.snapshots()[0]);
+    expect(blockedAtRim.elevation).toBe(1);
+
+    sim.queueInput(id, { seq: seq++, moveX: 0, moveY: 1, jump: true });
+    let droppedMidAir = false;
+    for (let i = 0; i < 30; i++) {
+      sim.step();
+      const s = must(sim.snapshots()[0]);
+      if (s.elevation === 0 && (s.jumpZ ?? 0) > 0) droppedMidAir = true;
+    }
+    const landed = must(sim.snapshots()[0]);
+    expect(droppedMidAir).toBe(true);
+    expect(landed.elevation).toBe(0);
+    expect(landed.jumpZ).toBe(0);
+    expect(landed.y).toBeGreaterThan(blockedAtRim.y);
   });
 });

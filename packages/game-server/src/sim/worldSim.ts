@@ -1,6 +1,6 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement,
+  DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement,
   sanitizeCharacterAppearance, stepJumpArc, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type InventorySnapshot, type PlayerInventoryState, type PlayerSnapshot,
 } from "@dc2d/engine";
@@ -144,10 +144,14 @@ export class WorldSim {
     if (!p.hasExplicitAim) setPlayerAim(p, nx, ny);
     p.moving = true;
     const step = PLAYER_SPEED_TILES_PER_SEC * dtSeconds;
-    const res = resolveMovement({ cache: this.cache, x: p.x, y: p.y, dx: nx * step, dy: ny * step, radius: PLAYER_RADIUS, elevation: p.elevation });
+    const airborne = p.jumpZ > 0.02;
+    const res = resolveMovement({
+      cache: this.cache, x: p.x, y: p.y, dx: nx * step, dy: ny * step, radius: PLAYER_RADIUS, elevation: p.elevation, airborne,
+    });
     p.x = res.x;
     p.y = res.y;
     p.elevation = res.elevation;
+    if (res.elevationDrop > 0) p.jumpZ += res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z;
     p.inWater = res.inWater;
   }
 

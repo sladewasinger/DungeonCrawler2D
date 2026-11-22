@@ -25,7 +25,7 @@ export interface MainHandPlacement {
 }
 
 export interface OffhandPlacement {
-  readonly kind: "none" | "torch" | "lantern";
+  readonly kind: "none" | "handLantern" | "hipLantern";
   readonly x: number;
   readonly y: number;
   readonly rotation: number;
@@ -47,7 +47,7 @@ const MELEE_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonl
   south: { x: -4.8, y: -7.2, rot: 1.02, rotSign: -1, scaleSign: -1, behind: false },
   north: { x: 4.8, y: -7.2, rot: -1.02, rotSign: 1, scaleSign: 1, behind: true },
   east: { x: 2.0, y: -7.0, rot: -0.88, rotSign: 1, scaleSign: 1, behind: false },
-  west: { x: -5.4, y: -7.4, rot: 0.92, rotSign: -1, scaleSign: -1, behind: true },
+  west: { x: -4.4, y: -7.4, rot: 0.92, rotSign: -1, scaleSign: -1, behind: true },
 };
 
 const UPRIGHT_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly y: number; readonly rot: number; readonly scaleSign: number; readonly behind: boolean }>> = {
@@ -57,11 +57,11 @@ const UPRIGHT_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; reado
   west: { x: -5.2, y: -7.6, rot: -0.14, scaleSign: -1, behind: true },
 };
 
-const TORCH_OFFHAND_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly y: number; readonly rot: number; readonly behind: boolean }>> = {
-  south: { x: 4.8, y: -7.2, rot: 0.14, behind: false },
-  north: { x: -4.8, y: -7.2, rot: -0.14, behind: true },
-  east: { x: 7.4, y: -6.8, rot: 0.28, behind: true },
-  west: { x: -4.2, y: -5.8, rot: -0.24, behind: false },
+const HAND_LANTERN_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly y: number; readonly rot: number; readonly behind: boolean }>> = {
+  south: { x: 4.8, y: -7.2, rot: 0.08, behind: false },
+  north: { x: -4.8, y: -7.2, rot: -0.08, behind: true },
+  east: { x: 4.8, y: -7.4, rot: 0.14, behind: true },
+  west: { x: -3.4, y: -7.0, rot: -0.14, behind: false },
 };
 
 const LANTERN_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly behind: boolean }>> = {
@@ -97,10 +97,11 @@ function computeMainPlacement(input: {
     const s = UPRIGHT_SPECS[ctx.cardinal];
     return { x: s.x, y: s.y + walkBob, rotation: s.rot, scaleX: s.scaleSign * scale, scaleY: scale, behindBody: s.behind };
   }
-  const reach = twoHanded ? 6.0 : 5.2;
+  const reach = twoHanded ? 5.4 : 5.2;
+  const baseY = twoHanded ? -9.8 : -9.5;
   return {
     x: ctx.ax * reach,
-    y: -9.5 + walkBob + ctx.ay * 3.8,
+    y: baseY + walkBob + ctx.ay * (twoHanded ? 3.6 : 3.8),
     rotation: Math.atan2(ctx.ay, ctx.ax),
     scaleX: scale,
     scaleY: ctx.ax < -0.05 ? -scale : scale,
@@ -114,17 +115,18 @@ function computeOffhandPlacement(input: {
   readonly torchLit: boolean;
   readonly twoHanded: boolean;
   readonly walkBob: number;
+  readonly sway: number;
 }): OffhandPlacement {
-  const { ctx, heldItem, torchLit, twoHanded, walkBob } = input;
+  const { ctx, heldItem, torchLit, twoHanded, walkBob, sway } = input;
   if (!torchLit || heldItem === "torch") {
     return { kind: "none", x: 0, y: 0, rotation: 0, behindBody: false };
   }
   if (twoHanded) {
     const l = LANTERN_SPECS[ctx.cardinal];
-    return { kind: "lantern", x: l.x, y: -6.4 + walkBob * 0.4, rotation: 0, behindBody: l.behind };
+    return { kind: "hipLantern", x: l.x, y: -6.4 + walkBob * 0.4, rotation: 0, behindBody: l.behind };
   }
-  const t = TORCH_OFFHAND_SPECS[ctx.cardinal];
-  return { kind: "torch", x: t.x, y: t.y - walkBob * 0.5, rotation: t.rot, behindBody: t.behind };
+  const h = HAND_LANTERN_SPECS[ctx.cardinal];
+  return { kind: "handLantern", x: h.x, y: h.y - walkBob * 0.5, rotation: h.rot + sway * 0.6, behindBody: h.behind };
 }
 
 export function computeHeldLayout(input: HeldPlacementInput): HeldLayout {
@@ -134,6 +136,6 @@ export function computeHeldLayout(input: HeldPlacementInput): HeldLayout {
   const scale = input.itemScale ?? CHARACTER_WORLD_SCALE;
   return {
     main: computeMainPlacement({ ctx, twoHanded: input.twoHanded, aimMode: input.aimMode, scale, walkBob, sway }),
-    offhand: computeOffhandPlacement({ ctx, heldItem: input.heldItem, torchLit: input.torchLit, twoHanded: input.twoHanded, walkBob }),
+    offhand: computeOffhandPlacement({ ctx, heldItem: input.heldItem, torchLit: input.torchLit, twoHanded: input.twoHanded, walkBob, sway }),
   };
 }

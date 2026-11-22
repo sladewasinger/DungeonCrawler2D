@@ -1,6 +1,8 @@
 /** Cached 32x32 4-directional procedural character sprite builder with 64-entry LRU cache. */
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
+import type { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline } from "../textures/pixelCanvas.js";
+import { armCanvasSize, buildArmRects } from "./armRig.js";
 import { buildArmorRects } from "./characterArmorLayers.js";
 import { buildBodyRects } from "./characterBodyLayers.js";
 import { buildHairRects } from "./characterHairLayers.js";
@@ -27,12 +29,13 @@ function renderPoseFrame(input: {
   readonly armor: ArmorEquipment;
   readonly dir: FacingDir;
   readonly pose: CharacterPose;
+  readonly includeArms?: boolean | undefined;
 }): { readonly canvas: HTMLCanvasElement; readonly texture: DirectionAnim["idle"][number] } {
   const { canvas, ctx } = createPixelCanvas(FRAME_SIZE.w, FRAME_SIZE.h);
-  const { appearance, armor, dir, pose } = input;
+  const { appearance, armor, dir, pose, includeArms } = input;
   const rects = [
-    ...buildBodyRects({ appearance, dir, pose }),
-    ...buildArmorRects({ appearance, armor, dir, pose }),
+    ...buildBodyRects({ appearance, dir, pose, includeArms }),
+    ...buildArmorRects({ appearance, armor, dir, pose, includeArms }),
     ...buildHairRects({ appearance, dir, pose, hooded: Boolean(armor.head) }),
   ];
   drawRects(ctx, rects);
@@ -40,23 +43,25 @@ function renderPoseFrame(input: {
   return { canvas, texture: canvasToNearestTexture(canvas) };
 }
 
+function buildArmTexture(appearance: CharacterAppearance, armor: ArmorEquipment, shaded: boolean): Texture {
+  const size = armCanvasSize(appearance.body === "female");
+  const { canvas, ctx } = createPixelCanvas(size.w, size.h);
+  drawRects(ctx, buildArmRects({ appearance, armor, shaded }));
+  stampDarkOutline(ctx, size, OUTLINE_RGB);
+  return canvasToNearestTexture(canvas);
+}
+
 function buildDirectionAnim(input: {
   readonly appearance: CharacterAppearance;
   readonly armor: ArmorEquipment;
   readonly dir: FacingDir;
-}): { readonly anim: DirectionAnim; readonly previewUrl?: string } {
-  const idleFrames = IDLE_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
-  const runFrames = RUN_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
-  const jumpFrames = JUMP_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
-  const fallFrames = FALL_POSES.map((pose) => renderPoseFrame({ ...input, pose }));
-  const anim: DirectionAnim = {
-    idle: idleFrames.map((f) => f.texture),
-    run: runFrames.map((f) => f.texture),
-    jump: jumpFrames.map((f) => f.texture),
-    fall: fallFrames.map((f) => f.texture),
+}): DirectionAnim {
+  return {
+    idle: IDLE_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
+    run: RUN_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
+    jump: JUMP_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
+    fall: FALL_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
   };
-  const firstCanvas = idleFrames[0]?.canvas;
-  return firstCanvas ? { anim, previewUrl: firstCanvas.toDataURL() } : { anim };
 }
 
 function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
@@ -66,6 +71,8 @@ function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
       tex.destroy(true);
     }
   }
+  set.frontArm.destroy(true);
+  set.backArm.destroy(true);
 }
 
 function evictOldestIfFull(): void {
@@ -86,15 +93,16 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     return existing;
   }
   evictOldestIfFull();
-  const southBuilt = buildDirectionAnim({ appearance, armor, dir: "south" });
-  const northBuilt = buildDirectionAnim({ appearance, armor, dir: "north" });
-  const sideBuilt = buildDirectionAnim({ appearance, armor, dir: "side" });
+  const previewFrame = renderPoseFrame({ appearance, armor, dir: "south", pose: IDLE_POSES[0]!, includeArms: true });
   const created: CharacterSpriteSet = {
-    south: southBuilt.anim,
-    north: northBuilt.anim,
-    side: sideBuilt.anim,
-    previewUrl: southBuilt.previewUrl ?? "",
+    south: buildDirectionAnim({ appearance, armor, dir: "south" }),
+    north: buildDirectionAnim({ appearance, armor, dir: "north" }),
+    side: buildDirectionAnim({ appearance, armor, dir: "side" }),
+    frontArm: buildArmTexture(appearance, armor, false),
+    backArm: buildArmTexture(appearance, armor, true),
+    previewUrl: previewFrame.canvas.toDataURL(),
   };
+  previewFrame.texture.destroy(true);
   spriteCache.set(key, created);
   return created;
 }

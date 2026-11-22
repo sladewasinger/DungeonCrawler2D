@@ -30,7 +30,7 @@ Documentation lives next to the code it describes:
 | [packages/content/README.md](packages/content/README.md) | Authoritative item catalog, recipes, light palettes, quality presets |
 | [packages/game-server/README.md](packages/game-server/README.md) | Authoritative 20 Hz simulation loop and WebSocket `/health` + game server |
 | [packages/client/README.md](packages/client/README.md) | PixiJS v8 WebGL2 client, prediction, input, and HUD |
-| [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `20×26` HD-pixel paper-doll compositor & LRU texture cache |
+| [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `32×32` (`0.75×` world-scale) 4-directional paper-doll compositor, Hybrid Weapon Grip Socket arm rig, & LRU texture cache |
 | [packages/client/src/render/README.md](packages/client/src/render/README.md) | Terrain/prop texture builders, world layers, and shader atmosphere pipeline |
 | [packages/client/src/ui/hud/README.md](packages/client/src/ui/hud/README.md) | Larger bottom hotbar, minimalist inventory modal, crafting panel, pointer drag/drop |
 | [infra/README.md](infra/README.md) | Terraform AWS deployment, CloudFront, SSM, and EC2 server setup |
@@ -61,17 +61,17 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 
 ### Controls
 
-- **Movement**:
-  - **Desktop**: `W A S D` or Arrow keys move; scroll wheel zooms camera.
-  - **Touch / Mobile**: Touch anywhere outside HUD panels to summon the floating analog thumbstick (mouse clicks do not trigger the mobile joystick).
+- **Movement, Jump & Zoom**:
+  - **Desktop**: `W A S D` or Arrow keys move; `Space` jumps and lets you leap off raised cliffs; scroll wheel or top-right `−`/`+` buttons adjust camera zoom.
+  - **Touch / Mobile**: Touch anywhere outside HUD panels to summon the floating analog thumbstick (mouse clicks do not trigger the mobile joystick), tap `JUMP` to leap across terrain or off cliffs, and use top-right `−`/`+` buttons to adjust camera zoom.
 - **Inventory, Character & Hotbar**:
   - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand).
   - **`Tab` or `Bag` button**: Open minimalist Inventory (`27`-slot Backpack + `4` Armor slots + Stats). Equipped armor (`Leather Hood`, `Tunic`, `Leggings`, `Boots`) renders visibly on your character for all players; drag items directly (or tap source -> tap target) between Backpack, Armor, and the always-visible bottom hotbar.
-  - **`H` or `Hero` button**: Open Hero Appearance creator (name, body silhouette, skin tone, hair style, and hair pigment; auto-saved in `localStorage` and synced over WebSocket).
+  - **`H` or `Hero` button**: Open Hero Appearance creator (name, `Male`/`Female` body silhouette, skin tone, eye color, hair style, and hair pigment; auto-saved in `localStorage` and synced over WebSocket).
   - **`C` or `Craft` button**: Open Crafting panel (craftable recipes only by default, with optional `Show Locked` toggle).
   - **`Esc`**: Close open panels.
 - **Atmosphere & Fullscreen**:
-  - **`F` or `Torch` button**: Toggle player torch.
+  - **`F` or `Lantern` button**: Toggle built-in off-hand lantern (auto-clips to waist with bow, hidden when holding a craftable `Torch`).
   - **`FX` button**: Cycle quality presets (`High`, `Balanced`, `Performance`).
   - **`FS` button**: Manual fullscreen toggle (touch devices also auto-request fullscreen on first touch gesture).
   - **`Atmosphere ▾`**: Preview `Dawn`, `Day`, `Golden Hour`, `Dusk`, and `Night` lighting or scrub the Day/Night clock.
