@@ -1,6 +1,7 @@
 /** Renders POI chests, floating Open prompt, and magnetized ground loot pickups. */
 import { AI_TUNING, TILE_PX, type GroundLootSnapshot, type PlayerSnapshot, type WorldChestSnapshot } from "@dc2d/engine";
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Sprite } from "pixi.js";
+import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 
 const PROMPT_CSS = `
@@ -36,16 +37,50 @@ function drawChestGraphic(g: Graphics, c: WorldChestSnapshot, nearAndClosed: boo
   if (nearAndClosed) g.rect(-8, -11, 16, 12).stroke({ color: 0xfde047, width: 1 });
 }
 
-function pruneMissingViews(views: Map<string, Graphics>, items: readonly { readonly id: string }[]): void {
+interface ChestView {
+  readonly root: Container;
+  readonly shadow: Graphics;
+  readonly highlight: Graphics;
+  readonly sprite: Sprite | null;
+  readonly fallback: Graphics | null;
+  lastKey: string;
+  lastHighlight: boolean;
+}
+
+function chestSpriteKey(c: WorldChestSnapshot): string {
+  const stone = c.poiKind === "ancient-ruins";
+  return `${stone ? "chest-stone" : "chest-wood"}-${c.opened ? "open" : "closed"}`;
+}
+
+function syncChestHighlight(view: ChestView, highlighted: boolean): void {
+  if (view.lastHighlight === highlighted) return;
+  view.highlight.clear();
+  if (highlighted) view.highlight.ellipse(0, -1, 11, 4.5).stroke({ color: 0xfde047, width: 1.5 });
+}
+
+function syncChestViewVisual(view: ChestView, c: WorldChestSnapshot, highlighted: boolean): void {
+  const key = chestSpriteKey(c);
+  if (view.sprite) {
+    const asset = view.lastKey !== key ? getLoadedSpriteAsset(key) : null;
+    if (asset) { view.sprite.texture = asset.texture; view.sprite.scale.set(asset.scale); view.sprite.anchor.set(asset.anchorX, asset.anchorY); }
+    syncChestHighlight(view, highlighted);
+  } else if (view.fallback && (view.lastKey !== key || view.lastHighlight !== highlighted)) {
+    drawChestGraphic(view.fallback, c, highlighted);
+  }
+  view.lastKey = key;
+  view.lastHighlight = highlighted;
+}
+
+function pruneChestViews(views: Map<string, ChestView>, items: readonly { readonly id: string }[]): void {
   const active = new Set(items.map((item) => item.id));
   for (const [id, view] of views) {
-    if (!active.has(id)) { view.destroy(); views.delete(id); }
+    if (!active.has(id)) { view.root.destroy({ children: true }); views.delete(id); }
   }
 }
 
 export class WorldPickupsRenderer {
   readonly container = new Container();
-  private readonly chestViews = new Map<string, Graphics>();
+  private readonly chestViews = new Map<string, ChestView>();
   private readonly lootViews = new Map<string, Graphics>();
   private readonly promptBtn: HTMLButtonElement;
 
@@ -82,25 +117,34 @@ export class WorldPickupsRenderer {
   }
 
   private syncChests(chests: readonly WorldChestSnapshot[], local: PlayerSnapshot | undefined): string | null {
-    pruneMissingViews(this.chestViews, chests);
+    pruneChestViews(this.chestViews, chests);
     let nearestOpenable: string | null = null;
     let bestDist: number = AI_TUNING.chestInteractRadiusTiles;
     for (const c of chests) {
       const dist = local ? Math.hypot(c.x - local.x, c.y - local.y) : 99;
       if (dist <= bestDist) { bestDist = dist; nearestOpenable = c.id; }
-      const view = this.chestViews.get(c.id) ?? this.createChestView(c.id);
-      drawChestGraphic(view, c, c.id === nearestOpenable);
-      view.position.set(c.x * TILE_PX, c.y * TILE_PX - c.elevation * ELEVATION_LIFT_PX);
-      view.zIndex = Math.round(c.y * TILE_PX) + c.elevation * 2;
+      const view = this.chestViews.get(c.id) ?? this.createChestView(c);
+      syncChestViewVisual(view, c, c.id === nearestOpenable);
+      view.root.position.set(c.x * TILE_PX, c.y * TILE_PX - c.elevation * ELEVATION_LIFT_PX);
+      view.root.zIndex = Math.round(c.y * TILE_PX) + c.elevation * 2;
     }
     return nearestOpenable;
   }
 
-  private createChestView(id: string): Graphics {
-    const g = new Graphics();
-    this.chestViews.set(id, g);
-    this.container.addChild(g);
-    return g;
+  private createChestView(c: WorldChestSnapshot): ChestView {
+    const root = new Container();
+    const shadow = new Graphics();
+    shadow.ellipse(0, 1, 9, 3).fill({ color: 0x090d14, alpha: 0.35 });
+    const highlight = new Graphics();
+    const asset = getLoadedSpriteAsset(chestSpriteKey(c));
+    const sprite = asset ? new Sprite(asset.texture) : null;
+    const fallback = asset ? null : new Graphics();
+    if (sprite && asset) { sprite.anchor.set(asset.anchorX, asset.anchorY); sprite.scale.set(asset.scale); }
+    root.addChild(shadow, highlight, sprite ?? fallback!);
+    this.container.addChild(root);
+    const view: ChestView = { root, shadow, highlight, sprite, fallback, lastKey: "", lastHighlight: false };
+    this.chestViews.set(c.id, view);
+    return view;
   }
 
   private syncGroundLoot(list: readonly GroundLootSnapshot[], timeSec: number): void {

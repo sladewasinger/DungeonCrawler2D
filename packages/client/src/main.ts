@@ -3,6 +3,7 @@ import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
 import { AudioEngine } from "./audio/audioEngine.js";
 import { InputController } from "./input/controller.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
+import { preloadSpriteManifest } from "./render/textures/spriteManifest.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { AudioPopover } from "./ui/audioPopover.js";
@@ -199,6 +200,7 @@ async function bootOverworldClient(): Promise<void> {
   const host = document.getElementById("app");
   if (!host) throw new Error("Missing #app mount node");
   installMobileAutoFullscreen();
+  await preloadSpriteManifest();
   const skipTitle = new URLSearchParams(window.location.search).get("skipTitle") === "1";
   const scene = await WorldScene.mount(host);
   const client = new WorldClient(undefined, { autoConnect: skipTitle });

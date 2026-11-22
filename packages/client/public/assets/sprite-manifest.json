@@ -1,0 +1,133 @@
+{
+  "tilePx": 16,
+  "assets": {
+    "wolf": {
+      "path": "/assets/creatures/wolf.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.39,
+      "anchorX": 0.5,
+      "anchorY": 0.9
+    },
+    "bear": {
+      "path": "/assets/creatures/bear.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.5,
+      "anchorX": 0.5,
+      "anchorY": 0.92
+    },
+    "spider": {
+      "path": "/assets/creatures/spider.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.39,
+      "anchorX": 0.5,
+      "anchorY": 0.88
+    },
+    "boar": {
+      "path": "/assets/creatures/boar.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.37,
+      "anchorX": 0.5,
+      "anchorY": 0.9
+    },
+    "slime": {
+      "path": "/assets/creatures/slime.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.29,
+      "anchorX": 0.5,
+      "anchorY": 0.88
+    },
+    "goblin": {
+      "path": "/assets/creatures/goblin.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.38,
+      "anchorX": 0.5,
+      "anchorY": 0.92
+    },
+    "orc": {
+      "path": "/assets/creatures/orc.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.48,
+      "anchorX": 0.5,
+      "anchorY": 0.92
+    },
+    "skeleton": {
+      "path": "/assets/creatures/skeleton.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.41,
+      "anchorX": 0.5,
+      "anchorY": 0.92
+    },
+    "golem": {
+      "path": "/assets/creatures/golem.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.64,
+      "anchorX": 0.5,
+      "anchorY": 0.93
+    },
+    "palisade": {
+      "path": "/assets/pois/palisade.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.28,
+      "anchorX": 0.5,
+      "anchorY": 0.9
+    },
+    "bandit-tent": {
+      "path": "/assets/pois/bandit-tent.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.52,
+      "anchorX": 0.5,
+      "anchorY": 0.9
+    },
+    "ruin-pillar": {
+      "path": "/assets/pois/ruin-pillar.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.45,
+      "anchorX": 0.5,
+      "anchorY": 0.9
+    },
+    "chest-wood-closed": {
+      "path": "/assets/pois/chest-wood-closed.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.3,
+      "anchorX": 0.5,
+      "anchorY": 0.86
+    },
+    "chest-wood-open": {
+      "path": "/assets/pois/chest-wood-open.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.3,
+      "anchorX": 0.5,
+      "anchorY": 0.86
+    },
+    "chest-stone-closed": {
+      "path": "/assets/pois/chest-stone-closed.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.3,
+      "anchorX": 0.5,
+      "anchorY": 0.86
+    },
+    "chest-stone-open": {
+      "path": "/assets/pois/chest-stone-open.png",
+      "width": 64,
+      "height": 64,
+      "scale": 0.3,
+      "anchorX": 0.5,
+      "anchorY": 0.86
+    }
+  }
+}
