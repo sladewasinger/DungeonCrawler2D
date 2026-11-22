@@ -1,11 +1,13 @@
 /** Deterministic 32x32 chunk generator for terrain tiles, props, and point lights. */
 import { hashUnit2d } from "../math/noise.js";
 import { sampleWorldTile, type TileSample } from "./biomeSampler.js";
+import { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights } from "./poiStamper.js";
 import {
   CHUNK_SIZE,
   GroundKind,
   PropKind,
   worldTileIndex,
+  type ChunkPoi,
   type ChunkProp,
   type PointLightSpec,
   type WorldChunk,
@@ -130,6 +132,23 @@ function placeForestOrMeadowProp(input: {
   if (choice) pushProp(props, choice.kind, { ...base, ...choice });
 }
 
+function fillChunkTile(opts: {
+  readonly worldSeed: number; readonly wx: number; readonly wy: number; readonly idx: number;
+  readonly poi: ChunkPoi | null; readonly ground: Uint8Array; readonly elevation: Uint8Array;
+  readonly stairs: Uint8Array; readonly variant: Uint8Array;
+  readonly props: ChunkProp[]; readonly lights: PointLightSpec[];
+}): void {
+  const sample = sampleWorldTile(opts.worldSeed, opts.wx, opts.wy);
+  const inPoi = opts.poi !== null && isInsidePoiFootprint(opts.poi, opts.wx, opts.wy);
+  opts.ground[opts.idx] = inPoi && opts.poi ? poiFloorGround(opts.poi, opts.wx, opts.wy) : sample.ground;
+  opts.elevation[opts.idx] = sample.elevation;
+  opts.stairs[opts.idx] = sample.stairs ? 1 : 0;
+  opts.variant[opts.idx] = sample.variant;
+  if (!inPoi) {
+    placeRandomTileProp({ worldSeed: opts.worldSeed, wx: opts.wx, wy: opts.wy, sample, props: opts.props, lights: opts.lights });
+  }
+}
+
 export function generateChunk(worldSeed: number, cx: number, cy: number): WorldChunk {
   const size = CHUNK_SIZE * CHUNK_SIZE;
   const ground = new Uint8Array(size);
@@ -139,18 +158,13 @@ export function generateChunk(worldSeed: number, cx: number, cy: number): WorldC
   const props: ChunkProp[] = [];
   const lights: PointLightSpec[] = [];
   addSpawnLandmarks({ cx, cy, props, lights });
+  const poi = findChunkPoi(worldSeed, cx, cy);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const wy = cy * CHUNK_SIZE + ly;
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const wx = cx * CHUNK_SIZE + lx;
-      const sample = sampleWorldTile(worldSeed, wx, wy);
-      const idx = worldTileIndex(lx, ly);
-      ground[idx] = sample.ground;
-      elevation[idx] = sample.elevation;
-      stairs[idx] = sample.stairs ? 1 : 0;
-      variant[idx] = sample.variant;
-      placeRandomTileProp({ worldSeed, wx, wy, sample, props, lights });
+      fillChunkTile({ worldSeed, wx: cx * CHUNK_SIZE + lx, wy, idx: worldTileIndex(lx, ly), poi, ground, elevation, stairs, variant, props, lights });
     }
   }
-  return { cx, cy, ground, elevation, stairs, variant, props, lights };
+  if (poi) stampPoiPropsAndLights({ poi, props, lights });
+  return { cx, cy, ground, elevation, stairs, variant, props, lights, pois: poi ? [poi] : [] };
 }

@@ -1,6 +1,7 @@
 /** Authoritative multiplayer WebSocket wire protocol schemas. */
 import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
+import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { GORE_STYLES, GORE_SUBSTANCES } from "../combat/combatRules.js";
 
 export const PROTOCOL_VERSION = 1;
@@ -137,7 +138,7 @@ export type ProjectileSnapshot = z.infer<typeof ProjectileSnapshotSchema>;
 
 export const WorldEntitySnapshotSchema = z.object({
   id: z.string(),
-  kind: z.enum(["dummy", "slime-dummy", "spar-dummy"]),
+  kind: z.enum(ENTITY_KINDS),
   substance: GoreSubstanceSchema,
   x: z.number(),
   y: z.number(),
@@ -150,12 +151,37 @@ export const WorldEntitySnapshotSchema = z.object({
   staggerTimer: z.number(),
   bleedTimer: z.number(),
   telegraphProgress: z.number(),
+  aiState: z.enum(AI_STATES).optional(),
+  corpse: z.boolean().optional(),
 });
 
 export type WorldEntitySnapshot = z.infer<typeof WorldEntitySnapshotSchema>;
 
+export const WorldChestSnapshotSchema = z.object({
+  id: z.string(),
+  poiKind: z.enum(["bandit-camp", "ancient-ruins"]),
+  x: z.number(),
+  y: z.number(),
+  elevation: z.number(),
+  opened: z.boolean(),
+});
+
+export type WorldChestSnapshot = z.infer<typeof WorldChestSnapshotSchema>;
+
+export const GroundLootSnapshotSchema = z.object({
+  id: z.string(),
+  itemId: z.string(),
+  count: z.number().int().min(1),
+  x: z.number(),
+  y: z.number(),
+  elevation: z.number(),
+  ageSec: z.number(),
+});
+
+export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
+
 export const WorldEventSchema = z.object({
-  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph"]),
+  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot"]),
   x: z.number(),
   y: z.number(),
   dirX: z.number().optional(),
@@ -190,6 +216,8 @@ export const ServerSnapshotSchema = z.object({
   selfInventory: InventorySnapshotSchema.optional(),
   projectiles: z.array(ProjectileSnapshotSchema).optional(),
   entities: z.array(WorldEntitySnapshotSchema).optional(),
+  chests: z.array(WorldChestSnapshotSchema).optional(),
+  groundLoot: z.array(GroundLootSnapshotSchema).optional(),
   events: z.array(WorldEventSchema).optional(),
 });
 

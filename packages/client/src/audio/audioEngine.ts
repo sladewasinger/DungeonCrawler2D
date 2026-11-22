@@ -5,6 +5,8 @@ import { loadAudioPrefs, saveAudioPrefs, type AudioPrefs } from "./audioPrefs.js
 import { AUDIO_TUNING } from "./audioTuning.js";
 import { synthCombatCue, synthFootstep, synthImpact, synthJumpOrLand, synthSwing, synthUi } from "./synthSfx.js";
 
+const PENDING_CUES = new Set<string>(["chestOpen", "loot"]);
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -84,7 +86,8 @@ export class AudioEngine {
     }
     if (ev.kind === "swing") { synthSwing(this.ctx, dst, ev.comboStep ?? 1); return; }
     if (ev.kind === "telegraph") { this.tension = Math.min(1, this.tension + 0.35); synthCombatCue(this.ctx, dst, "telegraph"); return; }
-    synthCombatCue(this.ctx, dst, ev.kind);
+    if (PENDING_CUES.has(ev.kind)) return;
+    synthCombatCue(this.ctx, dst, ev.kind as Parameters<typeof synthCombatCue>[2]);
   }
 
   private isWaterGround(ground: GroundKind): boolean {
