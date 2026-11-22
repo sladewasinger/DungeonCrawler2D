@@ -11,6 +11,7 @@ export interface SandboxActor {
   awake: boolean;
   windupSec: number;
   chargeSec: number;
+  recoverSec: number;
   cooldownSec: number;
   chargeDx: number;
   chargeDy: number;
@@ -50,7 +51,7 @@ export function isDummyKind(kind: EntityKind): boolean {
 function makeActor(opts: { readonly id: string; readonly spec: LineupSpec; readonly x: number; readonly y: number; readonly temporary: boolean }): SandboxActor {
   return {
     homeX: opts.x, homeY: opts.y, temporary: opts.temporary, awake: opts.temporary,
-    windupSec: 0, chargeSec: 0, cooldownSec: 0, chargeDx: 0, chargeDy: 1,
+    windupSec: 0, chargeSec: 0, recoverSec: 0, cooldownSec: 0, chargeDx: 0, chargeDy: 1,
     snap: {
       id: opts.id, kind: opts.spec.kind, substance: opts.spec.substance,
       x: opts.x, y: opts.y, elevation: 0, hp: opts.spec.maxHp, maxHp: opts.spec.maxHp,
@@ -72,9 +73,14 @@ export function createWolfPackActors(px: number, py: number, seq: number): Sandb
   return offsets.map(([ox, oy], i) => makeActor({ id: `sbx-pack-${seq}-${i}`, spec: wolfSpec, x: px + ox, y: py + oy, temporary: true }));
 }
 
-function resolveFrozenAiState(pose: SandboxPose): AiState {
+const BOAR_BRAKE_SEC = 0.3;
+const BOAR_PAUSE_SEC = 0.85;
+const BOAR_RECOVER_SEC = BOAR_BRAKE_SEC + BOAR_PAUSE_SEC;
+
+function resolveFrozenAiState(pose: SandboxPose, timeSec: number): AiState {
   if (pose === "walk") return "patrol";
-  return pose === "windup" ? "charge" : "idle";
+  if (pose !== "windup") return "idle";
+  return timeSec % 3.2 < 2.05 ? "charge" : "idle";
 }
 
 function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly facingX: number; readonly facingY: number } {
@@ -89,8 +95,8 @@ function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly
 
 function frozenWindupTelegraph(pose: SandboxPose, timeSec: number): number {
   if (pose !== "windup") return 0;
-  const cyc = timeSec % 2.4;
-  return cyc < 0.6 ? Math.max(0.01, cyc / 0.6) : 0;
+  const cyc = timeSec % 3.2;
+  return cyc < 0.55 ? Math.max(0.01, cyc / 0.55) : 0;
 }
 
 function applyFrozenPose(actor: SandboxActor, opts: {
@@ -107,7 +113,7 @@ function applyFrozenPose(actor: SandboxActor, opts: {
   const telegraphProgress = frozenWindupTelegraph(opts.pose, opts.timeSec);
   actor.snap = {
     ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
-    facingX, facingY, aiState: resolveFrozenAiState(opts.pose), telegraphProgress,
+    facingX, facingY, aiState: resolveFrozenAiState(opts.pose, opts.timeSec), telegraphProgress,
   };
 }
 
@@ -128,12 +134,28 @@ function stepActorDash(actor: SandboxActor, dt: number): boolean {
   actor.chargeSec = Math.max(0, actor.chargeSec - dt);
   const spd = 7.4;
   const s = actor.snap;
+  const done = actor.chargeSec === 0;
   actor.snap = {
     ...s, x: Math.max(2, Math.min(94, s.x + actor.chargeDx * spd * dt)),
     y: Math.max(2, Math.min(30, s.y + actor.chargeDy * spd * dt)),
-    aiState: "charge", telegraphProgress: 0,
+    facingX: actor.chargeDx, facingY: actor.chargeDy,
+    aiState: done ? "idle" : "charge", telegraphProgress: 0,
   };
-  if (actor.chargeSec === 0) actor.cooldownSec = 1.15;
+  if (done) { actor.recoverSec = BOAR_RECOVER_SEC; actor.cooldownSec = 1.45; }
+  return true;
+}
+
+function stepActorRecovery(actor: SandboxActor, dt: number): boolean {
+  if (actor.recoverSec <= 0) return false;
+  actor.recoverSec = Math.max(0, actor.recoverSec - dt);
+  const braking = actor.recoverSec > BOAR_PAUSE_SEC;
+  const slideSpd = braking ? 7.4 * 0.45 * ((actor.recoverSec - BOAR_PAUSE_SEC) / BOAR_BRAKE_SEC) : 0;
+  const s = actor.snap;
+  actor.snap = {
+    ...s, x: Math.max(2, Math.min(94, s.x + actor.chargeDx * slideSpd * dt)),
+    y: Math.max(2, Math.min(30, s.y + actor.chargeDy * slideSpd * dt)),
+    facingX: actor.chargeDx, facingY: actor.chargeDy, aiState: "idle", telegraphProgress: 0,
+  };
   return true;
 }
 
@@ -205,7 +227,7 @@ function stepLiveActor(opts: {
 }): void {
   const { actor, allActors, px, py, dt, onHitPlayer, events } = opts;
   const s = actor.snap;
-  if (s.hp <= 0 || stepActorDash(actor, dt)) return;
+  if (s.hp <= 0 || stepActorDash(actor, dt) || stepActorRecovery(actor, dt)) return;
   const dx = px - s.x;
   const dy = py - s.y;
   const dist = Math.hypot(dx, dy);

@@ -1,7 +1,7 @@
 /** Specialized archetype steering, separation, and combat helpers for wildlife & POI guards. */
 import { AI_TUNING, WorldChunkCache, computeFlankRingSlot, isInSanctuary, resolveMovement } from "@dc2d/engine";
 import {
-  CREATURE_SPECS, ITEM_RAW_MEAT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_FEED, ST_FLANK, ST_PATROL,
+  CREATURE_SPECS, ITEM_RAW_MEAT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_FEED, ST_FLANK, ST_IDLE, ST_PATROL,
   type WildlifeEntity,
 } from "./creatureSpecs.js";
 
@@ -141,16 +141,29 @@ function advanceActiveBoarCharge(opts: {
     onStrike(e, target);
   }
   if (e.chargeTimer === 0) {
-    e.aiState = ST_CHASE;
+    e.chargeRecoverTimer = 1.15;
+    e.aiState = ST_IDLE;
     e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
   }
 }
 
+function advanceBoarRecovery(e: WildlifeEntity, cache: WorldChunkCache, dt: number): void {
+  e.chargeRecoverTimer = Math.max(0, e.chargeRecoverTimer - dt);
+  e.aiState = ST_IDLE;
+  if (e.chargeRecoverTimer <= 0.85) return;
+  const scale = 0.45 * ((e.chargeRecoverTimer - 0.85) / 0.3);
+  const res = resolveMovement({
+    cache, x: e.x, y: e.y, dx: e.chargeVx * scale * dt, dy: e.chargeVy * scale * dt,
+    radius: 0.3, elevation: e.elevation, airborne: false,
+  });
+  e.x = res.x;
+  e.y = res.y;
+  e.elevation = res.elevation;
+}
+
 function resolveBoarCooldownSteer(e: WildlifeEntity, offset: { readonly dx: number; readonly dy: number; readonly dist: number }): BoarAction {
-  if (e.attackCooldown > 0 && offset.dist < 2.2) {
-    const nx = offset.dx / Math.max(0.05, offset.dist);
-    const ny = offset.dy / Math.max(0.05, offset.dist);
-    return { mode: "steer", steer: { x: e.x - nx * 1.4, y: e.y - ny * 1.4, speedMult: 0.6 } };
+  if (e.attackCooldown > 0 && offset.dist < 1.8) {
+    return { mode: "steer", steer: { x: e.x, y: e.y, speedMult: 0 } };
   }
   return { mode: "steer", steer: { x: e.x + offset.dx, y: e.y + offset.dy, speedMult: 1.0 } };
 }
@@ -173,8 +186,9 @@ export function stepBoarBehavior(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
   readonly target: CombatPlayerCandidate; readonly dt: number; readonly onStrike: StrikePlayerFn;
 }): BoarAction {
-  const { e, target, dt } = opts;
+  const { cache, e, target, dt } = opts;
   if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return { mode: "done" }; }
+  if (e.chargeRecoverTimer > 0) { advanceBoarRecovery(e, cache, dt); return { mode: "done" }; }
   if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) {
     e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
     if (e.telegraphTimer === 0) beginBoarCharge(e, target);

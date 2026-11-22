@@ -91,7 +91,7 @@ export class WorldEcology {
       bleedTimer: 0, telegraphTimer: 0, windupDuration: spec.windupSec, attackCooldown: 0.4,
       aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,
       investigateTimer: 0, peekSide: opts.packSlot % 2 === 0 ? 1 : -1, hunger: 0.25, feedTimer: 0,
-      chargeVx: 0, chargeVy: 0, chargeTimer: 0, chargeHitDealt: false, alertedTimer: 0,
+      chargeVx: 0, chargeVy: 0, chargeTimer: 0, chargeRecoverTimer: 0, chargeHitDealt: false, alertedTimer: 0,
       patrolPhase: opts.packSlot * 2.1, targetPlayerId: null,
     };
     this.list.push(e);

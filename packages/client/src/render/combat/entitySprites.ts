@@ -4,7 +4,7 @@ import { Container, Graphics, Sprite } from "pixi.js";
 import { getLoadedSpriteAsset, type LoadedSpriteAnimations } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { drawCreatureBody } from "./creatureDrawers.js";
-import { sampleAnimatedFrame } from "./entityAnimator.js";
+import { createAnimatorTrackState, sampleAnimatedFrame } from "./entityAnimator.js";
 
 type WorldEntityKind = WorldEntitySnapshot["kind"];
 
@@ -67,6 +67,7 @@ class EntityView {
   private readonly body: Sprite | Graphics;
   private readonly baseScale: number;
   private readonly animations: LoadedSpriteAnimations | null;
+  private readonly animTrack = createAnimatorTrackState();
   private readonly hpBg = new Graphics();
   private readonly hpFill = new Graphics();
   private readonly kind: WorldEntityKind;
@@ -105,7 +106,7 @@ class EntityView {
     readonly dead: boolean;
   }): boolean {
     if (!this.animations || !(this.body instanceof Sprite)) return false;
-    const frame = sampleAnimatedFrame({ animations: this.animations, ...opts });
+    const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
     if (!frame) return false;
     this.body.texture = frame.texture;
     this.body.alpha = opts.dead ? 0.82 : this.resolveBodyAlpha(opts.snap, false);

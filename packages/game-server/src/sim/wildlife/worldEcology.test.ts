@@ -89,6 +89,7 @@ describe("WorldEcology & POIs", () => {
 
     boar.attackCooldown = 0;
     boar.chargeTimer = 0;
+    boar.chargeRecoverTimer = 0;
     boar.telegraphTimer = 0;
     boar.x = 22.85;
     boar.y = 12;

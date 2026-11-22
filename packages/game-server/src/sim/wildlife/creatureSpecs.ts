@@ -82,6 +82,7 @@ export interface WildlifeEntity {
   chargeVx: number;
   chargeVy: number;
   chargeTimer: number;
+  chargeRecoverTimer: number;
   chargeHitDealt: boolean;
   alertedTimer: number;
   patrolPhase: number;
