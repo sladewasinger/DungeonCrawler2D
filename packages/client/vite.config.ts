@@ -20,7 +20,17 @@ function gitShortSha(): string {
 }
 
 export default defineConfig({
-  server: { port: 5173 },
+  server: {
+    host: "0.0.0.0",
+    port: 5173,
+    proxy: {
+      "/ws": {
+        target: "http://127.0.0.1:4000",
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(applicationVersion),
     __BUILD_SHA__: JSON.stringify(gitShortSha()),

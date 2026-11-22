@@ -46,9 +46,16 @@ function safeParseJson(raw: string): unknown {
   }
 }
 
+function resolveServerConfig(options: { readonly port?: number; readonly worldSeed?: number }) {
+  const port = options.port ?? Number(process.env.GAME_PORT ?? process.env.PORT ?? 4000);
+  const host = process.env.GAME_HOST ?? "0.0.0.0";
+  const worldSeed = options.worldSeed ?? (Number(process.env.WORLD_SEED) || 1337);
+  return { port, host, worldSeed };
+}
+
 export async function startGameServer(options: { readonly port?: number; readonly worldSeed?: number } = {}): Promise<RunningGameServer> {
-  const port = options.port ?? Number(process.env.GAME_PORT ?? 4000);
-  const sim = new WorldSim(options.worldSeed ?? 1337);
+  const { port, host, worldSeed } = resolveServerConfig(options);
+  const sim = new WorldSim(worldSeed);
   const httpServer = createServer(handleHealthRequest);
   const wss = new WebSocketServer({ server: httpServer });
   const clients = new Set<WebSocket>();
@@ -67,10 +74,10 @@ export async function startGameServer(options: { readonly port?: number; readonl
     for (const client of clients) sendJson(client, snapshot);
   }, 1000 / TICK_RATE);
 
-  await new Promise<void>((resolve) => httpServer.listen(port, resolve));
+  await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
   const address = httpServer.address();
   const actualPort = typeof address === "object" && address ? address.port : port;
-  console.log(`[game-server] listening on http://localhost:${actualPort}`);
+  console.log(`[game-server] listening on http://${host}:${actualPort}`);
 
   return {
     port: actualPort,

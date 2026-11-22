@@ -58,5 +58,5 @@ export function defaultWsUrl(): string {
   const configured = import.meta.env.VITE_GAME_WS_URL as string | undefined;
   if (configured) return configured;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.hostname || "localhost"}:4000`;
+  return `${proto}//${window.location.host}/ws`;
 }

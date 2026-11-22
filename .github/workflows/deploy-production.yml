@@ -1,0 +1,122 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::510682130762:role/dungeoncrawler2d-prod-github-actions-deploy
+  ARTIFACT_BUCKET: dungeoncrawler2d-artifacts-510682130762
+  FRONTEND_BUCKET: dungeoncrawl2d.austinwasinger.com
+  CLOUDFRONT_DISTRIBUTION_ID: E253TI6NRUSHMS
+  SITE_URL: https://dungeoncrawl2d.austinwasinger.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve production instance
+        id: production
+        shell: bash
+        run: |
+          set -euo pipefail
+          instance_id=$(aws ec2 describe-instances \
+            --filters \
+              Name=tag:project,Values=dungeoncrawler2d \
+              Name=tag:environment,Values=prod \
+              Name=instance-state-name,Values=running \
+            --query 'Reservations[].Instances[].InstanceId | [0]' \
+            --output text)
+          test "$instance_id" != "None"
+          echo "instance_id=$instance_id" >> "$GITHUB_OUTPUT"
+
+      - name: Publish server bundle
+        run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
+
+      - name: Publish client
+        # Fixed-name public assets (atlas.png/json, animation manifests, sprites)
+        # are mutable and must revalidate. Only Vite's content-addressed JS/CSS
+        # bundles receive immutable caching.
+        run: |
+          aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete \
+            --cache-control "no-cache"
+          aws s3 cp packages/client/dist/assets "s3://$FRONTEND_BUCKET/assets" \
+            --recursive --exclude "*" \
+            --include "*-????????.js" --include "*-????????.css" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" \
+            --exclude "*" --include "*.html" \
+            --cache-control "no-cache" --content-type "text/html"
+          if [ -f packages/client/dist/sw.js ]; then
+            aws s3 cp packages/client/dist/sw.js "s3://$FRONTEND_BUCKET/sw.js" \
+              --cache-control "no-cache"
+          fi
+          if [ -f packages/client/dist/manifest.webmanifest ]; then
+            aws s3 cp packages/client/dist/manifest.webmanifest "s3://$FRONTEND_BUCKET/manifest.webmanifest" \
+              --cache-control "no-cache" --content-type "application/manifest+json"
+          fi
+
+      - name: Restart game server on published bundle
+        shell: bash
+        env:
+          INSTANCE_ID: ${{ steps.production.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["sudo systemctl restart dungeoncrawler2d","sudo systemctl is-active dungeoncrawler2d"]' \
+            --query Command.CommandId \
+            --output text)
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$INSTANCE_ID"
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$INSTANCE_ID" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}'
+
+      - name: Activate client at the edge
+        id: invalidation
+        shell: bash
+        run: |
+          set -euo pipefail
+          invalidation_id=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*' \
+            --query Invalidation.Id \
+            --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
+      - name: Smoke-test both game modes
+        run: node tools/smoke-production.mjs "$SITE_URL"
