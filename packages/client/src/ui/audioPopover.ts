@@ -1,7 +1,7 @@
 /** Compact floating audio & gore settings popover (Music/SFX sliders, Mute, Gore). */
 import type { AudioEngine } from "../audio/audioEngine.js";
 import type { AudioPrefs } from "../audio/audioPrefs.js";
-import { loadGoreLevel, saveGoreLevel, type GoreLevel } from "../render/combat/gorePrefs.js";
+import { loadGoreLevel, saveGoreLevel, type GoreLevel } from "../render/combat/gore/gorePrefs.js";
 
 function makeEl<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);

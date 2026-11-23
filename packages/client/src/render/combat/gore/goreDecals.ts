@@ -1,11 +1,15 @@
-/** Manages terrain-congruent drying gore decals, water plumes, expanding pools, and footprints. */
-import { GroundKind, TILE_PX, type GoreSubstance, type WorldChunkCache } from "@dc2d/engine";
+/** Manages terrain-congruent drying decals, diffuse water clouds, corpse piles/pools, and footprints. */
+import { TILE_PX, type GoreSubstance } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
-import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
-import { GORE_TUNING } from "./combatVisualTuning.js";
+import { GORE_TUNING } from "../combatVisualTuning.js";
+import { ELEVATION_LIFT_PX } from "../../world/cliffStrips.js";
+import {
+  isWaterTile, pickGoreColors, resolveFeatureSpec, stepSingleDecal, type GoreDecal, type TileSampler,
+} from "./goreDecalHelpers.js";
+import type { StaticFeatureKind } from "./gorePatterns.js";
 import { getGoreTextures } from "./goreTextures.js";
 
-export type TileSampler = Pick<WorldChunkCache, "tileAt">;
+export type { TileSampler } from "./goreDecalHelpers.js";
 
 export interface SurfaceDecalInput {
   readonly tileX: number;
@@ -13,6 +17,7 @@ export interface SurfaceDecalInput {
   readonly elevation: number;
   readonly texture: Texture;
   readonly scale: number;
+  readonly flipY?: boolean | undefined;
   readonly rot: number;
   readonly alpha: number;
   readonly ttl: number;
@@ -20,12 +25,13 @@ export interface SurfaceDecalInput {
   readonly cache?: TileSampler | undefined;
 }
 
-export interface PoolInput {
+export interface StaticFeatureInput {
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
+  readonly kind: StaticFeatureKind;
   readonly substance: GoreSubstance;
-  readonly scaleMult?: number | undefined;
+  readonly scaleMult: number;
   readonly cache?: TileSampler | undefined;
 }
 
@@ -37,22 +43,6 @@ export interface FootprintActor {
   readonly jumpZ?: number | undefined;
   readonly inWater?: boolean | undefined;
   readonly alive: boolean;
-}
-
-interface GoreDecal {
-  readonly sprite: Sprite;
-  age: number;
-  readonly ttl: number;
-  readonly baseAlpha: number;
-  readonly freshColor: number;
-  readonly driedColor: number;
-  readonly solid: boolean;
-  readonly baseScale: number;
-  readonly growFrom: number;
-  readonly growTo: number;
-  readonly growDuration: number;
-  readonly driftVx: number;
-  readonly driftVy: number;
 }
 
 interface FreshPuddle {
@@ -70,45 +60,6 @@ interface FootTrack {
   distAcc: number;
   side: number;
   substance: GoreSubstance;
-}
-
-function lerpRgb(c0: number, c1: number, t: number): number {
-  const k = Math.max(0, Math.min(1, t));
-  const r = Math.round(((c0 >> 16) & 0xff) * (1 - k) + ((c1 >> 16) & 0xff) * k);
-  const g = Math.round(((c0 >> 8) & 0xff) * (1 - k) + ((c1 >> 8) & 0xff) * k);
-  const b = Math.round((c0 & 0xff) * (1 - k) + (c1 & 0xff) * k);
-  return (r << 16) | (g << 8) | b;
-}
-
-function pickColors(substance: GoreSubstance): { readonly fresh: number; readonly dried: number; readonly solid: boolean } {
-  const pal = GORE_TUNING.palettes[substance];
-  const fi = Math.floor(Math.random() * pal.fresh.length);
-  const di = Math.floor(Math.random() * pal.dried.length);
-  return { fresh: pal.fresh[fi] ?? pal.fresh[0]!, dried: pal.dried[di] ?? pal.dried[0]!, solid: pal.solid };
-}
-
-function isWaterTile(cache: TileSampler | undefined, tileX: number, tileY: number): boolean {
-  if (!cache) return false;
-  const g = cache.tileAt(Math.floor(tileX), Math.floor(tileY)).ground;
-  return g === GroundKind.ShallowWater || g === GroundKind.DeepWater;
-}
-
-function stepSingleDecal(dc: GoreDecal, dt: number): boolean {
-  dc.age += dt;
-  if (dc.age >= dc.ttl) { dc.sprite.destroy(); return false; }
-  if (dc.driftVx !== 0 || dc.driftVy !== 0) {
-    dc.sprite.position.x += dc.driftVx * dt;
-    dc.sprite.position.y += dc.driftVy * dt;
-  }
-  if (dc.growDuration > 0) {
-    const gt = Math.min(1, dc.age / dc.growDuration);
-    const eased = 1 - Math.pow(1 - gt, 2.2);
-    dc.sprite.scale.set(dc.baseScale * (dc.growFrom + (dc.growTo - dc.growFrom) * eased));
-  }
-  if (!dc.solid) dc.sprite.tint = lerpRgb(dc.freshColor, dc.driedColor, dc.age / GORE_TUNING.dryDurationSec);
-  const fadeStart = Math.max(0, dc.ttl - GORE_TUNING.decalFadeSec);
-  dc.sprite.alpha = dc.age > fadeStart ? dc.baseAlpha * (1 - (dc.age - fadeStart) / Math.max(0.1, dc.ttl - fadeStart)) : dc.baseAlpha;
-  return true;
 }
 
 export class GoreDecalManager {
@@ -131,7 +82,7 @@ export class GoreDecalManager {
 
   stampSurface(input: SurfaceDecalInput): void {
     if (this.maxDecals <= 0) return;
-    const pal = pickColors(input.substance);
+    const pal = pickGoreColors(input.substance);
     if (!pal.solid && isWaterTile(input.cache, input.tileX, input.tileY)) {
       this.spawnWaterPlume(input, pal);
       return;
@@ -139,7 +90,7 @@ export class GoreDecalManager {
     this.trimForNext();
     const sprite = new Sprite(input.texture);
     sprite.anchor.set(0.5, 0.5);
-    sprite.scale.set(input.scale);
+    sprite.scale.set(input.scale, input.flipY ? -input.scale : input.scale);
     sprite.rotation = input.rot;
     sprite.tint = pal.fresh;
     sprite.alpha = input.alpha;
@@ -151,25 +102,25 @@ export class GoreDecalManager {
     if (!pal.solid && input.scale >= 0.45) this.pushPuddle({ x: input.tileX, y: input.tileY, elevation: input.elevation, substance: input.substance });
   }
 
-  spawnPool(opts: PoolInput): void {
+  spawnStaticFeature(opts: StaticFeatureInput): void {
     if (this.maxDecals <= 0) return;
-    const pal = pickColors(opts.substance);
-    if (pal.solid || isWaterTile(opts.cache, opts.x, opts.y)) return;
+    const pal = pickGoreColors(opts.substance);
+    if (!pal.solid && isWaterTile(opts.cache, opts.x, opts.y)) return;
     this.trimForNext();
-    const tex = getGoreTextures().pools[Math.floor(Math.random() * 2)]!;
-    const baseScale = (0.55 + Math.random() * 0.2) * (opts.scaleMult ?? 1);
-    const sprite = new Sprite(tex);
+    const feat = resolveFeatureSpec(opts.kind);
+    const scale = feat.baseScale * opts.scaleMult * (0.94 + Math.random() * 0.14);
+    const sprite = new Sprite(feat.tex);
     sprite.anchor.set(0.5, 0.5);
-    sprite.scale.set(baseScale * 0.32);
-    sprite.rotation = (Math.random() - 0.5) * 0.55;
+    sprite.scale.set(scale * feat.growFrom);
+    sprite.rotation = feat.trackPuddle ? (Math.random() - 0.5) * 0.45 : (Math.random() - 0.5) * 0.18;
     sprite.tint = pal.fresh;
-    sprite.alpha = 0.86;
+    sprite.alpha = pal.solid ? 0.96 : 0.88;
     this.mountSprite(sprite, { tileX: opts.x, tileY: opts.y, elevation: opts.elevation });
     this.decals.push({
-      sprite, age: 0, ttl: GORE_TUNING.decalTtlSec, baseAlpha: 0.86, freshColor: pal.fresh, driedColor: pal.dried,
-      solid: false, baseScale, growFrom: 0.32, growTo: 1.15, growDuration: 2.2, driftVx: 0, driftVy: 0,
+      sprite, age: 0, ttl: GORE_TUNING.decalTtlSec, baseAlpha: sprite.alpha, freshColor: pal.fresh, driedColor: pal.dried,
+      solid: pal.solid, baseScale: scale, growFrom: feat.growFrom, growTo: feat.growTo, growDuration: feat.growDur, driftVx: 0, driftVy: 0,
     });
-    this.pushPuddle({ x: opts.x, y: opts.y, elevation: opts.elevation, substance: opts.substance });
+    if (feat.trackPuddle) this.pushPuddle({ x: opts.x, y: opts.y, elevation: opts.elevation, substance: opts.substance });
   }
 
   step(dt: number): void {
@@ -243,16 +194,17 @@ export class GoreDecalManager {
 
   private spawnWaterPlume(input: SurfaceDecalInput, pal: { readonly fresh: number; readonly dried: number }): void {
     this.trimForNext();
-    const sprite = new Sprite(getGoreTextures().waterPlume);
+    const plumes = getGoreTextures().waterPlumes;
+    const sprite = new Sprite(plumes[Math.floor(Math.random() * plumes.length)]!);
     sprite.anchor.set(0.5, 0.5);
-    sprite.scale.set(0.45);
+    sprite.scale.set(0.55);
     sprite.rotation = Math.random() * Math.PI * 2;
     sprite.tint = pal.fresh;
-    sprite.alpha = 0.56;
+    sprite.alpha = 0.62;
     this.mountSprite(sprite, { tileX: input.tileX, tileY: input.tileY, elevation: input.elevation });
     this.decals.push({
-      sprite, age: 0, ttl: 4.5, baseAlpha: 0.56, freshColor: pal.fresh, driedColor: pal.dried,
-      solid: false, baseScale: 1, growFrom: 0.45, growTo: 1.85, growDuration: 4.2, driftVx: 2.2, driftVy: 0.6,
+      sprite, age: 0, ttl: 4.8, baseAlpha: 0.62, freshColor: pal.fresh, driedColor: pal.dried,
+      solid: false, baseScale: 1, growFrom: 0.55, growTo: 1.95, growDuration: 4.5, driftVx: 2.0, driftVy: 0.5,
     });
   }
 
@@ -267,9 +219,7 @@ export class GoreDecalManager {
   }
 
   private trimForNext(): void {
-    while (this.decals.length >= this.maxDecals && this.decals.length > 0) {
-      this.decals.shift()!.sprite.destroy();
-    }
+    while (this.decals.length >= this.maxDecals && this.decals.length > 0) this.decals.shift()!.sprite.destroy();
   }
 
   private trimExcess(): void {

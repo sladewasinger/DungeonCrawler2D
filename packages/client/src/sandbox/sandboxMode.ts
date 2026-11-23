@@ -5,7 +5,7 @@ import { AudioEngine } from "../audio/audioEngine.js";
 import { InputController } from "../input/controller.js";
 import { CombatVfxLayer } from "../render/combat/combatVfx.js";
 import { EntityRenderer } from "../render/combat/entitySprites.js";
-import { GoreSystem } from "../render/combat/goreSystem.js";
+import { GoreSystem } from "../render/combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../render/combat/worldPickups.js";
 import { CastShadowLayer } from "../render/shaders/castShadows.js";
 import { FoliageWindEffect } from "../render/shaders/foliageWindFilter.js";
@@ -229,7 +229,7 @@ function createSandboxControls(opts: {
 function createSandboxState(host: HTMLElement, rig: SandboxRig): SandboxState {
   const sim = new SandboxSim(); const gore = new GoreSystem(); const vfx = new CombatVfxLayer();
   gore.attachElevatedLayer(rig.ysortCam); rig.decalCam.addChild(gore.decalLayer);
-  rig.ysortCam.addChild(gore.particleLayer); rig.emissiveCam.addChild(vfx.container);
+  rig.ysortCam.addChild(gore.particleLayer); rig.emissiveCam.addChild(vfx.container, gore.sparkLayer);
   const propsAtlas = createPropTextureSet();
   const diorama = mountSandboxTerrainDiorama({ layers: { ground: rig.groundCam, water: rig.waterCam, grass: rig.grassCam, ysort: rig.ysortCam, canopy: rig.canopyCam }, cache: sim.cache, propsAtlas });
   const gallery = buildSandboxGallery({ ground: rig.groundCam, ysort: rig.ysortCam, canopy: rig.canopyCam, propsAtlas });

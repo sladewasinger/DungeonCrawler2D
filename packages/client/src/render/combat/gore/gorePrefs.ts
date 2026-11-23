@@ -24,5 +24,5 @@ export function saveGoreLevel(level: GoreLevel): void {
 
 export function goreScaleForLevel(level: GoreLevel): number {
   if (level === "off") return 0;
-  return level === "reduced" ? 0.42 : 1;
+  return level === "reduced" ? 0.45 : 1;
 }

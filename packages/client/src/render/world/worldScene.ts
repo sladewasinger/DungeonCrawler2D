@@ -7,8 +7,8 @@ import {
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
-import type { GoreLevel } from "../combat/gorePrefs.js";
-import { GoreSystem } from "../combat/goreSystem.js";
+import type { GoreLevel } from "../combat/gore/gorePrefs.js";
+import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
@@ -86,7 +86,7 @@ export class WorldScene {
     goreCam!.addChild(this.gore.decalLayer);
     this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
     this.configureGoreLayers(ysortCam!);
-    emissiveCam!.addChild(this.particles.container, this.vfx.container);
+    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];

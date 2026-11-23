@@ -1,6 +1,6 @@
 /** Editable visual combat, melee swing/smear, hitstop, and gore tuning levers. */
 import type { GoreStyle, GoreSubstance } from "@dc2d/engine";
-import type { ChunkKind } from "./goreTextures.js";
+import type { ChunkKind } from "./gore/goreTextures.js";
 
 export interface ComboArmSpec {
   readonly sweep: number;
