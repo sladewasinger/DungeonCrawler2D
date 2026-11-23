@@ -9,6 +9,7 @@ export interface InputCallbacks {
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
+  readonly onInteract?: () => void;
   readonly onClosePanels: () => void;
 }
 
@@ -55,6 +56,7 @@ export class InputController {
   private rightMouseDown = false;
   private isBowHeld = false;
   private hasShield = false;
+  private enabled = true;
   private readonly stickEl: HTMLDivElement;
   private readonly knobEl: HTMLDivElement;
   private readonly mobileCombat: MobileCombatControls;
@@ -75,6 +77,13 @@ export class InputController {
     this.hasShield = gear.hasShield;
     this.mobileCombat.setGear(gear);
   }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (!enabled) this.resetHeldInputs();
+  }
+
+  queueInteract(): void { this.interactQueued = true; }
 
   consumeJump(): boolean {
     const fired = this.jumpQueued;
@@ -121,8 +130,8 @@ export class InputController {
 
   private bindKeyboard(callbacks: InputCallbacks): void {
     window.addEventListener("keydown", (e) => {
-      if (isEditingText(e.target)) {
-        if (e.code === "Escape") (e.target as HTMLElement).blur();
+      if (!this.enabled || isEditingText(e.target)) {
+        if (this.enabled && e.code === "Escape") (e.target as HTMLElement).blur();
         return;
       }
       this.keys.add(e.code);
@@ -144,8 +153,8 @@ export class InputController {
     if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
     if (e.code === "Space") { e.preventDefault(); this.jumpQueued = true; return; }
     if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
-    if (e.code === "KeyE") { this.interactQueued = true; return; }
     const actions: Readonly<Record<string, () => void>> = {
+      KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
       KeyC: callbacks.onToggleCrafting,
       KeyH: callbacks.onToggleCharacter,
       KeyF: callbacks.onToggleTorch,
@@ -155,9 +164,9 @@ export class InputController {
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
-    host.addEventListener("wheel", (e) => { e.preventDefault(); callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
-    host.addEventListener("contextmenu", (e) => { if (!isUiTarget(e.target)) e.preventDefault(); });
-    host.addEventListener("pointerdown", (e) => { this.startTouch(e); this.onMouseDown(e); });
+    host.addEventListener("wheel", (e) => { if (!this.enabled) return; e.preventDefault(); callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
+    host.addEventListener("contextmenu", (e) => { if (this.enabled && !isUiTarget(e.target)) e.preventDefault(); });
+    host.addEventListener("pointerdown", (e) => { if (!this.enabled) return; this.startTouch(e); this.onMouseDown(e); });
     host.addEventListener("pointermove", (e) => { this.moveTouch(e); this.trackMouseAim(e); });
     host.addEventListener("pointerup", (e) => { this.endTouch(e); this.onMouseUp(e); });
     host.addEventListener("pointercancel", (e) => { this.endTouch(e); this.onMouseUp(e); });

@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.1** (Phase 4A mini-release — Combat Core, Composable Gore, Hybrid Web Audio & Clean Public HUD — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.2** (32px GPU Tilemap Terrain, Animated Spider, & Blender 3D-to-Pixel Goblin + Wild Boar — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 
@@ -32,7 +32,9 @@ Documentation lives next to the code it describes:
 | [packages/game-server/README.md](packages/game-server/README.md) | Authoritative 20 Hz simulation loop and WebSocket `/health` + game server |
 | [packages/client/README.md](packages/client/README.md) | PixiJS v8 WebGL2 client, prediction, input, and HUD |
 | [packages/client/src/audio/README.md](packages/client/src/audio/README.md) | Mobile-unlocked Hybrid Web Audio mixer, `AUDIO_TUNING` levers, spatial campfire/river & footsteps |
-| [packages/client/src/render/combat/README.md](packages/client/src/render/combat/README.md) | Actor-tracked progressive sword/torch smears, `combatVisualTuning`, 2.5D gore decals, and training dummies |
+| [packages/client/src/render/combat/README.md](packages/client/src/render/combat/README.md) | Actor-tracked progressive sword/torch smears, `combatVisualTuning`, 2.5D gore decals, wildlife & POI chests |
+| [packages/client/src/ui/title/README.md](packages/client/src/ui/title/README.md) | Pre-game Title Screen with Name entry, live Hero Creator, and localhost-only Sound Studio link |
+| [packages/client/src/soundStudio/README.md](packages/client/src/soundStudio/README.md) | Standalone local multi-track Web Audio synthesizer, live oscilloscope/FFT visualizer, and `.WAV` exporter |
 | [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `32×32` (`0.75×` world-scale) 4-directional paper-doll compositor, Hybrid Weapon Grip Socket arm rig, & LRU texture cache |
 | [packages/client/src/render/README.md](packages/client/src/render/README.md) | Terrain/prop texture builders, world layers, and shader atmosphere pipeline |
 | [packages/client/src/ui/hud/README.md](packages/client/src/ui/hud/README.md) | Clean public HUD (`?debug=1` admin gate), hotbar Lantern, Vitals bar, 5-slot Inventory/Craft swap |
@@ -50,6 +52,7 @@ npm run lint:working-tree # Fast ESLint + folder-size check for changed/untracke
 npm run lint              # Full-repository ESLint + folder-size standards gate
 npm test                  # Vitest suite across @dc2d/engine, @dc2d/game-server, and @dc2d/client
 npm run build             # Production build: packages/game-server/dist/main.cjs + packages/client/dist/
+npm run preview-prod      # Serve frozen built client (:4173) + built server (:4174) with zero watchers
 node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws protocol against a running server
 ```
 
@@ -89,6 +92,8 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 | `GAME_HOST` | `0.0.0.0`; bind host for `@dc2d/game-server`. |
 | `WORLD_SEED` | `1337`; numeric world seed parsed on server startup. |
 | `VITE_GAME_WS_URL` | Unset (uses `ws(s)://<location.host>/ws` same-origin proxy); optional explicit WebSocket URL override for Vite client builds. |
+| `PREVIEW_PORT` | `4173`; static Vite preview HTTP port used by `npm run preview-prod`. |
+| `PREVIEW_GAME_PORT` | `4174`; frozen built game-server port spawned by `npm run preview-prod`. |
 
 ## Branch & release workflow
 

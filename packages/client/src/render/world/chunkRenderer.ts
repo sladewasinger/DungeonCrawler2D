@@ -12,7 +12,7 @@ import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
 import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "./chunkProps.js";
 import { ELEVATION_LIFT_PX, bakeElevatedChunkRows, playerVisualElevation } from "./cliffStrips.js";
 import { PlayerView } from "./playerSprite.js";
-import { bakeChunkTextures } from "./tileBuilder.js";
+import { buildChunkTilemapMeshes } from "./tileBuilder.js";
 
 export class ChunkRenderer {
   private readonly mounted = new Map<string, MountedChunk>();
@@ -113,13 +113,13 @@ export class ChunkRenderer {
 
   private mountChunk(cache: WorldChunkCache, loc: { readonly key: string; readonly cx: number; readonly cy: number }): void {
     const chunk = cache.getChunk(loc.cx, loc.cy);
-    const baked = bakeChunkTextures(cache, this.atlases.terrain, loc);
-    const ground = new Sprite(baked.ground);
-    const water = new Sprite(baked.water);
-    ground.position.set(loc.cx * CHUNK_SIZE * TILE_PX, loc.cy * CHUNK_SIZE * TILE_PX);
-    water.position.copyFrom(ground.position);
-    this.layers.ground.addChild(ground);
-    this.layers.water.addChild(water);
+    const baked = buildChunkTilemapMeshes(cache, this.atlases.terrain, loc);
+    const px = loc.cx * CHUNK_SIZE * TILE_PX;
+    const py = loc.cy * CHUNK_SIZE * TILE_PX;
+    baked.ground.mesh.position.set(px, py);
+    baked.water.mesh.position.set(px, py);
+    this.layers.ground.addChild(baked.ground.mesh);
+    this.layers.water.addChild(baked.water.mesh);
 
     const target = {
       grassSprites: [] as { sprite: Sprite; wx: number; wy: number }[],
@@ -130,6 +130,7 @@ export class ChunkRenderer {
     };
     for (const strip of bakeElevatedChunkRows(cache, this.atlases.terrain, loc)) {
       const sp = new Sprite(strip.texture);
+      sp.scale.set(strip.scale);
       sp.position.set(strip.x, strip.y);
       sp.zIndex = strip.zIndex;
       this.layers.ysort.addChild(sp);
@@ -137,12 +138,12 @@ export class ChunkRenderer {
       target.ysortSprites.push(sp);
     }
     for (const prop of chunk.props) mountChunkProp({ prop, layers: this.layers, propsAtlas: this.atlases.props, target });
-    this.mounted.set(loc.key, { key: loc.key, cx: loc.cx, cy: loc.cy, ground, water, ...target, lights: chunk.lights });
+    this.mounted.set(loc.key, { key: loc.key, cx: loc.cx, cy: loc.cy, ground: baked.ground, water: baked.water, ...target, lights: chunk.lights });
   }
 
   private unmountChunk(entry: MountedChunk): void {
-    entry.ground.destroy({ texture: true });
-    entry.water.destroy({ texture: true });
+    entry.ground.dispose();
+    entry.water.dispose();
     for (const s of entry.grassSprites) s.sprite.destroy();
     for (const s of entry.ysortSprites) {
       const isCliff = this.cliffSprites.delete(s);

@@ -11,10 +11,11 @@ export {
   worldToChunkCoord,
   worldToLocalCoord,
 } from "./world/types.js";
-export type { BiomeKind, ChunkProp, PointLightSpec, WorldChunk } from "./world/types.js";
+export type { BiomeKind, ChunkPoi, ChunkProp, PoiKind, PointLightSpec, WorldChunk } from "./world/types.js";
 export { sampleWorldTile } from "./world/biomeSampler.js";
 export type { TileSample } from "./world/biomeSampler.js";
 export { generateChunk } from "./world/chunkGenerator.js";
+export { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights } from "./world/poiStamper.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
 export {
@@ -52,6 +53,13 @@ export {
   unequipArmorToSlot,
 } from "./inventory/armorOps.js";
 export type { ArmorItemRule, ArmorRuleLookup } from "./inventory/armorOps.js";
+export {
+  CHEST_SLOT_COUNT,
+  createEmptyChestSlots,
+  quickTransferChestSlot,
+  takeAllFromChest,
+  transferChestSlot,
+} from "./inventory/chestOps.js";
 export { canCraftRecipe, countItemInSlots, craftRecipeInState } from "./inventory/crafting.js";
 export type { CraftRecipe, RecipeIngredient } from "./inventory/crafting.js";
 export {
@@ -82,19 +90,23 @@ export {
   ClientMessageSchema,
   GoreStyleSchema,
   GoreSubstanceSchema,
+  GroundLootSnapshotSchema,
   InventorySnapshotSchema,
   PROTOCOL_VERSION,
   ProjectileSnapshotSchema,
   ServerMessageSchema,
+  WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema,
   WorldEventSchema,
 } from "./net/protocol.js";
 export type {
   ClientMessage,
+  GroundLootSnapshot,
   InventorySnapshot,
   PlayerSnapshot,
   ProjectileSnapshot,
   ServerMessage,
+  WorldChestSnapshot,
   WorldEntitySnapshot,
   WorldEvent,
 } from "./net/protocol.js";
@@ -126,3 +138,12 @@ export {
   isWithinSector,
 } from "./combat/combatRules.js";
 export type { GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export {
+  AI_STATES,
+  AI_TUNING,
+  ENTITY_KINDS,
+  canPerceiveTarget,
+  computeFlankRingSlot,
+  hasElevationLineOfSight,
+} from "./combat/aiSensing.js";
+export type { AiState, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";

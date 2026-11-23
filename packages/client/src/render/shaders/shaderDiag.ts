@@ -1,9 +1,10 @@
 /** Validates WebGL2 GlProgram compile/link status and reports exact driver diagnostics. */
-import type { Filter, Renderer } from "pixi.js";
+import type { Filter, GlProgram, Renderer } from "pixi.js";
 
 export interface NamedFilter {
   readonly name: string;
-  readonly filter: Filter;
+  readonly filter?: Filter | undefined;
+  readonly glProgram?: GlProgram | undefined;
 }
 
 interface GlRendererLike {
@@ -25,7 +26,7 @@ export function diagnoseFilterShaders(renderer: Renderer, filters: readonly Name
   if (!gl) return [];
   const errors: string[] = [];
   for (const entry of filters) {
-    const err = checkGlProgram(gl, entry.name, entry.filter);
+    const err = checkGlProgram(gl, entry.name, entry.glProgram ?? entry.filter?.glProgram);
     if (err) errors.push(err);
   }
   return errors;
@@ -41,9 +42,8 @@ function readLinkError(gl: WebGL2RenderingContext, program: WebGLProgram): strin
   return (gl.getProgramInfoLog(program) ?? "link err").trim();
 }
 
-function checkGlProgram(gl: WebGL2RenderingContext, name: string, filter: Filter): string | null {
-  const prog = filter.glProgram;
-  if (!prog.vertex || !prog.fragment) return `${name}: missing shader source`;
+function checkGlProgram(gl: WebGL2RenderingContext, name: string, prog: GlProgram | undefined): string | null {
+  if (!prog?.vertex || !prog.fragment) return `${name}: missing shader source`;
   const vShader = compilePart(gl, gl.VERTEX_SHADER, prog.vertex);
   const fShader = compilePart(gl, gl.FRAGMENT_SHADER, prog.fragment);
   const program = gl.createProgram();

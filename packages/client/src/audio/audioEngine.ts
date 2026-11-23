@@ -3,7 +3,8 @@ import { GroundKind, clamp, type PlayerSnapshot, type WorldChunkCache, type Worl
 import { AmbienceBed } from "./ambienceBed.js";
 import { loadAudioPrefs, saveAudioPrefs, type AudioPrefs } from "./audioPrefs.js";
 import { AUDIO_TUNING } from "./audioTuning.js";
-import { synthCombatCue, synthFootstep, synthImpact, synthJumpOrLand, synthSwing, synthUi } from "./synthSfx.js";
+import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
+import { synthCombatCue, synthImpact, synthSwing, synthUi } from "./synthSfx.js";
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;

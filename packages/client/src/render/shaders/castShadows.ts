@@ -50,13 +50,20 @@ export class CastShadowLayer {
   }
 }
 
+const PROP_SHADOW_SPECS: Readonly<Partial<Record<PropKind, { readonly widthPx: number; readonly lengthPx: number }>>> = {
+  [PropKind.OakTree]: { widthPx: 26, lengthPx: 38 },
+  [PropKind.PineTree]: { widthPx: 22, lengthPx: 36 },
+  [PropKind.Boulder]: { widthPx: 16, lengthPx: 22 },
+  [PropKind.Bush]: { widthPx: 14, lengthPx: 18 },
+  [PropKind.Stump]: { widthPx: 10, lengthPx: 14 },
+  [PropKind.Palisade]: { widthPx: 12, lengthPx: 20 },
+  [PropKind.RuinPillar]: { widthPx: 12, lengthPx: 20 },
+  [PropKind.Tent]: { widthPx: 24, lengthPx: 30 },
+};
+
 export function shadowCasterForProp(prop: ChunkProp): ShadowCaster | null {
-  if (prop.kind === PropKind.OakTree) return { x: prop.x, y: prop.y, widthPx: 26, lengthPx: 38 };
-  if (prop.kind === PropKind.PineTree) return { x: prop.x, y: prop.y, widthPx: 22, lengthPx: 36 };
-  if (prop.kind === PropKind.Boulder) return { x: prop.x, y: prop.y, widthPx: 16, lengthPx: 22 };
-  if (prop.kind === PropKind.Bush) return { x: prop.x, y: prop.y, widthPx: 14, lengthPx: 18 };
-  if (prop.kind === PropKind.Stump) return { x: prop.x, y: prop.y, widthPx: 10, lengthPx: 14 };
-  return null;
+  const spec = PROP_SHADOW_SPECS[prop.kind];
+  return spec ? { x: prop.x, y: prop.y, ...spec } : null;
 }
 
 function createShadowEllipseTexture(): Texture {

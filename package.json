@@ -1,6 +1,6 @@
 {
   "name": "dungeoncrawler2d",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,10 +12,12 @@
   "scripts": {
     "dev": "concurrently -n server,client -c cyan,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
+    "preview-prod": "node scripts/preview-prod.mjs",
     "test": "vitest run",
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
     "lint": "eslint . && node scripts/check-folder-size.mjs",
-    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed"
+    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed",
+    "sprite:bake": "node tools/sprite-studio/runBake.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

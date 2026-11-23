@@ -1,159 +1,129 @@
-/** Bakes chunk ground tiles, ambient-occlusion cliff shadows, and rounded water masks into 512x512 canvases. */
-import { CHUNK_SIZE, GroundKind, TILE_PX, worldTileIndex, type WorldChunkCache } from "@dc2d/engine";
-import { Texture } from "pixi.js";
-import { canvasToNearestTexture, createPixelCanvas } from "../textures/pixelCanvas.js";
+/** Packs chunk terrain & shoreline metadata into 4 KB GPU lookup buffers and builds tilemap meshes. */
+import { CHUNK_SIZE, GroundKind, worldTileIndex, type WorldChunkCache } from "@dc2d/engine";
+import { createChunkTilemapLayer, type TilemapLayerHandle } from "../shaders/tilemapMesh.js";
 import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
 
-export interface BakedChunkTextures {
-  readonly ground: Texture;
-  readonly water: Texture;
+export interface BakedChunkTilemaps {
+  readonly ground: TilemapLayerHandle;
+  readonly water: TilemapLayerHandle;
 }
 
-const BIOME_FRINGE_COLOR: Partial<Record<GroundKind, string>> = {
-  [GroundKind.Sand]: "rgba(220, 192, 136, 0.45)",
-  [GroundKind.DirtPath]: "rgba(156, 115, 73, 0.45)",
-  [GroundKind.MeadowGrass]: "rgba(82, 162, 70, 0.4)",
-  [GroundKind.Grass]: "rgba(62, 139, 67, 0.4)",
+const FRINGE_CODE: Partial<Record<GroundKind, number>> = {
+  [GroundKind.Sand]: 1,
+  [GroundKind.DirtPath]: 2,
+  [GroundKind.MeadowGrass]: 3,
+  [GroundKind.Grass]: 4,
 };
-
-const AO_DEEP = "rgba(10, 14, 22, 0.36)";
-const AO_SOFT = "rgba(10, 14, 22, 0.16)";
 
 function isWater(kind: GroundKind): boolean {
   return kind === GroundKind.DeepWater || kind === GroundKind.ShallowWater;
 }
 
-function paintEdgeStrip(input: {
-  readonly ctx: CanvasRenderingContext2D;
-  readonly neighbor: GroundKind;
-  readonly kind: GroundKind;
-  readonly rect: readonly [number, number, number, number];
-}): void {
-  if (input.neighbor === input.kind || isWater(input.neighbor)) return;
-  const color = BIOME_FRINGE_COLOR[input.neighbor];
-  if (!color) return;
-  input.ctx.fillStyle = color;
-  input.ctx.fillRect(...input.rect);
+function fringeCodeFor(self: GroundKind, neighbor: GroundKind): number {
+  if (neighbor === self || isWater(neighbor)) return 0;
+  return FRINGE_CODE[neighbor] ?? 0;
 }
 
-function paintGroundCliffAo(input: {
-  readonly ctx: CanvasRenderingContext2D;
+function computeCliffAoMask(opts: {
   readonly cache: WorldChunkCache;
   readonly wx: number;
   readonly wy: number;
-  readonly px: number;
-  readonly py: number;
   readonly elev: number;
-}): void {
-  const { ctx, cache, wx, wy, px, py, elev } = input;
-  const north = cache.tileAt(wx, wy - 1);
-  if (north.elevation > elev && !north.stairs) {
-    ctx.fillStyle = AO_DEEP;
-    ctx.fillRect(px, py, TILE_PX, 3);
-    ctx.fillStyle = AO_SOFT;
-    ctx.fillRect(px, py + 3, TILE_PX, 3);
-  }
-  if (cache.tileAt(wx - 1, wy).elevation > elev) {
-    ctx.fillStyle = AO_DEEP;
-    ctx.fillRect(px, py, 2, TILE_PX);
-    ctx.fillStyle = AO_SOFT;
-    ctx.fillRect(px + 2, py, 2, TILE_PX);
-  }
-  if (cache.tileAt(wx + 1, wy).elevation > elev) {
-    ctx.fillStyle = AO_SOFT;
-    ctx.fillRect(px + TILE_PX - 3, py, 3, TILE_PX);
-  }
-  const south = cache.tileAt(wx, wy + 1);
-  if (south.elevation > elev && !south.stairs) {
-    ctx.fillStyle = AO_SOFT;
-    ctx.fillRect(px, py + TILE_PX - 3, TILE_PX, 3);
-  }
+}): number {
+  const { cache, wx, wy, elev } = opts;
+  const n = cache.tileAt(wx, wy - 1);
+  const w = cache.tileAt(wx - 1, wy);
+  const e = cache.tileAt(wx + 1, wy);
+  const s = cache.tileAt(wx, wy + 1);
+  return (n.elevation > elev && !n.stairs ? 1 : 0)
+    | (w.elevation > elev ? 2 : 0)
+    | (e.elevation > elev ? 4 : 0)
+    | (s.elevation > elev && !s.stairs ? 8 : 0);
 }
 
-function carveCornerCutouts(ctx: CanvasRenderingContext2D, input: {
-  readonly px: number;
-  readonly py: number;
-  readonly rightEdge: boolean;
-  readonly bottomEdge: boolean;
-}): void {
-  const bands = [4, 2, 1];
-  for (let i = 0; i < bands.length; i++) {
-    const w = bands[i] ?? 1;
-    const x = input.rightEdge ? input.px + TILE_PX - w : input.px;
-    const y = input.bottomEdge ? input.py + TILE_PX - 1 - i : input.py + i;
-    ctx.clearRect(x, y, w, 1);
-  }
+function landNeighbor(cache: WorldChunkCache, wx: number, wy: number): boolean {
+  return !isWater(cache.tileAt(wx, wy).ground);
 }
 
-function carveRoundedShoreCorners(input: PaintCellInput): void {
-  const { wCtx, cache, wx, wy, px, py } = input;
-  const n = !isWater(cache.tileAt(wx, wy - 1).ground);
-  const s = !isWater(cache.tileAt(wx, wy + 1).ground);
-  const w = !isWater(cache.tileAt(wx - 1, wy).ground);
-  const e = !isWater(cache.tileAt(wx + 1, wy).ground);
-  const corners: readonly (readonly [boolean, boolean, boolean])[] = [
-    [n && w, false, false],
-    [n && e, true, false],
-    [s && w, false, true],
-    [s && e, true, true],
-  ];
-  for (const [carve, rightEdge, bottomEdge] of corners) {
-    if (carve) carveCornerCutouts(wCtx, { px, py, rightEdge, bottomEdge });
-  }
+function cornerBit(a: boolean, b: boolean, bit: number): number {
+  return a && b ? bit : 0;
 }
 
-interface PaintCellInput {
-  readonly gCtx: CanvasRenderingContext2D;
-  readonly wCtx: CanvasRenderingContext2D;
-  readonly atlas: TerrainTileAtlas;
+function computeShoreCornerMask(opts: { readonly cache: WorldChunkCache; readonly wx: number; readonly wy: number }): number {
+  const { cache, wx, wy } = opts;
+  const n = landNeighbor(cache, wx, wy - 1);
+  const s = landNeighbor(cache, wx, wy + 1);
+  const w = landNeighbor(cache, wx - 1, wy);
+  const e = landNeighbor(cache, wx + 1, wy);
+  return cornerBit(n, w, 1) | cornerBit(n, e, 2) | cornerBit(s, w, 4) | cornerBit(s, e, 8);
+}
+
+function packCellBytes(input: {
+  readonly groundOut: Uint8Array;
+  readonly waterOut: Uint8Array;
   readonly cache: WorldChunkCache;
   readonly wx: number;
   readonly wy: number;
-  readonly px: number;
-  readonly py: number;
+  readonly offset: number;
   readonly variant: number;
-}
-
-function paintWaterCell(input: PaintCellInput, ground: GroundKind): void {
-  const shore = input.atlas.variants.get(GroundKind.Sand)?.[input.variant];
-  if (shore) input.gCtx.drawImage(shore, input.px, input.py);
-  const wTile = input.atlas.variants.get(ground)?.[input.variant];
-  if (!wTile) return;
-  input.wCtx.globalAlpha = ground === GroundKind.ShallowWater ? 0.86 : 1;
-  input.wCtx.drawImage(wTile, input.px, input.py);
-  input.wCtx.globalAlpha = 1;
-  carveRoundedShoreCorners(input);
-}
-
-function paintGroundTile(input: PaintCellInput): void {
-  const { gCtx, atlas, cache, wx, wy, px, py, variant } = input;
+}): void {
+  const { groundOut, waterOut, cache, wx, wy, offset, variant } = input;
   const tile = cache.tileAt(wx, wy);
-  if (isWater(tile.ground)) { paintWaterCell(input, tile.ground); return; }
-  const img = atlas.variants.get(tile.ground)?.[variant % 4];
-  if (img) gCtx.drawImage(img, px, py);
-  paintEdgeStrip({ ctx: gCtx, neighbor: cache.tileAt(wx, wy - 1).ground, kind: tile.ground, rect: [px, py, TILE_PX, 2] });
-  paintEdgeStrip({ ctx: gCtx, neighbor: cache.tileAt(wx - 1, wy).ground, kind: tile.ground, rect: [px, py, 2, TILE_PX] });
-  if (!tile.stairs) paintGroundCliffAo({ ctx: gCtx, cache, wx, wy, px, py, elev: tile.elevation });
+  const water = isWater(tile.ground);
+  const aoMask = water || tile.stairs ? 0 : computeCliffAoMask({ cache, wx, wy, elev: tile.elevation });
+  const nf = water ? 0 : fringeCodeFor(tile.ground, cache.tileAt(wx, wy - 1).ground);
+  const wf = water ? 0 : fringeCodeFor(tile.ground, cache.tileAt(wx - 1, wy).ground);
+  groundOut[offset] = water ? Number(GroundKind.Sand) : Number(tile.ground);
+  groundOut[offset + 1] = (variant & 3) | ((aoMask & 15) << 2);
+  groundOut[offset + 2] = (nf & 7) | ((wf & 7) << 3);
+  groundOut[offset + 3] = 255;
+
+  if (!water) {
+    waterOut[offset] = 0;
+    waterOut[offset + 3] = 255;
+    return;
+  }
+  const corners = computeShoreCornerMask({ cache, wx, wy });
+  waterOut[offset] = tile.ground === GroundKind.ShallowWater ? 1 : 2;
+  waterOut[offset + 1] = (variant & 3) | ((corners & 15) << 2);
+  waterOut[offset + 2] = 0;
+  waterOut[offset + 3] = 255;
 }
 
-export function bakeChunkTextures(
+export function packChunkTilemapBuffers(
   cache: WorldChunkCache,
-  atlas: TerrainTileAtlas,
   coords: { readonly cx: number; readonly cy: number },
-): BakedChunkTextures {
-  const size = CHUNK_SIZE * TILE_PX;
-  const gCanvas = createPixelCanvas(size, size);
-  const wCanvas = createPixelCanvas(size, size);
+): { readonly groundData: Uint8Array; readonly waterData: Uint8Array } {
+  const byteCount = CHUNK_SIZE * CHUNK_SIZE * 4;
+  const groundData = new Uint8Array(byteCount);
+  const waterData = new Uint8Array(byteCount);
   const chunk = cache.getChunk(coords.cx, coords.cy);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const wy = coords.cy * CHUNK_SIZE + ly;
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      paintGroundTile({
-        gCtx: gCanvas.ctx, wCtx: wCanvas.ctx, atlas, cache,
-        wx: coords.cx * CHUNK_SIZE + lx, wy, px: lx * TILE_PX, py: ly * TILE_PX,
-        variant: chunk.variant[worldTileIndex(lx, ly)] ?? 0,
+      const idx = worldTileIndex(lx, ly);
+      packCellBytes({
+        groundOut: groundData,
+        waterOut: waterData,
+        cache,
+        wx: coords.cx * CHUNK_SIZE + lx,
+        wy,
+        offset: idx * 4,
+        variant: chunk.variant[idx] ?? 0,
       });
     }
   }
-  return { ground: canvasToNearestTexture(gCanvas.canvas), water: canvasToNearestTexture(wCanvas.canvas) };
+  return { groundData, waterData };
+}
+
+export function buildChunkTilemapMeshes(
+  cache: WorldChunkCache,
+  atlas: TerrainTileAtlas,
+  coords: { readonly cx: number; readonly cy: number },
+): BakedChunkTilemaps {
+  const { groundData, waterData } = packChunkTilemapBuffers(cache, coords);
+  return {
+    ground: createChunkTilemapLayer({ atlas, mapData: groundData, mode: "ground" }),
+    water: createChunkTilemapLayer({ atlas, mapData: waterData, mode: "water" }),
+  };
 }

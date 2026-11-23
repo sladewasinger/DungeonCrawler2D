@@ -2,6 +2,8 @@
 import { PropKind, TILE_PX, type ChunkProp, type PlayerSnapshot, type PointLightSpec } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
 import { shadowCasterForProp, type ShadowCaster } from "../shaders/castShadows.js";
+import type { TilemapLayerHandle } from "../shaders/tilemapMesh.js";
+import { getPoiPropSpriteSpec, type PoiPropSpriteSpec } from "../textures/poiPropTextures.js";
 import { isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
@@ -17,8 +19,8 @@ export interface MountedChunk {
   readonly key: string;
   readonly cx: number;
   readonly cy: number;
-  readonly ground: Sprite;
-  readonly water: Sprite;
+  readonly ground: TilemapLayerHandle;
+  readonly water: TilemapLayerHandle;
   readonly grassSprites: readonly { sprite: Sprite; wx: number; wy: number }[];
   readonly ysortSprites: readonly Sprite[];
   readonly canopySprites: readonly { sprite: Sprite; wx: number; wy: number }[];
@@ -35,14 +37,21 @@ interface MountTarget {
   readonly casters: ShadowCaster[];
 }
 
+function resolvePoiSpec(kind: PropKind | undefined, tex: Texture): PoiPropSpriteSpec | null {
+  if (kind === undefined || tex.width < 48) return null;
+  return getPoiPropSpriteSpec(kind);
+}
+
 export function addPropSprite(
   parent: Container,
   tex: Texture,
-  prop: { readonly x: number; readonly y: number; readonly elevation?: number },
+  prop: { readonly x: number; readonly y: number; readonly elevation?: number; readonly kind?: PropKind },
 ): Sprite {
   const elev = prop.elevation ?? 0;
   const sprite = new Sprite(tex);
-  sprite.anchor.set(0.5, 0.9);
+  const spec = resolvePoiSpec(prop.kind, tex);
+  sprite.anchor.set(spec ? spec.anchorX : 0.5, spec ? spec.anchorY : 0.9);
+  if (spec) sprite.scale.set(spec.scale);
   sprite.position.set(prop.x * TILE_PX, prop.y * TILE_PX - elev * ELEVATION_LIFT_PX);
   sprite.zIndex = Math.round(prop.y * TILE_PX) + elev * 2;
   parent.addChild(sprite);
@@ -54,6 +63,9 @@ function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
   if (prop.kind === PropKind.Bush) return p.bush[prop.variant % p.bush.length]!;
   if (prop.kind === PropKind.Campfire) return p.campfireFrames[0]!;
   if (prop.kind === PropKind.Torch) return p.torchFrames[0]!;
+  if (prop.kind === PropKind.Palisade) return p.palisade;
+  if (prop.kind === PropKind.Tent) return p.tent;
+  if (prop.kind === PropKind.RuinPillar) return p.ruinPillar;
   return p.stump;
 }
 
