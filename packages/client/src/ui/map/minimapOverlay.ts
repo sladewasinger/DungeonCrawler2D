@@ -1,7 +1,7 @@
-/** Held Minecraft-style player-centered parchment Minimap rendering terrain, mobs, players, campfires, and chests. */
+/** Centered parchment Overworld Map (toggled with [M] or holding the Map item) showing terrain, POIs, and players. */
 import { GroundKind, PropKind, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot } from "@dc2d/engine";
 
-const MAP_PX = 136;
+const MAP_PX = 360;
 const COLOR_ENEMY = "#ef4444";
 const COLOR_PLAYER_REMOTE = "#a855f7";
 const COLOR_CHEST = "#facc15";
@@ -37,21 +37,25 @@ function drawPlayerArrow(ctx: CanvasRenderingContext2D, fx: number, fy: number):
   ctx.rotate(ang);
   ctx.fillStyle = "#090d14";
   ctx.beginPath();
-  ctx.moveTo(6, 0);
-  ctx.lineTo(-4, 4);
-  ctx.lineTo(-2, 0);
-  ctx.lineTo(-4, -4);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(8, 0); ctx.lineTo(-5, 5.5); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, -5.5);
+  ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#f8fafc";
   ctx.beginPath();
-  ctx.moveTo(4.5, 0);
-  ctx.lineTo(-3, 2.8);
-  ctx.lineTo(-1.5, 0);
-  ctx.lineTo(-3, -2.8);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(6, 0); ctx.lineTo(-3.8, 3.8); ctx.lineTo(-1.8, 0); ctx.lineTo(-3.8, -3.8);
+  ctx.closePath(); ctx.fill();
   ctx.restore();
+}
+
+function paintTilePixel(ctx: CanvasRenderingContext2D, opts: {
+  readonly cache: WorldChunkCache; readonly wx: number; readonly wy: number; readonly px: number; readonly py: number; readonly step: number;
+}): void {
+  const tile = opts.cache.tileAt(opts.wx, opts.wy);
+  ctx.fillStyle = GROUND_COLORS[tile.ground] ?? "#3f7d3a";
+  ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
+  if (tile.elevation > 0) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
+  }
 }
 
 export class MinimapOverlay {
@@ -63,41 +67,52 @@ export class MinimapOverlay {
   private zoom = 2;
   private terrainCacheKey = "";
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, onClose?: () => void) {
     this.el = document.createElement("div");
     this.el.className = "ow-minimap";
     this.el.hidden = true;
     const head = document.createElement("div");
     head.className = "ow-minimap-head";
     const title = document.createElement("span");
-    title.textContent = "OVERWORLD MAP";
-    this.zoomBtn = document.createElement("button");
-    this.zoomBtn.type = "button";
-    this.zoomBtn.className = "ow-pill";
-    this.zoomBtn.textContent = "2×";
-    this.zoomBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
-    this.zoomBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.zoom = this.zoom === 2 ? 1 : 2;
-      this.zoomBtn.textContent = `${this.zoom}×`;
-      this.terrainCacheKey = "";
-    });
-    head.append(title, this.zoomBtn);
-
+    title.textContent = "OVERWORLD MAP [M]";
+    const controls = document.createElement("span");
+    controls.className = "ow-minimap-controls";
+    this.zoomBtn = this.makeZoomButton();
+    controls.append(this.zoomBtn);
+    if (onClose) controls.append(this.makeCloseButton(onClose));
+    head.append(title, controls);
     this.canvas = document.createElement("canvas");
-    this.canvas.width = MAP_PX;
-    this.canvas.height = MAP_PX;
+    this.canvas.width = MAP_PX; this.canvas.height = MAP_PX;
     this.canvas.className = "ow-minimap-canvas";
     this.terrainBuf = document.createElement("canvas");
-    this.terrainBuf.width = MAP_PX;
-    this.terrainBuf.height = MAP_PX;
-
+    this.terrainBuf.width = MAP_PX; this.terrainBuf.height = MAP_PX;
     const foot = document.createElement("div");
     foot.className = "ow-minimap-foot";
     this.coordsEl = document.createElement("span");
-    foot.append("N ↑", this.coordsEl);
+    foot.append("N ↑ · E → · S ↓ · W ←", this.coordsEl);
     this.el.append(head, this.canvas, foot);
     host.append(this.el);
+  }
+
+  private makeZoomButton(): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "ow-pill"; btn.textContent = "2×";
+    btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.zoom = this.zoom >= 3 ? 1 : this.zoom + 1;
+      btn.textContent = `${this.zoom}×`;
+      this.terrainCacheKey = "";
+    });
+    return btn;
+  }
+
+  private makeCloseButton(onClose: () => void): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "ow-pill"; btn.textContent = "✕";
+    btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    btn.addEventListener("click", (e) => { e.stopPropagation(); onClose(); });
+    return btn;
   }
 
   sync(opts: {
@@ -139,28 +154,16 @@ export class MinimapOverlay {
     const cx = MAP_PX * 0.5;
     const cy = MAP_PX * 0.5;
     for (const prop of opts.cache.propsNear(local.x, local.y).filter((p) => p.kind === PropKind.Campfire)) {
-      drawDot(ctx, { px: cx + (prop.x - local.x) * this.zoom, py: cy + (prop.y - local.y) * this.zoom, size: 4, color: COLOR_CAMPFIRE });
+      drawDot(ctx, { px: cx + (prop.x - local.x) * this.zoom, py: cy + (prop.y - local.y) * this.zoom, size: 5, color: COLOR_CAMPFIRE });
     }
     for (const c of opts.chests) {
-      drawDot(ctx, { px: cx + (c.x - local.x) * this.zoom, py: cy + (c.y - local.y) * this.zoom, size: 4, color: c.opened ? "#ca8a04" : COLOR_CHEST });
+      drawDot(ctx, { px: cx + (c.x - local.x) * this.zoom, py: cy + (c.y - local.y) * this.zoom, size: 5, color: c.opened ? "#ca8a04" : COLOR_CHEST });
     }
     for (const e of opts.entities.filter((m) => !m.corpse && m.hp > 0)) {
-      drawDot(ctx, { px: cx + (e.x - local.x) * this.zoom, py: cy + (e.y - local.y) * this.zoom, size: 3, color: COLOR_ENEMY });
+      drawDot(ctx, { px: cx + (e.x - local.x) * this.zoom, py: cy + (e.y - local.y) * this.zoom, size: 4, color: COLOR_ENEMY });
     }
     for (const p of opts.players.filter((pl) => pl.id !== local.id)) {
-      drawDot(ctx, { px: cx + (p.x - local.x) * this.zoom, py: cy + (p.y - local.y) * this.zoom, size: 4, color: COLOR_PLAYER_REMOTE });
+      drawDot(ctx, { px: cx + (p.x - local.x) * this.zoom, py: cy + (p.y - local.y) * this.zoom, size: 5, color: COLOR_PLAYER_REMOTE });
     }
-  }
-}
-
-function paintTilePixel(ctx: CanvasRenderingContext2D, opts: {
-  readonly cache: WorldChunkCache; readonly wx: number; readonly wy: number; readonly px: number; readonly py: number; readonly step: number;
-}): void {
-  const tile = opts.cache.tileAt(opts.wx, opts.wy);
-  ctx.fillStyle = GROUND_COLORS[tile.ground] ?? "#3f7d3a";
-  ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
-  if (tile.elevation > 0) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
-    ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
   }
 }

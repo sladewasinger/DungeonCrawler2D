@@ -6,6 +6,8 @@ import {
   evaluateBowShot,
   isInSanctuary,
   isWithinSector,
+  projectileHurtbox,
+  segmentHitsEllipse,
 } from "./combatRules.js";
 
 describe("combatRules", () => {
@@ -30,5 +32,12 @@ describe("combatRules", () => {
     expect(isWithinSector({ origin: { x: 0, y: 0 }, dir: { x: 1, y: 0 }, target: { x: 1.5, y: 0.3 }, range: 1.85, halfArcRad: 0.9 })).toBe(true);
     expect(isWithinSector({ origin: { x: 0, y: 0 }, dir: { x: 1, y: 0 }, target: { x: -1.0, y: 0 }, range: 1.85, halfArcRad: 0.9 })).toBe(false);
     expect(isWithinSector({ origin: { x: 0, y: 0 }, dir: { x: 1, y: 0 }, target: { x: 2.5, y: 0 }, range: 1.85, halfArcRad: 0.9 })).toBe(false);
+  });
+
+  it("detects swept projectile segment intersections across elliptical entity hurtboxes without tunneling", () => {
+    const box = projectileHurtbox({ x: 5, y: 5 }, "goblin");
+    expect(segmentHitsEllipse({ x0: 4.1, y0: 5, x1: 6.1, y1: 5, box })).not.toBeNull();
+    expect(segmentHitsEllipse({ x0: 3.5, y0: 4.4, x1: 6.5, y1: 4.4, box })).not.toBeNull();
+    expect(segmentHitsEllipse({ x0: 3.5, y0: 7.2, x1: 6.5, y1: 7.2, box })).toBeNull();
   });
 });

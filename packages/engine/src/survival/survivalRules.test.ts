@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import { WorldChunkCache } from "../world/collision.js";
+import { GroundKind, PropKind } from "../world/types.js";
+import { canPlaceStructure } from "./campBuilding.js";
+import { computeHarvestDamage, rollHarvestDrops } from "./harvestRules.js";
+import { computeSurvivalRegen } from "./survivalBuffs.js";
+
+class FlatCampCache extends WorldChunkCache {
+  override tileAt(wx: number) {
+    return { ground: Math.floor(wx) === 10 ? GroundKind.DeepWater : GroundKind.Grass, elevation: 0, stairs: false };
+  }
+}
+
+describe("Phase 8 engine survival rules and chunk deltas", () => {
+  it("computes tool-gated harvest damage and ore requirements", () => {
+    expect(computeHarvestDamage({ nodeKind: PropKind.OakTree, toolKind: "wood", toolPower: 28 })).toBe(28);
+    expect(computeHarvestDamage({ nodeKind: PropKind.OakTree, toolKind: "none", toolPower: 0 })).toBe(6);
+    expect(computeHarvestDamage({ nodeKind: PropKind.IronVein, toolKind: "wood", toolPower: 28 })).toBe(0);
+    expect(computeHarvestDamage({ nodeKind: PropKind.IronVein, toolKind: "stone", toolPower: 28 })).toBe(28);
+    expect(computeHarvestDamage({ nodeKind: PropKind.Bush, toolKind: "none", toolPower: 0 })).toBe(20);
+    expect(rollHarvestDrops(PropKind.Bush, () => 0.5).some((d) => d.itemId === "berry")).toBe(true);
+  });
+
+  it("validates camp building terrain/range and composes chunk deltas with revision bumps", () => {
+    const cache = new FlatCampCache(1337);
+    expect(canPlaceStructure({ cache, x: 4, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
+    expect(canPlaceStructure({ cache, x: 10.5, y: 0, playerX: 9, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
+    expect(canPlaceStructure({ cache, x: 2.5, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "bed" })).toBe(false);
+
+    const rev0 = cache.chunkRevision(0, 0);
+    cache.addPlacedStructure({ id: "str-1", kind: "campfire", itemId: "camp-campfire", x: 4.5, y: 1.5, elevation: 0, ownerName: "Hero" });
+    expect(cache.chunkRevision(0, 0)).toBeGreaterThan(rev0);
+    const chunk = cache.getChunk(0, 0);
+    expect(chunk.props.some((p) => p.id === "str-1" && p.kind === PropKind.Campfire)).toBe(true);
+    expect(chunk.lights.some((l) => l.id === "light:str-1")).toBe(true);
+
+    const oak = chunk.props.find((p) => p.kind === PropKind.OakTree);
+    if (oak) {
+      cache.setDepletedProp({ propId: oak.id, replacementKind: PropKind.Stump, regrowAtSec: 200 });
+      expect(cache.getChunk(0, 0).props.find((p) => p.id === oak.id)?.kind).toBe(PropKind.Stump);
+      cache.restoreProp(oak.id);
+      expect(cache.getChunk(0, 0).props.find((p) => p.id === oak.id)?.kind).toBe(PropKind.OakTree);
+    }
+  });
+
+  it("computes Well-Fed and Rested buff regeneration only outside active hit stun", () => {
+    const active = computeSurvivalRegen({ wellFedTimer: 30, restedTimer: 60, hitTimer: 0 });
+    expect(active.hpPerSec).toBeCloseTo(2.2, 3);
+    expect(active.staminaBonusPerSec).toBe(18);
+    const hurt = computeSurvivalRegen({ wellFedTimer: 30, restedTimer: 60, hitTimer: 0.2 });
+    expect(hurt.hpPerSec).toBe(0);
+    expect(hurt.staminaBonusPerSec).toBe(18);
+  });
+});

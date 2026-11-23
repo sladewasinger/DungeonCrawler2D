@@ -3,8 +3,9 @@ import { TILE_PX, type GoreStyle, type GoreSubstance, type PlayerSnapshot, type 
 import { Container, Sprite, type Texture } from "pixi.js";
 import { GORE_TUNING } from "../combatVisualTuning.js";
 import { ELEVATION_LIFT_PX } from "../../world/cliffStrips.js";
-import { GoreDecalManager, type FootprintActor, type TileSampler } from "./goreDecals.js";
-import { planGoreSpawn, type PlannedParticle, type PlannedParticleKind } from "./gorePatterns.js";
+import { buildGoreFootActors, initialDropScale, pickGoreItem } from "./goreDecalHelpers.js";
+import { GoreDecalManager, type TileSampler } from "./goreDecals.js";
+import { planClashSparks, planGoreSpawn, type PlannedParticle, type PlannedParticleKind } from "./gorePatterns.js";
 import { goreScaleForLevel, loadGoreLevel, saveGoreLevel, type GoreLevel } from "./gorePrefs.js";
 import { getGoreTextures } from "./goreTextures.js";
 
@@ -25,24 +26,6 @@ export interface GoreSpawnInput {
 }
 
 const BLEED_SUBSTANCES = new Set<GoreSubstance>(["blood", "slime", "ichor"]);
-
-function pickItem<T>(list: readonly T[]): T { return list[Math.floor(Math.random() * list.length)]!; }
-
-function initialDropScale(kind: PlannedParticleKind, scale: number): number {
-  if (kind === "arc") return scale * 0.58;
-  return kind === "chunk" ? scale * 0.85 : scale * 0.72;
-}
-
-function buildFootActors(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[]): FootprintActor[] {
-  const out: FootprintActor[] = [];
-  for (const p of players) {
-    out.push({ id: p.id, x: p.x, y: p.y, elevation: p.elevation, jumpZ: p.jumpZ, inWater: p.inWater, alive: (p.respawnTimer ?? 0) <= 0 });
-  }
-  for (const e of entities) {
-    out.push({ id: e.id, x: e.x, y: e.y, elevation: e.elevation, jumpZ: e.jumpZ, alive: !e.corpse && e.hp > 0 });
-  }
-  return out;
-}
 
 export class GoreSystem {
   readonly particleLayer = new Container();
@@ -69,7 +52,8 @@ export class GoreSystem {
   setGoreLevel(level: GoreLevel): void {
     this.level = level;
     saveGoreLevel(level);
-    if (level === "off") this.clear();
+    if (level === "off") { this.clear(); return; }
+    if (level === "reduced") this.decals.shrinkToRatio(0.35);
   }
 
   spawn(input: GoreSpawnInput): void {
@@ -89,13 +73,41 @@ export class GoreSystem {
     }
   }
 
+  spawnClashSparks(opts: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation?: number }): void {
+    this.emitSparkBurst(opts, 12);
+  }
+
+  spawnCritSparks(opts: {
+    readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number;
+    readonly elevation?: number; readonly colors?: readonly number[];
+  }): void {
+    this.emitSparkBurst(opts, 16, opts.colors ?? [0xfacc15, 0xfef08a, 0xef4444, 0xdc2626]);
+  }
+
+  spawnGroundCrack(opts: { readonly x: number; readonly y: number; readonly elevation?: number; readonly cache?: TileSampler }): void {
+    this.decals.spawnStaticFeature({
+      x: opts.x, y: opts.y, elevation: opts.elevation ?? 0, kind: "groundCrack",
+      substance: "stone", scaleMult: 1.0, cache: opts.cache ?? this.tileCache,
+    });
+  }
+
+  private emitSparkBurst(
+    opts: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation?: number },
+    count: number, colors?: readonly number[],
+  ): void {
+    const ox = opts.x * TILE_PX; const oy = opts.y * TILE_PX; const elev = opts.elevation ?? 0;
+    for (const p of planClashSparks(opts.dirX, opts.dirY, count)) {
+      this.pushDroplet({ plan: colors ? { ...p, colors } : p, substance: "stone", ox, oy, elev });
+    }
+  }
+
   step(dt: number): void {
     this.stepDroplets(dt);
     this.decals.step(dt);
   }
 
   stepBleedDrips(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[], dt: number): void {
-    if (this.level === "off") return;
+    if (this.level !== "full") return;
     this.bleedAcc += dt;
     if (this.bleedAcc < GORE_TUNING.bleedDripIntervalSec) return;
     this.bleedAcc = 0;
@@ -104,8 +116,8 @@ export class GoreSystem {
   }
 
   stepFootprints(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[]): void {
-    if (this.level === "off") return;
-    this.decals.stepFootprints(buildFootActors(players, entities), this.tileCache);
+    if (this.level !== "full") return;
+    this.decals.stepFootprints(buildGoreFootActors(players, entities), this.tileCache);
   }
 
   clear(): void {
@@ -130,9 +142,9 @@ export class GoreSystem {
       return { air: hit.tex, land: hit.tex };
     }
     if (kind === "spark") return { air: tex.spark, land: tex.spark };
-    if (kind === "chunk") { const c = pickItem(tex.chunks[pal.chunkKind]); return { air: c, land: c }; }
-    if (kind === "goop") return { air: tex.droplet, land: pickItem(tex.goopBlobs) };
-    if (kind === "streak") return { air: tex.droplet, land: pickItem(tex.streaks) };
+    if (kind === "chunk") { const c = pickGoreItem(tex.chunks[pal.chunkKind]); return { air: c, land: c }; }
+    if (kind === "goop") return { air: tex.droplet, land: pickGoreItem(tex.goopBlobs) };
+    if (kind === "streak") return { air: tex.droplet, land: pickGoreItem(tex.streaks) };
     const splat = this.pickVaried(tex.splatters, this.lastSplatIdx);
     this.lastSplatIdx = splat.idx;
     return { air: tex.droplet, land: splat.tex };
@@ -170,7 +182,7 @@ export class GoreSystem {
     const { air, land } = this.resolveTextures(plan.kind, substance);
     const sprite = new Sprite(air);
     sprite.anchor.set(0.5, 0.5);
-    sprite.tint = pickItem(plan.colors ?? GORE_TUNING.palettes[substance].fresh);
+    sprite.tint = pickGoreItem(plan.colors ?? GORE_TUNING.palettes[substance].fresh);
     const initScale = initialDropScale(plan.kind, plan.scale);
     sprite.scale.set(initScale, plan.flipY ? -initScale : initScale);
     sprite.position.set(ox, oy - elev * ELEVATION_LIFT_PX - plan.z0);
@@ -240,7 +252,7 @@ export class GoreSystem {
     d.vy *= 0.52;
     if (!GORE_TUNING.palettes[d.substance].solid && !d.ephemeral) {
       this.decals.stampSurface({
-        tileX: d.x / TILE_PX, tileY: d.y / TILE_PX, elevation: d.elev, texture: pickItem(getGoreTextures().splatters),
+        tileX: d.x / TILE_PX, tileY: d.y / TILE_PX, elevation: d.elev, texture: pickGoreItem(getGoreTextures().splatters),
         scale: d.scale * 0.5, rot: d.rot, alpha: d.alpha * 0.65, ttl: d.ttlSec * 0.7, substance: d.substance, cache: this.tileCache,
       });
     }

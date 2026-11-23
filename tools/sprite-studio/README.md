@@ -1,6 +1,6 @@
 # 3D-to-Pixel Sprite Studio (`tools/sprite-studio`)
 
-Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly shaded, 4-direction (`south`, `side` mirrored for West, `north`) animated creature and character spritesheets at default `48 art px / meter` (`scale = 0.3333` in-game: `96x96` Goblin & Slime, `120x120` Boar, Spider & Wolf, `144x144` Skeleton, `168x168` Bear & Orc, `192x192` Stone Golem).
+Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly shaded, 8-direction (`south`, `se`, `side` mirrored for West, `ne`, `north`; `--dirs 8` default, or `4` with `--dirs 4`) animated creature spritesheets at default `48 art px / meter` (`scale = 0.3333` in-game: `96x96` Goblin & Slime, `120x120` Boar, Spider & Wolf, `144x144` Skeleton, `168x168` Bear & Orc, `192x192` Stone Golem).
 
 ## Fast Iteration Workflow
 1. Edit or animate your model in Blender (`tools/sprite-studio/<creature>.blend`) and save (`Ctrl+S`).
@@ -20,6 +20,63 @@ Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly s
    This runs headless Blender (`export_blend.py`), scales cell resolution cleanly around `StudioCam.ortho_scale` at `48 px/m` by default (override with `--pxPerMeter <n>`), discovers every matching Action (`idle`, `walk`, `run`, `attack`, `corpse`) plus optional `fps` / `loopStart` / `loopEnd` custom properties, renders color + depth turntable frames (`South`, `Side`, `North`), applies Cainos hue-shifted sel-out post-processing (`bakeSpriteSheet.mjs`), writes `<creature>-sheet.png` + `<creature>.png`, and updates `sprite-manifest.json`.
 3. Refresh `http://localhost:5174/?sandbox=1` to preview live.
 
+## Editing & Re-Exporting the 3D Player (`player.blend`)
+
+> **Important:** After making manual edits in Blender (`player.blend` or `player_v2.blend`), **never run `build_player.py`**—that script regenerates the scene from scratch and overwrites manual edits.
+
+### 1. Re-Export Commands (from repo root)
+
+All `npm run player:bake` examples work in PowerShell without quoting issues (`node tools/sprite-studio/runPlayerBake.mjs --blend ... --layers ...` also works directly):
+
+```powershell
+# Full bake from default player.blend (all 16 layers + shoulder/hand sockets + player-rig.json)
+npm run player:bake
+
+# Full bake from a custom .blend file (e.g. player_v2.blend)
+npm run player:bake -- player_v2.blend
+
+# Re-bake ONLY specific layers (fast iteration ~25s per layer)
+npm run player:bake -- player_v2.blend body-female body-female-arms
+npm run player:bake -- player_v2.blend hair-short hair-long hair-spiky hair-ponytail
+
+# Re-bake edited female head + update hair/hood Holdout masks against the new skull
+npm run player:bake -- player_v2.blend body-female body-female-arms hair-short hair-long hair-spiky hair-ponytail armor-head-leather-hood
+
+# Re-export ONLY shoulder/hand sockets (if only Rig_Hero / Socket_* empties moved)
+npm run player:bake -- player_v2.blend sockets-only
+
+# Re-export ONLY the 3D 8-direction held bow overlay (`weapon-bow.png` + `player-rig.json` `bowOverlay`)
+npm run player:bake -- player_v2.blend bow-only
+```
+
+Direct Node CLI syntax (explicit flags):
+```powershell
+node tools/sprite-studio/runPlayerBake.mjs --blend player_v2.blend --layers body-female,body-female-arms
+node tools/sprite-studio/runPlayerBake.mjs --blend player_v2.blend --sockets-only
+```
+
+After baking completes, press **`F5`** in your browser (`bakeVersion` in `player-rig.json` automatically cache-busts the PNG sheets). Note: run a **full** bake of a body (`body-female` / `body-male`) at least once before baking only accessories (`hair-*` / `armor-*`) for that gender so `anchorsByGender` is cached in `player-rig.json`.
+
+### 2. All 16 Valid Layer IDs
+- **Body**: `body-male`, `body-female`, `body-male-arms`, `body-female-arms`
+- **Hair**: `hair-short`, `hair-long`, `hair-spiky`, `hair-ponytail`
+- **Armor**: `armor-head-leather-hood`, `armor-chest-leather-tunic-male`, `armor-chest-leather-tunic-female`, `armor-chest-sleeves-male`, `armor-chest-sleeves-female`, `armor-legs-leather-leggings-male`, `armor-legs-leather-leggings-female`, `armor-feet-leather-boots`
+
+### 3. Blender Editing & Rigging Checklist
+- **Safe to delete / replace / sculpt**: Any leaf mesh inside `Body_Male_Core`, `Body_Female_Core`, `Hair_*`, or `Armor_*` (skull, jaw, chin, nose, ears, eyes, brows, lashes, hair tufts, armor plates). Nothing is weight-painted—pieces are parented directly to single `Rig_Hero` bones (`Head`, `Torso`, `Pelvis`, etc.).
+- **Do NOT delete or rename**:
+  - Anything inside **`Core_Rig`** (`CharacterRoot`, `Rig_Hero`, `StudioCam`, `StudioSun`, `Socket_Shoulder_L/R`, `Socket_Hand_L/R`, `Socket_Head`, `Socket_Back`).
+  - The **Collection names** themselves (`export_player_layers.py` exports by Collection name).
+  - The **3 customizable Material names** for runtime palette swaps: `Hero_Skin`, `Hero_EyeIris`, `Hero_Hair` (keep whites/pupils on `Hero_EyeWhite` and `Hero_EyePupil`; do not use Sculpt vertex Paint, which the cel materials ignore).
+- **Smooth lighting on new meshes**: New primitives/sculpts default to flat shading—in **Object Mode**, select the mesh, **Right-click → `Shade Smooth`**, and apply scale with **`Ctrl+A` → `Scale`**.
+- **Parenting a newly added mesh (e.g., new head/eye) to a bone**:
+  1. Press **`M`** on the mesh → place it inside the right collection (e.g. `Body_Female_Core`).
+  2. Assign a studio material (`Hero_Skin`, `Hero_EyeIris`, etc.).
+  3. Make sure **`Rig_Hero` is visible** in the **View Layer** Outliner (eye icon on; use `Alt+Z` X-Ray in 3D Viewport if needed).
+  4. In **Object Mode**, click your **new mesh**, then **`Ctrl`-click** **`Rig_Hero`** in the **View Layer** Outliner (`Shift`-click selects everything in between—use `Ctrl`-click).
+  5. Switch to **Pose Mode** (`Ctrl+Tab`), click the target bone (e.g. **`Head`**), and press **`Ctrl+P` → `Bone`**, then switch back to **Object Mode**.
+  6. **Verify**: Check **Object Properties → Relations** (`Parent: Rig_Hero`, `Parent Type: Bone`, `Parent Bone: Head`), rotate `Head` briefly (`R`, then `Esc`), and confirm `Rig_Hero` is in **Pose Position** (not Rest Position) before saving.
+
 ## Pipeline Modules
 - `studio_core.py`: Locked `38°` orthographic `StudioCam`, upper-left `StudioSun`, `Standard` color management (`0.01px` filter, transparent RGBA), 3-band flat `make_toon_material()` EEVEE cel shader, `StudioDepthMat` linear depth pass, and `render_turntable_clip()`.
 - `build_goblin.py` / `goblin.blend`: Reusable `Rig_ChibiHumanoid` armature (`Socket_Hand_R`, `Socket_Hand_L`, `Socket_Head`, `Socket_Back` sockets) and bare Goblin model (`64px` base / `96x96` default export).
@@ -35,11 +92,11 @@ Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly s
 - `build_bear.py` / `bear.blend`: `Rig_Quadruped` continuous organic Grizzly Bear (`112px` base / `168x168` default export, `groundY = 138`, sculpted withers & tapered skinned legs, honey muzzle, shoulder X-scar, rearing claw swipe `Attack`).
 - `build_skeleton.py` / `skeleton_actions.py` / `skeleton.blend`: `Rig_SkeletonHumanoid` bare creepy Skeleton (`96px` base / `144x144` default export, `groundY = 120`, hollow cranium/sockets, hinged jaw chatter, open ribcage, claw hands, collapsed bone-pile `Corpse`, zero weapons/cape/horns).
 - `build_orc.py` / `orc_actions.py` / `orc.blend`: `Rig_OrcBrute` Orc Warrior (`112px` base / `168x168` default export, `groundY = 141`, olive musculature, spiked steel pauldron, leather baldric/war-belt, tusks, double-bladed steel battleaxe).
-- `build_player.py` / `player_actions.py` / `export_player_layers.py` / `bakePlayerAssets.mjs` / `player.blend`: Stylized Chibi-Heroic Player (`Rig_Hero`, `96px` base / `144x144` at `48 px/m`, `groundY = 120`, `Socket_Shoulder_L/R`, `Socket_Hand_L/R`, `Socket_Head`, `Socket_Back`) organized into modular collections for bare-skin underwear `Male`/`Female` cores & arms, 4 hairs (`Short`, `Long`, `Spiky`, `Ponytail`), and 4 leather armor slots (`LeatherHood`, `LeatherTunic`, `LeatherLeggings`, `LeatherBoots`), plus 7 Actions (`Hero_Idle`, `Hero_Walk`, `Hero_Run`, `Hero_Jump`, `Hero_Fall`, 6-frame dive-roll `Hero_Dodge`, `Hero_Downed`). `export_player_layers.py` exports Sentinel-colored, `ShaderNodeHoldout`-masked 8-dir sheets + projected `raw_sockets.json` (`--sockets-only` fast pass supported), and `bakePlayerAssets.mjs` packs `packages/client/public/assets/player/`.
+- `build_player.py` / `player_actions.py` / `export_player_layers.py` / `bakePlayerAssets.mjs` / `runPlayerBake.mjs` / `player.blend`: Stylized Chibi-Heroic Player (`Rig_Hero`, `192×192` at `80 px/m`, `scale = 0.20`, `groundY = 148`, `46` sheet rows, `portraitRow = 45`, `Socket_Shoulder_L/R`, `Socket_Hand_L/R`, `Socket_Head`, `Socket_Back`) organized into modular collections for bare-skin underwear `Male`/`Female` cores & arms, 4 hairs (`Short`, `Long`, `Spiky`, `Ponytail`), and 4 leather armor slots (`LeatherHood`, `LeatherTunic`, `LeatherLeggings`, `LeatherBoots`), plus 9 Actions (`Hero_Idle`, `Hero_Walk`, `Hero_Run`, `Hero_Jump`, `Hero_Fall`, 6-frame dive-roll `Hero_Dodge`, `Hero_Downed`, `Hero_Swim`, and 3-frame ready/half-draw/full-draw `Hero_Bow`, which `export_player_layers.py` auto-synthesizes in memory if absent from an older `.blend` without modifying the `.blend` file). Run `npm run player:bake` (or `npm run player:bake -- player_v2.blend body-female body-female-arms` / `sockets-only`) after saving edits in `player.blend` to export `ShaderNodeHoldout`-masked 8-dir sheets and sync `packages/client/public/assets/player/player-rig.json` (`bakeVersion` cache-busting).
 - `build_gear.py` / `bakeGearAssets.mjs`: Renders and packs all 12 `48 px/m` (`scale = 0.3333`) 3D weapons/gear (`sword`, `axe`, `pickaxe`, `bow`, `bow-drawn`, `wooden-shield`, `torch-0..3`, `lantern-0..1`) into `packages/client/public/assets/gear/` and syncs `sprite-manifest.json`.
 - `render_player_preview.py`: Renders quick turntable, animation contact sheet, and scale lineup previews from `player.blend`.
 - `export_blend.py`: Headless Blender CLI script rendering all canonical Actions cleanly without modifying `.blend`, including optional scene `sprite_body_alpha` translucency metadata.
 - `pngCodec.mjs`: Pure Node 8-bit PNG decoder and encoder.
-- `pixelPost.mjs`: Binary alpha cleanup, internal depth-crease separation, hue-shifted 2px rounded colored outlines (`applyOuterSelOut`, `dx² + dy² <= 4`), optional translucent gelatin body alpha (`applyTranslucentBodyAlpha`), horizontal centering, and foot grounding.
+- `pixelPost.mjs`: Binary alpha cleanup, internal depth-crease separation, hue-shifted opaque crisp solid outlines (`applyOuterSelOut`, default `radiusPx = 2.0`), optional translucent gelatin body alpha (`applyTranslucentBodyAlpha`), horizontal centering, and foot grounding.
 - `bakeSpriteSheet.mjs` & `manifestSync.mjs`: Multi-clip spritesheet packer and `sprite-manifest.json` updater (`scale = 16 / pxPerMeter`).
 - `runBake.mjs`: Cross-platform wrapper backing `npm run sprite:bake -- <creature> [reviewPath] [--pxPerMeter <n>]`.

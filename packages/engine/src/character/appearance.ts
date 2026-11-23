@@ -5,7 +5,11 @@ export const BODY_STYLES = ["male", "female"] as const;
 export const SKIN_TONES = ["fair", "warm", "tan", "bronze", "deep"] as const;
 export const EYE_COLORS = ["brown", "blue", "green", "hazel", "amber", "violet"] as const;
 export const HAIR_STYLES = ["short", "long", "spiky", "ponytail", "bald"] as const;
-export const HAIR_COLORS = ["brown", "black", "blonde", "red", "silver", "teal"] as const;
+export const HAIR_COLORS = [
+  "brown", "black", "blonde", "red", "silver", "teal",
+  "auburn", "midnight", "rose", "violet", "emerald", "white",
+  "pink-purple", "black-red", "midnight-cyan", "sunset-gold", "emerald-teal", "silver-violet",
+] as const;
 
 export const BodyStyleSchema = z.enum(BODY_STYLES);
 export const SkinToneIdSchema = z.enum(SKIN_TONES);

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createStarterInventorySnapshot, reconcileInventorySnapshot } from "./clientInventory.js";
 
 describe("reconcileInventorySnapshot", () => {
-  it("equips starter chest, legs, and feet armor without helmet by default", () => {
+  it("equips starter chest, legs, and feet armor without helmet and starts with wooden-spear only", () => {
     const starter = createStarterInventorySnapshot();
+    expect(starter.slots[0]).toEqual({ itemId: "wooden-spear", count: 1 });
+    expect(starter.slots.slice(1).every((s) => s === null)).toBe(true);
     expect(starter.armor).toEqual({
       head: null,
       chest: "leather-tunic",

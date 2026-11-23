@@ -1,9 +1,23 @@
 /** Pure decal color, surface, animation, and static feature helpers for GoreDecalManager. */
-import { GroundKind, type GoreSubstance, type WorldChunkCache } from "@dc2d/engine";
+import { GroundKind, type GoreSubstance, type PlayerSnapshot, type WorldChunkCache, type WorldEntitySnapshot } from "@dc2d/engine";
 import type { Sprite, Texture } from "pixi.js";
 import { GORE_TUNING } from "../combatVisualTuning.js";
-import type { StaticFeatureKind } from "./gorePatterns.js";
+import type { PlannedParticleKind, StaticFeatureKind } from "./gorePatterns.js";
 import { getGoreTextures } from "./goreTextures.js";
+
+export const pickGoreItem = <T>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)]!;
+
+export function initialDropScale(kind: PlannedParticleKind, scale: number): number {
+  if (kind === "arc") return scale * 0.58;
+  return kind === "chunk" ? scale * 0.85 : scale * 0.72;
+}
+
+export function buildGoreFootActors(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[]) {
+  return [
+    ...players.map((p) => ({ id: p.id, x: p.x, y: p.y, elevation: p.elevation, jumpZ: p.jumpZ, inWater: p.inWater, alive: (p.respawnTimer ?? 0) <= 0 })),
+    ...entities.map((e) => ({ id: e.id, x: e.x, y: e.y, elevation: e.elevation, jumpZ: e.jumpZ, alive: !e.corpse && e.hp > 0 })),
+  ];
+}
 
 export type TileSampler = Pick<WorldChunkCache, "tileAt">;
 
@@ -63,9 +77,13 @@ export function stepSingleDecal(dc: GoreDecal, dt: number): boolean {
 }
 
 export function resolveFeatureSpec(kind: StaticFeatureKind): {
-  readonly tex: Texture; readonly baseScale: number; readonly growFrom: number; readonly growTo: number; readonly growDur: number; readonly trackPuddle: boolean;
+  readonly tex: Texture; readonly baseScale: number; readonly growFrom: number; readonly growTo: number;
+  readonly growDur: number; readonly trackPuddle: boolean; readonly tintOverride?: number;
 } {
   const tex = getGoreTextures();
+  if (kind === "groundCrack") {
+    return { tex: tex.crack, baseScale: 0.78, growFrom: 0.85, growTo: 1, growDur: 0.08, trackPuddle: false, tintOverride: 0x1c1917 };
+  }
   if (kind === "goopPuddle") {
     return { tex: tex.goopPuddles[Math.floor(Math.random() * tex.goopPuddles.length)]!, baseScale: 0.62, growFrom: 0.42, growTo: 1.18, growDur: 1.4, trackPuddle: true };
   }

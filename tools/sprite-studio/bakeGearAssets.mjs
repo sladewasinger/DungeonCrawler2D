@@ -12,6 +12,9 @@ const SCALE = 0.3333;
 
 const GEAR_SPECS = [
   { id: "gear-sword", file: "sword", anchorX: 0.23, anchorY: 0.5 },
+  { id: "gear-flint-dagger", file: "flint-dagger", anchorX: 0.24, anchorY: 0.5 },
+  { id: "gear-wooden-spear", file: "wooden-spear", anchorX: 0.34, anchorY: 0.5 },
+  { id: "gear-iron-greatsword", file: "iron-greatsword", anchorX: 0.26, anchorY: 0.5 },
   { id: "gear-axe", file: "axe", anchorX: 0.23, anchorY: 0.42 },
   { id: "gear-pickaxe", file: "pickaxe", anchorX: 0.23, anchorY: 0.5 },
   { id: "gear-bow", file: "bow", anchorX: 0.45, anchorY: 0.5 },
@@ -46,8 +49,8 @@ function processGearFrame(fileBase) {
   const depthImg = decodePng(fs.readFileSync(path.join(RAW_DIR, `${fileBase}_depth.png`)));
   const clean = binarizeAndClean(colorImg, 4);
   const creased = applyInternalDepthCreases(clean, depthImg, 14);
-  const outlined = applyOuterSelOut(creased);
-  return cropTight(outlined, 1);
+  const outlined = applyOuterSelOut(creased, 2.0);
+  return cropTight(outlined, 2);
 }
 
 function sampleStripBg({ sx, sy, cx, cy }) {
@@ -103,8 +106,8 @@ function run() {
       path: `/assets/gear/${spec.file}.png`,
       width: img.width,
       height: img.height,
-      contentWidth: img.width - 2,
-      contentHeight: img.height - 2,
+      contentWidth: img.width - 4,
+      contentHeight: img.height - 4,
       scale: SCALE,
       anchorX: spec.anchorX,
       anchorY: spec.anchorY,

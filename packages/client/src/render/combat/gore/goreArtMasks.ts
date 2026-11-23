@@ -200,3 +200,14 @@ export const FOOTPRINT_MASKS: readonly (readonly string[])[] = [
 
 export const DROPLET_MASK: readonly string[] = [".+o.", "+o*+", "+oo+", ".++."];
 export const SPARK_MASK: readonly string[] = ["+o***o+", ".+ooo+."];
+export const GROUND_CRACK_MASK: readonly string[] = [
+  "......#......o........",
+  ".....#o#....#.........",
+  "..#...o....#o....#....",
+  "...#o.#o..#o....#o....",
+  "....#oo*ooo*oo##......",
+  ".##ooo*o#ooo#o*oo#....",
+  "....#o...#o...#o..#...",
+  "...#......#....o#.....",
+  "..o.............#.....",
+];

@@ -1,8 +1,8 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
 import { STARTER_ARMOR } from "@dc2d/content";
 import {
-  COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
-  type CharacterAppearance, type PlayerSnapshot,
+  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, MELEE_FEEL_TUNING, STEALTH_TUNING,
+  WorldChunkCache, resolveMovement, stepJumpArc, type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
 const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
@@ -14,7 +14,7 @@ export function createDefaultPlayer(
 ): PlayerSnapshot {
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false,
+    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false, inDeepWater: false,
     lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...STARTER_ARMOR },
   };
 }
@@ -63,24 +63,39 @@ function preservedIdentity(
 function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
   return {
     hp: serverMe.hp, maxHp: serverMe.maxHp, stamina: serverMe.stamina, maxStamina: serverMe.maxStamina,
-    comboStep: serverMe.comboStep, swingProgress: serverMe.swingProgress, bowCharge: serverMe.bowCharge,
-    blocking: serverMe.blocking, dodging: serverMe.dodging, invulnTimer: serverMe.invulnTimer,
-    staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
-    hitTimer: serverMe.hitTimer, respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary,
+    comboStep: serverMe.comboStep, swingProgress: serverMe.swingProgress, heavyCharge: serverMe.heavyCharge,
+    bowCharge: serverMe.bowCharge, blocking: serverMe.blocking, dodging: serverMe.dodging,
+    invulnTimer: serverMe.invulnTimer, staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
+    burnTimer: serverMe.burnTimer, poisonTimer: serverMe.poisonTimer, poisonLocked: serverMe.poisonLocked,
+    webSlowTimer: serverMe.webSlowTimer, webStick: serverMe.webStick, cocoonProgress: serverMe.cocoonProgress, hitTimer: serverMe.hitTimer,
+    respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary, godMode: serverMe.godMode,
+    stealthVis: serverMe.stealthVis, inCover: serverMe.inCover, attackFlash: serverMe.attackFlash,
+    inWater: Boolean(serverMe.inWater), inDeepWater: Boolean(serverMe.inDeepWater),
   };
+}
+
+const isBowDrawDisabled = (p: PlayerSnapshot): boolean =>
+  Boolean(p.dodging || (p.staggerTimer ?? 0) > 0 || (p.respawnTimer ?? 0) > 0);
+
+function resolveReconciledBowCharge(current: PlayerSnapshot, serverMe: PlayerSnapshot, localBowDrawing?: boolean): number | undefined {
+  if (localBowDrawing === undefined) return serverMe.bowCharge;
+  if (!localBowDrawing || isBowDrawDisabled(serverMe)) return 0;
+  return Math.max(current.bowCharge ?? 0, serverMe.bowCharge ?? 0);
 }
 
 export function reconcilePredictedPlayer(
   current: PlayerSnapshot,
   serverMe: PlayerSnapshot,
-  opts: { readonly preserveTorch?: boolean; readonly preserveAppearance?: boolean } = {},
+  opts: { readonly preserveTorch?: boolean; readonly preserveAppearance?: boolean; readonly localBowDrawing?: boolean | undefined } = {},
 ): PlayerSnapshot {
   const shared = preservedIdentity(current, serverMe, opts);
+  const bowCharge = resolveReconciledBowCharge(current, serverMe, opts.localBowDrawing);
   const gap = Math.hypot(serverMe.x - current.x, serverMe.y - current.y);
-  if (gap > 0.75) return { ...serverMe, ...shared, elevation: serverMe.elevation };
+  if (gap > 0.75) return { ...serverMe, ...shared, bowCharge, elevation: serverMe.elevation };
   return {
     ...current,
     ...serverCombatFields(serverMe),
+    bowCharge,
     id: serverMe.id,
     heldItem: serverMe.heldItem ?? current.heldItem ?? null,
     ...shared,
@@ -89,13 +104,58 @@ export function reconcilePredictedPlayer(
   };
 }
 
-function movementMultiplier(player: PlayerSnapshot): number {
+function baseActionMultiplier(player: PlayerSnapshot): number {
   const m = COMBAT_TUNING.movementMults;
   if (player.dodging) return m.dodge;
   if ((player.swingProgress ?? 0) > 0) return m.swing;
   if (player.blocking) return m.block;
-  if ((player.bowCharge ?? 0) > 0.05) return m.bowDraw;
+  if ((player.bowCharge ?? 0) > 0) return m.bowDraw;
   return 1;
+}
+
+function waterSpeedMultiplier(player: PlayerSnapshot): number {
+  const m = COMBAT_TUNING.movementMults;
+  if (player.inDeepWater) return (player.stamina ?? 100) <= 1 ? m.exhaustedSwim : m.deepWater;
+  return player.inWater ? m.shallowWater : 1;
+}
+
+function webStickMultiplier(player: PlayerSnapshot): number {
+  const cocoon = player.cocoonProgress ?? 0;
+  const stick = player.webStick ?? 0;
+  if (cocoon >= 0.35 || stick >= MELEE_FEEL_TUNING.webStuckThreshold) return 0;
+  return stick > 0.05 ? 1 - stick * 0.65 : 1;
+}
+
+function movementMultiplier(player: PlayerSnapshot): number {
+  const crouchMult = player.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
+  return baseActionMultiplier(player) * waterSpeedMultiplier(player) * crouchMult * webStickMultiplier(player);
+}
+
+const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0) > 0 || (p.staggerTimer ?? 0) > 0;
+
+function resolvePredictedBowCharge(player: PlayerSnapshot, bowDraw: boolean | undefined, dt: number): number | undefined {
+  if (bowDraw === undefined) return player.bowCharge;
+  if (!bowDraw || player.heldItem !== "bow" || isBowDrawDisabled(player)) return 0;
+  return Math.min(1, (player.bowCharge ?? 0) + dt / BOW_MAX_CHARGE_SEC);
+}
+
+function preparePredictedPlayer(opts: {
+  readonly player: PlayerSnapshot; readonly bowDraw: boolean | undefined; readonly crouch: boolean | undefined; readonly dt: number;
+}): PlayerSnapshot {
+  const bowCharge = resolvePredictedBowCharge(opts.player, opts.bowDraw, opts.dt);
+  const basePlayer = bowCharge !== opts.player.bowCharge ? { ...opts.player, bowCharge } : opts.player;
+  return opts.crouch !== undefined ? { ...basePlayer, crouching: opts.crouch } : basePlayer;
+}
+
+function resolveMoveVector(opts: {
+  readonly nx: number; readonly ny: number; readonly player: PlayerSnapshot;
+}): { readonly moveX: number; readonly moveY: number; readonly mag: number } {
+  const rawMag = Math.hypot(opts.nx, opts.ny);
+  if (rawMag <= 0.05) return { moveX: 0, moveY: 0, mag: 0 };
+  const cap = !opts.player.dodging && (opts.player.bowCharge ?? 0) > 0 ? COMBAT_TUNING.movement.walkSpeedRatio : 1;
+  if (rawMag <= cap) return { moveX: opts.nx, moveY: opts.ny, mag: rawMag };
+  const scale = cap / rawMag;
+  return { moveX: opts.nx * scale, moveY: opts.ny * scale, mag: cap };
 }
 
 export function predictLocalPlayerMove(input: {
@@ -103,31 +163,28 @@ export function predictLocalPlayerMove(input: {
   readonly nx: number; readonly ny: number; readonly dt: number;
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly jump?: boolean | undefined;
+  readonly crouch?: boolean | undefined;
+  readonly bowDraw?: boolean | undefined;
 }): PlayerSnapshot {
-  if ((input.player.respawnTimer ?? 0) > 0 || (input.player.staggerTimer ?? 0) > 0) {
-    return { ...input.player, moving: false, sprinting: false };
-  }
-  const arc = stepJumpArc(
-    { jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 },
-    Boolean(input.jump),
-    input.dt,
-  );
-  const mag = Math.hypot(input.nx, input.ny);
-  const moving = mag > 0.05;
-  const aimVec = resolveAim(input);
-  if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
-  const mult = movementMultiplier(input.player);
+  const curPlayer = preparePredictedPlayer({ player: input.player, bowDraw: input.bowDraw, crouch: input.crouch, dt: input.dt });
+  if (isPlayerImmobilized(curPlayer)) return { ...curPlayer, moving: false, sprinting: false };
+  const wantsJump = Boolean(input.jump) && !curPlayer.inDeepWater;
+  const arc = stepJumpArc({ jumpZ: curPlayer.jumpZ ?? 0, jumpVz: curPlayer.jumpVz ?? 0 }, wantsJump, input.dt);
+  const { moveX, moveY, mag } = resolveMoveVector({ nx: input.nx, ny: input.ny, player: curPlayer });
+  const aimVec = resolveAim({ ...input, player: curPlayer });
+  if (mag <= 0.05) return { ...curPlayer, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  const mult = movementMultiplier(curPlayer);
   const step = PLAYER_SPEED * mult * input.dt;
   const moved = resolveMovement({
-    cache: input.cache, x: input.player.x, y: input.player.y,
-    dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS,
-    elevation: input.player.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
+    cache: input.cache, x: curPlayer.x, y: curPlayer.y, dx: moveX * step, dy: moveY * step,
+    radius: PLAYER_RADIUS, elevation: curPlayer.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
   const nextJumpZ = Math.max(0, arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
-  const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(input.player.dodging) });
+  const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(curPlayer.dodging) });
   return {
-    ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz, moving: true, sprinting, inWater: moved.inWater,
+    ...curPlayer, x: moved.x, y: moved.y, elevation: moved.elevation, ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz,
+    crouching: sprinting ? false : Boolean(curPlayer.crouching),
+    moving: true, sprinting, inWater: moved.inWater, inDeepWater: moved.inDeepWater,
   };
 }
 

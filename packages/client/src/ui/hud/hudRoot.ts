@@ -38,6 +38,7 @@ export class HudRoot {
   private readonly minimap: MinimapOverlay;
   private openPanel: ActiveHudPanel = "none";
   private openChestId: string | null = null;
+  private mapOpen = false;
   private lastState: HudSyncState | null = null;
 
   constructor(host: HTMLElement, actions: HudActions) {
@@ -45,7 +46,7 @@ export class HudRoot {
     this.drag = new SlotDragManager({
       ...actions,
       onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
-    }, () => this.refreshFromCache());
+    });
     this.hotbar = new BottomHotbar(host, this.drag, actions.onToggleTorch);
     this.vitals = new VitalsBar(host);
     this.inventoryModal = new InventoryModal(host, this.drag, {
@@ -59,13 +60,20 @@ export class HudRoot {
       onClose: () => this.closePanels(), onOpenInventory: () => this.togglePanel("inventory"),
     });
     this.characterPanel = new CharacterPanel(host, actions.onSetCharacter, () => this.closePanels());
-    this.minimap = new MinimapOverlay(host);
+    this.minimap = new MinimapOverlay(host, () => { this.mapOpen = false; this.refreshFromCache(); });
   }
 
   activePanel(): ActiveHudPanel { return this.openPanel; }
   toggleInventory(): void { this.togglePanel("inventory"); }
   toggleCrafting(): void { this.togglePanel("crafting"); }
   toggleCharacter(): void { this.togglePanel("character"); }
+  toggleMap(): void {
+    this.mapOpen = !this.mapOpen;
+    if (this.mapOpen && this.openPanel !== "none") {
+      this.openPanel = "none"; this.openChestId = null; this.drag.clearTapSelection();
+    }
+    this.refreshFromCache();
+  }
 
   openChest(chestId: string): void {
     this.openChestId = chestId;
@@ -82,8 +90,9 @@ export class HudRoot {
   }
 
   closePanels(): void {
-    if (this.openPanel === "none") return;
+    if (this.openPanel === "none" && !this.mapOpen) return;
     this.openPanel = "none";
+    this.mapOpen = false;
     this.openChestId = null;
     this.drag.clearTapSelection();
     this.refreshFromCache();
@@ -97,7 +106,7 @@ export class HudRoot {
     this.drag.setState(state.inventory, { panelOpen: invOpen || chestOpen, chestSlots: chest?.slots ?? null });
     const tap = this.drag.activeTapSource();
     this.hotbar.sync(state.inventory, tap, Boolean(state.localPlayer?.torchLit));
-    this.vitals.sync(state.localPlayer);
+    this.vitals.sync(state.localPlayer, state.entities);
     this.inventoryModal.sync(state.inventory, { open: invOpen, tapSource: tap, player: state.localPlayer });
     this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen, tapSource: tap });
     this.craftingPanel.sync(state.inventory, this.openPanel === "crafting");
@@ -108,7 +117,7 @@ export class HudRoot {
   private syncMinimap(state: HudSyncState): void {
     if (!state.cache) return;
     this.minimap.sync({
-      visible: this.openPanel === "none" && state.localPlayer?.heldItem === "map",
+      visible: this.openPanel === "none" && (this.mapOpen || state.localPlayer?.heldItem === "map"),
       cache: state.cache, local: state.localPlayer,
       players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [],
     });

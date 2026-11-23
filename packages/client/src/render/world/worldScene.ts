@@ -3,13 +3,17 @@ import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import {
   TILE_PX, WorldChunkCache, clamp, sampleDayNight,
   type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
-  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
+import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js";
+import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
+import { WebLayer } from "../combat/webs/webRenderer.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
+import { HarvestFxLayer } from "../survival/harvestFxLayer.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
 import { FoliageWindEffect } from "../shaders/foliageWindFilter.js";
@@ -21,34 +25,28 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  buildGoreSpawn, nearestCampfireDist, nearestWaterDist, resolveEventElev, type SceneAudioDistances,
+  applyWorldEventFx, buildGoreSpawn, collectActorParticleEmitters, collectWaterActors,
+  nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
 export type { SceneAudioDistances } from "./sceneHelpers.js";
 
 export interface SceneFrameInput {
-  readonly dt: number;
-  readonly timeSec: number;
-  readonly dayPhase: number;
-  readonly cache: WorldChunkCache;
-  readonly players: readonly PlayerSnapshot[];
-  readonly localPlayerId: string;
-  readonly projectiles?: readonly ProjectileSnapshot[];
-  readonly entities?: readonly WorldEntitySnapshot[];
-  readonly chests?: readonly WorldChestSnapshot[];
-  readonly groundLoot?: readonly GroundLootSnapshot[];
-  readonly events?: readonly WorldEvent[];
+  readonly dt: number; readonly timeSec: number; readonly dayPhase: number; readonly cache: WorldChunkCache;
+  readonly players: readonly PlayerSnapshot[]; readonly localPlayerId: string;
+  readonly projectiles?: readonly ProjectileSnapshot[]; readonly entities?: readonly WorldEntitySnapshot[];
+  readonly chests?: readonly WorldChestSnapshot[]; readonly groundLoot?: readonly GroundLootSnapshot[];
+  readonly webs?: WorldWebSnapshot | undefined; readonly events?: readonly WorldEvent[];
 }
 
-export const CAMERA_TUNING = {
-  defaultZoom: 4.0,
-  minZoom: 1.6,
-  maxZoom: 5.0,
-  followLerpRate: 9,
-  hitstopTimeScale: 0.12,
-  grassWindStrength: 1.4,
-  canopyWindStrength: 0.9,
-} as const;
+const ZOOM_STOPS = [1.5, 2.0, 3.0, 4.0, 6.0] as const;
+
+function isMobileViewport(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(hover: none), (pointer: coarse), (max-width: 900px)")?.matches);
+}
+const resolveDefaultZoom = (): number => (isMobileViewport() ? ZOOM_STOPS[1] : ZOOM_STOPS[3]);
+
+export const CAMERA_TUNING = { defaultZoom: 4.0, minZoom: 1.5, maxZoom: 6.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
 
 export class WorldScene {
   private readonly sceneRoot = new Container();
@@ -60,17 +58,20 @@ export class WorldScene {
   private readonly castShadows = new CastShadowLayer();
   private readonly particles = new AmbientParticleLayer();
   private readonly gore = new GoreSystem();
+  private readonly webLayer = new WebLayer();
   private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
+  private readonly harvestFx = new HarvestFxLayer();
+  private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
-  private interactHandler: (() => void) | null = null;
+  private interactHandler: ((lootId?: string) => void) | null = null;
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
   private shakeMag = 0;
   private shakeTime = 0;
-  private zoom: number = CAMERA_TUNING.defaultZoom;
+  private zoom: number = resolveDefaultZoom();
 
   private constructor(private readonly app: Application, host: HTMLElement) {
     const [groundCam, waterCam, shadowCam, goreCam, grassCam, ysortCam, canopyCam, emissiveCam] =
@@ -83,10 +84,10 @@ export class WorldScene {
     grassHost.addChild(grassCam!);
     canopyHost.addChild(canopyCam!);
     shadowCam!.addChild(this.castShadows.container);
-    goreCam!.addChild(this.gore.decalLayer);
-    this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
+    goreCam!.addChild(this.gore.decalLayer, this.webLayer.container);
+    this.pickups = new WorldPickupsRenderer(host, (lootId) => this.interactHandler?.(lootId));
     this.configureGoreLayers(ysortCam!);
-    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer);
+    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];
@@ -124,8 +125,9 @@ export class WorldScene {
     return new WorldScene(app, host);
   }
 
-  setInteractHandler(cb: () => void): void { this.interactHandler = cb; }
+  setInteractHandler(cb: (lootId?: string) => void): void { this.interactHandler = cb; }
   setGoreLevel(level: GoreLevel): void { this.gore.setGoreLevel(level); }
+  setShowHitboxes(enabled: boolean): void { this.hitboxDebug.setEnabled(enabled); }
   setQualityPreset(presetId: QualityPresetId): void {
     this.qualityId = presetId;
     const preset = QUALITY_PRESETS[presetId];
@@ -134,7 +136,15 @@ export class WorldScene {
     this.gore.setQualityBudget({ maxDecals: preset.maxGoreDecals, maxGoreParticles: preset.maxGoreParticles });
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
-  adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, CAMERA_TUNING.minZoom, CAMERA_TUNING.maxZoom); }
+  currentZoom(): number { return this.zoom; }
+  adjustZoom(factor: number): void {
+    let best = 0;
+    for (let i = 1; i < ZOOM_STOPS.length; i++) {
+      if (Math.abs(ZOOM_STOPS[i]! - this.zoom) < Math.abs(ZOOM_STOPS[best]! - this.zoom)) best = i;
+    }
+    const next = clamp(best + (factor > 1 ? 1 : -1), 0, ZOOM_STOPS.length - 1);
+    this.zoom = ZOOM_STOPS[next]!;
+  }
 
   screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
     const rect = this.app.canvas.getBoundingClientRect();
@@ -154,7 +164,7 @@ export class WorldScene {
     this.syncCameraContainers();
     this.chunks.syncVisibleChunks(input.cache, { x: this.camX, y: this.camY, radius: preset.chunkRadius });
     const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({
-      cache: input.cache, players: input.players, entities: input.entities ?? [], timeSec: input.timeSec,
+      cache: input.cache, players: input.players, entities: input.entities ?? [], localPlayerId: input.localPlayerId, timeSec: input.timeSec,
     });
     this.renderEffectsAndLighting({ input, local, simDt, lights, campfires, casters, preset });
     this.app.render();
@@ -169,18 +179,24 @@ export class WorldScene {
     readonly preset: (typeof QUALITY_PRESETS)[QualityPresetId];
   }): void {
     const { input, local, simDt, lights, campfires, casters, preset } = opts;
+    const entities = input.entities ?? [];
     this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, timeSec: input.timeSec });
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });
     this.gore.setTileSampler(input.cache);
-    this.gore.stepBleedDrips(input.players, input.entities ?? [], simDt);
-    this.gore.stepFootprints(input.players, input.entities ?? []);
+    this.gore.stepBleedDrips(input.players, entities, simDt);
+    this.gore.stepFootprints(input.players, entities);
     this.gore.step(simDt);
+    this.webLayer.sync(input.webs, simDt, input.timeSec);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
+    this.harvestFx.step(simDt);
+    this.hitboxDebug.render({ cache: input.cache, local, players: input.players, entities, projectiles: input.projectiles ?? [] });
+    const emitters = collectActorParticleEmitters(input.players, entities);
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
-      maxParticles: preset.maxParticles, campfires, playerWading: Boolean(local?.inWater && local.moving),
+      maxParticles: preset.maxParticles, campfires, torches: lights.filter((l) => l.kind === "torch"),
+      waterActors: collectWaterActors(input.players, entities), ...emitters,
     });
     this.lighting.renderPass({
       renderer: this.app.renderer, width: this.app.screen.width, height: this.app.screen.height,
@@ -193,14 +209,22 @@ export class WorldScene {
     const events = input.events ?? [];
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
-    for (const ev of events) this.applyWorldHitFx(ev, input, local);
-  }
-
-  private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
-    if (ev.kind !== "hit") return;
-    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
-    if (ev.goreStyle && ev.substance) {
-      this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local), input.cache));
+    this.harvestFx.handleEvents(events, input.players, local?.elevation ?? 0);
+    const sinks = {
+      spawnSmoke: (x: number, y: number, durationSec?: number) => this.particles.spawnSmokePoof({ x, y, durationSec }),
+      spawnSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
+        this.gore.spawnClashSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+      spawnCritSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
+        this.gore.spawnCritSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+      spawnCrack: (x: number, y: number, elevation: number) => this.gore.spawnGroundCrack({ x, y, elevation, cache: input.cache }),
+      spawnGore: (ev: NonNullable<SceneFrameInput["events"]>[number], elev: number) => this.gore.spawn(buildGoreSpawn(ev, elev, input.cache)),
+    };
+    for (const ev of events) {
+      const shake = applyWorldEventFx({
+        ev, localId: input.localPlayerId, entities: input.entities, local,
+        leaveSmokeDur: PLAYER_LEAVE_SMOKE_DURATION_SEC, sinks,
+      });
+      if (shake > 0) this.shakeMag = Math.max(this.shakeMag, shake);
     }
   }
 

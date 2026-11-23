@@ -29,6 +29,7 @@ Thumbs.db
 coverage/
 
 # Runtime data (dev game-server store)
+data/
 packages/game-server/data/
 
 # Local Terraform values and working data

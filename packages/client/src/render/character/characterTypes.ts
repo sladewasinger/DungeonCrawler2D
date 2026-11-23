@@ -4,21 +4,9 @@ import type { Texture } from "pixi.js";
 
 export type FacingDir = "south" | "se" | "side" | "ne" | "north";
 export type FacingDir4 = "south" | "north" | "side";
-export type CharacterAnimState = "idle" | "walk" | "run" | "jump" | "fall" | "dodge" | "downed";
-
-export interface ArmSegmentTextures {
-  readonly upperFront: Texture;
-  readonly upperBack: Texture;
-  readonly upperOutline: Texture;
-  readonly forearmFront: Texture;
-  readonly forearmBack: Texture;
-  readonly forearmOutline: Texture;
-  readonly handFront: Texture;
-  readonly handBack: Texture;
-  readonly handOutline: Texture;
-  readonly handFillFront: Texture;
-  readonly handFillBack: Texture;
-}
+export type CharacterAnimState =
+  | "idle" | "walk" | "run" | "jump" | "fall" | "dodge" | "downed" | "swim" | "bow"
+  | "crouchIdle" | "crouchWalk" | "attack";
 
 const DIR_SOUTH = "south" as const;
 const DIR_NORTH = "north" as const;
@@ -91,6 +79,11 @@ export interface DirectionAnim {
   readonly fall: readonly Texture[];
   readonly dodge?: readonly Texture[];
   readonly downed?: readonly Texture[];
+  readonly swim?: readonly Texture[];
+  readonly bow?: readonly Texture[];
+  readonly crouchIdle?: readonly Texture[];
+  readonly crouchWalk?: readonly Texture[];
+  readonly attack?: readonly Texture[];
 }
 
 export interface CharacterSpriteSet {
@@ -101,7 +94,6 @@ export interface CharacterSpriteSet {
   readonly side: DirectionAnim;
   readonly frontArm: Texture;
   readonly backArm: Texture;
-  readonly armSegments?: ArmSegmentTextures;
   readonly worldScale?: number;
   readonly anchorY?: number;
   readonly is3d?: boolean;

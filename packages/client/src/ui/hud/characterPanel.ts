@@ -4,7 +4,7 @@ import {
   BODY_STYLES, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, SKIN_TONES,
   type ArmorEquipment, type CharacterAppearance,
 } from "@dc2d/engine";
-import { characterCacheKey, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
+import { characterCacheKey, getCharacterCacheRevision, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
 import { domNode } from "./slotRenderer.js";
 
 const TAG_BTN = "button";
@@ -84,7 +84,7 @@ export class CharacterPanel {
 
   private makeSwatchRow(opts: {
     readonly title: string; readonly field: "skin" | "eyeColor" | "hairColor";
-    readonly keys: readonly string[]; readonly palettes: Readonly<Record<string, { readonly base: string }>>;
+    readonly keys: readonly string[]; readonly palettes: Readonly<Record<string, { readonly base: string; readonly tip?: { readonly base: string } }>>;
   }): HTMLDivElement {
     const row = domNode(TAG_DIV, "ow-hero-row");
     const lbl = domNode("span", "ow-hero-lbl");
@@ -94,7 +94,8 @@ export class CharacterPanel {
       const btn = domNode(TAG_BTN, "ow-swatch");
       btn.type = TAG_BTN;
       btn.setAttribute("aria-label", `${opts.title} ${key}`);
-      btn.style.background = opts.palettes[key]?.base ?? "#94a3b8";
+      const pal = opts.palettes[key];
+      btn.style.background = pal?.tip ? `linear-gradient(180deg, ${pal.base} 35%, ${pal.tip.base} 78%)` : (pal?.base ?? "#94a3b8");
       btn.addEventListener("click", () => this.pickField(opts.field, key));
       this.buttons[opts.field].push({ key, btn });
       row.append(btn);
@@ -117,7 +118,7 @@ export class CharacterPanel {
     if (!opts.open) return;
     this.currentName = opts.name;
     this.currentApp = opts.appearance;
-    const fp = `${opts.name}#${characterCacheKey(opts.appearance, opts.armor)}`;
+    const fp = `${opts.name}#${characterCacheKey(opts.appearance, opts.armor)}#${getCharacterCacheRevision()}`;
     if (fp === this.lastFp) return;
     this.lastFp = fp;
     if (document.activeElement !== this.nameInput) this.nameInput.value = opts.name;

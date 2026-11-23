@@ -19,6 +19,10 @@ export class FpsCounter {
     this.el.title = "Measuring frame rate...";
   }
 
+  setVisible(visible: boolean): void {
+    this.el.hidden = !visible;
+  }
+
   tick(nowMs: number): void {
     if (this.windowStartMs === 0) {
       this.windowStartMs = nowMs;

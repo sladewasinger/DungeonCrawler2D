@@ -1,21 +1,18 @@
-/** Compact mobile-first top bar for connection, Bag, Craft, Torch, Quality, Fullscreen, and Atmosphere. */
+/** Minimalist HUD toolbar: top-left compact bag icon (plus ?debug=1 bar) and top-right FPS, compass, and settings gear. */
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import { periodForPhase, type EntityKind } from "@dc2d/engine";
 import type { ConnectionMode } from "../net/worldClient.js";
-import { isFullscreenActive, isFullscreenSupported, onFullscreenChange, toggleFullscreen } from "./fullscreen.js";
+import { FpsCounter } from "./fpsCounter.js";
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
-import { FpsCounter } from "./fpsCounter.js";
 import { ensureToolbarStyles } from "./toolbarStyles.js";
 
 export interface ToolbarCallbacks {
   readonly onSetDayPhase: (phase: number, paused?: boolean) => void;
   readonly onSetQuality: (preset: QualityPresetId) => void;
   readonly onToggleInventory: () => void;
-  readonly onToggleCharacter: () => void;
-  readonly onToggleAudio: () => void;
-  readonly onZoom: (factor: number) => void;
+  readonly onToggleSettings: () => void;
   readonly onDebugSpawn?: (kind: EntityKind, count: number) => void;
 }
 
@@ -33,16 +30,26 @@ const TIME_PRESETS = [
   { label: "Night", phase: 0.94 },
 ] as const;
 
+const BACKPACK_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M9 6a3 3 0 0 1 6 0"/>
+  <rect x="4" y="6" width="16" height="14" rx="3" fill="rgba(180,83,9,0.45)"/>
+  <path d="M4 12h16"/>
+  <rect x="9" y="10" width="6" height="4" rx="1"/>
+</svg>`;
+
+const GEAR_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.79 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+</svg>`;
+
 export class AtmosphereToolbar {
   private readonly debug = isDebugMode();
   private readonly dot: HTMLSpanElement;
   private readonly modeLabel: HTMLSpanElement;
   private readonly timeLabel: HTMLSpanElement;
   private readonly bagBtn: HTMLButtonElement;
-  private readonly heroBtn: HTMLButtonElement;
   private readonly qualityBtn: HTMLButtonElement;
-  private readonly audioBtn: HTMLButtonElement;
-  private readonly fsBtn: HTMLButtonElement;
+  private readonly settingsBtn: HTMLButtonElement;
   private readonly compass = new CompassBadge();
   private readonly fps = new FpsCounter();
   private readonly drawer: HTMLDivElement;
@@ -61,14 +68,13 @@ export class AtmosphereToolbar {
     const statusPill = el("div", "ow-pill");
     statusPill.append(this.dot, this.modeLabel, this.timeLabel);
 
-    this.bagBtn = btn("Bag", () => callbacks.onToggleInventory());
-    this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
+    this.bagBtn = iconBtn({ svg: BACKPACK_SVG, label: "Inventory (Tab)", onClick: callbacks.onToggleInventory });
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
     const timeBtn = btn("Atmosphere ▾", () => this.toggleDrawer());
     this.spawnPopover = this.debug ? new DebugSpawnPopover((kind, count) => callbacks.onDebugSpawn?.(kind, count)) : null;
     const spawnBtn = btn("Spawn ▾", () => this.spawnPopover?.toggle());
-    if (this.debug) bar.append(statusPill, this.bagBtn, this.heroBtn, this.qualityBtn, timeBtn, spawnBtn);
-    else bar.append(this.bagBtn, this.heroBtn);
+    if (this.debug) bar.append(statusPill, this.bagBtn, this.qualityBtn, timeBtn, spawnBtn);
+    else bar.append(this.bagBtn);
 
     this.drawer = this.buildDrawer(callbacks.onSetDayPhase);
     this.slider = this.drawer.querySelector("input") as HTMLInputElement;
@@ -76,14 +82,34 @@ export class AtmosphereToolbar {
     if (this.debug && this.spawnPopover) root.append(bar, this.drawer, this.spawnPopover.el);
     else root.append(bar);
 
-    const topRight = makeRightControls({
-      fps: this.fps.el, compass: this.compass.el, onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
-    });
-    this.audioBtn = topRight.audioBtn;
-    this.fsBtn = topRight.fsBtn;
-    onFullscreenChange(() => this.syncFullscreenButton());
-    host.append(root, topRight.box);
-    this.syncFullscreenButton();
+    const topRight = el("div", "ow-zoom-controls");
+    this.settingsBtn = iconBtn({ svg: GEAR_SVG, label: "Settings", onClick: callbacks.onToggleSettings });
+    topRight.append(this.fps.el, this.compass.el, this.settingsBtn);
+    host.append(root, topRight);
+  }
+
+  setFpsVisible(visible: boolean): void {
+    this.fps.setVisible(visible);
+  }
+
+  tickFps(nowMs: number): void {
+    this.fps.tick(nowMs);
+  }
+
+  sync(state: {
+    readonly mode: ConnectionMode;
+    readonly dayPhase: number;
+    readonly dayPaused: boolean;
+    readonly quality: QualityPresetId;
+    readonly activePanel: ActiveHudPanel;
+    readonly settingsOpen: boolean;
+    readonly playerX?: number;
+    readonly playerY?: number;
+  }): void {
+    this.bagBtn.dataset.active = String(state.activePanel === "inventory");
+    this.settingsBtn.dataset.active = String(state.settingsOpen);
+    this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
+    if (this.debug) this.syncDebugBar(state);
   }
 
   private buildDrawer(onSetDayPhase: (phase: number, paused?: boolean) => void): HTMLDivElement {
@@ -101,30 +127,6 @@ export class AtmosphereToolbar {
     return drawer;
   }
 
-  tickFps(nowMs: number): void {
-    this.fps.tick(nowMs);
-  }
-
-  sync(state: {
-    readonly mode: ConnectionMode;
-    readonly dayPhase: number;
-    readonly dayPaused: boolean;
-    readonly quality: QualityPresetId;
-    readonly activePanel: ActiveHudPanel;
-    readonly audioOpen: boolean;
-    readonly audioMuted: boolean;
-    readonly playerX?: number;
-    readonly playerY?: number;
-  }): void {
-    this.bagBtn.dataset.active = String(state.activePanel === "inventory");
-    this.heroBtn.dataset.active = String(state.activePanel === "character");
-    this.audioBtn.dataset.active = String(state.audioOpen);
-    this.audioBtn.textContent = state.audioMuted ? "Muted" : "Audio";
-    this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
-    if (this.debug) this.syncDebugBar(state);
-    this.syncFullscreenButton();
-  }
-
   private syncDebugBar(state: {
     readonly mode: ConnectionMode; readonly dayPhase: number; readonly dayPaused: boolean; readonly quality: QualityPresetId;
   }): void {
@@ -135,12 +137,6 @@ export class AtmosphereToolbar {
     this.slider.value = state.dayPhase.toFixed(2);
     this.pauseBtn.dataset.paused = String(state.dayPaused);
     this.pauseBtn.textContent = state.dayPaused ? "Play Clock" : "Pause";
-  }
-
-  private syncFullscreenButton(): void {
-    const active = isFullscreenActive();
-    this.fsBtn.dataset.active = String(active);
-    this.fsBtn.textContent = active ? "Exit FS" : "FS";
   }
 
   private cycleQuality(onSet: (p: QualityPresetId) => void): void {
@@ -169,31 +165,14 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
   return b;
 }
 
-function makeRightControls(opts: {
-  readonly fps: HTMLDivElement;
-  readonly compass: HTMLDivElement;
-  readonly onZoom: (factor: number) => void;
-  readonly onToggleAudio: () => void;
-}): { readonly box: HTMLDivElement; readonly audioBtn: HTMLButtonElement; readonly fsBtn: HTMLButtonElement } {
-  const box = el("div", "ow-zoom-controls");
-  const audioBtn = el("button", "ow-pill ow-audio-btn");
-  audioBtn.type = "button";
-  audioBtn.textContent = "Audio";
-  audioBtn.addEventListener("click", opts.onToggleAudio);
-  const fsBtn = btn("FS", () => void toggleFullscreen());
-  fsBtn.hidden = !isFullscreenSupported();
-  const zoomOut = el("button", "ow-pill ow-zoom-btn");
-  zoomOut.type = "button";
-  zoomOut.textContent = "−";
-  zoomOut.setAttribute("aria-label", "Zoom out");
-  zoomOut.addEventListener("click", () => opts.onZoom(1 / 1.18));
-  const zoomIn = el("button", "ow-pill ow-zoom-btn");
-  zoomIn.type = "button";
-  zoomIn.textContent = "+";
-  zoomIn.setAttribute("aria-label", "Zoom in");
-  zoomIn.addEventListener("click", () => opts.onZoom(1.18));
-  box.append(opts.fps, opts.compass, audioBtn, fsBtn, zoomOut, zoomIn);
-  return { box, audioBtn, fsBtn };
+function iconBtn(opts: { readonly svg: string; readonly label: string; readonly onClick: () => void }): HTMLButtonElement {
+  const b = el("button", "ow-pill ow-icon-pill");
+  b.type = "button";
+  b.setAttribute("aria-label", opts.label);
+  b.title = opts.label;
+  b.innerHTML = opts.svg;
+  b.addEventListener("click", opts.onClick);
+  return b;
 }
 
 function makeSlider(onInput: (val: number) => void): HTMLInputElement {
