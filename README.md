@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.1** (Phase 4A mini-release — Combat Core, Composable Gore, Hybrid Web Audio & Clean Public HUD — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.2** (32px GPU Tilemap Terrain, Animated Spider, & Blender 3D-to-Pixel Goblin + Wild Boar — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 
