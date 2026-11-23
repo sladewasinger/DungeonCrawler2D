@@ -31,16 +31,27 @@ export interface LootView {
   lastHighlighted: boolean;
 }
 
+export function drawUnifiedArrowGraphic(g: Graphics, opts?: { readonly charge?: number | undefined }): void {
+  g.clear();
+  if ((opts?.charge ?? 0) >= 0.7) {
+    g.moveTo(-11, 0).lineTo(-5, 0).stroke({ color: 0xfef08a, width: 1.1, alpha: 0.7 });
+  }
+  g.moveTo(-5.5, 0).lineTo(4.0, 0).stroke({ color: 0x0f172a, width: 2.4, cap: "round" });
+  g.poly([2.2, -2.3, 7.2, 0, 2.2, 2.3], true).fill(0x0f172a);
+  g.poly([-6.6, -2.0, -3.2, -0.7, -3.2, 0.7, -6.6, 2.0, -5.2, 0], true).fill(0x0f172a);
+  g.moveTo(-5.0, 0).lineTo(3.4, 0).stroke({ color: 0xb45309, width: 1.1 });
+  g.poly([2.8, -1.6, 6.4, 0, 2.8, 1.6], true).fill(0xe2e8f0);
+  g.poly([-5.9, -1.4, -3.5, -0.4, -4.6, 0], true).fill(0xf8fafc);
+  g.poly([-5.9, 1.4, -3.5, 0.4, -4.6, 0], true).fill(0xe2e8f0);
+}
+
 function drawGroundArrow(g: Graphics, angle: number, stuck: boolean): void {
   const shadow = new Graphics();
   shadow.ellipse(0, 1, 5, 1.8).fill({ color: 0x090d14, alpha: 0.35 });
   const shaft = new Graphics();
-  shaft.rotation = stuck ? angle * 0.45 - 0.55 : angle;
-  shaft.rect(-5, -1.5, 9, 3).fill(0x0f172a);
-  shaft.rect(-4, -0.5, 7, 1.2).fill(0x92400e);
-  shaft.poly([3, -2, 7.5, 0, 3, 2]).fill(0xe2e8f0);
-  shaft.rect(-5.5, -1.6, 2.5, 1.1).fill(0xf8fafc);
-  shaft.rect(-5.5, 0.7, 2.5, 1.1).fill(0xf8fafc);
+  drawUnifiedArrowGraphic(shaft);
+  shaft.position.set(0, stuck ? -6 : -1);
+  shaft.rotation = angle;
   g.addChild(shadow, shaft);
 }
 

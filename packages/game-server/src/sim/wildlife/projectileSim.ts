@@ -146,7 +146,7 @@ function testPropImpact(ctx: RayHitCtx, prop: ChunkProp, ecology: WorldEcology):
   const hy = ctx.y0 + (ctx.pr.y - ctx.y0) * t;
   if (isWood) {
     ctx.events.push({ kind: "arrowEmbed", x: hx, y: hy, dirX: ctx.dx, dirY: ctx.dy });
-    ecology.spawnRecoverableArrow({ x: hx - ctx.dx * 0.28, y: hy - ctx.dy * 0.28, angle: Math.atan2(ctx.dy, ctx.dx), stuck: true });
+    ecology.spawnRecoverableArrow({ x: hx - ctx.dx * 0.14, y: hy - ctx.dy * 0.14, angle: Math.atan2(ctx.dy, ctx.dx), stuck: true });
   } else {
     ctx.events.push({ kind: "arrowRicochet", x: hx, y: hy, dirX: -ctx.dx, dirY: -ctx.dy });
   }

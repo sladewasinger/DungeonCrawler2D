@@ -123,6 +123,18 @@ describe("Phase 6 stealth and ecological AI", () => {
   it("supports dynamic multi-faction wildlife vs goblin and wildlife vs wildlife combat and parabolic pebbles", () => {
     const cache = new FlatTestCache(1337);
     const eco = new WorldEcology(cache);
+    const skeleton = eco.spawnEntity({ kind: "skeleton", x: 10, y: 12, homeRadius: 12, poiId: "ruin1", packId: "ruin1", packSlot: 0 });
+    const golem = eco.spawnEntity({ kind: "golem", x: 11.2, y: 12, homeRadius: 12, poiId: "ruin1", packId: "ruin1", packSlot: 1 });
+    skeleton.facingX = 1; golem.facingX = -1;
+    const goblinAlly = eco.spawnEntity({ kind: "goblin", x: 10, y: 24, homeRadius: 12, poiId: "camp1", packId: "camp1", packSlot: 0 });
+    const orcAlly = eco.spawnEntity({ kind: "orc", x: 11.2, y: 24, homeRadius: 12, poiId: "camp1", packId: "camp1", packSlot: 1 });
+    goblinAlly.facingX = 1; orcAlly.facingX = -1;
+    for (let i = 0; i < 20; i++) eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [makePlayer(60, 60)], events: [], onStrike: () => {} });
+    expect(skeleton.hp).toBe(skeleton.maxHp);
+    expect(golem.hp).toBe(golem.maxHp);
+    expect(goblinAlly.hp).toBe(goblinAlly.maxHp);
+    expect(orcAlly.hp).toBe(orcAlly.maxHp);
+
     const wolf = eco.spawnEntity({ kind: "wolf", x: 20, y: 12, homeRadius: 12, poiId: null, packId: "w1", packSlot: 0 });
     const goblin = eco.spawnEntity({ kind: "goblin", x: 21.1, y: 12, homeRadius: 12, poiId: "c1", packId: "c1", packSlot: 0 });
     wolf.facingX = 1; wolf.facingY = 0; goblin.facingX = -1; goblin.facingY = 0;

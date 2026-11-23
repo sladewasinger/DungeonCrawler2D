@@ -6,6 +6,7 @@ import {
 import { Container, Graphics, Text } from "pixi.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { MELEE_SWING_TUNING, type SmearSpec } from "./combatVisualTuning.js";
+import { drawUnifiedArrowGraphic } from "./lootViewHelpers.js";
 import { drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
 
 type SlashSpec = SmearSpec;
@@ -26,14 +27,6 @@ interface FloatingPopup {
   age: number;
   ttl: number;
   vy: number;
-}
-
-function drawArrowGraphic(g: Graphics, charge: number): void {
-  g.clear();
-  if (charge >= 0.7) g.moveTo(-11, 0).lineTo(-5, 0).stroke({ color: 0xfef08a, width: 1.1, alpha: 0.7 });
-  g.rect(-5, -0.7, 9, 1.4).fill(0xa16207);
-  g.rect(4, -1.3, 2.5, 2.6).fill(0xe2e8f0);
-  g.rect(-6, -1.6, 2, 3.2).fill(0xf8fafc);
 }
 
 function drawPebbleGraphic(g: Graphics, zPx: number): void {
@@ -87,7 +80,6 @@ export class CombatVfxLayer {
       heal: () => this.spawnPopup({ x: ev.x, y: ev.y - 0.9, label: `+${Math.round(ev.value ?? 20)}`, color: 0x4ade80 }),
       dodge: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xcbd5e1, radius: 7, text: "" }),
       arrowRicochet: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" }),
-      arrowEmbed: () => this.spawnStuckArrow(ev),
       distract: () => this.spawnNoiseRipple(ev),
       pebbleLand: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: ev.value === GroundKind.ShallowWater || ev.value === GroundKind.DeepWater ? 0x38bdf8 : 0xd6d3d1, radius: 11, text: "" }),
       wolfHowl: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: 0x7dd3fc, radius: 18, text: "" }),
@@ -117,15 +109,6 @@ export class CombatVfxLayer {
     g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 2);
     this.container.addChild(g);
     this.slashes.push({ g, age: 0, ttl: 0.65, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
-  }
-
-  private spawnStuckArrow(ev: WorldEvent): void {
-    const g = new Graphics();
-    drawArrowGraphic(g, 0.4);
-    g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 8);
-    g.rotation = Math.atan2(ev.dirY ?? 0, ev.dirX ?? 1);
-    this.container.addChild(g);
-    this.slashes.push({ g, age: 0, ttl: 3.5, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
   }
 
   step(input: {
@@ -217,7 +200,7 @@ export class CombatVfxLayer {
     let g = this.arrows.get(p.id);
     if (!g) {
       g = new Graphics();
-      if (p.kind !== "pebble") drawArrowGraphic(g, p.charge);
+      if (p.kind !== "pebble") drawUnifiedArrowGraphic(g, { charge: p.charge });
       this.arrows.set(p.id, g);
       this.container.addChild(g);
     }

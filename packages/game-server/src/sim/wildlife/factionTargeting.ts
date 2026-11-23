@@ -9,7 +9,7 @@ import {
   type WildlifeEntity, type WildlifeKind,
 } from "./creatureSpecs.js";
 
-export type CreatureFaction = "bandit" | "undead" | "construct" | "wolf" | "bear" | "boar" | "spider" | "slime";
+export type CreatureFaction = "bandit" | "ruins" | "wolf" | "bear" | "boar" | "spider" | "slime";
 
 export interface CombatTarget extends CombatPlayerCandidate {
   readonly targetKind: "player" | "entity";
@@ -18,8 +18,7 @@ export interface CombatTarget extends CombatPlayerCandidate {
 
 export function factionOfKind(kind: WildlifeKind): CreatureFaction {
   if (kind === "goblin" || kind === "orc") return "bandit";
-  if (kind === "skeleton") return "undead";
-  if (kind === "golem") return "construct";
+  if (kind === "skeleton" || kind === "golem") return "ruins";
   return kind;
 }
 
@@ -75,6 +74,7 @@ function findBestPlayerTarget(opts: {
 
 function isEligibleHostileEntity(e: WildlifeEntity, o: WildlifeEntity): boolean {
   if (o.corpse || o.hp <= 0 || o.id === e.id || isInSanctuary(o.x, o.y)) return false;
+  if (e.poiId !== null && e.poiId === o.poiId) return false;
   return areFactionsHostile(factionOfKind(e.kind), factionOfKind(o.kind));
 }
 
@@ -146,7 +146,7 @@ export function stepSuspicionForTarget(opts: {
   return "suspicious";
 }
 
-const SOCIAL_ALERT_FACTIONS = new Set<CreatureFaction>(["bandit", "undead", "wolf", "slime"]);
+const SOCIAL_ALERT_FACTIONS = new Set<CreatureFaction>(["bandit", "ruins", "wolf", "slime"]);
 
 function hasLosToPeer(cache: WorldChunkCache, e: WildlifeEntity, o: WildlifeEntity): boolean {
   return hasElevationLineOfSight({ cache, fromX: e.x, fromY: e.y, fromElev: e.elevation, toX: o.x, toY: o.y, toElev: o.elevation });
