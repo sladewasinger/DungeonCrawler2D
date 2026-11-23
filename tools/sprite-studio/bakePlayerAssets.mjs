@@ -11,7 +11,7 @@ const GROUND_Y = 120;
 const PX_PER_METER = 48;
 const WORLD_SCALE = 16 / PX_PER_METER;
 const SHEET_COLS = 6;
-const SHEET_ROWS = 36;
+const SHEET_ROWS = 41;
 
 const DIRS = ["south", "se", "side", "ne", "north"];
 const CLIPS = [
@@ -22,11 +22,14 @@ const CLIPS = [
   { state: "fall", frames: 2, fps: 8 },
   { state: "dodge", frames: 6, fps: 16 },
   { state: "downed", frames: 2, fps: 4 },
+  { state: "swim", frames: 4, fps: 6 },
 ];
 
 const LAYERS = [
   { id: "body-male", gender: "male" },
   { id: "body-female", gender: "female" },
+  { id: "body-male-arms", gender: "male" },
+  { id: "body-female-arms", gender: "female" },
   { id: "hair-short", gender: "female" },
   { id: "hair-long", gender: "female" },
   { id: "hair-spiky", gender: "female" },
@@ -34,6 +37,8 @@ const LAYERS = [
   { id: "armor-head-leather-hood", gender: "female" },
   { id: "armor-chest-leather-tunic-male", gender: "male" },
   { id: "armor-chest-leather-tunic-female", gender: "female" },
+  { id: "armor-chest-sleeves-male", gender: "male" },
+  { id: "armor-chest-sleeves-female", gender: "female" },
   { id: "armor-legs-leather-leggings-male", gender: "male" },
   { id: "armor-legs-leather-leggings-female", gender: "female" },
   { id: "armor-feet-leather-boots", gender: "female" },
@@ -41,6 +46,7 @@ const LAYERS = [
 
 function loadCleanedFrame({ layerId, clip, dir, frameNum }) {
   const colorPath = path.join(RAW_DIR, layerId, `${clip}_${dir}_f${frameNum}.png`);
+  if (!fs.existsSync(colorPath)) return null;
   const depthPath = path.join(RAW_DIR, layerId, `${clip}_${dir}_f${frameNum}_depth.png`);
   const rawColor = decodePng(fs.readFileSync(colorPath));
   const rawDepth = fs.existsSync(depthPath) ? decodePng(fs.readFileSync(depthPath)) : null;
@@ -52,6 +58,7 @@ function computeBodyAnchors(bodyId) {
   const anchors = {};
   for (const dir of DIRS) {
     const idleF1 = loadCleanedFrame({ layerId: bodyId, clip: "idle", dir, frameNum: 1 });
+    if (!idleF1) throw new Error(`Missing anchor frame for ${bodyId} ${dir}`);
     const bounds = measureSpriteBounds(idleF1);
     const dx = Math.floor(CELL / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5);
     const dy = GROUND_Y - bounds.maxY;
@@ -74,6 +81,13 @@ function blitIntoSheet({ sheetRgba, sheetW, frame, col, row }) {
   }
 }
 
+function packFrameCell(opts) {
+  const processed = loadCleanedFrame({ layerId: opts.layerId, clip: opts.clip, dir: opts.dir, frameNum: opts.frameNum });
+  if (!processed) return;
+  const aligned = shiftSpriteFrame(processed, opts.shift.dx, opts.shift.dy);
+  blitIntoSheet({ sheetRgba: opts.rgba, sheetW: opts.sheetW, frame: aligned, col: opts.col, row: opts.row });
+}
+
 function packLayerSheet(layer, anchors) {
   const sheetW = SHEET_COLS * CELL;
   const sheetH = SHEET_ROWS * CELL;
@@ -83,25 +97,23 @@ function packLayerSheet(layer, anchors) {
     for (const dir of DIRS) {
       const shift = anchors[dir];
       for (let f = 1; f <= clip.frames; f++) {
-        const processed = loadCleanedFrame({ layerId: layer.id, clip: clip.state, dir, frameNum: f });
-        const aligned = shiftSpriteFrame(processed, shift.dx, shift.dy);
-        blitIntoSheet({ sheetRgba: rgba, sheetW, frame: aligned, col: f - 1, row });
+        packFrameCell({ rgba, sheetW, layerId: layer.id, clip: clip.state, dir, frameNum: f, shift, col: f - 1, row });
       }
       row++;
     }
   }
-  const port = loadCleanedFrame({ layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1 });
-  const portShift = anchors.south;
-  blitIntoSheet({ sheetRgba: rgba, sheetW, frame: shiftSpriteFrame(port, portShift.dx, portShift.dy), col: 0, row: 35 });
+  packFrameCell({ rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40 });
   fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.png`), encodePng(sheetW, sheetH, rgba));
 }
 
 function convertSocketPoint(pt, shift) {
-  return {
+  const out = {
     x: Number((((pt.px + shift.dx) - CELL * 0.5) * WORLD_SCALE).toFixed(2)),
     y: Number((((pt.py + shift.dy) - GROUND_Y) * WORLD_SCALE).toFixed(2)),
     behind: Boolean(pt.behind),
   };
+  if (typeof pt.angle === "number") out.angle = Number(pt.angle.toFixed(4));
+  return out;
 }
 
 function convertDirSockets(rawClip, anchors) {
@@ -149,12 +161,13 @@ function run() {
     anchorX: 0.5,
     anchorY: Number((GROUND_Y / CELL).toFixed(4)),
     scale: Number(WORLD_SCALE.toFixed(4)),
-    portraitRow: 35,
+    portraitRow: 40,
     portraitCol: 0,
     directions: DIRS,
     clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
     layers: LAYERS.map((l) => l.id),
     sockets: convertSockets(rawSockets, anchorsByGender),
+    handSockets: rawSockets.handSockets ? convertSockets(rawSockets.handSockets, anchorsByGender) : undefined,
   };
   fs.writeFileSync(path.join(OUT_DIR, "player-rig.json"), JSON.stringify(rigMeta, null, 2) + "\n");
   console.log("Baked player assets:", { outDir: OUT_DIR, layers: LAYERS.length, anchorsByGender });

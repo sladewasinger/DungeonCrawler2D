@@ -5,11 +5,15 @@ import { GroundKind, PropKind, type ChunkProp } from "./types.js";
 
 function makeFlatObstacleCache(opts: {
   readonly props: readonly ChunkProp[];
-  readonly deepWaterTile?: readonly [number, number];
+  readonly cliffTile?: readonly [number, number];
+  readonly waterTile?: readonly [number, number];
 }): WorldChunkCache {
   return new (class extends WorldChunkCache {
     override tileAt(wx: number, wy: number) {
-      if (opts.deepWaterTile && Math.floor(wx) === opts.deepWaterTile[0] && Math.floor(wy) === opts.deepWaterTile[1]) {
+      if (opts.cliffTile && Math.floor(wx) === opts.cliffTile[0] && Math.floor(wy) === opts.cliffTile[1]) {
+        return { ground: GroundKind.CliffStone, elevation: 1, stairs: false };
+      }
+      if (opts.waterTile && Math.floor(wx) === opts.waterTile[0] && Math.floor(wy) === opts.waterTile[1]) {
         return { ground: GroundKind.DeepWater, elevation: 0, stairs: false };
       }
       return { ground: GroundKind.Grass, elevation: 0, stairs: false };
@@ -125,7 +129,7 @@ describe("collision", () => {
     expect(blockedHigh.y).toBeGreaterThanOrEqual(-6.87);
   });
 
-  it("slows movement in shallow water without blocking", () => {
+  it("slows movement in shallow and deep water without blocking", () => {
     const cache = new WorldChunkCache(1337);
     let shallowCoord: { x: number; y: number } | null = null;
     for (let x = 1; x < 30; x++) {
@@ -146,7 +150,23 @@ describe("collision", () => {
       elevation: 0,
     });
     expect(res.inWater).toBe(true);
-    expect(res.speedMultiplier).toBe(0.65);
+    expect(res.inDeepWater).toBe(false);
+    expect(res.speedMultiplier).toBe(0.78);
+
+    const swimCache = makeFlatObstacleCache({ props: [], waterTile: [5, 5] });
+    const deepRes = resolveMovement({
+      cache: swimCache,
+      x: 5.5,
+      y: 5.5,
+      dx: 0.05,
+      dy: 0,
+      radius: 0.2,
+      elevation: 0,
+    });
+    expect(deepRes.inWater).toBe(true);
+    expect(deepRes.inDeepWater).toBe(true);
+    expect(deepRes.speedMultiplier).toBe(0.56);
+    expect(deepRes.x).toBeGreaterThan(5.5);
   });
 
   it("caps WorldChunkCache with LRU eviction during far exploration", () => {
@@ -156,7 +176,7 @@ describe("collision", () => {
     expect(cache.size()).toBe(96);
   });
 
-  it("never clips through rocks, palisade seams, diagonal corners, or water-side boulders at sprint/dodge speed", () => {
+  it("never clips through rocks, palisade seams, diagonal corners, or cliff-side boulders at sprint/dodge speed", () => {
     const mk = (o: { id: string; kind: PropKind; x: number; y: number; r: number }): ChunkProp => ({
       id: o.id, kind: o.kind, x: o.x, y: o.y, variant: 0, elevation: 0, radius: o.r, blocksMovement: true,
     });
@@ -169,7 +189,7 @@ describe("collision", () => {
         mk({ id: "diag-b", kind: PropKind.Palisade, x: 31, y: 11, r: 0.5 }),
         mk({ id: "pinch-boulder", kind: PropKind.Boulder, x: 40.3, y: 10.5, r: 0.42 }),
       ],
-      deepWaterTile: [41, 10],
+      cliffTile: [41, 10],
     });
     expect(stepRepeatedly({ cache, startX: 10, startY: 11.4, dx: 0, dy: -0.55, ticks: 40 }).y).toBeGreaterThan(10.65);
     expect(stepRepeatedly({ cache, startX: 20.5, startY: 11.4, dx: 0, dy: -0.53, ticks: 40 }).y).toBeGreaterThan(10.45);

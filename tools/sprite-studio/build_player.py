@@ -281,8 +281,8 @@ def add_hero_torso_and_legs(parts, mats, core_col, arm_col, female=False):
     sx = 0.175 if female else 0.200
     ar_u = (0.056, 0.048) if female else (0.066, 0.056)
     ar_f = (0.048, 0.042) if female else (0.056, 0.048)
-    tr = (0.098, 0.074) if female else (0.092, 0.078)
-    sr = (0.074, 0.058) if female else (0.076, 0.062)
+    tr = (0.088, 0.072) if female else (0.084, 0.074)
+    sr = (0.072, 0.056) if female else (0.074, 0.060)
 
     for sign, side in ((1.0, "L"), (-1.0, "R")):
         thigh = create_capsule(f"{tag}_Thigh_{side}", (sign * 0.105, 0.0, 0.65), (sign * 0.11, -0.02, 0.36), tr[0], tr[1], mats["skin"], core_col, extend=0.02)
@@ -375,17 +375,18 @@ def add_armor_slots(arm_obj, mats):
     for female in (False, True):
         tag = "Female" if female else "Male"
         col_t = get_or_create_collection(f"Armor_Chest_LeatherTunic_{tag}")
-        cw = 0.285 if female else 0.348
-        cd = 0.232 if female else 0.265
-        ww = 0.225 if female else 0.298
-        sx = 0.185 if female else 0.215
+        cw = 0.312 if female else 0.376
+        cd = 0.258 if female else 0.296
+        ww = 0.256 if female else 0.332
+        hem_w = 0.378 if female else 0.382
+        sx = 0.188 if female else 0.218
         all_parts += [
             (create_taper_slab(f"Tunic_{tag}_Upper", (cw, cd, 0.26), (0.0, -0.01, 0.955), mats["tunic"], col_t, bevel=0.042, taper_top=1.20), "Torso"),
-            (create_taper_slab(f"Tunic_{tag}_Lower", (ww, cd * 0.92, 0.15), (0.0, -0.005, 0.79), mats["tunic"], col_t, bevel=0.03, taper_top=1.06), "Torso"),
-            (create_taper_slab(f"Tunic_{tag}_Collar", (ww * 0.95, 0.18, 0.06), (0.0, -0.04, 1.07), mats["hood"], col_t, bevel=0.015), "Torso"),
-            (create_taper_slab(f"Tunic_{tag}_Belt", (ww + 0.04, cd + 0.01, 0.085), (0.0, -0.005, 0.73), mats["boots"], col_t, bevel=0.016, flat=True), "Pelvis"),
-            (create_taper_slab(f"Tunic_{tag}_Buckle", (0.095, 0.045, 0.085), (0.0, -cd * 0.54, 0.73), mats["gold"], col_t, bevel=0.01, flat=True), "Pelvis"),
-            (create_taper_slab(f"Tunic_{tag}_Hem", ((0.295 if female else ww + 0.02), cd * 1.04, 0.16), (0.0, -0.005, 0.64), mats["tunic"], col_t, bevel=0.024, taper_top=0.84), "Pelvis"),
+            (create_taper_slab(f"Tunic_{tag}_Lower", (ww, cd * 0.98, 0.17), (0.0, -0.005, 0.78), mats["tunic"], col_t, bevel=0.028, taper_top=1.06), "Torso"),
+            (create_taper_slab(f"Tunic_{tag}_Collar", (ww * 0.95, 0.19, 0.06), (0.0, -0.04, 1.07), mats["hood"], col_t, bevel=0.015), "Torso"),
+            (create_taper_slab(f"Tunic_{tag}_Belt", (ww + 0.05, cd + 0.02, 0.092), (0.0, -0.005, 0.73), mats["boots"], col_t, bevel=0.016, flat=True), "Pelvis"),
+            (create_taper_slab(f"Tunic_{tag}_Buckle", (0.095, 0.045, 0.088), (0.0, -cd * 0.56, 0.73), mats["gold"], col_t, bevel=0.01, flat=True), "Pelvis"),
+            (create_taper_slab(f"Tunic_{tag}_Hem", (hem_w, cd * 1.10, 0.17), (0.0, -0.005, 0.64), mats["tunic"], col_t, bevel=0.024, taper_top=0.96), "Pelvis"),
         ]
         if female:
             for sign, side in ((1.0, "L"), (-1.0, "R")):
@@ -410,15 +411,15 @@ def add_armor_slots(arm_obj, mats):
         tag = "Female" if female else "Male"
         col_l = get_or_create_collection(f"Armor_Legs_LeatherLeggings_{tag}")
         if female:
-            all_parts.append((create_ellipsoid("Leggings_Fem_Pelvis", (0.194, 0.162, 0.124), (0.0, 0.0, 0.675), mats["leggings"], col_l, segs=18, rings=12), "Pelvis"))
+            all_parts.append((create_ellipsoid("Leggings_Fem_Pelvis", (0.208, 0.176, 0.132), (0.0, 0.0, 0.675), mats["leggings"], col_l, segs=18, rings=12), "Pelvis"))
             for sign, side in ((1.0, "L"), (-1.0, "R")):
-                all_parts.append((create_ellipsoid(f"Leggings_Fem_Glute_{side}", (0.106, 0.104, 0.098), (sign * 0.074, 0.082, 0.648), mats["leggings"], col_l, segs=14, rings=10), "Pelvis"))
+                all_parts.append((create_ellipsoid(f"Leggings_Fem_Glute_{side}", (0.112, 0.110, 0.104), (sign * 0.074, 0.082, 0.648), mats["leggings"], col_l, segs=14, rings=10), "Pelvis"))
         else:
-            all_parts.append((create_taper_slab("Leggings_Male_Pelvis", (0.315, 0.240, 0.175), (0.0, 0.0, 0.675), mats["leggings"], col_l, bevel=0.04), "Pelvis"))
-        tr_arm = (0.114, 0.090) if female else (0.106, 0.090)
+            all_parts.append((create_taper_slab("Leggings_Male_Pelvis", (0.392, 0.276, 0.195), (0.0, 0.0, 0.675), mats["leggings"], col_l, bevel=0.04), "Pelvis"))
+        tr_arm = (0.120, 0.094) if female else (0.120, 0.096)
         for sign, side in ((1.0, "L"), (-1.0, "R")):
             th = create_capsule(f"Leggings_{tag}_Thigh_{side}", (sign * 0.105, 0.0, 0.65), (sign * 0.11, -0.02, 0.36), tr_arm[0], tr_arm[1], mats["leggings"], col_l, extend=0.018)
-            sh = create_capsule(f"Leggings_{tag}_Shin_{side}", (sign * 0.11, -0.02, 0.36), (sign * 0.11, 0.01, 0.16), 0.090, 0.076, mats["leggings"], col_l, extend=0.012)
+            sh = create_capsule(f"Leggings_{tag}_Shin_{side}", (sign * 0.11, -0.02, 0.36), (sign * 0.11, 0.01, 0.16), 0.094, 0.080, mats["leggings"], col_l, extend=0.012)
             knee = create_ellipsoid(f"Leggings_{tag}_Knee_{side}", (0.078, 0.068, 0.064), (sign * 0.11, -0.055, 0.365), mats["silver"], col_l, segs=10, rings=8, flat=True)
             all_parts += [(th, f"Thigh_{side}"), (sh, f"Shin_{side}"), (knee, f"Shin_{side}")]
         cols_legs.append(col_l)

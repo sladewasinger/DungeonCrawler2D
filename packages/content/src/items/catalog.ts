@@ -3,6 +3,27 @@
 export type ItemCategory = "weapon" | "tool" | "armor" | "consumable" | "material";
 export type ArmorSlot = "head" | "chest" | "legs" | "feet" | "offhand";
 export type GoreStyle = "splatter" | "thin-streak" | "drip" | "chunk-spray" | "explode-away";
+export type CosmeticLayerSlot =
+  | "head"
+  | "face"
+  | "chest"
+  | "sleeves"
+  | "gloves"
+  | "legs"
+  | "feet"
+  | "cape"
+  | "offhand";
+
+export interface ItemVisualLayerSpec {
+  readonly slot: CosmeticLayerSlot;
+  readonly assetId: string;
+  readonly sleeveAssetId?: string;
+  readonly gendered?: boolean;
+  readonly zOrder: number;
+  readonly hidesHair?: boolean;
+  readonly recolorPrimary?: string;
+  readonly recolorTrim?: string;
+}
 
 export interface ItemDef {
   readonly id: string;
@@ -18,6 +39,7 @@ export interface ItemDef {
   readonly arcRad?: number;
   readonly healHp?: number;
   readonly goreStyle?: GoreStyle;
+  readonly visualLayer?: ItemVisualLayerSpec;
 }
 
 export interface StarterLoadoutEntry {
@@ -55,10 +77,25 @@ export const ITEM_CATALOG: readonly ItemDef[] = [
   { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: "chunk-spray" },
   { id: "map", name: "Overworld Map", category: CAT_TOOL, maxStack: 1 },
   { id: "wooden-shield", name: "Wooden Shield", category: CAT_ARMOR, maxStack: 1, armorSlot: "offhand", defense: 2, blockMitigation: 0.75 },
-  { id: "leather-hood", name: "Leather Hood", category: CAT_ARMOR, maxStack: 1, armorSlot: "head", defense: 2 },
-  { id: "leather-tunic", name: "Leather Tunic", category: CAT_ARMOR, maxStack: 1, armorSlot: "chest", defense: 4 },
-  { id: "leather-leggings", name: "Leather Leggings", category: CAT_ARMOR, maxStack: 1, armorSlot: "legs", defense: 3 },
-  { id: "leather-boots", name: "Leather Boots", category: CAT_ARMOR, maxStack: 1, armorSlot: "feet", defense: 2 },
+  {
+    id: "leather-hood", name: "Leather Hood", category: CAT_ARMOR, maxStack: 1, armorSlot: "head", defense: 2,
+    visualLayer: { slot: "head", assetId: "armor-head-leather-hood", gendered: false, zOrder: 50, hidesHair: true },
+  },
+  {
+    id: "leather-tunic", name: "Leather Tunic", category: CAT_ARMOR, maxStack: 1, armorSlot: "chest", defense: 4,
+    visualLayer: {
+      slot: "chest", assetId: "armor-chest-leather-tunic", sleeveAssetId: "armor-chest-sleeves",
+      gendered: true, zOrder: 30,
+    },
+  },
+  {
+    id: "leather-leggings", name: "Leather Leggings", category: CAT_ARMOR, maxStack: 1, armorSlot: "legs", defense: 3,
+    visualLayer: { slot: "legs", assetId: "armor-legs-leather-leggings", gendered: true, zOrder: 20 },
+  },
+  {
+    id: "leather-boots", name: "Leather Boots", category: CAT_ARMOR, maxStack: 1, armorSlot: "feet", defense: 2,
+    visualLayer: { slot: "feet", assetId: "armor-feet-leather-boots", gendered: false, zOrder: 10 },
+  },
   { id: "torch", name: "Torch", category: CAT_CONSUMABLE, maxStack: 32, damage: 10, staminaCost: 10, range: 1.65, arcRad: 1.5, goreStyle: "splatter" },
   { id: "bandage", name: "Bandage", category: CAT_CONSUMABLE, maxStack: 16, healHp: 25 },
   { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: 16, healHp: 40 },

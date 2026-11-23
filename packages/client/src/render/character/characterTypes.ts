@@ -4,7 +4,7 @@ import type { Texture } from "pixi.js";
 
 export type FacingDir = "south" | "se" | "side" | "ne" | "north";
 export type FacingDir4 = "south" | "north" | "side";
-export type CharacterAnimState = "idle" | "walk" | "run" | "jump" | "fall" | "dodge" | "downed";
+export type CharacterAnimState = "idle" | "walk" | "run" | "jump" | "fall" | "dodge" | "downed" | "swim";
 
 export interface ArmSegmentTextures {
   readonly upperFront: Texture;
@@ -91,6 +91,7 @@ export interface DirectionAnim {
   readonly fall: readonly Texture[];
   readonly dodge?: readonly Texture[];
   readonly downed?: readonly Texture[];
+  readonly swim?: readonly Texture[];
 }
 
 export interface CharacterSpriteSet {
@@ -99,6 +100,7 @@ export interface CharacterSpriteSet {
   readonly north: DirectionAnim;
   readonly ne?: DirectionAnim;
   readonly side: DirectionAnim;
+  readonly armless?: Readonly<Record<FacingDir, DirectionAnim>>;
   readonly frontArm: Texture;
   readonly backArm: Texture;
   readonly armSegments?: ArmSegmentTextures;

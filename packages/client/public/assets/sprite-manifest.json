@@ -5,8 +5,8 @@
       "path": "/assets/creatures/slime.png",
       "width": 96,
       "height": 96,
-      "contentWidth": 50,
-      "contentHeight": 37,
+      "contentWidth": 56,
+      "contentHeight": 43,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8125,
@@ -413,8 +413,8 @@
       "path": "/assets/creatures/wolf.png",
       "width": 120,
       "height": 120,
-      "contentWidth": 22,
-      "contentHeight": 59,
+      "contentWidth": 28,
+      "contentHeight": 65,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8,
@@ -821,8 +821,8 @@
       "path": "/assets/creatures/boar.png",
       "width": 120,
       "height": 120,
-      "contentWidth": 28,
-      "contentHeight": 46,
+      "contentWidth": 34,
+      "contentHeight": 51,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8,
@@ -861,90 +861,32 @@
                 ]
               ]
             },
-            "se": {
-              "fps": 6,
-              "frames": [
-                [
-                  0,
-                  1
-                ],
-                [
-                  1,
-                  1
-                ],
-                [
-                  2,
-                  1
-                ],
-                [
-                  3,
-                  1
-                ],
-                [
-                  4,
-                  1
-                ],
-                [
-                  5,
-                  1
-                ]
-              ]
-            },
             "side": {
               "fps": 6,
               "frames": [
                 [
                   0,
-                  2
+                  1
                 ],
                 [
                   1,
-                  2
+                  1
                 ],
                 [
                   2,
-                  2
+                  1
                 ],
                 [
                   3,
-                  2
+                  1
                 ],
                 [
                   4,
-                  2
+                  1
                 ],
                 [
                   5,
-                  2
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 6,
-              "frames": [
-                [
-                  0,
-                  3
-                ],
-                [
-                  1,
-                  3
-                ],
-                [
-                  2,
-                  3
-                ],
-                [
-                  3,
-                  3
-                ],
-                [
-                  4,
-                  3
-                ],
-                [
-                  5,
-                  3
+                  1
                 ]
               ]
             },
@@ -953,27 +895,27 @@
               "frames": [
                 [
                   0,
-                  4
+                  2
                 ],
                 [
                   1,
-                  4
+                  2
                 ],
                 [
                   2,
-                  4
+                  2
                 ],
                 [
                   3,
-                  4
+                  2
                 ],
                 [
                   4,
-                  4
+                  2
                 ],
                 [
                   5,
-                  4
+                  2
                 ]
               ]
             }
@@ -984,56 +926,27 @@
               "frames": [
                 [
                   0,
-                  5
+                  3
                 ],
                 [
                   1,
-                  5
+                  3
                 ],
                 [
                   2,
-                  5
+                  3
                 ],
                 [
                   3,
-                  5
+                  3
                 ],
                 [
                   4,
-                  5
+                  3
                 ],
                 [
                   5,
-                  5
-                ]
-              ]
-            },
-            "se": {
-              "fps": 9,
-              "frames": [
-                [
-                  0,
-                  6
-                ],
-                [
-                  1,
-                  6
-                ],
-                [
-                  2,
-                  6
-                ],
-                [
-                  3,
-                  6
-                ],
-                [
-                  4,
-                  6
-                ],
-                [
-                  5,
-                  6
+                  3
                 ]
               ]
             },
@@ -1042,56 +955,27 @@
               "frames": [
                 [
                   0,
-                  7
+                  4
                 ],
                 [
                   1,
-                  7
+                  4
                 ],
                 [
                   2,
-                  7
+                  4
                 ],
                 [
                   3,
-                  7
+                  4
                 ],
                 [
                   4,
-                  7
+                  4
                 ],
                 [
                   5,
-                  7
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 9,
-              "frames": [
-                [
-                  0,
-                  8
-                ],
-                [
-                  1,
-                  8
-                ],
-                [
-                  2,
-                  8
-                ],
-                [
-                  3,
-                  8
-                ],
-                [
-                  4,
-                  8
-                ],
-                [
-                  5,
-                  8
+                  4
                 ]
               ]
             },
@@ -1100,27 +984,27 @@
               "frames": [
                 [
                   0,
-                  9
+                  5
                 ],
                 [
                   1,
-                  9
+                  5
                 ],
                 [
                   2,
-                  9
+                  5
                 ],
                 [
                   3,
-                  9
+                  5
                 ],
                 [
                   4,
-                  9
+                  5
                 ],
                 [
                   5,
-                  9
+                  5
                 ]
               ]
             }
@@ -1131,56 +1015,27 @@
               "frames": [
                 [
                   0,
-                  10
+                  6
                 ],
                 [
                   1,
-                  10
+                  6
                 ],
                 [
                   2,
-                  10
+                  6
                 ],
                 [
                   3,
-                  10
+                  6
                 ],
                 [
                   4,
-                  10
+                  6
                 ],
                 [
                   5,
-                  10
-                ]
-              ]
-            },
-            "se": {
-              "fps": 13,
-              "frames": [
-                [
-                  0,
-                  11
-                ],
-                [
-                  1,
-                  11
-                ],
-                [
-                  2,
-                  11
-                ],
-                [
-                  3,
-                  11
-                ],
-                [
-                  4,
-                  11
-                ],
-                [
-                  5,
-                  11
+                  6
                 ]
               ]
             },
@@ -1189,56 +1044,27 @@
               "frames": [
                 [
                   0,
-                  12
+                  7
                 ],
                 [
                   1,
-                  12
+                  7
                 ],
                 [
                   2,
-                  12
+                  7
                 ],
                 [
                   3,
-                  12
+                  7
                 ],
                 [
                   4,
-                  12
+                  7
                 ],
                 [
                   5,
-                  12
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 13,
-              "frames": [
-                [
-                  0,
-                  13
-                ],
-                [
-                  1,
-                  13
-                ],
-                [
-                  2,
-                  13
-                ],
-                [
-                  3,
-                  13
-                ],
-                [
-                  4,
-                  13
-                ],
-                [
-                  5,
-                  13
+                  7
                 ]
               ]
             },
@@ -1247,27 +1073,27 @@
               "frames": [
                 [
                   0,
-                  14
+                  8
                 ],
                 [
                   1,
-                  14
+                  8
                 ],
                 [
                   2,
-                  14
+                  8
                 ],
                 [
                   3,
-                  14
+                  8
                 ],
                 [
                   4,
-                  14
+                  8
                 ],
                 [
                   5,
-                  14
+                  8
                 ]
               ]
             }
@@ -1280,74 +1106,35 @@
               "frames": [
                 [
                   0,
-                  15
+                  9
                 ],
                 [
                   1,
-                  15
+                  9
                 ],
                 [
                   2,
-                  15
+                  9
                 ],
                 [
                   3,
-                  15
+                  9
                 ],
                 [
                   4,
-                  15
+                  9
                 ],
                 [
                   5,
-                  15
+                  9
                 ],
                 [
                   6,
-                  15
+                  9
                 ],
                 [
                   7,
-                  15
-                ]
-              ]
-            },
-            "se": {
-              "fps": 11,
-              "loopStart": 3,
-              "loopEnd": 6,
-              "frames": [
-                [
-                  0,
-                  16
-                ],
-                [
-                  1,
-                  16
-                ],
-                [
-                  2,
-                  16
-                ],
-                [
-                  3,
-                  16
-                ],
-                [
-                  4,
-                  16
-                ],
-                [
-                  5,
-                  16
-                ],
-                [
-                  6,
-                  16
-                ],
-                [
-                  7,
-                  16
+                  9
                 ]
               ]
             },
@@ -1358,74 +1145,35 @@
               "frames": [
                 [
                   0,
-                  17
+                  10
                 ],
                 [
                   1,
-                  17
+                  10
                 ],
                 [
                   2,
-                  17
+                  10
                 ],
                 [
                   3,
-                  17
+                  10
                 ],
                 [
                   4,
-                  17
+                  10
                 ],
                 [
                   5,
-                  17
+                  10
                 ],
                 [
                   6,
-                  17
+                  10
                 ],
                 [
                   7,
-                  17
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 11,
-              "loopStart": 3,
-              "loopEnd": 6,
-              "frames": [
-                [
-                  0,
-                  18
-                ],
-                [
-                  1,
-                  18
-                ],
-                [
-                  2,
-                  18
-                ],
-                [
-                  3,
-                  18
-                ],
-                [
-                  4,
-                  18
-                ],
-                [
-                  5,
-                  18
-                ],
-                [
-                  6,
-                  18
-                ],
-                [
-                  7,
-                  18
+                  10
                 ]
               ]
             },
@@ -1436,35 +1184,35 @@
               "frames": [
                 [
                   0,
-                  19
+                  11
                 ],
                 [
                   1,
-                  19
+                  11
                 ],
                 [
                   2,
-                  19
+                  11
                 ],
                 [
                   3,
-                  19
+                  11
                 ],
                 [
                   4,
-                  19
+                  11
                 ],
                 [
                   5,
-                  19
+                  11
                 ],
                 [
                   6,
-                  19
+                  11
                 ],
                 [
                   7,
-                  19
+                  11
                 ]
               ]
             }
@@ -1475,16 +1223,7 @@
               "frames": [
                 [
                   0,
-                  20
-                ]
-              ]
-            },
-            "se": {
-              "fps": 1,
-              "frames": [
-                [
-                  0,
-                  20
+                  12
                 ]
               ]
             },
@@ -1493,16 +1232,7 @@
               "frames": [
                 [
                   0,
-                  20
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 1,
-              "frames": [
-                [
-                  0,
-                  20
+                  12
                 ]
               ]
             },
@@ -1511,7 +1241,7 @@
               "frames": [
                 [
                   0,
-                  20
+                  12
                 ]
               ]
             }
@@ -1523,8 +1253,8 @@
       "path": "/assets/creatures/spider.png",
       "width": 120,
       "height": 120,
-      "contentWidth": 66,
-      "contentHeight": 52,
+      "contentWidth": 72,
+      "contentHeight": 58,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8,
@@ -1931,8 +1661,8 @@
       "path": "/assets/creatures/goblin.png",
       "width": 96,
       "height": 96,
-      "contentWidth": 40,
-      "contentHeight": 44,
+      "contentWidth": 46,
+      "contentHeight": 50,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8125,
@@ -2339,8 +2069,8 @@
       "path": "/assets/creatures/skeleton.png",
       "width": 144,
       "height": 144,
-      "contentWidth": 34,
-      "contentHeight": 73,
+      "contentWidth": 40,
+      "contentHeight": 79,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8333,
@@ -2379,90 +2109,32 @@
                 ]
               ]
             },
-            "se": {
-              "fps": 6,
-              "frames": [
-                [
-                  0,
-                  1
-                ],
-                [
-                  1,
-                  1
-                ],
-                [
-                  2,
-                  1
-                ],
-                [
-                  3,
-                  1
-                ],
-                [
-                  4,
-                  1
-                ],
-                [
-                  5,
-                  1
-                ]
-              ]
-            },
             "side": {
               "fps": 6,
               "frames": [
                 [
                   0,
-                  2
+                  1
                 ],
                 [
                   1,
-                  2
+                  1
                 ],
                 [
                   2,
-                  2
+                  1
                 ],
                 [
                   3,
-                  2
+                  1
                 ],
                 [
                   4,
-                  2
+                  1
                 ],
                 [
                   5,
-                  2
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 6,
-              "frames": [
-                [
-                  0,
-                  3
-                ],
-                [
-                  1,
-                  3
-                ],
-                [
-                  2,
-                  3
-                ],
-                [
-                  3,
-                  3
-                ],
-                [
-                  4,
-                  3
-                ],
-                [
-                  5,
-                  3
+                  1
                 ]
               ]
             },
@@ -2471,27 +2143,27 @@
               "frames": [
                 [
                   0,
-                  4
+                  2
                 ],
                 [
                   1,
-                  4
+                  2
                 ],
                 [
                   2,
-                  4
+                  2
                 ],
                 [
                   3,
-                  4
+                  2
                 ],
                 [
                   4,
-                  4
+                  2
                 ],
                 [
                   5,
-                  4
+                  2
                 ]
               ]
             }
@@ -2502,56 +2174,27 @@
               "frames": [
                 [
                   0,
-                  5
+                  3
                 ],
                 [
                   1,
-                  5
+                  3
                 ],
                 [
                   2,
-                  5
+                  3
                 ],
                 [
                   3,
-                  5
+                  3
                 ],
                 [
                   4,
-                  5
+                  3
                 ],
                 [
                   5,
-                  5
-                ]
-              ]
-            },
-            "se": {
-              "fps": 8,
-              "frames": [
-                [
-                  0,
-                  6
-                ],
-                [
-                  1,
-                  6
-                ],
-                [
-                  2,
-                  6
-                ],
-                [
-                  3,
-                  6
-                ],
-                [
-                  4,
-                  6
-                ],
-                [
-                  5,
-                  6
+                  3
                 ]
               ]
             },
@@ -2560,56 +2203,27 @@
               "frames": [
                 [
                   0,
-                  7
+                  4
                 ],
                 [
                   1,
-                  7
+                  4
                 ],
                 [
                   2,
-                  7
+                  4
                 ],
                 [
                   3,
-                  7
+                  4
                 ],
                 [
                   4,
-                  7
+                  4
                 ],
                 [
                   5,
-                  7
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 8,
-              "frames": [
-                [
-                  0,
-                  8
-                ],
-                [
-                  1,
-                  8
-                ],
-                [
-                  2,
-                  8
-                ],
-                [
-                  3,
-                  8
-                ],
-                [
-                  4,
-                  8
-                ],
-                [
-                  5,
-                  8
+                  4
                 ]
               ]
             },
@@ -2618,27 +2232,27 @@
               "frames": [
                 [
                   0,
-                  9
+                  5
                 ],
                 [
                   1,
-                  9
+                  5
                 ],
                 [
                   2,
-                  9
+                  5
                 ],
                 [
                   3,
-                  9
+                  5
                 ],
                 [
                   4,
-                  9
+                  5
                 ],
                 [
                   5,
-                  9
+                  5
                 ]
               ]
             }
@@ -2649,56 +2263,27 @@
               "frames": [
                 [
                   0,
-                  10
+                  6
                 ],
                 [
                   1,
-                  10
+                  6
                 ],
                 [
                   2,
-                  10
+                  6
                 ],
                 [
                   3,
-                  10
+                  6
                 ],
                 [
                   4,
-                  10
+                  6
                 ],
                 [
                   5,
-                  10
-                ]
-              ]
-            },
-            "se": {
-              "fps": 12,
-              "frames": [
-                [
-                  0,
-                  11
-                ],
-                [
-                  1,
-                  11
-                ],
-                [
-                  2,
-                  11
-                ],
-                [
-                  3,
-                  11
-                ],
-                [
-                  4,
-                  11
-                ],
-                [
-                  5,
-                  11
+                  6
                 ]
               ]
             },
@@ -2707,56 +2292,27 @@
               "frames": [
                 [
                   0,
-                  12
+                  7
                 ],
                 [
                   1,
-                  12
+                  7
                 ],
                 [
                   2,
-                  12
+                  7
                 ],
                 [
                   3,
-                  12
+                  7
                 ],
                 [
                   4,
-                  12
+                  7
                 ],
                 [
                   5,
-                  12
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 12,
-              "frames": [
-                [
-                  0,
-                  13
-                ],
-                [
-                  1,
-                  13
-                ],
-                [
-                  2,
-                  13
-                ],
-                [
-                  3,
-                  13
-                ],
-                [
-                  4,
-                  13
-                ],
-                [
-                  5,
-                  13
+                  7
                 ]
               ]
             },
@@ -2765,27 +2321,27 @@
               "frames": [
                 [
                   0,
-                  14
+                  8
                 ],
                 [
                   1,
-                  14
+                  8
                 ],
                 [
                   2,
-                  14
+                  8
                 ],
                 [
                   3,
-                  14
+                  8
                 ],
                 [
                   4,
-                  14
+                  8
                 ],
                 [
                   5,
-                  14
+                  8
                 ]
               ]
             }
@@ -2798,58 +2354,27 @@
               "frames": [
                 [
                   0,
-                  15
+                  9
                 ],
                 [
                   1,
-                  15
+                  9
                 ],
                 [
                   2,
-                  15
+                  9
                 ],
                 [
                   3,
-                  15
+                  9
                 ],
                 [
                   4,
-                  15
+                  9
                 ],
                 [
                   5,
-                  15
-                ]
-              ]
-            },
-            "se": {
-              "fps": 11,
-              "loopStart": 3,
-              "loopEnd": 5,
-              "frames": [
-                [
-                  0,
-                  16
-                ],
-                [
-                  1,
-                  16
-                ],
-                [
-                  2,
-                  16
-                ],
-                [
-                  3,
-                  16
-                ],
-                [
-                  4,
-                  16
-                ],
-                [
-                  5,
-                  16
+                  9
                 ]
               ]
             },
@@ -2860,58 +2385,27 @@
               "frames": [
                 [
                   0,
-                  17
+                  10
                 ],
                 [
                   1,
-                  17
+                  10
                 ],
                 [
                   2,
-                  17
+                  10
                 ],
                 [
                   3,
-                  17
+                  10
                 ],
                 [
                   4,
-                  17
+                  10
                 ],
                 [
                   5,
-                  17
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 11,
-              "loopStart": 3,
-              "loopEnd": 5,
-              "frames": [
-                [
-                  0,
-                  18
-                ],
-                [
-                  1,
-                  18
-                ],
-                [
-                  2,
-                  18
-                ],
-                [
-                  3,
-                  18
-                ],
-                [
-                  4,
-                  18
-                ],
-                [
-                  5,
-                  18
+                  10
                 ]
               ]
             },
@@ -2922,27 +2416,27 @@
               "frames": [
                 [
                   0,
-                  19
+                  11
                 ],
                 [
                   1,
-                  19
+                  11
                 ],
                 [
                   2,
-                  19
+                  11
                 ],
                 [
                   3,
-                  19
+                  11
                 ],
                 [
                   4,
-                  19
+                  11
                 ],
                 [
                   5,
-                  19
+                  11
                 ]
               ]
             }
@@ -2953,16 +2447,7 @@
               "frames": [
                 [
                   0,
-                  20
-                ]
-              ]
-            },
-            "se": {
-              "fps": 1,
-              "frames": [
-                [
-                  0,
-                  20
+                  12
                 ]
               ]
             },
@@ -2971,16 +2456,7 @@
               "frames": [
                 [
                   0,
-                  20
-                ]
-              ]
-            },
-            "ne": {
-              "fps": 1,
-              "frames": [
-                [
-                  0,
-                  20
+                  12
                 ]
               ]
             },
@@ -2989,7 +2465,7 @@
               "frames": [
                 [
                   0,
-                  20
+                  12
                 ]
               ]
             }
@@ -3001,8 +2477,8 @@
       "path": "/assets/creatures/orc.png",
       "width": 168,
       "height": 168,
-      "contentWidth": 80,
-      "contentHeight": 81,
+      "contentWidth": 84,
+      "contentHeight": 87,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8393,
@@ -3409,8 +2885,8 @@
       "path": "/assets/creatures/bear.png",
       "width": 168,
       "height": 168,
-      "contentWidth": 42,
-      "contentHeight": 73,
+      "contentWidth": 48,
+      "contentHeight": 79,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.8214,
@@ -3817,8 +3293,8 @@
       "path": "/assets/creatures/golem.png",
       "width": 192,
       "height": 192,
-      "contentWidth": 114,
-      "contentHeight": 107,
+      "contentWidth": 120,
+      "contentHeight": 113,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.875,
@@ -4293,120 +3769,120 @@
     },
     "gear-sword": {
       "path": "/assets/gear/sword.png",
-      "width": 48,
-      "height": 16,
-      "contentWidth": 46,
-      "contentHeight": 14,
+      "width": 52,
+      "height": 20,
+      "contentWidth": 48,
+      "contentHeight": 16,
       "scale": 0.3333,
       "anchorX": 0.23,
       "anchorY": 0.5
     },
     "gear-axe": {
       "path": "/assets/gear/axe.png",
-      "width": 38,
-      "height": 20,
-      "contentWidth": 36,
-      "contentHeight": 18,
+      "width": 42,
+      "height": 24,
+      "contentWidth": 38,
+      "contentHeight": 20,
       "scale": 0.3333,
       "anchorX": 0.23,
       "anchorY": 0.42
     },
     "gear-pickaxe": {
       "path": "/assets/gear/pickaxe.png",
-      "width": 35,
-      "height": 34,
-      "contentWidth": 33,
-      "contentHeight": 32,
+      "width": 39,
+      "height": 38,
+      "contentWidth": 35,
+      "contentHeight": 34,
       "scale": 0.3333,
       "anchorX": 0.23,
       "anchorY": 0.5
     },
     "gear-bow": {
       "path": "/assets/gear/bow.png",
-      "width": 30,
-      "height": 48,
-      "contentWidth": 28,
-      "contentHeight": 46,
+      "width": 34,
+      "height": 52,
+      "contentWidth": 30,
+      "contentHeight": 48,
       "scale": 0.3333,
       "anchorX": 0.45,
       "anchorY": 0.5
     },
     "gear-bow-drawn": {
       "path": "/assets/gear/bow-drawn.png",
-      "width": 30,
-      "height": 46,
-      "contentWidth": 28,
-      "contentHeight": 44,
+      "width": 34,
+      "height": 50,
+      "contentWidth": 30,
+      "contentHeight": 46,
       "scale": 0.3333,
       "anchorX": 0.56,
       "anchorY": 0.5
     },
     "gear-shield": {
       "path": "/assets/gear/wooden-shield.png",
-      "width": 24,
-      "height": 26,
-      "contentWidth": 22,
-      "contentHeight": 24,
+      "width": 28,
+      "height": 30,
+      "contentWidth": 24,
+      "contentHeight": 26,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.5
     },
     "gear-torch-0": {
       "path": "/assets/gear/torch-0.png",
-      "width": 12,
-      "height": 36,
-      "contentWidth": 10,
-      "contentHeight": 34,
+      "width": 16,
+      "height": 40,
+      "contentWidth": 12,
+      "contentHeight": 36,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.72
     },
     "gear-torch-1": {
       "path": "/assets/gear/torch-1.png",
-      "width": 12,
-      "height": 38,
-      "contentWidth": 10,
-      "contentHeight": 36,
+      "width": 16,
+      "height": 42,
+      "contentWidth": 12,
+      "contentHeight": 38,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.72
     },
     "gear-torch-2": {
       "path": "/assets/gear/torch-2.png",
-      "width": 12,
-      "height": 36,
-      "contentWidth": 10,
-      "contentHeight": 34,
+      "width": 16,
+      "height": 40,
+      "contentWidth": 12,
+      "contentHeight": 36,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.72
     },
     "gear-torch-3": {
       "path": "/assets/gear/torch-3.png",
-      "width": 12,
-      "height": 38,
-      "contentWidth": 10,
-      "contentHeight": 36,
+      "width": 16,
+      "height": 42,
+      "contentWidth": 12,
+      "contentHeight": 38,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.72
     },
     "gear-lantern-0": {
       "path": "/assets/gear/lantern-0.png",
-      "width": 14,
-      "height": 26,
-      "contentWidth": 12,
-      "contentHeight": 24,
+      "width": 18,
+      "height": 30,
+      "contentWidth": 14,
+      "contentHeight": 26,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.5
     },
     "gear-lantern-1": {
       "path": "/assets/gear/lantern-1.png",
-      "width": 12,
-      "height": 26,
-      "contentWidth": 10,
-      "contentHeight": 24,
+      "width": 16,
+      "height": 30,
+      "contentWidth": 12,
+      "contentHeight": 26,
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.5

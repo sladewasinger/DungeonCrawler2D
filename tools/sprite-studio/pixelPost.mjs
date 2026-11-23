@@ -2,9 +2,9 @@
 
 function computeSelOutRgb(r, g, b) {
   return [
-    Math.max(12, Math.round(r * 0.30 + 7)),
-    Math.max(10, Math.round(g * 0.28 + 4)),
-    Math.max(18, Math.round(b * 0.34 + 12)),
+    Math.max(10, Math.round(r * 0.22 + 5)),
+    Math.max(9, Math.round(g * 0.20 + 3)),
+    Math.max(15, Math.round(b * 0.26 + 9)),
   ];
 }
 
@@ -96,17 +96,30 @@ export function applyInternalDepthCreases(img, depthImg, threshold = 16) {
   return { width, height, rgba: out };
 }
 
-const DISK_2PX_OFFSETS = [
-  [-1, 0], [1, 0], [0, -1], [0, 1],
-  [-1, -1], [1, -1], [-1, 1], [1, 1],
-  [-2, 0], [2, 0], [0, -2], [0, 2],
-];
+const DISK_OFFSET_CACHE = new Map();
 
-function neighborIndicesInDisk(idx, width, height) {
+function pushDiskRow({ out, dy, key, rSq }) {
+  for (let dx = -key; dx <= key; dx++) {
+    if ((dx !== 0 || dy !== 0) && dx * dx + dy * dy <= rSq) out.push([dx, dy]);
+  }
+}
+
+function getDiskOffsets(radiusPx = 4) {
+  const key = Math.max(1, Math.round(radiusPx));
+  const cached = DISK_OFFSET_CACHE.get(key);
+  if (cached) return cached;
+  const out = [];
+  const rSq = (key + 0.22) * (key + 0.22);
+  for (let dy = -key; dy <= key; dy++) pushDiskRow({ out, dy, key, rSq });
+  DISK_OFFSET_CACHE.set(key, out);
+  return out;
+}
+
+function neighborIndicesInDisk({ idx, width, height, radiusPx = 4 }) {
   const x = idx % width;
   const y = (idx - x) / width;
   const out = [];
-  for (const [dx, dy] of DISK_2PX_OFFSETS) {
+  for (const [dx, dy] of getDiskOffsets(radiusPx)) {
     const nx = x + dx;
     const ny = y + dy;
     if (nx >= 0 && nx < width && ny >= 0 && ny < height) out.push(ny * width + nx);
@@ -114,11 +127,11 @@ function neighborIndicesInDisk(idx, width, height) {
   return out;
 }
 
-function findDarkestOpaqueNeighbor(img, idx) {
+function findDarkestOpaqueNeighbor(img, idx, radiusPx = 4) {
   const { width, height, rgba } = img;
   let bestRgb = null;
   let bestLuma = Infinity;
-  for (const ni of neighborIndicesInDisk(idx, width, height)) {
+  for (const ni of neighborIndicesInDisk({ idx, width, height, radiusPx })) {
     const p = ni * 4;
     if (rgba[p + 3] === 0) continue;
     const lum = luma(rgba[p], rgba[p + 1], rgba[p + 2]);
@@ -130,13 +143,13 @@ function findDarkestOpaqueNeighbor(img, idx) {
   return bestRgb;
 }
 
-export function applyOuterSelOut(img) {
+export function applyOuterSelOut(img, radiusPx = 4) {
   const { width, height } = img;
   const out = new Uint8Array(img.rgba);
   const n = width * height;
   for (let i = 0; i < n; i++) {
     if (img.rgba[i * 4 + 3] > 0) continue;
-    const neighbor = findDarkestOpaqueNeighbor(img, i);
+    const neighbor = findDarkestOpaqueNeighbor(img, i, radiusPx);
     if (!neighbor) continue;
     const [r, g, b] = computeSelOutRgb(neighbor[0], neighbor[1], neighbor[2]);
     const p = i * 4;
@@ -224,7 +237,7 @@ export function postProcessFrame(opts) {
   const clean = binarizeAndClean(opts.colorImg, opts.minIslandArea ?? 4);
   const creased = opts.depthImg ? applyInternalDepthCreases(clean, opts.depthImg) : clean;
   const interiorMask = captureOpaqueMask(creased);
-  const outlined = applyOuterSelOut(creased);
+  const outlined = applyOuterSelOut(creased, opts.outlineRadius ?? 4);
   const translucent = applyTranslucentBodyAlpha(outlined, interiorMask, opts.bodyAlpha ?? 1.0);
   const bounds = measureSpriteBounds(translucent);
   const dx = opts.dx ?? (Math.floor(translucent.width / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5));

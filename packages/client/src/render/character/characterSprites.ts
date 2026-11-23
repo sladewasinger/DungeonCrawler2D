@@ -18,6 +18,20 @@ export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./ch
 
 const MAX_CACHED_SETS = 64;
 const spriteCache = new Map<string, CharacterSpriteSet>();
+let cacheRevision = 0;
+
+export function getCharacterCacheRevision(): number {
+  return cacheRevision;
+}
+
+export function invalidateCharacterCacheKey(key: string): void {
+  const evicted = spriteCache.get(key);
+  if (evicted) {
+    spriteCache.delete(key);
+    destroySpriteSet(evicted);
+  }
+  cacheRevision += 1;
+}
 
 export function characterCacheKey(appearance: CharacterAppearance, armor: ArmorEquipment): string {
   return [
@@ -69,24 +83,26 @@ function buildDirectionAnim(input: {
 
 function collectDirTextures(dirAnim: DirectionAnim | undefined, unique: Set<Texture>): void {
   if (!dirAnim) return;
-  for (const track of [dirAnim.idle, dirAnim.walk ?? [], dirAnim.run, dirAnim.jump, dirAnim.fall, dirAnim.dodge ?? [], dirAnim.downed ?? []]) {
+  for (const track of [dirAnim.idle, dirAnim.walk ?? [], dirAnim.run, dirAnim.jump, dirAnim.fall, dirAnim.dodge ?? [], dirAnim.downed ?? [], dirAnim.swim ?? []]) {
     for (const tex of track) unique.add(tex);
   }
+}
+
+function destroyArmSegTextures(set: CharacterSpriteSet, unique: Set<Texture>): void {
+  const seg = set.armSegments;
+  if (!seg) return;
+  for (const tex of [
+    seg.upperFront, seg.upperBack, seg.upperOutline, seg.forearmFront, seg.forearmBack,
+    seg.forearmOutline, seg.handFront, seg.handBack, seg.handOutline, seg.handFillFront, seg.handFillBack,
+  ]) unique.add(tex);
 }
 
 function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
   if (!set) return;
   const unique = new Set<Texture>([set.frontArm, set.backArm]);
   for (const dirAnim of [set.south, set.se, set.north, set.ne, set.side]) collectDirTextures(dirAnim, unique);
-  const seg = set.armSegments;
-  if (seg) {
-    const segTextures = [
-      seg.upperFront, seg.upperBack, seg.upperOutline,
-      seg.forearmFront, seg.forearmBack, seg.forearmOutline,
-      seg.handFront, seg.handBack, seg.handOutline, seg.handFillFront, seg.handFillBack,
-    ];
-    for (const tex of segTextures) unique.add(tex);
-  }
+  if (set.armless) for (const dirAnim of Object.values(set.armless)) collectDirTextures(dirAnim, unique);
+  destroyArmSegTextures(set, unique);
   for (const tex of unique) tex.destroy(true);
 }
 
@@ -122,7 +138,9 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     return existing;
   }
   evictOldestIfFull();
-  const created = (isPlayer3dReady() ? build3dCharacterSpriteSet(appearance, armor) : null) ?? buildFallbackSpriteSet(appearance, armor);
+  const created =
+    (isPlayer3dReady() ? build3dCharacterSpriteSet(appearance, armor, () => invalidateCharacterCacheKey(key)) : null)
+    ?? buildFallbackSpriteSet(appearance, armor);
   spriteCache.set(key, created);
   return created;
 }

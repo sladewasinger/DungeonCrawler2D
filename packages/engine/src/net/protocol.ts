@@ -124,6 +124,7 @@ export const PlayerSnapshotSchema = z.object({
   sprinting: z.boolean().optional(),
   torchLit: z.boolean(),
   inWater: z.boolean(),
+  inDeepWater: z.boolean().optional(),
   lastAckSeq: z.number().int(),
   heldItem: z.string().nullable().optional(),
   appearance: CharacterAppearanceSchema.optional(),
@@ -180,6 +181,8 @@ export const WorldEntitySnapshotSchema = z.object({
   telegraphProgress: z.number(),
   aiState: z.enum(AI_STATES).optional(),
   corpse: z.boolean().optional(),
+  inWater: z.boolean().optional(),
+  inDeepWater: z.boolean().optional(),
 });
 
 export type WorldEntitySnapshot = z.infer<typeof WorldEntitySnapshotSchema>;
@@ -209,7 +212,10 @@ export const GroundLootSnapshotSchema = z.object({
 export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 
 export const WorldEventSchema = z.object({
-  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal"]),
+  kind: z.enum([
+    "swing", "hit", "block", "parry", "arrowFire", "dodge",
+    "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal", "playerLeave",
+  ]),
   x: z.number(),
   y: z.number(),
   dirX: z.number().optional(),

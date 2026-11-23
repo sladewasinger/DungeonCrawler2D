@@ -46,8 +46,8 @@ function processGearFrame(fileBase) {
   const depthImg = decodePng(fs.readFileSync(path.join(RAW_DIR, `${fileBase}_depth.png`)));
   const clean = binarizeAndClean(colorImg, 4);
   const creased = applyInternalDepthCreases(clean, depthImg, 14);
-  const outlined = applyOuterSelOut(creased);
-  return cropTight(outlined, 1);
+  const outlined = applyOuterSelOut(creased, 3);
+  return cropTight(outlined, 2);
 }
 
 function sampleStripBg({ sx, sy, cx, cy }) {
@@ -103,8 +103,8 @@ function run() {
       path: `/assets/gear/${spec.file}.png`,
       width: img.width,
       height: img.height,
-      contentWidth: img.width - 2,
-      contentHeight: img.height - 2,
+      contentWidth: img.width - 4,
+      contentHeight: img.height - 4,
       scale: SCALE,
       anchorX: spec.anchorX,
       anchorY: spec.anchorY,

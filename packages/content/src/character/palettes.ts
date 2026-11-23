@@ -6,6 +6,10 @@ export interface ToneTriad {
   readonly highlight: string;
 }
 
+export interface HairPalette extends ToneTriad {
+  readonly tip?: ToneTriad;
+}
+
 export interface ArmorVisualStyle extends ToneTriad {
   readonly accent: string;
 }
@@ -27,13 +31,43 @@ export const EYE_PALETTES: Readonly<Record<string, ToneTriad>> = {
   violet: { base: "#7c3aed", shade: "#2e1065", highlight: "#c084fc" },
 };
 
-export const HAIR_PALETTES: Readonly<Record<string, ToneTriad>> = {
+export const HAIR_PALETTES: Readonly<Record<string, HairPalette>> = {
   brown: { base: "#6d442b", shade: "#4b2d1b", highlight: "#8c5c3d" },
   black: { base: "#272d3a", shade: "#161a24", highlight: "#3f485c" },
   blonde: { base: "#e6b84c", shade: "#bd8d29", highlight: "#f8d67a" },
   red: { base: "#c2442e", shade: "#8f2b1b", highlight: "#e0674c" },
   silver: { base: "#cbd5e1", shade: "#94a3b8", highlight: "#f1f5f9" },
   teal: { base: "#2ba398", shade: "#1c7872", highlight: "#58ccbf" },
+  auburn: { base: "#933b22", shade: "#642212", highlight: "#bc5737" },
+  midnight: { base: "#1e294b", shade: "#11172b", highlight: "#364a80" },
+  rose: { base: "#e15b8c", shade: "#ad3664", highlight: "#f48bb2" },
+  violet: { base: "#7c3aed", shade: "#5221ab", highlight: "#a775f7" },
+  emerald: { base: "#199457", shade: "#0f6339", highlight: "#3ec980" },
+  white: { base: "#e2e8f0", shade: "#b8c4d4", highlight: "#ffffff" },
+  "pink-purple": {
+    base: "#f472b6", shade: "#be3e85", highlight: "#fbcfe8",
+    tip: { base: "#7c3aed", shade: "#4c1d95", highlight: "#a78bfa" },
+  },
+  "black-red": {
+    base: "#222733", shade: "#12151e", highlight: "#384152",
+    tip: { base: "#dc2626", shade: "#991b1b", highlight: "#f87171" },
+  },
+  "midnight-cyan": {
+    base: "#1e294b", shade: "#11182c", highlight: "#33477a",
+    tip: { base: "#06b6d4", shade: "#0e7490", highlight: "#67e8f9" },
+  },
+  "sunset-gold": {
+    base: "#dc4a2d", shade: "#9a2b17", highlight: "#f97316",
+    tip: { base: "#facc15", shade: "#ca8a04", highlight: "#fef08a" },
+  },
+  "emerald-teal": {
+    base: "#15803d", shade: "#0b5327", highlight: "#22c55e",
+    tip: { base: "#14b8a6", shade: "#0f766e", highlight: "#5eead4" },
+  },
+  "silver-violet": {
+    base: "#cbd5e1", shade: "#94a3b8", highlight: "#f8fafc",
+    tip: { base: "#8b5cf6", shade: "#5b21b6", highlight: "#c4b5fd" },
+  },
 };
 
 export const UNDERWEAR_PALETTE = {

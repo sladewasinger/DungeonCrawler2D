@@ -272,8 +272,37 @@ def build_downed_action(arm_obj, prefix="Hero"):
     return action
 
 
+def build_swim_action(arm_obj, prefix="Hero"):
+    """Build 4-frame breaststroke swimming cycle keeping head buoyed above waterline."""
+    action = prepare_clean_action(f"{prefix}_Swim", fps=6)
+    bind_action_for_edit(arm_obj, action)
+    reset_pose_bones(arm_obj)
+    pb = arm_obj.pose.bones
+
+    for f in range(1, 5):
+        phase = (2.0 * math.pi * (f - 1)) / 4.0
+        stroke = math.sin(phase)
+        scoop = math.cos(phase)
+        bob = 0.025 * scoop
+        set_world_loc(pb["Pelvis"], 0.0, 0.0, -0.14 + bob)
+        set_world_rot(pb["Pelvis"], 16.0, 0.0, 2.5 * stroke)
+        set_world_rot(pb["Torso"], 14.0 + 3.0 * scoop, 0.0, -2.5 * stroke)
+        set_world_rot(pb["Head"], -26.0 - 2.0 * scoop, 0.0, 0.0)
+
+        sweep = 0.5 * (1.0 - scoop)
+        for sign, side in ((1.0, "L"), (-1.0, "R")):
+            set_world_rot(pb[f"UpperArm_{side}"], -62.0 + 26.0 * sweep, -sign * (18.0 + 36.0 * sweep), sign * 12.0)
+            set_world_rot(pb[f"Forearm_{side}"], -42.0 + 18.0 * stroke, -sign * (16.0 * sweep), 0.0)
+            kick = stroke if side == "L" else -stroke
+            set_world_rot(pb[f"Thigh_{side}"], 14.0 + 14.0 * kick, -sign * 4.0, 0.0)
+            set_world_rot(pb[f"Shin_{side}"], 18.0 + 14.0 * max(0.0, -kick), 0.0, 0.0)
+            set_world_rot(pb[f"Foot_{side}"], 26.0, 0.0, 0.0)
+        key_pose_bones(arm_obj, f)
+    return action
+
+
 def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
-    """Attach Idle, Run, Jump, Fall, Dodge, and Downed Actions onto Rig_Hero."""
+    """Attach Idle, Walk, Run, Jump, Fall, Dodge, Downed, and Swim Actions onto Rig_Hero."""
     arm_obj = bpy.data.objects.get(arm_name)
     if not arm_obj or arm_obj.type != "ARMATURE":
         raise ValueError(f"Missing hero armature: {arm_name}")
@@ -289,10 +318,11 @@ def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
     fall = build_fall_action(arm_obj, prefix)
     dodge = build_dodge_action(arm_obj, prefix)
     downed = build_downed_action(arm_obj, prefix)
+    swim = build_swim_action(arm_obj, prefix)
 
     reset_pose_bones(arm_obj)
     bind_action_for_edit(arm_obj, idle)
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 6
     bpy.context.scene.frame_set(1)
-    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed)]
+    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed, swim)]

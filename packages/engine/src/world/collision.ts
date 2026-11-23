@@ -119,6 +119,7 @@ export interface MovementResult {
   readonly elevationDrop: number;
   readonly speedMultiplier: number;
   readonly inWater: boolean;
+  readonly inDeepWater: boolean;
 }
 
 interface StandCheck {
@@ -133,7 +134,6 @@ interface StandCheck {
 }
 
 function tilePassable(check: StandCheck, tile: TileLookup): boolean {
-  if (tile.ground === GroundKind.DeepWater) return false;
   if (check.airborne) return tile.elevation <= check.fromElevation + (check.canClimbUp ? 1 : 0);
   const bridged = tile.stairs || check.onStairs;
   return bridged ? Math.abs(tile.elevation - check.fromElevation) <= 1 : tile.elevation === check.fromElevation;
@@ -248,6 +248,8 @@ export function resolveMovement(query: MovementQuery): MovementResult {
   const { nextElevation, elevationDrop } = resolveDestElevation((tx, ty) => cache.tileAt(tx, ty).elevation, {
     x: cur.x, y: cur.y, radius, elevation, airborne, stairs: destTile.stairs,
   });
-  const inWater = destTile.ground === GroundKind.ShallowWater;
-  return { x: cur.x, y: cur.y, elevation: nextElevation, elevationDrop, speedMultiplier: inWater ? 0.65 : 1, inWater };
+  const inDeepWater = destTile.ground === GroundKind.DeepWater;
+  const inWater = inDeepWater || destTile.ground === GroundKind.ShallowWater;
+  const speedMultiplier = inDeepWater ? 0.56 : inWater ? 0.78 : 1;
+  return { x: cur.x, y: cur.y, elevation: nextElevation, elevationDrop, speedMultiplier, inWater, inDeepWater };
 }

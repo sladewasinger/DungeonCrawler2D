@@ -2,7 +2,7 @@ import { DEFAULT_APPEARANCE, type PlayerSnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { IDLE_POSES, resolveFacingDir8, type DirectionAnim } from "../character/characterTypes.js";
 import { computeActorCombatFx } from "../character/heldPlacement.js";
-import { remapSentinelPixel, type SentinelPalettes } from "../character/playerCompositor.js";
+import { remapSentinelPixel, remapSentinelPixelAt, resolveLayerStack, resolveSentinelPalettes, type SentinelPalettes } from "../character/playerCompositor.js";
 import { getPoseTuning, resetPoseTuning } from "../poseTuning/poseTuningStore.js";
 import { computeTwoSegmentArmRig, solveTwoBoneIk } from "./playerArmIk.js";
 import { computePoseFrameIdx, gearLayoutFor, resolvePoseSnapshot, resolvePoseTrack, type ActivePose } from "./playerPoseHelpers.js";
@@ -250,16 +250,30 @@ describe("3D orbit carry, bow reach, free hands & north/south depth", () => {
     const anim = { idle: [0 as never], walk: tex6, run: tex6, jump: [], fall: [] } as unknown as DirectionAnim;
     const facing = { dir: "south" as const, flipX: false };
     const walkTrack = resolvePoseTrack({ anim, snap: makeTestSnap({ moving: true, sprinting: false }), is3d: true });
-    expect(walkTrack.clip).toBe("walk");
-    expect(walkTrack.fps).toBe(7);
-
+    expect(walkTrack).toMatchObject({ clip: "walk", fps: 7 });
     const sprintTrack = resolvePoseTrack({ anim, snap: makeTestSnap({ moving: true, sprinting: true }), is3d: true });
-    expect(sprintTrack.clip).toBe("run");
-    expect(sprintTrack.fps).toBe(11);
-
+    expect(sprintTrack).toMatchObject({ clip: "run", fps: 11 });
     expect(computePoseFrameIdx({ track: walkTrack, timeSec: 0, dodgeStartSec: null, gaitPhase: 0.25 })).toBe(1);
     expect(computePoseFrameIdx({ track: walkTrack, timeSec: 0, dodgeStartSec: null, gaitPhase: 0.75 })).toBe(4);
     expect(resolvePoseSnapshot({ anim, facing, snap: makeTestSnap({ moving: true, sprinting: true }), is3d: true, timeSec: 0, dodgeStartSec: null, gaitPhase: 0.25 }).active.frameIdx).toBe(1);
     expect(resolvePoseSnapshot({ anim, facing, snap: makeTestSnap({ moving: true, sprinting: true }), is3d: true, timeSec: 0, dodgeStartSec: null, gaitPhase: 0.75 }).active.frameIdx).toBe(4);
+  });
+
+  it("supports swim track, data-driven armless/full-arm stacks, and two-tone gradient hair", () => {
+    const tex4 = Array.from({ length: 4 }, (_, i) => i as never);
+    const anim = { idle: tex4, walk: tex4, run: tex4, jump: tex4, fall: tex4, swim: tex4 } as unknown as DirectionAnim;
+    expect(resolvePoseTrack({ anim, snap: makeTestSnap({ inDeepWater: true }), is3d: true }).clip).toBe("swim");
+    const kit = { head: null, chest: "leather-tunic", legs: "leather-leggings", feet: "leather-boots", offhand: null };
+    const full = resolveLayerStack(DEFAULT_APPEARANCE, kit, true);
+    const armless = resolveLayerStack(DEFAULT_APPEARANCE, kit, false);
+    expect(full).toEqual(expect.arrayContaining(["body-male-arms", "armor-chest-sleeves-male", "hair-short"]));
+    expect(armless).not.toContain("body-male-arms");
+    expect(armless).not.toContain("armor-chest-sleeves-male");
+    const hooded = resolveLayerStack(DEFAULT_APPEARANCE, { ...kit, head: "leather-hood" }, true);
+    expect(hooded).toContain("armor-head-leather-hood");
+    expect(hooded).not.toContain("hair-short");
+    const gradPal = resolveSentinelPalettes({ ...DEFAULT_APPEARANCE, hairColor: "pink-purple" });
+    expect(remapSentinelPixelAt([40, 210, 0], gradPal, 0.0)).toEqual(gradPal.hair.base);
+    expect(remapSentinelPixelAt([40, 210, 0], gradPal, 1.0)).toEqual(gradPal.hairTip?.base);
   });
 });
