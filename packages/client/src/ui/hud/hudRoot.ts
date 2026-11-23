@@ -106,7 +106,7 @@ export class HudRoot {
     this.drag.setState(state.inventory, { panelOpen: invOpen || chestOpen, chestSlots: chest?.slots ?? null });
     const tap = this.drag.activeTapSource();
     this.hotbar.sync(state.inventory, tap, Boolean(state.localPlayer?.torchLit));
-    this.vitals.sync(state.localPlayer);
+    this.vitals.sync(state.localPlayer, state.entities);
     this.inventoryModal.sync(state.inventory, { open: invOpen, tapSource: tap, player: state.localPlayer });
     this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen, tapSource: tap });
     this.craftingPanel.sync(state.inventory, this.openPanel === "crafting");

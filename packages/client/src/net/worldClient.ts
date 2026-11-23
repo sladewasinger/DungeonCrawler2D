@@ -249,6 +249,7 @@ export class WorldClient {
   debugSpawn(kind: EntityKind, count = 1): void { this.send({ t: "debugSpawn", kind, count, seq: this.nextSeq() }); }
   placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number }): void { this.send({ t: "placeStructure", ...req, seq: this.armInvSeq() }); }
   setRespawnBed(structureId: string): void { this.send({ t: "setRespawnBed", structureId, seq: this.nextSeq() }); }
+  pickupLoot(lootId?: string): void { this.send({ t: "pickupLoot", ...(lootId ? { lootId } : {}), seq: this.armInvSeq() }); }
 
   snapshot(): WorldViewState {
     const localWithGear: PlayerSnapshot = { ...this.localPlayer, heldItem: heldItemForInventory(this.inventory), armor: this.inventory.armor, ...this.swing.snapshotOverride() };

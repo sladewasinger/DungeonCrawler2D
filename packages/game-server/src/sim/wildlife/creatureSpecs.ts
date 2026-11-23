@@ -70,6 +70,7 @@ export interface WildlifeEntity {
   maxHp: number;
   hitTimer: number;
   staggerTimer: number;
+  stunnedTimer: number;
   bleedTimer: number;
   telegraphTimer: number;
   windupDuration: number;
@@ -80,6 +81,7 @@ export interface WildlifeEntity {
   lastKnownX: number;
   lastKnownY: number;
   investigateTimer: number;
+  suspicion: number;
   peekSide: number;
   hunger: number;
   feedTimer: number;
@@ -91,6 +93,7 @@ export interface WildlifeEntity {
   alertedTimer: number;
   patrolPhase: number;
   targetPlayerId: string | null;
+  targetKind: "player" | "entity" | null;
   kbVx: number;
   kbVy: number;
   navPath: readonly { readonly x: number; readonly y: number }[];
@@ -108,6 +111,8 @@ export interface WildlifeEntity {
   patrolGoalX: number;
   patrolGoalY: number;
   vocalCooldown: number;
+  howlTimer: number;
+  howlDone: boolean;
   embeddedArrows: number;
   spottedPopTimer: number;
   peelTimer: number;
@@ -128,17 +133,17 @@ export function createWildlifeEntity(opts: {
     id: opts.id, kind: opts.kind, substance: spec.substance,
     homeX: opts.x, homeY: opts.y, homeRadius: opts.homeRadius, poiId: opts.poiId,
     packId: opts.packId, packSlot: opts.packSlot, x: opts.x, y: opts.y, elevation: opts.elevation,
-    facingX: 0, facingY: 1, hp: spec.hp, maxHp: spec.hp, hitTimer: 0, staggerTimer: 0,
+    facingX: 0, facingY: 1, hp: spec.hp, maxHp: spec.hp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
     bleedTimer: 0, telegraphTimer: 0, windupDuration: spec.windupSec, attackCooldown: 0.4,
     aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,
-    investigateTimer: 0, peekSide: opts.packSlot % 2 === 0 ? 1 : -1, hunger: 0.25, feedTimer: 0,
+    investigateTimer: 0, suspicion: 0, peekSide: opts.packSlot % 2 === 0 ? 1 : -1, hunger: 0.25, feedTimer: 0,
     chargeVx: 0, chargeVy: 0, chargeTimer: 0, chargeRecoverTimer: 0, chargeHitDealt: false, alertedTimer: 0,
-    patrolPhase: opts.packSlot * 2.1, targetPlayerId: null, kbVx: 0, kbVy: 0,
+    patrolPhase: opts.packSlot * 2.1, targetPlayerId: null, targetKind: null, kbVx: 0, kbVy: 0,
     navPath: [], navGoalX: opts.x, navGoalY: opts.y, navTimer: 0, navReachedGoal: true,
     unreachableTimer: 0, provokedTimer: 0, jumpZ: 0, jumpVz: 0, jumpStepped: false,
     patrolPauseTimer: 1.0 + (opts.packSlot % 3) * 0.9, patrolMoveTimer: 0, patrolGoalX: opts.x, patrolGoalY: opts.y,
-    vocalCooldown: 0, embeddedArrows: 0, spottedPopTimer: 0, peelTimer: 0, bluffTimer: 0, bluffCooldown: 0, pounceUsed: false,
-    inWater: false, inDeepWater: false,
+    vocalCooldown: 0, howlTimer: 0, howlDone: false, embeddedArrows: 0, spottedPopTimer: 0, peelTimer: 0,
+    bluffTimer: 0, bluffCooldown: 0, pounceUsed: false, inWater: false, inDeepWater: false,
   };
 }
 

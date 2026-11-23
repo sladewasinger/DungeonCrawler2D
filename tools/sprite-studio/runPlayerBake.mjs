@@ -24,6 +24,16 @@ function locateBlenderExecutable() {
   return "blender";
 }
 
+const FLAG_BOW_ONLY = "--bow-only";
+
+function applyTokenArg(opts, arg) {
+  if (arg === "--sockets-only" || arg === "sockets-only") opts.socketsOnly = true;
+  else if (arg === FLAG_BOW_ONLY || arg === "bow-only") opts.bowOnly = true;
+  else if (arg.endsWith(".blend")) opts.blend = arg;
+  else if (arg.includes("=")) applyKvArg(opts, arg);
+  else opts.layers.push(...arg.split(/[+,]/));
+}
+
 function applyKvArg(opts, arg) {
   const eq = arg.indexOf("=");
   const key = arg.slice(0, eq);
@@ -32,15 +42,8 @@ function applyKvArg(opts, arg) {
   else if (key === "layers" || key === "--layers") opts.layers.push(...val.split(/[+,]/));
 }
 
-function applyTokenArg(opts, arg) {
-  if (arg === "--sockets-only" || arg === "sockets-only") opts.socketsOnly = true;
-  else if (arg.endsWith(".blend")) opts.blend = arg;
-  else if (arg.includes("=")) applyKvArg(opts, arg);
-  else opts.layers.push(...arg.split(/[+,]/));
-}
-
 function parseCliOpts(argv) {
-  const opts = { blend: "player.blend", layers: [], socketsOnly: false };
+  const opts = { blend: "player.blend", layers: [], socketsOnly: false, bowOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if ((arg === "--blend" || arg === "--layers") && i + 1 < argv.length) {
@@ -49,37 +52,44 @@ function parseCliOpts(argv) {
       applyTokenArg(opts, arg);
     }
   }
-  return { blend: opts.blend, layers: opts.layers.filter(Boolean).join(","), socketsOnly: opts.socketsOnly };
+  return { blend: opts.blend, layers: opts.layers.filter(Boolean).join(","), socketsOnly: opts.socketsOnly, bowOnly: opts.bowOnly };
 }
 
-function buildBlenderArgs({ blendPath, rawDir, layers, socketsOnly }) {
+function buildBlenderArgs({ blendPath, rawDir, layers, socketsOnly, bowOnly }) {
   const args = [
     "--background", blendPath, "--python-exit-code", "1",
     "--python", path.join(STUDIO_DIR, "export_player_layers.py"), "--", "--out", rawDir,
   ];
   if (layers) args.push("--layers", layers);
   if (socketsOnly) args.push("--sockets-only");
+  if (bowOnly) args.push(FLAG_BOW_ONLY);
   return args;
 }
 
-function shouldRunBaker(rawDir, socketsOnly) {
-  return !socketsOnly || fs.existsSync(path.join(rawDir, "body-male", "idle_south_f1.png"));
+function shouldRunBaker(rawDir, socketsOnly, bowOnly) {
+  return bowOnly || !socketsOnly || fs.existsSync(path.join(rawDir, "body-male", "idle_south_f1.png"));
+}
+
+function buildBakerArgs({ rawDir, layers, bowOnly }) {
+  const bakerArgs = [path.join(STUDIO_DIR, "bakePlayerAssets.mjs"), rawDir];
+  if (layers) bakerArgs.push("--layers", layers);
+  if (bowOnly) bakerArgs.push(FLAG_BOW_ONLY);
+  return bakerArgs;
 }
 
 function run() {
-  const { layers, blend, socketsOnly } = parseCliOpts(process.argv.slice(2));
+  const { layers, blend, socketsOnly, bowOnly } = parseCliOpts(process.argv.slice(2));
   const blendPath = path.isAbsolute(blend) ? blend : path.join(STUDIO_DIR, blend);
   if (!fs.existsSync(blendPath)) throw new Error(`Missing Blender file: ${blendPath}`);
 
   const rawDir = path.join(os.tmpdir(), "dc2d-player-bake");
-  if (!layers && !socketsOnly) fs.rmSync(rawDir, { recursive: true, force: true });
+  if (!layers && !socketsOnly && !bowOnly) fs.rmSync(rawDir, { recursive: true, force: true });
   fs.mkdirSync(rawDir, { recursive: true });
 
-  execFileSync(locateBlenderExecutable(), buildBlenderArgs({ blendPath, rawDir, layers, socketsOnly }), { stdio: "inherit" });
-
-  const bakerArgs = [path.join(STUDIO_DIR, "bakePlayerAssets.mjs"), rawDir];
-  if (layers) bakerArgs.push("--layers", layers);
-  if (shouldRunBaker(rawDir, socketsOnly)) execFileSync(process.execPath, bakerArgs, { stdio: "inherit" });
+  execFileSync(locateBlenderExecutable(), buildBlenderArgs({ blendPath, rawDir, layers, socketsOnly, bowOnly }), { stdio: "inherit" });
+  if (shouldRunBaker(rawDir, socketsOnly, bowOnly)) {
+    execFileSync(process.execPath, buildBakerArgs({ rawDir, layers, bowOnly }), { stdio: "inherit" });
+  }
   console.log("\nDone! Refresh your browser (F5) to load the updated 3D hero sprites.");
 }
 

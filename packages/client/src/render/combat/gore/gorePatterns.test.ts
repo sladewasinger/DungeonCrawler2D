@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ARC_MASKS, WATER_PLUME_MASKS } from "./goreArtMasks.js";
+import { ARC_MASKS, GOOP_PUDDLE_MASKS, POOL_MASKS, SPLATTER_MASKS, WATER_PLUME_MASKS } from "./goreArtMasks.js";
 import { planGoreSpawn } from "./gorePatterns.js";
+import { getGoreTextures } from "./goreTextures.js";
 
 const STYLE_SLICE = "thin-streak" as const;
 
@@ -77,5 +78,14 @@ describe("gorePatterns", () => {
     expect(reduced.particles.some((p) => p.kind === "arc")).toBe(false);
     expect(reduced.particles.length).toBeLessThan(full.particles.length);
     expect(reduced.staticDecal?.scaleMult ?? 1).toBeLessThanOrEqual(0.5);
+  });
+
+  it("rasterizes all original hand-crafted organic masks via getGoreTextures", () => {
+    const tex = getGoreTextures();
+    expect(tex.splatters).toHaveLength(SPLATTER_MASKS.length);
+    expect(tex.arcs).toHaveLength(ARC_MASKS.length);
+    expect(tex.goopPuddles).toHaveLength(GOOP_PUDDLE_MASKS.length);
+    expect(tex.pools).toHaveLength(POOL_MASKS.length);
+    expect(tex.waterPlumes).toHaveLength(WATER_PLUME_MASKS.length);
   });
 });

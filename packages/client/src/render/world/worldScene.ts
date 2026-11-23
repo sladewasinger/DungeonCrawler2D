@@ -68,7 +68,7 @@ export class WorldScene {
   private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
-  private interactHandler: (() => void) | null = null;
+  private interactHandler: ((lootId?: string) => void) | null = null;
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
@@ -88,7 +88,7 @@ export class WorldScene {
     canopyHost.addChild(canopyCam!);
     shadowCam!.addChild(this.castShadows.container);
     goreCam!.addChild(this.gore.decalLayer);
-    this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
+    this.pickups = new WorldPickupsRenderer(host, (lootId) => this.interactHandler?.(lootId));
     this.configureGoreLayers(ysortCam!);
     emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
     waterHost.filters = [this.waterEffect.filter];
@@ -128,7 +128,7 @@ export class WorldScene {
     return new WorldScene(app, host);
   }
 
-  setInteractHandler(cb: () => void): void { this.interactHandler = cb; }
+  setInteractHandler(cb: (lootId?: string) => void): void { this.interactHandler = cb; }
   setGoreLevel(level: GoreLevel): void { this.gore.setGoreLevel(level); }
   setShowHitboxes(enabled: boolean): void { this.hitboxDebug.setEnabled(enabled); }
   setQualityPreset(presetId: QualityPresetId): void {

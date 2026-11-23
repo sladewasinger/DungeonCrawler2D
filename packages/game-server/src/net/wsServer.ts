@@ -15,7 +15,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -97,6 +97,7 @@ function dispatchMessage(ctx: {
     chestTakeAll: () => msg.t === "chestTakeAll" && sim.handleChestAction(playerId, msg),
     placeStructure: () => msg.t === "placeStructure" && sim.placeStructure(playerId, msg),
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
+    pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
     debugSpawn: () => msg.t === "debugSpawn" && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
   };
   handlers[msg.t]();

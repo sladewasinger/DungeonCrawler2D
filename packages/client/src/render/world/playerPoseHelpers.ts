@@ -149,6 +149,29 @@ export function resolvePoseSnapshot(opts: {
 
 export const nextDodgeStart = (dodging: boolean | undefined, timeSec: number, prev: number | null): number | null => (dodging ? (prev ?? timeSec) : null);
 
+function drawDashedBowRay(g: Graphics, opts: { readonly nx: number; readonly ny: number; readonly charge: number }): void {
+  const alpha = opts.charge > 0.05 ? 0.34 + opts.charge * 0.28 : 0.22;
+  const color = opts.charge >= 0.7 ? 0xfde047 : 0xf8fafc;
+  const span = opts.charge > 0.05 ? 64 : 48;
+  g.clear();
+  for (let d = 12; d < span; d += 7) {
+    const end = Math.min(span, d + 4);
+    g.moveTo(opts.nx * d, -8 + opts.ny * d * 0.85).lineTo(opts.nx * end, -8 + opts.ny * end * 0.85);
+  }
+  g.stroke({ color, width: 1.2, alpha });
+  g.circle(opts.nx * (span + 2), -8 + opts.ny * (span + 2) * 0.85, opts.charge > 0.05 ? 1.5 : 1.1).fill({ color, alpha: alpha + 0.12 });
+  g.visible = true;
+}
+
+export function syncBowAimGuide(g: Graphics, snap: PlayerSnapshot, hidden: boolean): void {
+  if (hidden || snap.heldItem !== "bow") { g.visible = false; return; }
+  const ax = snap.aimX ?? snap.facingX;
+  const ay = snap.aimY ?? snap.facingY;
+  const mag = Math.hypot(ax, ay);
+  if (mag < 0.01) { g.visible = false; return; }
+  drawDashedBowRay(g, { nx: ax / mag, ny: ay / mag, charge: snap.bowCharge ?? 0 });
+}
+
 export function solveLegacyArmRigForSnap(opts: {
   readonly snap: PlayerSnapshot; readonly active: ActivePose; readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null;
 }): ArmRigPose {

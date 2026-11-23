@@ -1,11 +1,12 @@
 /** Client boot entry: mounts PixiJS v8 shader scene, Web Audio engine, networking, input, and HUD. */
-import { AI_TUNING, type PlayerSnapshot, type WorldEntitySnapshot } from "@dc2d/engine";
+import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
 import { AudioEngine } from "./audio/audioEngine.js";
 import {
   EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim,
 } from "./input/autoAim.js";
 import { InputController, type CombatInputsFrame } from "./input/controller.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
+import { findManualLootInReach, resolveTapInteractTarget } from "./render/combat/lootViewHelpers.js";
 import { preloadSpriteManifest } from "./render/textures/spriteManifest.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { bootAssetSandbox } from "./sandbox/sandboxMode.js";
@@ -142,22 +143,19 @@ function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: (
   };
 }
 
-function tryTapChest(opts: {
+function tryTapWorldInteract(opts: {
   readonly clientX: number; readonly clientY: number; readonly scene: WorldScene;
   readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine;
 }): void {
   const snap = opts.client.snapshot();
   const me = snap.players.find((p) => p.id === snap.localPlayerId);
-  if (!me) return;
-  const world = opts.scene.screenToWorldTile(opts.clientX, opts.clientY);
-  const chest = snap.chests.find((c) => {
-    const cy = c.y - c.elevation * 0.625 - 0.25;
-    return Math.hypot(world.x - c.x, world.y - cy) <= 1.25 && Math.hypot(c.x - me.x, c.y - me.y) <= AI_TUNING.chestInteractRadiusTiles + 0.45;
-  });
-  if (!chest) return;
-  opts.client.openChest(chest.id);
-  opts.hud.openChest(chest.id);
-  opts.audio.playUi("open");
+  const hit = resolveTapInteractTarget({ chests: snap.chests, groundLoot: snap.groundLoot, world: opts.scene.screenToWorldTile(opts.clientX, opts.clientY), me });
+  if (!hit) return;
+  if (hit.kind === "chest") {
+    opts.client.openChest(hit.id); opts.hud.openChest(hit.id); opts.audio.playUi("open");
+    return;
+  }
+  opts.client.pickupLoot(hit.id); opts.audio.playUi("equip");
 }
 
 function mountSettingsForUi(opts: {
@@ -182,9 +180,9 @@ function mountSettingsForUi(opts: {
 function createInputHooks(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
   readonly hud: HudRoot; readonly audio: AudioEngine;
-  readonly onInteractChest: () => void; readonly onCloseAll: () => void;
+  readonly onInteractWorld: (lootId?: string) => void; readonly onCloseAll: () => void;
 }): InputController {
-  const { host, scene, client, hud, audio, onInteractChest, onCloseAll } = opts;
+  const { host, scene, client, hud, audio, onInteractWorld, onCloseAll } = opts;
   return new InputController(host, {
     onToggleTorch: () => { client.toggleTorch(); audio.playUi("click"); },
     onZoom: (f) => scene.adjustZoom(f),
@@ -193,10 +191,25 @@ function createInputHooks(opts: {
     onToggleCrafting: () => { hud.toggleCrafting(); audio.playUi("open"); },
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); },
-    onInteract: onInteractChest,
-    onWorldTap: (cx, cy) => tryTapChest({ clientX: cx, clientY: cy, scene, client, hud, audio }),
+    onInteract: () => onInteractWorld(),
+    onWorldTap: (cx, cy) => tryTapWorldInteract({ clientX: cx, clientY: cy, scene, client, hud, audio }),
     onClosePanels: onCloseAll,
   });
+}
+
+function handleWorldInteract(opts: { readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine; readonly lootId?: string | undefined }): void {
+  const { client, hud, audio, lootId } = opts;
+  if (hud.activePanel() === "chest") { hud.closePanels(); return; }
+  if (lootId) { client.pickupLoot(lootId); audio.playUi("equip"); return; }
+  const near = client.nearestChest();
+  if (near) {
+    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open");
+    return;
+  }
+  const snap = client.snapshot();
+  const me = snap.players.find((p) => p.id === snap.localPlayerId);
+  const arrow = me ? findManualLootInReach(snap.groundLoot, me) : undefined;
+  if (arrow) { client.pickupLoot(arrow.id); audio.playUi("equip"); }
 }
 
 function mountUiControllers(opts: {
@@ -206,12 +219,7 @@ function mountUiControllers(opts: {
   const { host, scene, client, audio, onReturnToTitle } = opts;
   const hud = new HudRoot(host, buildHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
   const feedback = new CombatFeedbackOverlay(host);
-  const onInteractChest = () => {
-    if (hud.activePanel() === "chest") { hud.closePanels(); return; }
-    const near = client.nearestChest();
-    if (!near) return;
-    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open");
-  };
+  const onInteractWorld = (lootId?: string) => handleWorldInteract({ client, hud, audio, lootId });
   const settingsRef: { current: SettingsMenu | null } = { current: null };
   const toolbar = new AtmosphereToolbar(host, {
     onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
@@ -221,8 +229,8 @@ function mountUiControllers(opts: {
   });
   const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle });
   settingsRef.current = settings;
-  const input = createInputHooks({ host, scene, client, hud, audio, onInteractChest, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
-  return { hud, feedback, input, toolbar, settings, onInteractChest };
+  const input = createInputHooks({ host, scene, client, hud, audio, onInteractWorld, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
+  return { hud, feedback, input, toolbar, settings, onInteractWorld };
 }
 
 async function bootOverworldClient(): Promise<void> {
@@ -238,10 +246,8 @@ async function bootOverworldClient(): Promise<void> {
   const audio = new AudioEngine();
   const velTracker = new EntityVelocityTracker();
   const titleRef: { current: TitleScreen | null } = { current: null };
-  const ui = mountUiControllers({
-    host, scene, client, audio,
-    onReturnToTitle: () => { ui.input.setEnabled(false); titleRef.current?.reopen(client.snapshot().localName, client.snapshot().localAppearance); },
-  });
+  const onReturnToTitle = () => { ui.input.setEnabled(false); titleRef.current?.reopen(client.snapshot().localName, client.snapshot().localAppearance); };
+  const ui = mountUiControllers({ host, scene, client, audio, onReturnToTitle });
   const titleScreen = new TitleScreen(host, {
     initialName: client.snapshot().localName, initialAppearance: client.snapshot().localAppearance,
     onPreviewChange: (req) => client.setCharacter(req),
@@ -253,7 +259,7 @@ async function bootOverworldClient(): Promise<void> {
   titleRef.current = titleScreen;
   if (skipTitle) titleScreen.dismiss();
   else ui.input.setEnabled(false);
-  scene.setInteractHandler(() => ui.onInteractChest());
+  scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
   startRenderLoop({ scene, client, audio, velTracker, titleScreen, ...ui });
 }
 

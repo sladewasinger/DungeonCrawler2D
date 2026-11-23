@@ -92,14 +92,14 @@ flowchart LR
 - **Minimalist HUD, Vertical Stamina & Unified Settings**: Moved stamina to a left-edge vertical blue → yellow → red drain bar, shrunk mobile hotbar flush to screen bottom, simplified top-left/right chrome (backpack icon, FPS pill off by default on mobile, compass X/Y, and unified Settings modal with Hero/Respawn/Title Screen, Video/Quality/Gore/Zoom/FPS/Debug Hitboxes, Audio sliders, and Auto-Aim), and made inventory drag-and-drop snap cleanly across cell gaps (removing tap-to-select).
 - **Swept Arrow Hurtboxes, Recoverable Arrows & Smooth Liquid Gore**: Fixed projectile tunneling & torso/foot hurtbox alignment with swept segment-vs-ellipse checks (`hitboxDebugLayer.ts` toggle on localhost/`?debug=1`), embedded recoverable arrows in trees/enemies and ground drops vs stone/rock spark ricochets, fixed `Reduced` gore intensity parity vs `Full`, and smoothed liquid splatters/pools/arcs with supersampled wet highlights.
 
-### Phase 6 — Full Stealth RPG, Hearing/Vision & Ecological AI Overhaul ✅
+### Phase 6 — Full Stealth RPG, Hearing/Vision & Ecological AI Overhaul 🚧 *(Pass 1 Complete — [Pass 2 Spec Ready](phases/phase-6-stealth-and-ecological-ai.md))*
 - **Full Stealth Mechanics**: Dedicated crouch/sneak mode (`X` key / mobile `SNEAK` button, slower stride & `0.75`-tile footsteps), bush/tall-grass concealment fade, dynamic **light-level visibility meter** in HUD (`sampleStealthExposure` driven by Day/Night + carried torch + nearby campfires/torches), thrown pebble distractions (`Q` shortcut or holding `stone` creating investigate noise ripples), combat/sprint noise propagation, and **2.25× silent backstab criticals** on unaware targets.
 - **3-Stage Perception & Bug-Free Diegetic Markers**: Cleanly split perception into **Heard / Suspicious (`?`)** -> **Spotted (timed server `spottedPop` `!`, never stuck)** -> **Distinct Crimson/Gold Attack Windup Diamond & `!!` Charge**, synchronized with creature `jumpZ` height in `aiStateIndicators.ts`.
 - **Ecological & Hive-Mind AI Overhaul**:
   - **Wolf Pack Hive-Mind (`wolfPackAi.ts`)**: Alerting one wolf howls and rallies all living wolves within `18` tiles regardless of spawn group; organic hash-jittered encirclement slots; wolves behind the player's facing vector dart in for quick bites and peel back cleanly.
   - **Creature Tuning**: Bear mid-range territorial bluff warning vs close-range engagement/scavenging balance, Boar wall-impact stun (`1.45s` stagger + sparks/hurt vocal), Spider cover-ambush leap pounce, and Slime pack cohesion.
 
-### Phase 7 — Weapon-Specific Attack Animations, Movesets & Combat Polish ✅
+### Phase 7 — Weapon-Specific Attack Animations, Movesets & Combat Polish 🚧 *(Pass 1 Complete — [Pass 2 Spec Ready](phases/phase-7-weapon-movesets-and-combat-feel.md))*
 - **Extensible Weapon Moveset Registry (`weapons/weaponMovesets.ts`)**: Shared `@dc2d/engine` data-driven table and `@dc2d/content` `ItemDef.weaponArchetype` metadata governing swing duration, cooldown ratio, damage/reach/arc multipliers, backstab multipliers, torso lean/lunge, and Phase 8 harvest-tool hooks (`wood` / `stone` / `forage`), with future-ready slots for **Spear**, **Dagger**, and **Greatsword**.
 - **Distinct Weapon Kinematics, VFX Trails & Audio**:
   - **Sword**: agile 3-hit `slash` -> `backhand` -> piercing `lunge` finisher combo with steel-blue -> gold streaks and rising 3-step slash + lunge hiss SFX.
@@ -107,7 +107,7 @@ flowchart LR
   - **Pickaxe**: overhead downward `overheadSlam` (high `-18.7px` overhead windup raising before slamming downward onto the target tile with stone/gold ground impact shock-rings and metallic strike SFX, plus `harvestKind: "stone"` hook).
   - **Torch**: 2-hit fiery sweep -> ember `thrust` lance with warm flame trails & crackling whoosh SFX.
 
-### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas ✅
+### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas 🚧 *(Pass 1 Complete — [Pass 2 Spec Ready](phases/phase-8-gathering-survival-and-camp-building.md))*
 - **Tool-Gated Gathering & Regrowth (`survival/harvestRules.ts`, `resourceHarvester.ts`)**: Harvestable Oak/Pine trees (felling to Stumps + `wood`), Boulders (`stone`/`flint`), highland **Copper** & **Iron** ore veins (`copper-ore`/`iron-ore`, requiring Pickaxe), and bushes/wildflowers (`berry`/`herb`), with debounced chunk-delta updates, bouncing wood/stone/ore/forage chips, and timed node regrowth.
 - **Valheim-Lite Camp Building (`survival/campBuilding.ts`, `campStructures.ts`)**: Craft and place **campfires**, **standing torches**, **27-slot storage chests**, **workbenches**, **camp beds (setting personal respawn points)**, and **wooden palisades** with live chunk delta remounting, dynamic point lights, and custom respawn overrides.
 - **Light Survival Buffs (`survival/survivalBuffs.ts`, `vitalsBar.ts`)**: Campfire cooking (`cooked-meat`, `herb-tea`, `healing-salve`) and foraged `berry` granting timed **Well-Fed**, plus warming near hearths for `5s` granting **Rested** stamina/HP regeneration pills beside HP (zero punitive starvation deaths).

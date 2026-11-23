@@ -1,6 +1,6 @@
 /** Renders weapon-specific slash arcs, thrusts, slam impacts, arrows, bow gauges, parry bursts, and popups. */
 import {
-  TILE_PX, resolveWeaponArchetype, type AttackMotionKind, type PlayerSnapshot, type ProjectileSnapshot,
+  GroundKind, TILE_PX, resolveWeaponArchetype, type AttackMotionKind, type PlayerSnapshot, type ProjectileSnapshot,
   type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import { Container, Graphics, Text } from "pixi.js";
@@ -34,6 +34,13 @@ function drawArrowGraphic(g: Graphics, charge: number): void {
   g.rect(-5, -0.7, 9, 1.4).fill(0xa16207);
   g.rect(4, -1.3, 2.5, 2.6).fill(0xe2e8f0);
   g.rect(-6, -1.6, 2, 3.2).fill(0xf8fafc);
+}
+
+function drawPebbleGraphic(g: Graphics, zPx: number): void {
+  g.clear();
+  g.ellipse(0, zPx, 2.6, 1.2).fill({ color: 0x090d14, alpha: 0.35 });
+  g.circle(0, 0, 2.3).fill(0x0f172a);
+  g.circle(0, 0, 1.6).fill(0x94a3b8);
 }
 
 function drawBurst(opts: { readonly g: Graphics; readonly color: number; readonly radius: number; readonly rays: number }): void {
@@ -82,10 +89,25 @@ export class CombatVfxLayer {
       arrowRicochet: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" }),
       arrowEmbed: () => this.spawnStuckArrow(ev),
       distract: () => this.spawnNoiseRipple(ev),
+      pebbleLand: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: ev.value === GroundKind.ShallowWater || ev.value === GroundKind.DeepWater ? 0x38bdf8 : 0xd6d3d1, radius: 11, text: "" }),
+      wolfHowl: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: 0x7dd3fc, radius: 18, text: "" }),
+      bearBluff: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: 0xf97316, radius: 17, text: "ROAR!" }),
+      boarCrash: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 14, text: "CRASH!" }),
+      ambushShot: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 13, text: "AMBUSH!" }),
       backstab: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "BACKSTAB!" }),
       bedSet: () => this.spawnPopup({ x: ev.x, y: ev.y - 1.1, label: "RESPAWN SET!", color: 0x4ade80 }),
     };
     bursts[ev.kind]?.();
+  }
+
+  private spawnRingPulse(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string }): void {
+    const g = new Graphics();
+    g.circle(0, 0, opts.radius * 0.55).stroke({ color: opts.color, width: 1.4, alpha: 0.82 });
+    g.circle(0, 0, opts.radius).stroke({ color: opts.color, width: 1.0, alpha: 0.48 });
+    g.position.set(opts.x * TILE_PX, opts.y * TILE_PX - 4);
+    this.container.addChild(g);
+    this.slashes.push({ g, age: 0, ttl: 0.55, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
+    if (opts.text) this.spawnPopup({ x: opts.x, y: opts.y - 1.15, label: opts.text, color: opts.color });
   }
 
   private spawnNoiseRipple(ev: WorldEvent): void {
@@ -191,24 +213,26 @@ export class CombatVfxLayer {
     }
   }
 
+  private syncSingleProjectile(p: ProjectileSnapshot): void {
+    let g = this.arrows.get(p.id);
+    if (!g) {
+      g = new Graphics();
+      if (p.kind !== "pebble") drawArrowGraphic(g, p.charge);
+      this.arrows.set(p.id, g);
+      this.container.addChild(g);
+    }
+    const zPx = (p.z ?? 0) * TILE_PX;
+    if (p.kind === "pebble") drawPebbleGraphic(g, zPx);
+    g.position.set(p.x * TILE_PX, p.y * TILE_PX - (p.elevation * ELEVATION_LIFT_PX + 10 + zPx));
+    g.rotation = p.kind === "pebble" ? 0 : Math.atan2(p.vy, p.vx);
+  }
+
   private syncProjectiles(projectiles: readonly ProjectileSnapshot[]): void {
     const live = new Set(projectiles.map((p) => p.id));
     for (const [id, g] of this.arrows) {
-      if (live.has(id)) continue;
-      g.destroy();
-      this.arrows.delete(id);
+      if (!live.has(id)) { g.destroy(); this.arrows.delete(id); }
     }
-    for (const p of projectiles) {
-      let g = this.arrows.get(p.id);
-      if (!g) {
-        g = new Graphics();
-        drawArrowGraphic(g, p.charge);
-        this.arrows.set(p.id, g);
-        this.container.addChild(g);
-      }
-      g.position.set(p.x * TILE_PX, p.y * TILE_PX - (p.elevation * ELEVATION_LIFT_PX + 10));
-      g.rotation = Math.atan2(p.vy, p.vx);
-    }
+    for (const p of projectiles) this.syncSingleProjectile(p);
   }
 
   private syncBowChargeBar(local: PlayerSnapshot | undefined): void {

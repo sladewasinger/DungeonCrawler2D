@@ -1,4 +1,4 @@
-/** Diegetic 3-stage perception & behavior indicators (?, brief ! pop, distinct Attack Windup/Charge, Flank, Feed). */
+/** Diegetic 3-stage perception & behavior indicators (?, filling suspicion, dizzy stars, roar/howl rings). */
 import { JUMP_VISUAL_PX_PER_TILE, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics } from "pixi.js";
 
@@ -40,12 +40,15 @@ function drawWindupDiamond(g: Graphics): void {
   g.poly([0, -9.5, 1.8, -7, 0, -4.5, -1.8, -7], true).fill(0xfef08a);
 }
 
-function drawQuestionMark(g: Graphics): void {
-  const segs: readonly (readonly [number, number, number, number])[] = [
-    [-3, -12, 6, 2], [-3, -10, 2, 2], [1, -10, 2, 4], [-1, -7, 3, 2], [-1, -5, 2, 2], [-1, -2, 2, 2],
-  ];
-  for (const [x, y, w, h] of segs) g.rect(x - 1, y - 1, w + 2, h + 2).fill(INK);
-  for (const [x, y, w, h] of segs) g.rect(x, y, w, h).fill(0xfacc15);
+const QUESTION_SEGS: readonly (readonly [number, number, number, number])[] = [
+  [-3, -12, 6, 2], [-3, -10, 2, 2], [1, -10, 2, 4], [-1, -7, 3, 2], [-1, -5, 2, 2], [-1, -2, 2, 2],
+];
+
+function drawQuestionMark(g: Graphics, suspicion: number): void {
+  const fillLineY = -12 * Math.max(0.08, Math.min(1, suspicion));
+  const fillCol = suspicion >= 0.82 ? 0xf97316 : 0xfacc15;
+  for (const [x, y, w, h] of QUESTION_SEGS) g.rect(x - 1, y - 1, w + 2, h + 2).fill(INK);
+  for (const [x, y, w, h] of QUESTION_SEGS) g.rect(x, y, w, h).fill(y + h >= fillLineY ? fillCol : 0x475569);
 }
 
 function drawFlankChevrons(g: Graphics): void {
@@ -63,19 +66,37 @@ function drawFeedDots(g: Graphics): void {
   }
 }
 
-const INDICATOR_DRAWERS: Record<AiIndicatorKind, (g: Graphics) => void> = {
+const STATIC_DRAWERS: Partial<Record<AiIndicatorKind, (g: Graphics) => void>> = {
   spotted: (g) => drawExclamation(g, 0, 0xf97316),
   windup: drawWindupDiamond,
   charge: (g) => { drawExclamation(g, -2.5, 0xef4444); drawExclamation(g, 2.5, 0xfef08a); },
-  investigate: drawQuestionMark,
   flank: drawFlankChevrons,
   feed: drawFeedDots,
 };
 
-export function resolveAiVisualEffects(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): {
-  readonly alpha: number;
-  readonly scaleYMult: number;
-} {
+function drawDizzyStars(fx: Graphics, timeSec: number): void {
+  for (let i = 0; i < 3; i++) {
+    const a = timeSec * 5.2 + (i * Math.PI * 2) / 3;
+    const sx = Math.cos(a) * 6.5; const sy = -11 + Math.sin(a) * 2.4;
+    fx.circle(sx, sy, 1.9).fill(INK);
+    fx.circle(sx, sy, 1.1).fill(0xfde047);
+  }
+}
+
+function drawVocalWaves(fx: Graphics, col: number, timeSec: number): void {
+  for (let i = 0; i < 2; i++) {
+    const p = (timeSec * 2.2 + i * 0.5) % 1;
+    fx.circle(0, -6, 5 + p * 12).stroke({ color: col, width: 1.3, alpha: Math.max(0, 0.8 - p * 0.8) });
+  }
+}
+
+function drawDizzyAndWaves(fx: Graphics, opts: { readonly stunned: boolean; readonly howling: boolean; readonly bluffing: boolean; readonly timeSec: number }): void {
+  fx.clear();
+  if (opts.stunned) drawDizzyStars(fx, opts.timeSec);
+  if (opts.howling || opts.bluffing) drawVocalWaves(fx, opts.howling ? 0x7dd3fc : 0xf97316, opts.timeSec);
+}
+
+export function resolveAiVisualEffects(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): { readonly alpha: number; readonly scaleYMult: number } {
   if (dead) return { alpha: 1, scaleYMult: 1 };
   if (snap.aiState === "ambush") return { alpha: 0.36, scaleYMult: 1 };
   if (snap.aiState === IND_FEED) return { alpha: 1, scaleYMult: 1 - Math.abs(Math.sin(timeSec * 6)) * 0.1 };
@@ -83,38 +104,60 @@ export function resolveAiVisualEffects(snap: WorldEntitySnapshot, timeSec: numbe
   return { alpha: 1, scaleYMult: 1 };
 }
 
+function readFxFlags(snap: WorldEntitySnapshot, dead: boolean, timeSec: number) {
+  const stunned = !dead && Boolean(snap.stunned);
+  const howling = !dead && Boolean(snap.howling);
+  const bluffing = !dead && Boolean(snap.bluffing);
+  return { stunned, howling, bluffing, timeSec, hasFx: stunned || howling || bluffing };
+}
+
 export class AiIndicatorView {
   readonly container = new Container();
   private readonly gfx = new Graphics();
+  private readonly fxGfx = new Graphics();
   private readonly baseY: number;
-  private drawnKind: AiIndicatorKind | null = null;
+  private drawnKey = "";
 
   constructor(hpTopY: number) {
     this.baseY = hpTopY - 2;
     this.container.visible = false;
-    this.container.addChild(this.gfx);
+    this.container.addChild(this.gfx, this.fxGfx);
   }
 
-  sync(opts: {
-    readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly dead: boolean; readonly hpVisible: boolean;
-  }): void {
+  sync(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly dead: boolean; readonly hpVisible: boolean }): void {
     const { snap, timeSec, dead, hpVisible } = opts;
     const kind = resolveIndicatorKind(snap, dead);
-    this.container.visible = kind !== null;
-    if (!kind) { this.drawnKind = null; return; }
-    this.ensureDrawnKind(kind);
-    const bob = kind === IND_INVESTIGATE ? Math.sin(timeSec * 4.5) * 1.4 : 0;
-    const jumpLift = (snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
-    this.container.position.set(0, this.baseY - (hpVisible ? 5 : 0) - jumpLift + bob);
-    this.container.scale.set(this.computeScale(kind, snap.telegraphProgress, timeSec));
-    this.container.alpha = kind === IND_FEED ? 0.72 + Math.abs(Math.sin(timeSec * 5)) * 0.28 : 1;
+    const fx = readFxFlags(snap, dead, timeSec);
+    this.container.visible = kind !== null || fx.hasFx;
+    if (!this.container.visible) { this.drawnKey = ""; return; }
+    this.syncMainMarker(kind, snap.suspicion ?? 0.5);
+    this.syncFxAndPos({ kind, fx, hasFx: fx.hasFx, snap, hpVisible });
   }
 
-  private ensureDrawnKind(kind: AiIndicatorKind): void {
-    if (this.drawnKind === kind) return;
-    this.drawnKind = kind;
+  private syncFxAndPos(opts: {
+    readonly kind: AiIndicatorKind | null;
+    readonly fx: { readonly stunned: boolean; readonly howling: boolean; readonly bluffing: boolean; readonly timeSec: number };
+    readonly hasFx: boolean; readonly snap: WorldEntitySnapshot; readonly hpVisible: boolean;
+  }): void {
+    const { kind, fx, hasFx, snap, hpVisible } = opts;
+    if (hasFx) drawDizzyAndWaves(this.fxGfx, fx);
+    else this.fxGfx.clear();
+    const bob = kind === IND_INVESTIGATE ? Math.sin(fx.timeSec * 4.5) * 1.4 : 0;
+    const jumpLift = (snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
+    this.container.position.set(0, this.baseY - (hpVisible ? 5 : 0) - jumpLift + bob);
+    this.container.scale.set(kind ? this.computeScale(kind, snap.telegraphProgress, fx.timeSec) : 1);
+    this.container.alpha = kind === IND_FEED ? 0.72 + Math.abs(Math.sin(fx.timeSec * 5)) * 0.28 : 1;
+  }
+
+  private syncMainMarker(kind: AiIndicatorKind | null, suspicion: number): void {
+    const step = kind === IND_INVESTIGATE ? Math.round(suspicion * 12) : 0;
+    const key = `${kind ?? "none"}:${step}`;
+    if (this.drawnKey === key) return;
+    this.drawnKey = key;
     this.gfx.clear();
-    INDICATOR_DRAWERS[kind](this.gfx);
+    if (!kind) return;
+    if (kind === IND_INVESTIGATE) drawQuestionMark(this.gfx, suspicion);
+    else STATIC_DRAWERS[kind]?.(this.gfx);
   }
 
   private computeScale(kind: AiIndicatorKind, telegraph: number, timeSec: number): number {

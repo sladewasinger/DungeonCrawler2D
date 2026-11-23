@@ -16,7 +16,10 @@ export interface CombatPlayerCandidate {
   readonly facingX?: number | undefined; readonly facingY?: number | undefined; readonly crouching?: boolean | undefined;
   readonly visibility?: number | undefined; readonly noiseRadius?: number | undefined;
 }
-export interface EcologyFoodSource { readonly x: number; readonly y: number; readonly isMeatLoot?: boolean }
+export interface EcologyFoodSource {
+  readonly x: number; readonly y: number; readonly isMeatLoot?: boolean;
+  readonly lootId?: string; readonly entityId?: string;
+}
 export type StrikePlayerFn = (entity: WildlifeEntity, target: CombatPlayerCandidate) => void;
 export type BoarAction =
   | { readonly mode: "done" }
@@ -62,7 +65,7 @@ export function stepBearBluff(opts: {
   if (e.bluffTimer > 0) return continueBearBluff(e, target, { dist, dt });
   if (e.bluffCooldown > 0 || dist > 8.5) return "engage";
   e.bluffTimer = 1.25; e.bluffCooldown = 8.0; e.aiState = ST_ALERT;
-  events.push({ kind: "creatureVocal", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind, vocalKind: "alert" });
+  events.push({ kind: "bearBluff", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
   return "bluffing";
 }
 
@@ -84,14 +87,22 @@ function findNearestFood(e: WildlifeEntity, foods: readonly EcologyFoodSource[])
   return food ? { food, dist } : null;
 }
 
-export function stepBearScavenge(opts: { readonly e: WildlifeEntity; readonly foods: readonly EcologyFoodSource[]; readonly dt: number }): SteerTarget | null {
-  const { e, foods, dt } = opts;
+export function stepBearScavenge(opts: {
+  readonly e: WildlifeEntity; readonly foods: readonly EcologyFoodSource[]; readonly dt: number;
+  readonly onConsume?: (food: EcologyFoodSource) => void;
+}): SteerTarget | null {
+  const { e, foods, dt, onConsume } = opts;
   e.hunger = Math.min(1, e.hunger + dt * 0.05);
   if (e.feedTimer > 0) { e.feedTimer = Math.max(0, e.feedTimer - dt); e.aiState = ST_FEED; return { x: e.x, y: e.y, speedMult: 0 }; }
   const hit = e.hunger >= 0.35 || foods.length > 0 ? findNearestFood(e, foods) : null;
   if (!hit) return null;
   e.aiState = ST_FEED;
-  if (hit.dist <= 0.95) { e.feedTimer = AI_TUNING.bearFeedDurationSec; e.hunger = 0; return { x: e.x, y: e.y, speedMult: 0 }; }
+  if (hit.dist <= 0.95) {
+    e.feedTimer = AI_TUNING.bearFeedDurationSec; e.hunger = 0;
+    e.hp = Math.min(e.maxHp, e.hp + Math.round(e.maxHp * 0.25));
+    onConsume?.(hit.food);
+    return { x: e.x, y: e.y, speedMult: 0 };
+  }
   return { x: hit.food.x, y: hit.food.y, speedMult: 0.85 };
 }
 
@@ -106,9 +117,10 @@ function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate, event
 }
 
 function stunBoarOnWall(e: WildlifeEntity, events: WorldEvent[]): void {
-  e.staggerTimer = 1.45; e.chargeTimer = 0; e.chargeRecoverTimer = 0.55; e.aiState = ST_IDLE;
-  e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
-  events.push({ kind: "creatureVocal", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind, vocalKind: "hurt" });
+  e.stunnedTimer = 1.5; e.staggerTimer = 1.5;
+  e.chargeTimer = 0; e.chargeRecoverTimer = 0.25;
+  e.aiState = ST_IDLE; e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
+  events.push({ kind: "boarCrash", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
 }
 
 function tryBoarChargeHit(e: WildlifeEntity, target: CombatPlayerCandidate | null, onStrike: StrikePlayerFn): void {
@@ -149,9 +161,7 @@ function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidat
   const dist = Math.hypot(target.x - e.x, target.y - e.y);
   if (e.telegraphTimer > 0 || dist <= 1.55) return { mode: "melee" };
   if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 10.0) {
-    e.telegraphTimer = AI_TUNING.boarWindupSec;
-    e.windupDuration = AI_TUNING.boarWindupSec;
-    e.aiState = ST_CHARGE;
+    e.telegraphTimer = AI_TUNING.boarWindupSec; e.windupDuration = AI_TUNING.boarWindupSec; e.aiState = ST_CHARGE;
     events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
     return { mode: "done" };
   }
@@ -159,17 +169,12 @@ function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidat
 }
 
 export function stepBoarCommittedCharge(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null;
   readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[];
 }): boolean {
-  const { cache, e, players, dt, onStrike, events } = opts;
-  if (e.kind !== "boar") return false;
-  if (e.chargeTimer > 0) {
-    const target = players.find((p) => p.id === e.targetPlayerId) ?? null;
-    advanceActiveBoarCharge({ cache, e, target, dt, onStrike, events });
-    return true;
-  }
-  if (e.chargeRecoverTimer > 0) { advanceBoarRecovery(e, cache, dt); return true; }
+  if (opts.e.kind !== "boar") return false;
+  if (opts.e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return true; }
+  if (opts.e.chargeRecoverTimer > 0) { advanceBoarRecovery(opts.e, opts.cache, opts.dt); return true; }
   return false;
 }
 
@@ -206,8 +211,11 @@ function stepIdleSpider(e: WildlifeEntity, concealed: boolean): boolean {
   return false;
 }
 
-function triggerSpiderPounce(e: WildlifeEntity): boolean {
+function triggerSpiderPounce(e: WildlifeEntity, target: CombatPlayerCandidate): boolean {
   if (!e.pounceUsed && e.jumpZ <= 0.01) {
+    const dx = target.x - e.x; const dy = target.y - e.y;
+    const mag = Math.max(0.01, Math.hypot(dx, dy));
+    e.kbVx = (dx / mag) * 8.2; e.kbVy = (dy / mag) * 8.2;
     e.jumpVz = 4.6;
     e.pounceUsed = true;
   }
@@ -227,7 +235,7 @@ export function stepSpiderAmbushCheck(opts: {
   if (!target) return stepIdleSpider(e, concealed);
   if (!concealed) return true;
   if (Math.hypot(target.x - e.x, target.y - e.y) > spiderTriggerDist(dayPhase)) return holdSpiderAmbush(e);
-  return triggerSpiderPounce(e);
+  return triggerSpiderPounce(e, target);
 }
 
 function pickPatrolWaypoint(cache: WorldChunkCache, e: WildlifeEntity, timeSec: number): void {

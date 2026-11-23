@@ -4,7 +4,7 @@ import { IDLE_POSES, resolveFacingDir8, type DirectionAnim } from "../character/
 import { computeActorCombatFx } from "../character/heldPlacement.js";
 import { remapSentinelPixel, remapSentinelPixelAt, resolveLayerStack, resolveSentinelPalettes, type SentinelPalettes } from "../character/playerCompositor.js";
 import { getPoseTuning, resetPoseTuning } from "../poseTuning/poseTuningStore.js";
-import { computePoseFrameIdx, gearLayoutFor, resolvePlayerFacing, resolvePoseSnapshot, resolvePoseTrack, type ActivePose } from "./playerPoseHelpers.js";
+import { computePoseFrameIdx, gearLayoutFor, resolvePlayerFacing, resolvePoseSnapshot, resolvePoseTrack, syncBowAimGuide, type ActivePose } from "./playerPoseHelpers.js";
 
 function makeTestSnap(overrides?: Partial<PlayerSnapshot>): PlayerSnapshot {
   return {
@@ -208,5 +208,23 @@ describe("3D orbit carry, vertical bow aim, facing & clip tracks", () => {
     const gradPal = resolveSentinelPalettes({ ...DEFAULT_APPEARANCE, hairColor: "pink-purple" });
     expect(remapSentinelPixelAt([40, 210, 0], gradPal, 0.0)).toEqual(gradPal.hair.base);
     expect(remapSentinelPixelAt([40, 210, 0], gradPal, 1.0)).toEqual(gradPal.hairTip?.base);
+  });
+
+  it("draws the subtle dashed bow aim guide only when holding the bow", () => {
+    let drawn = false;
+    const fakeG = {
+      visible: false,
+      clear() { return this; },
+      moveTo() { drawn = true; return this; },
+      lineTo() { return this; },
+      stroke() { return this; },
+      circle() { return this; },
+      fill() { return this; },
+    } as never;
+    syncBowAimGuide(fakeG, makeTestSnap({ heldItem: "sword", aimX: 1, aimY: 0 }), false);
+    expect((fakeG as { visible: boolean }).visible).toBe(false);
+    syncBowAimGuide(fakeG, makeTestSnap({ heldItem: "bow", aimX: 1, aimY: 0, bowCharge: 0.8 }), false);
+    expect((fakeG as { visible: boolean }).visible).toBe(true);
+    expect(drawn).toBe(true);
   });
 });

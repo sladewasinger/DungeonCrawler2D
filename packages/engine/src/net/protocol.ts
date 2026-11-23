@@ -4,7 +4,7 @@ import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { GORE_STYLES, GORE_SUBSTANCES } from "../combat/combatRules.js";
 import { WEAPON_ARCHETYPES } from "../combat/weapons/weaponMovesets.js";
-import { ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
+import { ClientPickupLootSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -97,7 +97,7 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema, ClientSetAppearanceSchema, ClientInputSchema, ClientRespawnSchema, ClientTorchToggleSchema,
   ClientSetDayPhaseSchema, ClientMoveSlotSchema, ClientEquipArmorSchema, ClientUnequipArmorSchema,
   ClientSelectHotbarSchema, ClientCraftSchema, ClientOpenChestSchema, ClientChestTransferSchema,
-  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
+  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, ClientPickupLootSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -151,9 +151,10 @@ export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
 export const ProjectileSnapshotSchema = z.object({
   id: z.string(),
   ownerId: z.string(),
-  kind: z.literal("arrow"),
+  kind: z.enum(["arrow", "pebble"]),
   x: z.number(),
   y: z.number(),
+  z: z.number().optional(),
   vx: z.number(),
   vy: z.number(),
   elevation: z.number(),
@@ -180,6 +181,10 @@ export const WorldEntitySnapshotSchema = z.object({
   bleedTimer: z.number(),
   telegraphProgress: z.number(),
   aiState: z.enum(AI_STATES).optional(),
+  suspicion: z.number().optional(),
+  stunned: z.boolean().optional(),
+  howling: z.boolean().optional(),
+  bluffing: z.boolean().optional(),
   spottedPop: z.boolean().optional(),
   corpse: z.boolean().optional(),
   inWater: z.boolean().optional(),
@@ -208,6 +213,9 @@ export const GroundLootSnapshotSchema = z.object({
   y: z.number(),
   elevation: z.number(),
   ageSec: z.number(),
+  manualPickup: z.boolean().optional(),
+  angle: z.number().optional(),
+  stuck: z.boolean().optional(),
 });
 
 export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
@@ -216,7 +224,8 @@ export const WorldEventSchema = z.object({
   kind: z.enum([
     "swing", "hit", "block", "parry", "arrowFire", "arrowEmbed", "arrowRicochet", "dodge",
     "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal", "playerLeave",
-    "distract", "backstab", "harvestHit", "harvestBreak", "placeStructure", "bedSet",
+    "distract", "backstab", "ambushShot", "wolfHowl", "bearBluff", "boarCrash", "pebbleLand",
+    "harvestHit", "harvestBreak", "placeStructure", "bedSet",
   ]),
   x: z.number(),
   y: z.number(),

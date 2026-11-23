@@ -167,6 +167,7 @@ export class WorldSim {
   }
   debugSpawnNearPlayer(playerId: string, kind: Parameters<CombatWorld["debugSpawnNearPlayer"]>[1], count = 1): void { const p = this.players.get(playerId); if (p) this.combat.debugSpawnNearPlayer(p, kind, count); }
   handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void { const p = this.players.get(playerId); if (p) { this.combat.handleChestRequest(p, req); this.persistence.markDirty(); } }
+  pickupLoot(playerId: string, lootId?: string): void { const p = this.players.get(playerId); if (p && this.combat.pickupLoot(p, lootId)) this.persistence.markDirty(); }
   inventorySnapshot(playerId: string): InventorySnapshot | undefined { const p = this.players.get(playerId); return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq }) : undefined; }
 
   step(dtSeconds = 1 / TICK_RATE): void {
@@ -222,10 +223,7 @@ export class WorldSim {
     if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   }
 
-  combatSnapshots(): {
-    readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[];
-    readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[];
-  } { return this.combat.snapshots(); }
+  combatSnapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[] } { return this.combat.snapshots(); }
 
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
 

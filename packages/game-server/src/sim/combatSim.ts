@@ -14,7 +14,7 @@ import { createTrainingDummies, serializeDummies, stepTrainingDummies, type SimE
 import { CampStructureManager } from "./survival/campStructures.js";
 import { ResourceHarvester } from "./survival/resourceHarvester.js";
 import { CREATURE_SPECS } from "./wildlife/creatureSpecs.js";
-import { serializeProjectiles, stepProjectileList, type SimProjectile } from "./wildlife/projectileSim.js";
+import { createArrowProjectile, createPebbleProjectile, serializeProjectiles, stepProjectileList, type SimProjectile } from "./wildlife/projectileSim.js";
 import { WorldEcology } from "./wildlife/worldEcology.js";
 
 export interface CombatStepRequest {
@@ -63,7 +63,12 @@ export class CombatWorld {
 
   private handleInteract(p: CombatPlayerRef, playerName: string): void {
     if (this.ecology.openChest(p, undefined, this.events)) return;
+    if (this.ecology.pickupManualLoot(p, undefined, this.events)) return;
     this.structures.bindNearestBed({ player: p, playerName, events: this.events });
+  }
+
+  pickupLoot(p: CombatPlayerRef, lootId?: string): boolean {
+    return this.ecology.pickupManualLoot(p, lootId, this.events);
   }
 
   private startInputDodge(p: CombatPlayerRef, input: CombatInputFlags): void {
@@ -105,15 +110,7 @@ export class CombatWorld {
   private throwPebble(p: CombatPlayerRef, consumeStone: boolean): boolean {
     if (p.combat.pebbleCooldown > 0 || (consumeStone && !consumeItemFromSlots(p.inventory.slots, "stone", 1))) return false;
     p.combat.pebbleCooldown = STEALTH_TUNING.pebbleCooldownSec;
-    let tx = p.x; let ty = p.y;
-    for (let i = 1; i <= 10; i++) {
-      const nx = p.x + p.aimX * (STEALTH_TUNING.pebbleRangeTiles * i / 10);
-      const ny = p.y + p.aimY * (STEALTH_TUNING.pebbleRangeTiles * i / 10);
-      if (this.cache.tileAt(Math.floor(nx), Math.floor(ny)).elevation > p.elevation) break;
-      tx = nx; ty = ny;
-    }
-    this.events.push({ kind: "distract", x: tx, y: ty, actorId: p.id });
-    this.ecology.emitNoise({ x: tx, y: ty, radius: STEALTH_TUNING.pebbleNoiseRadiusTiles, sourceId: p.id });
+    this.projectiles.push(createPebbleProjectile({ id: `p${this.nextProjId++}`, p, cache: this.cache, consumeStone }));
     return true;
   }
 
@@ -193,11 +190,10 @@ export class CombatWorld {
     if (c.stamina < 10 || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
     c.stamina -= 10; c.actionCooldown = 0.25;
     const shot = evaluateBowShot(chargeSec);
-    this.projectiles.push({
-      id: `p${this.nextProjId++}`, ownerId: p.id, originX: p.x, originY: p.y, x: p.x + p.aimX * 0.45, y: p.y + p.aimY * 0.45,
-      vx: p.aimX * shot.speedTilesPerSec, vy: p.aimY * shot.speedTilesPerSec, elevation: p.elevation, charge: shot.ratio,
-      damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult), ttl: 0.95,
-    });
+    this.projectiles.push(createArrowProjectile({
+      id: `p${this.nextProjId++}`, p, speed: shot.speedTilesPerSec, charge: shot.ratio,
+      damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult),
+    }));
     this.events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
     this.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
   }

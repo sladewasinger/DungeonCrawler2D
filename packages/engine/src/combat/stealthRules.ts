@@ -8,10 +8,15 @@ import type { Vec2Like } from "./combatRules.js";
 export const STEALTH_TUNING = {
   crouchSpeedMult: 0.56,
   bushCoverRadiusTiles: 1.25,
+  canopyShadeRadiusTiles: 1.65,
   backstabDamageMult: 2.25,
+  ambushBowDamageMult: 1.65,
   pebbleRangeTiles: 4.5,
-  pebbleCooldownSec: 1.6,
-  pebbleNoiseRadiusTiles: 9.0,
+  pebbleCooldownSec: 1.8,
+  pebbleNoiseRadiusTiles: 8.5,
+  stoneThrowRangeTiles: 7.0,
+  stoneThrowNoiseRadiusTiles: 12.0,
+  stoneThrowDamage: 4,
   sprintNoiseRadiusTiles: 6.5,
   combatNoiseRadiusTiles: 9.5,
   spottedPopDurationSec: 0.85,
@@ -21,6 +26,7 @@ export interface StealthExposure {
   readonly visibility: number;
   readonly lightLevel: number;
   readonly inCover: boolean;
+  readonly inShade: boolean;
   readonly noiseRadius: number;
 }
 
@@ -33,9 +39,11 @@ export interface StealthQuery {
   readonly crouching: boolean;
   readonly moving: boolean;
   readonly sprinting: boolean;
+  readonly inWater?: boolean | undefined;
 }
 
 const COVER_PROPS = new Set<PropKind>([PropKind.Bush, PropKind.TallGrass]);
+const CANOPY_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree]);
 
 function propLightContrib(prop: ChunkProp, x: number, y: number): number {
   const isFire = prop.kind === PropKind.Campfire;
@@ -46,20 +54,24 @@ function propLightContrib(prop: ChunkProp, x: number, y: number): number {
   return (1 - dist / maxR) * (isFire ? 0.55 : 0.4);
 }
 
-function scanNearbyProps(props: readonly ChunkProp[], x: number, y: number): { readonly inCover: boolean; readonly propLight: number } {
+function scanNearbyProps(props: readonly ChunkProp[], x: number, y: number): { readonly inCover: boolean; readonly inShade: boolean; readonly propLight: number } {
   let inCover = false;
+  let inShade = false;
   let propLight = 0;
   for (const p of props) {
-    if (COVER_PROPS.has(p.kind) && Math.hypot(p.x - x, p.y - y) <= STEALTH_TUNING.bushCoverRadiusTiles) inCover = true;
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (COVER_PROPS.has(p.kind) && d <= STEALTH_TUNING.bushCoverRadiusTiles) inCover = true;
+    if (CANOPY_PROPS.has(p.kind) && d <= STEALTH_TUNING.canopyShadeRadiusTiles) inShade = true;
     propLight = Math.max(propLight, propLightContrib(p, x, y));
   }
-  return { inCover, propLight };
+  return { inCover, inShade, propLight };
 }
 
-function computeNoiseRadius(opts: { readonly moving: boolean; readonly crouching: boolean; readonly sprinting: boolean }): number {
-  if (!opts.moving) return 0.5;
-  if (opts.crouching) return 0.75;
-  return opts.sprinting ? STEALTH_TUNING.sprintNoiseRadiusTiles : 3.0;
+function computeNoiseRadius(opts: { readonly moving: boolean; readonly crouching: boolean; readonly sprinting: boolean; readonly inWater?: boolean | undefined }): number {
+  if (!opts.moving) return 0.4;
+  const waterMult = opts.inWater ? 1.45 : 1.0;
+  if (opts.crouching) return (opts.inWater ? 1.15 : 0.75) * waterMult;
+  return (opts.sprinting ? STEALTH_TUNING.sprintNoiseRadiusTiles : 3.0) * waterMult;
 }
 
 function applyStealthModifiers(baseVis: number, q: StealthQuery, inCover: boolean): number {
@@ -71,11 +83,12 @@ function applyStealthModifiers(baseVis: number, q: StealthQuery, inCover: boolea
 }
 
 export function sampleStealthExposure(q: StealthQuery): StealthExposure {
-  const { inCover, propLight } = scanNearbyProps(q.cache.propsNear(q.x, q.y), q.x, q.y);
-  const ambient = 1 - sampleDayNight(q.dayPhase).nightFactor * 0.82;
+  const { inCover, inShade, propLight } = scanNearbyProps(q.cache.propsNear(q.x, q.y), q.x, q.y);
+  const rawAmbient = 1 - sampleDayNight(q.dayPhase).nightFactor * 0.82;
+  const ambient = inShade ? Math.max(0.36, rawAmbient - 0.18) : rawAmbient;
   const lightLevel = clamp(ambient + (q.torchLit ? 0.55 : 0) + propLight, 0.14, 1.0);
   const visibility = clamp(applyStealthModifiers(Math.max(0.24, lightLevel), q, inCover), 0.12, 1.0);
-  return { visibility, lightLevel, inCover, noiseRadius: computeNoiseRadius(q) };
+  return { visibility, lightLevel, inCover, inShade, noiseRadius: computeNoiseRadius(q) };
 }
 
 export function isBackstabAngle(opts: {

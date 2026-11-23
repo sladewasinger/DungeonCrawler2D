@@ -160,6 +160,7 @@ export function synthImpact(opts: {
 export type CombatCueKind =
   | "block" | "parry" | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph"
   | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave" | "distract" | "backstab"
+  | "ambushShot" | "wolfHowl" | "bearBluff" | "boarCrash" | "pebbleLand"
   | "harvestHit" | "harvestBreak" | "placeStructure" | "bedSet";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
@@ -171,6 +172,26 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
   distract: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 760, f1: 480, duration: 0.07, gain: 0.13 });
     playNoiseBurst({ ctx, dst, duration: 0.06, freq: 1400, filterType: FILTER_BP, gain: 0.1, q: 2.5 });
+  },
+  pebbleLand: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 880, f1: 520, duration: 0.06, gain: 0.13 });
+    playNoiseBurst({ ctx, dst, duration: 0.045, freq: 1850, filterType: FILTER_BP, gain: 0.09, q: 2.8 });
+  },
+  ambushShot: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1480, duration: 0.14, gain: 0.16 });
+    playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2400, filterType: "highpass", gain: 0.12 });
+  },
+  wolfHowl: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 290, f1: 465, duration: 0.34, gain: 0.15 });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 465, f1: 330, duration: 0.3, gain: 0.1, delay: 0.28 });
+  },
+  bearBluff: (ctx, dst) => {
+    playTone({ ctx, dst, wave: "sawtooth", f0: 145, f1: 78, duration: 0.28, gain: 0.17 });
+    playNoiseBurst({ ctx, dst, duration: 0.24, freq: 340, filterType: "lowpass", gain: 0.15 });
+  },
+  boarCrash: (ctx, dst) => {
+    playTone({ ctx, dst, wave: "square", f0: 190, f1: 58, duration: 0.2, gain: 0.18 });
+    playNoiseBurst({ ctx, dst, duration: 0.16, freq: 620, filterType: "lowpass", gain: 0.16 });
   },
   backstab: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 980, f1: 1640, duration: 0.16, gain: 0.18 });

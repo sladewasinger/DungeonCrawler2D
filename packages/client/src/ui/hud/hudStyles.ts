@@ -60,11 +60,15 @@ const HUD_CSS = `
 .ow-buff-fed { color: #fde68a; background: rgba(120, 53, 15, 0.78); border: 1px solid rgba(251, 191, 36, 0.45); }
 .ow-buff-rested { color: #bae6fd; background: rgba(12, 74, 110, 0.78); border: 1px solid rgba(56, 189, 248, 0.45); }
 .ow-stealth-pill {
+  display: inline-flex; align-items: center; gap: 4px;
   padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
-  color: #6ee7b7; background: rgba(6, 78, 59, 0.72); border: 1px solid rgba(52, 211, 153, 0.45);
+  color: #6ee7b7; background: rgba(6, 78, 59, 0.78); border: 1px solid rgba(52, 211, 153, 0.45);
 }
-.ow-stealth-pill[data-tier="shaded"] { color: #bae6fd; background: rgba(12, 74, 110, 0.72); border-color: rgba(56, 189, 248, 0.45); }
-.ow-stealth-pill[data-tier="exposed"] { color: #fde68a; background: rgba(120, 53, 15, 0.72); border-color: rgba(251, 191, 36, 0.5); }
+.ow-stealth-eye { width: 12px; height: 10px; flex: 0 0 auto; }
+.ow-stealth-gem { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.ow-stealth-pill[data-tier="shaded"] { color: #bae6fd; background: rgba(12, 74, 110, 0.78); border-color: rgba(56, 189, 248, 0.45); }
+.ow-stealth-pill[data-tier="exposed"] { color: #fde68a; background: rgba(120, 53, 15, 0.78); border-color: rgba(251, 191, 36, 0.55); }
+.ow-stealth-pill[data-tier="spotted"] { color: #fecaca; background: rgba(127, 29, 29, 0.85); border-color: rgba(248, 113, 113, 0.7); }
 .ow-slot {
   position: relative; width: var(--ow-slot-size); height: var(--ow-slot-size); padding: 0;
   border-radius: 10px; border: 2px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.9);

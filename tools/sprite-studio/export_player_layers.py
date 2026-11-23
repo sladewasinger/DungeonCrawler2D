@@ -4,9 +4,10 @@ import json
 import math
 import os
 import sys
+import bmesh
 import bpy
 from bpy_extras.object_utils import world_to_camera_view
-from mathutils import Euler, Vector
+from mathutils import Euler, Matrix, Vector
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
@@ -281,6 +282,97 @@ def layer_specs():
     ]
 
 
+def render_bow_capsule(col, name, p0, p1, r0, r1, mat, segs=8):
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    span = p1 - p0
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=segs, radius1=r0, radius2=r1, depth=max(0.01, span.length))
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = (p0 + p1) * 0.5
+    obj.rotation_euler = span.to_track_quat("Z", "Y").to_euler()
+    obj.data.materials.append(mat)
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    col.objects.link(obj)
+    return obj
+
+
+def build_bow_frame_meshes(col, mats, grip, fwd, up, nock, pull_ratio):
+    """Build world-space 3D recurve bow anchored at grip (Hand_L) with string/arrow meeting nock (Hand_R)."""
+    flex = 0.05 * pull_ratio
+    back = -fwd
+    side = up.cross(fwd).normalized()
+    limb_axis = (up + side * 0.18).normalized()
+    mid_tip = grip + back * (0.21 + flex)
+    upper_elbow = grip + back * 0.09 + limb_axis * 0.28
+    lower_elbow = grip + back * 0.09 - limb_axis * 0.28
+    upper_tip = mid_tip + limb_axis * (0.50 - 0.02 * pull_ratio)
+    lower_tip = mid_tip - limb_axis * (0.50 - 0.02 * pull_ratio)
+    render_bow_capsule(col, "BowRiser", grip - limb_axis * 0.10, grip + limb_axis * 0.10, 0.029, 0.029, mats["gold"], segs=8)
+    render_bow_capsule(col, "BowLimbUA", grip + limb_axis * 0.09, upper_elbow, 0.025, 0.021, mats["wood_lt"], segs=8)
+    render_bow_capsule(col, "BowLimbUB", upper_elbow, upper_tip, 0.021, 0.013, mats["wood_dk"], segs=8)
+    render_bow_capsule(col, "BowLimbLA", grip - limb_axis * 0.09, lower_elbow, 0.025, 0.021, mats["wood_lt"], segs=8)
+    render_bow_capsule(col, "BowLimbLB", lower_elbow, lower_tip, 0.021, 0.013, mats["wood_dk"], segs=8)
+    render_bow_capsule(col, "BowStrU", upper_tip, nock, 0.011, 0.011, mats["cord"], segs=6)
+    render_bow_capsule(col, "BowStrL", lower_tip, nock, 0.011, 0.011, mats["cord"], segs=6)
+    arrow_dir = (grip - nock).normalized() if (grip - nock).length > 0.05 else fwd
+    tip_pt = nock + arrow_dir * 0.60
+    head_base = nock + arrow_dir * 0.51
+    render_bow_capsule(col, "ArrowShaft", nock, head_base, 0.011, 0.011, mats["wood_lt"], segs=6)
+    render_bow_capsule(col, "ArrowFletch", nock, nock + arrow_dir * 0.07, 0.022, 0.012, mats["cord"], segs=4)
+    render_bow_capsule(col, "ArrowHead", head_base, tip_pt, 0.027, 0.003, mats["steel"], segs=4)
+
+
+def make_bow_mats():
+    return {
+        "wood_dk": studio_core.make_toon_material("Bow_WoodDk", "#4a2a12", "#6b3f1d", "#8d582e", 0.25, 0.68),
+        "wood_lt": studio_core.make_toon_material("Bow_WoodLt", "#6b4120", "#9c6234", "#c2844e", 0.25, 0.68),
+        "gold": studio_core.make_toon_material("Bow_Gold", "#92400e", "#d97706", "#fbbf24", 0.22, 0.62),
+        "steel": studio_core.make_toon_material("Bow_Steel", "#475569", "#94a3b8", "#e2e8f0", 0.22, 0.58),
+        "cord": studio_core.make_toon_material("Bow_Cord", "#94a3b8", "#e2e8f0", "#ffffff", 0.25, 0.70),
+    }
+
+
+def export_bow_overlay_frames(out_dir, holdout_mat):
+    """Render 3D vertical Hero_Bow weapon overlay across 5 dirs x 3 draw frames with hand/body Holdout."""
+    arm_obj = bpy.data.objects["Rig_Hero"]
+    root = bpy.data.objects["CharacterRoot"]
+    hand_l = bpy.data.objects["Socket_Hand_L"]
+    hand_r = bpy.data.objects["Socket_Hand_R"]
+    hold_cols = ["Body_Female_Core", "Body_Female_Arms"]
+    hold_saved = capture_original_materials(hold_cols)
+    assign_holdout(hold_saved, holdout_mat)
+    mats = make_bow_mats()
+    temp_col = bpy.data.collections.new("Weapon_Bow_Temp")
+    bpy.context.scene.collection.children.link(temp_col)
+    bind_action(arm_obj, "Hero_Bow")
+    set_visible_collections(hold_cols)
+    try:
+        for dname, yaw in DIRS_5:
+            root.rotation_euler = Euler((0.0, 0.0, math.radians(yaw)), "XYZ")
+            fwd = (Euler((0.0, 0.0, math.radians(yaw)), "XYZ").to_matrix() @ Vector((0.0, -1.0, 0.0))).normalized()
+            up = Vector((0.0, 0.0, 1.0))
+            for f in range(1, 4):
+                for obj in list(temp_col.objects):
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                bpy.context.scene.frame_set(f)
+                bpy.context.view_layer.update()
+                grip = hand_l.matrix_world.translation.copy()
+                pull = (f - 1) * 0.5
+                nock_rest = grip - fwd * 0.20
+                nock = nock_rest.lerp(hand_r.matrix_world.translation.copy(), 0.0 if f == 1 else (0.75 if f == 2 else 1.0))
+                build_bow_frame_meshes(temp_col, mats, grip, fwd, up, nock, pull)
+                render_frame_pair(out_dir, "weapon-bow", "bow", dname, f)
+    finally:
+        for obj in list(temp_col.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.collections.remove(temp_col)
+        root.rotation_euler = Euler((0.0, 0.0, 0.0), "XYZ")
+        restore_materials(hold_saved)
+
+
 def ensure_required_actions(arm_obj):
     """Synthesize Hero_Bow in memory when exporting a .blend saved before Hero_Bow existed."""
     if "Hero_Bow" not in bpy.data.actions:
@@ -304,13 +396,19 @@ def main():
     dist = cam.location.length
     studio_core.make_depth_override_material(near_dist=dist - 1.75, far_dist=dist + 1.75)
 
+    holdout_mat = make_holdout_material()
+    if "--bow-only" in sys.argv:
+        export_bow_overlay_frames(out_dir, holdout_mat)
+        print(f"Exported weapon-bow overlay frames to {out_dir}")
+        return
     if only_layers is None:
         export_shoulder_sockets(out_dir)
     install_sentinel_materials()
-    holdout_mat = make_holdout_material()
     specs = [s for s in layer_specs() if only_layers is None or s["id"] in only_layers]
     for spec in specs:
         render_layer(out_dir, spec, holdout_mat)
+    if only_layers is None:
+        export_bow_overlay_frames(out_dir, holdout_mat)
 
     print(f"Exported {len(specs)} player layers to {out_dir}")
 

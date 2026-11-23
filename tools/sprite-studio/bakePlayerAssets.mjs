@@ -1,7 +1,7 @@
 /** Packs exported Blender Holdout player layers + sockets into game-ready sheets & player-rig.json. */
 import fs from "node:fs";
 import path from "node:path";
-import { applyInternalDepthCreases, binarizeAndClean, measureSpriteBounds, shiftSpriteFrame } from "./pixelPost.mjs";
+import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, measureSpriteBounds, shiftSpriteFrame } from "./pixelPost.mjs";
 import { decodePng, encodePng } from "./pngCodec.mjs";
 
 const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
@@ -51,12 +51,14 @@ const LAYERS = [
 
 function parseCliArgs(argv) {
   const rawDir = argv[0];
-  if (!rawDir || rawDir.startsWith("--")) throw new Error("Usage: node bakePlayerAssets.mjs <rawDir> [--layers <csv>]");
+  if (!rawDir || rawDir.startsWith("--")) throw new Error("Usage: node bakePlayerAssets.mjs <rawDir> [--layers <csv>] [--bow-only]");
   let onlyLayers = null;
-  for (let i = 1; i < argv.length - 1; i++) {
-    if (argv[i] === "--layers") onlyLayers = new Set(argv[i + 1].split(",").map((s) => s.trim()).filter(Boolean));
+  let bowOnly = false;
+  for (let i = 1; i < argv.length; i++) {
+    if (argv[i] === "--layers" && i + 1 < argv.length) onlyLayers = new Set(argv[++i].split(",").map((s) => s.trim()).filter(Boolean));
+    else if (argv[i] === "--bow-only") bowOnly = true;
   }
-  return { rawDir, onlyLayers };
+  return { rawDir, onlyLayers, bowOnly };
 }
 
 function loadCleanedFrame({ rawDir, layerId, clip, dir, frameNum }) {
@@ -190,7 +192,29 @@ function convertSockets(rawSockets, anchorsByGender) {
   return out;
 }
 
-function buildFullRigMeta({ rawDir, anchorsByGender }) {
+function packBowOverlaySheet({ rawDir, anchors }) {
+  if (!anchors || !fs.existsSync(path.join(rawDir, "weapon-bow", "bow_south_f1.png"))) return null;
+  const cols = 3;
+  const rows = DIRS.length;
+  const sheetW = cols * CELL;
+  const sheetH = rows * CELL;
+  const rgba = new Uint8Array(sheetW * sheetH * 4);
+  for (let dIdx = 0; dIdx < DIRS.length; dIdx++) {
+    const dir = DIRS[dIdx];
+    const shift = anchors[dir];
+    for (let f = 1; f <= cols; f++) {
+      const cleaned = loadCleanedFrame({ rawDir, layerId: "weapon-bow", clip: "bow", dir, frameNum: f });
+      if (!cleaned) continue;
+      const outlined = applyOuterSelOut(cleaned, 3.3);
+      const aligned = shiftSpriteFrame(outlined, shift.dx, shift.dy);
+      blitIntoSheet({ sheetRgba: rgba, sheetW, frame: aligned, col: f - 1, row: dIdx });
+    }
+  }
+  fs.writeFileSync(path.join(OUT_DIR, "weapon-bow.png"), encodePng(sheetW, sheetH, rgba));
+  return { path: "/assets/player/weapon-bow.png", cols, rows, frameWidth: CELL, frameHeight: CELL };
+}
+
+function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay }) {
   const rawSockets = JSON.parse(fs.readFileSync(path.join(rawDir, "raw_sockets.json"), "utf8"));
   return {
     frameWidth: CELL, frameHeight: CELL, cols: SHEET_COLS, rows: SHEET_ROWS, groundY: GROUND_Y,
@@ -198,6 +222,7 @@ function buildFullRigMeta({ rawDir, anchorsByGender }) {
     portraitRow: PORTRAIT_ROW, portraitCol: 0, directions: DIRS,
     clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
     layers: LAYERS.map((l) => l.id),
+    ...(bowOverlay ? { bowOverlay } : {}),
     bakeVersion: Date.now(),
     anchorsByGender,
     sockets: convertSockets(rawSockets, anchorsByGender),
@@ -210,16 +235,37 @@ function packTargetLayer({ rawDir, layer, anchors }) {
   packLayerSheet({ rawDir, layer, anchors });
 }
 
+function runBowOnlyBake({ rawDir, anchorsByGender, prevMeta }) {
+  const anchors = anchorsByGender.female ?? anchorsByGender.male;
+  const bowOverlay = packBowOverlaySheet({ rawDir, anchors }) ?? prevMeta?.bowOverlay;
+  if (!prevMeta) return null;
+  const updated = { ...prevMeta, ...(bowOverlay ? { bowOverlay } : {}), bakeVersion: Date.now() };
+  fs.writeFileSync(RIG_META_PATH, JSON.stringify(updated, null, 2) + "\n");
+  console.log("Baked 3D bow overlay:", { outDir: OUT_DIR, bowOverlay, bakeVersion: updated.bakeVersion });
+  return updated;
+}
+
+function resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta }) {
+  if (onlyLayers && prevMeta) {
+    return { ...prevMeta, anchorsByGender, ...(bowOverlay ? { bowOverlay } : {}), bakeVersion: Date.now() };
+  }
+  return buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay });
+}
+
+function resolveBowOverlay({ rawDir, anchorsByGender, prevMeta }) {
+  return packBowOverlaySheet({ rawDir, anchors: anchorsByGender.female ?? anchorsByGender.male }) ?? prevMeta?.bowOverlay;
+}
+
 function run() {
-  const { rawDir, onlyLayers } = parseCliArgs(process.argv.slice(2));
+  const { rawDir, onlyLayers, bowOnly } = parseCliArgs(process.argv.slice(2));
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const prevMeta = fs.existsSync(RIG_META_PATH) ? JSON.parse(fs.readFileSync(RIG_META_PATH, "utf8")) : null;
   const anchorsByGender = resolveAnchorsByGender(rawDir, prevMeta);
+  if (bowOnly && runBowOnlyBake({ rawDir, anchorsByGender, prevMeta })) return;
+  const bowOverlay = resolveBowOverlay({ rawDir, anchorsByGender, prevMeta });
   const targets = onlyLayers ? LAYERS.filter((l) => onlyLayers.has(l.id)) : LAYERS;
   for (const layer of targets) packTargetLayer({ rawDir, layer, anchors: anchorsByGender[layer.gender] });
-  const rigMeta = onlyLayers && prevMeta
-    ? { ...prevMeta, anchorsByGender, bakeVersion: Date.now() }
-    : buildFullRigMeta({ rawDir, anchorsByGender });
+  const rigMeta = resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta });
   fs.writeFileSync(RIG_META_PATH, JSON.stringify(rigMeta, null, 2) + "\n");
   console.log("Baked player assets:", { outDir: OUT_DIR, bakedLayers: targets.length, bakeVersion: rigMeta.bakeVersion });
 }

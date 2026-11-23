@@ -1,6 +1,6 @@
 # 3D-to-Pixel Sprite Studio (`tools/sprite-studio`)
 
-Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly shaded, 4-direction (`south`, `side` mirrored for West, `north`) animated creature and character spritesheets at default `48 art px / meter` (`scale = 0.3333` in-game: `96x96` Goblin & Slime, `120x120` Boar, Spider & Wolf, `144x144` Skeleton, `168x168` Bear & Orc, `192x192` Stone Golem).
+Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly shaded, 8-direction (`south`, `se`, `side` mirrored for West, `ne`, `north`; `--dirs 8` default, or `4` with `--dirs 4`) animated creature spritesheets at default `48 art px / meter` (`scale = 0.3333` in-game: `96x96` Goblin & Slime, `120x120` Boar, Spider & Wolf, `144x144` Skeleton, `168x168` Bear & Orc, `192x192` Stone Golem).
 
 ## Fast Iteration Workflow
 1. Edit or animate your model in Blender (`tools/sprite-studio/<creature>.blend`) and save (`Ctrl+S`).
@@ -44,6 +44,9 @@ npm run player:bake -- player_v2.blend body-female body-female-arms hair-short h
 
 # Re-export ONLY shoulder/hand sockets (if only Rig_Hero / Socket_* empties moved)
 npm run player:bake -- player_v2.blend sockets-only
+
+# Re-export ONLY the 3D 8-direction held bow overlay (`weapon-bow.png` + `player-rig.json` `bowOverlay`)
+npm run player:bake -- player_v2.blend bow-only
 ```
 
 Direct Node CLI syntax (explicit flags):

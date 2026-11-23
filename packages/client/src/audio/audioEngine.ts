@@ -5,7 +5,7 @@ import { loadAudioPrefs, saveAudioPrefs, type AudioPrefs } from "./audioPrefs.js
 import { isWildlifeVoiceKind, synthCreatureVocal, type CreatureVoiceKind } from "./creatures/synthCreatureSfx.js";
 import { computeSpatialMix, createSpatialBus } from "./spatialMix.js";
 import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
-import { synthCombatCue, synthImpact, synthSwing, synthUi } from "./synthSfx.js";
+import { synthCombatCue, synthImpact, synthSwing, synthUi, type CombatCueKind } from "./synthSfx.js";
 import { synthHarvestSfx } from "./weapons/synthWeaponSfx.js";
 
 export class AudioEngine {
@@ -148,7 +148,16 @@ export class AudioEngine {
       synthHarvestSfx({ ctx: this.ctx, dst, stone: ev.substance === "stone", broken: ev.kind === "harvestBreak" });
       return;
     }
-    synthCombatCue(this.ctx, dst, ev.kind);
+    this.dispatchCueOrSplash({ kind: ev.kind, dst, value: ev.value });
+  }
+
+  private dispatchCueOrSplash(opts: { readonly kind: CombatCueKind; readonly dst: AudioNode; readonly value?: number | undefined }): void {
+    if (!this.ctx) return;
+    if (opts.kind === "pebbleLand" && opts.value !== undefined && opts.value <= GroundKind.ShallowWater) {
+      synthJumpOrLand({ ctx: this.ctx, dst: opts.dst, landing: true, inWater: true });
+      return;
+    }
+    synthCombatCue(this.ctx, opts.dst, opts.kind);
   }
 
   private isWaterGround(ground: GroundKind): boolean {
@@ -178,7 +187,9 @@ export class AudioEngine {
     this.syncAirborneAudio({ ground, airborne });
     const sprinting = Boolean(local.sprinting);
     const gait = advanceGaitClock(this.gaitClock, { x: local.x, y: local.y, moving: local.moving, sprinting, airborne });
-    if (gait.stepTriggered) synthFootstep({ ctx: this.ctx, dst: this.sfxGain, ground, sprinting });
+    if (gait.stepTriggered) {
+      synthFootstep({ ctx: this.ctx, dst: this.sfxGain, ground, sprinting, crouching: Boolean(local.crouching) });
+    }
   }
 
   private ensureUnlocked(): void {

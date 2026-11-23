@@ -44,3 +44,9 @@ export const ClientSetRespawnBedSchema = z.object({
   structureId: z.string().min(1).max(64),
   seq: z.number().int().nonnegative().optional(),
 });
+
+export const ClientPickupLootSchema = z.object({
+  t: z.literal("pickupLoot"),
+  lootId: z.string().min(1).max(64).optional(),
+  seq: z.number().int().nonnegative().optional(),
+});

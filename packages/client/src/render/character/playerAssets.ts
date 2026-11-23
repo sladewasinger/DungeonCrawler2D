@@ -1,4 +1,5 @@
-/** Async loader, bounded LRU image cache, and 8-dir shoulder/hand-socket samplers for 3D Hero sheets. */
+/** Async loader, bounded LRU image cache, 8-dir 3D bow overlay, and shoulder/hand-socket samplers. */
+import { Rectangle, Texture } from "pixi.js";
 import type { FacingDir } from "./characterTypes.js";
 
 export interface ShoulderSocket {
@@ -44,6 +45,7 @@ export interface PlayerRigMeta {
   readonly directions: readonly FacingDir[];
   readonly clips: Readonly<Record<string, PlayerClipLayout>>;
   readonly layers: readonly string[];
+  readonly bowOverlay?: { readonly path: string; readonly cols: number; readonly rows: number; readonly frameWidth: number; readonly frameHeight: number } | undefined;
   readonly bakeVersion?: number | undefined;
   readonly sockets: Readonly<
     Record<"male" | "female", Readonly<Record<string, Readonly<Record<FacingDir, readonly FrameSockets[]>>>>>
@@ -61,6 +63,7 @@ let rigMeta: PlayerRigMeta | null = null;
 let rigBakeVersion = 0;
 const layerImages = new Map<string, HTMLImageElement>();
 const inflightLayers = new Map<string, Promise<HTMLImageElement | null>>();
+let bowOverlayFrames: readonly (readonly Texture[])[] | null = null;
 let inflightPreload: Promise<void> | null = null;
 let loadedReady = false;
 
@@ -97,6 +100,22 @@ function loadSingleLayer(id: string): Promise<HTMLImageElement | null> {
   return p;
 }
 
+function sliceBowOverlayFrames(img: HTMLImageElement, overlay: NonNullable<PlayerRigMeta["bowOverlay"]>): Texture[][] {
+  const source = Texture.from({ resource: img, scaleMode: "nearest" }).source;
+  return Array.from({ length: overlay.rows }, (_, r) =>
+    Array.from({ length: overlay.cols }, (__, c) => new Texture({
+      source, frame: new Rectangle(c * overlay.frameWidth, r * overlay.frameHeight, overlay.frameWidth, overlay.frameHeight),
+    })),
+  );
+}
+
+async function fetchBowOverlay(meta: PlayerRigMeta): Promise<void> {
+  if (!meta.bowOverlay) return;
+  const vSuffix = rigBakeVersion ? `?v=${rigBakeVersion}` : "";
+  const img = await loadImage(`${meta.bowOverlay.path}${vSuffix}`);
+  if (img) bowOverlayFrames = sliceBowOverlayFrames(img, meta.bowOverlay);
+}
+
 async function fetchPlayerAssets(): Promise<void> {
   if (typeof fetch !== "function" || typeof Image === "undefined") return;
   try {
@@ -105,13 +124,23 @@ async function fetchPlayerAssets(): Promise<void> {
     const meta = (await res.json()) as PlayerRigMeta;
     rigBakeVersion = meta.bakeVersion ?? 0;
     const bootIds = meta.layers.slice(0, INITIAL_PRELOAD_CAP);
-    const loaded = await Promise.all(bootIds.map(async (id) => ({ id, img: await loadSingleLayer(id) })));
+    const [loaded] = await Promise.all([
+      Promise.all(bootIds.map(async (id) => ({ id, img: await loadSingleLayer(id) }))),
+      fetchBowOverlay(meta),
+    ]);
     if (loaded.some((entry) => entry.img === null)) return;
     rigMeta = meta;
     loadedReady = true;
   } catch (err) {
     console.warn("Player 3D layer preload skipped:", err);
   }
+}
+
+export function getBowOverlayTexture(dir: FacingDir, frameIdx: number): Texture | null {
+  if (!rigMeta || !bowOverlayFrames) return null;
+  const row = bowOverlayFrames[Math.max(0, rigMeta.directions.indexOf(dir))];
+  if (!row?.length) return null;
+  return row[Math.max(0, Math.min(row.length - 1, frameIdx))] ?? null;
 }
 
 export function preloadPlayerAssets(): Promise<void> {
