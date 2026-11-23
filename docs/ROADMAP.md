@@ -1,19 +1,19 @@
 # DungeonCrawler 2D — Master Roadmap (`overworld`)
 
-A fresh, mobile-first, server-authoritative 2D action-RPG & light-survival overworld game built on **PixiJS v8 (WebGL2/WebGPU)** with a **Lush HD-Pixel Atmosphere** (Core Keeper / Eastward / Sea of Stars style), deterministic infinite terrain, enterable dark torch-lit dungeons, true 36-slot Minecraft-style inventory, tactile combat, and hybrid Web Audio.
+A fresh, mobile-first, server-authoritative 2D action-RPG, stealth-survival & DCC-inspired floor-descent overworld game built on **PixiJS v8 (WebGL2/WebGPU)** with a **Lush HD-Pixel Atmosphere** (Core Keeper / Eastward / Sea of Stars style), deterministic infinite terrain, enterable dark torch-lit dungeons, true 36-slot Minecraft-style inventory, tactile combat, and hybrid Web Audio.
 
 ---
 
 ## Core Design Pillars
 
-1. **Lush HD-Pixel Visuals & Real WebGL2 Atmosphere**: Crisp nearest-neighbor pixel art enhanced with smooth real-time 2D lightmaps, directional sun/moon shadows, generated normal-map relief lighting, flickering warm torch/campfire bloom, animated reflective water shaders, coherent foliage wind-wave shaders, canopy god-rays, drifting cloud shadows, valley ground mist, and dusk fireflies.
+1. **Lush HD-Pixel Visuals & Real WebGL2 Atmosphere**: Crisp nearest-neighbor pixel art at a unified pixel density (zero mixels) enhanced with smooth real-time 2D lightmaps, directional sun/moon shadows, generated normal-map relief lighting, flickering warm torch/campfire bloom, animated reflective water shaders, coherent foliage wind-wave shaders, canopy god-rays, drifting cloud shadows, valley ground mist, and dusk fireflies.
 2. **Mobile-First Browser UX**: Designed for portrait & landscape phones from day one (`100dvh`, `viewport-fit=cover`, auto-fullscreen on mobile first touch + manual fullscreen toggle, floating touch thumbstick, large touch-friendly bottom hotbar, direct pointer drag-and-drop with tap-to-move fallback, quality scaling presets) while remaining effortless on desktop keyboard/mouse.
 3. **Server-Authoritative Multiplayer (`@dc2d/*`)**: Clean 4-package monorepo (`@dc2d/engine`, `@dc2d/content`, `@dc2d/game-server`, `@dc2d/client`) supporting WebSocket co-op, client-side prediction, synced Day/Night & weather, plus seamless deterministic local preview when offline.
-4. **Deterministic Infinite Overworld + Enterable Dark Dungeons**: Seeded noise + macro biome fields generate `32×32` chunks on demand in milliseconds; persistence stores only world deltas (chopped resources, looted chests, placed campfires/torches/stations). Caves and ancient dungeon entrances transition into pitch-black torch-lit multi-floor interiors.
-5. **Action-RPG + Light Survival (Valheim-lite)**: Chop trees, mine ore/stone, forage herbs/flint, hunt wildlife, cook at campfires for rested/well-fed buffs (no punitive starvation deaths), place campfires/torches/chests/workbenches, and forge tiered equipment.
-6. **True Minimalist 36-Slot Inventory Model**: Slots `0..8` are the larger, always-visible **bottom hotbar** (rendered cleanly at the bottom of the gameplay screen, never duplicated inside the inventory modal); slots `9..35` are the `3×9` backpack. Weapons, bows, tools, and armor have `maxStack = 1` (no stack counts). The inventory screen contains ONLY backpack + 4 armor slots + stats, dragging straight onto the bottom hotbar; crafting lives in its own dedicated panel showing craftable/discovered recipes cleanly.
-7. **Hybrid Web Audio Engine**: Layered biome & time-of-day soundscapes, surface-aware footsteps, crisp melee/bow/harvest/UI SFX, and adaptive atmospheric music.
-8. **Composable Effects Engine & Real-Time AI Crafting**: Preserve the data-driven spirit of `archive/v1`'s effects system inside `@dc2d/engine` while expanding it flexibly — composable primitives (`modify_health`, `modify_stat`, `apply_status`, `remove_status`, `spawn_area`, triggers, projectiles, custom visuals), elemental area reactions, cross-referenced content registries, and validated AI invention pipelines so AI can craft novel items, recipes, and interactions safely in real time.
+4. **DCC-Inspired Floor Descent & Deterministic Infinite Worlds**: Seeded noise + macro biome fields generate `32×32` chunks on demand in milliseconds; each floor runs under an authoritative multi-day **Floor Collapse Countdown Timer**, housing **Safe Rooms / Town Hubs** (NPCs, bounties, quests), landmarks, bosses, and **Floor Stairwells** leading deeper before collapse.
+5. **Action-RPG + Full Stealth + Valheim-Lite Camp Survival**: Sneak through shadow/brush with a dynamic light-level visibility meter, throw distractions, land silent takedowns, chop trees, mine ore/stone, forage herbs/flint, cook at campfires for rested/well-fed buffs, and place campfires, torches, storage chests, workbenches, beds, and simple palisades/shelters.
+6. **True Minimalist 36-Slot Inventory Model**: Slots `0..8` are the larger, always-visible **bottom hotbar** (rendered cleanly at the bottom of the gameplay screen, never duplicated inside the inventory modal); slots `9..35` are the `3×9` backpack. Weapons, bows, tools, and armor have `maxStack = 1` (no stack counts). The inventory screen contains ONLY backpack + armor slots + stats, dragging straight onto the bottom hotbar; crafting lives in its own dedicated panel showing craftable/discovered recipes cleanly.
+7. **Hybrid Web Audio Engine**: Layered biome & time-of-day soundscapes, surface-aware footsteps, organic vocal-tract creature synthesis + Sound Studio live hot-reload overrides, crisp melee/bow/harvest/UI SFX, and adaptive atmospheric music.
+8. **Composable Effects Engine & Real-Time System-AI Crafting / Reward Boxes**: Preserve the data-driven spirit of `archive/v1`'s effects system inside `@dc2d/engine` while expanding it flexibly — composable primitives (`modify_health`, `modify_stat`, `apply_status`, `remove_status`, `spawn_area`, triggers, projectiles, custom visuals), elemental area reactions, cross-referenced content registries, and validated System-AI invention pipelines generating novel items, recipes, achievements, and reward boxes safely in real time.
 
 ---
 
@@ -50,54 +50,67 @@ flowchart LR
 - **1A Engine & Server**: Seeded 2D value/fBm/ridge noise; deterministic `32×32` chunk generator (`DeepWater`, `ShallowWater`, `Sand`, `Grass`, `MeadowGrass`, `ForestFloor`, `DirtPath`, `CliffStone`, `MossStone`); elevation tiers `0..2` with walkable stairs; sunlit spawn glade with warm campfire, river & cliffs; continuous sliding collision; Day/Night clock (`480s` cycle) + WebSocket multiplayer server (`@dc2d/game-server`).
 - **1B PixiJS v8 HD-Pixel Renderer & WebGL2 Shaders**:
   - Multi-variant pixel-art terrain tiles + organic auto-tile edge blends + generated tangent-space normal maps.
-  - Multi-tile Oak/Pine trees (blocking trunk + Y-sorted canopy that fades behind the player), bushes, swaying tall grass, boulders, wildflowers, animated crackling campfires, torches, and knight character sprites.
-  - **Custom WebGL2 GLSL Shaders**:
-    - Animated water shader (dual-layer ripples, shoreline foam, sun/moon sparkles, warm firelight reflections).
-    - Coherent world-space foliage wind-wave shader across trees, bushes, and tall grass.
-    - Offscreen lightmap + **WebGL2 Composite Filter** delivering day/night ambient tinting, directional normal-map rim highlights, flickering radial point lights, **selective bloom** on fire/torches/fireflies, **diagonal canopy sunbeams / god-rays**, drifting **cloud shadows**, low **ground mist**, and **filmic color grading + vignette**.
-  - Directional sun/moon **cast shadows** skewing smoothly with time of day.
-  - Pooled GPU particles (sun-motes, falling leaves, dusk/night fireflies, rising embers & smoke).
+  - Multi-tile Oak/Pine trees, bushes, swaying tall grass, boulders, wildflowers, animated crackling campfires, torches, and knight character sprites.
+  - **Custom WebGL2 GLSL Shaders**: animated reflective water, coherent foliage wind-wave, offscreen lightmap + **WebGL2 Composite Filter** (ambient tinting, normal-map rim highlights, selective bloom, canopy god-rays, drifting cloud shadows, valley ground mist, filmic grading), directional sun/moon **cast shadows**, and pooled GPU fireflies/embers/sun-motes.
   - Mobile-first floating thumbstick, desktop WASD/scroll-zoom, and collapsible time-of-day + quality preset (`High / Balanced / Performance`) debug bar.
 
 ### Phase 2 — Mobile-First Controls & True 36-Slot Inventory / Bottom Hotbar ✅
-- Mobile auto-fullscreen on initial touch gesture + manual fullscreen toggle in the HUD bar; touch-only floating movement joystick (leaving desktop mouse free).
-- Server-authoritative **36-slot array** (`0..8` hotbar, `9..35` backpack) synced cleanly over WebSocket.
-- Non-stackable gear (`maxStack: 1` for swords, bows, axes, pickaxes, armor pieces) — never renders stack counts (`×2`) on equipable gear; stackables combine cleanly up to `maxStack`.
-- **Larger Always-Visible Bottom Hotbar (`0..8`)**: sized generously for both thumbs and mouse clicking, remaining visible and droppable even while the Inventory modal is open.
-- **Minimalist Inventory Modal (`[Tab]` / Backpack button)**: strictly `27`-slot Backpack grid + `4` Armor slots + character stats (`HP`, `Stamina`, `Defense`, `Speed`). **No duplicate hotbar row inside the modal, no green equipped highlights, and no quick-craft clutter.**
-- Unified pointer drag-and-drop (backpack <-> backpack swap/stack, backpack <-> bottom hotbar, backpack <-> armor, armor <-> bottom hotbar) plus tap-source -> tap-target mobile fallback.
-- Dedicated **Crafting & Storage Panel** (hand recipes + nearby station recipes with clean craftability filtering).
+- Mobile auto-fullscreen on initial touch gesture + manual fullscreen toggle; touch-only floating movement joystick (leaving desktop mouse free).
+- Server-authoritative **36-slot array** (`0..8` hotbar, `9..35` backpack) with non-stackable gear (`maxStack: 1`), **Larger Always-Visible Bottom Hotbar**, minimalist Inventory modal (`27` backpack + armor slots + stats), unified pointer drag-and-drop + mobile tap fallback, and dedicated **Crafting & Storage Panel**.
 
 ### Phase 3 — Custom Layered Characters & Visible Multiplayer Equipment ✅
 - 3D Blender-baked modular HD-pixel hero rig (`tools/sprite-studio/`) with 8-directional idle/walk/run layers, articulated 2-segment IK arms and held gear, dedicated `Hero_Walk` vs `Hero_Run` animation clips, distance-driven `GaitClock` syncing stride frames and footsteps, movement-driven facing with combat aim snap, and a localhost **Sandbox Pose Tuner** (`/?sandbox=1&tuner=1`).
-- **Base Character Creator**: selectable body/gender silhouette, skin tone, hair color, and expandable hair styles saved per player and synced over WebSocket.
-- **Visible Multiplayer Gear Layers**: real-time layered equipment rendering for both local and remote players — helmets/hoods, chestplates/tunics, leggings/pants, boots, plus extensible layers for gloves, capes, and held weapons/tools/shields.
+- **Base Character Creator** (body/gender silhouette, skin tone, hair color, hairstyles) + **Visible Multiplayer Gear Layers** synced over WebSocket.
 
-### Phase 4 — Hybrid Web Audio, Tactile Action Combat, Wildlife & Overworld POIs 🚧
-- **Hybrid Web Audio Engine**: Zero-latency mobile audio unlock, drop-in sample overrides + live **Sound Studio** (`localStorage` + cross-tab hot-reload) overrides over procedural Web Audio synthesis, **Vocal-Tract Growl (`vocal`)** organic formant + flutter synth, Dawn/Day birdsong ↔ Dusk/Night crickets ambient beds, reactive combat-tension swell, terrain-matched footsteps, spatial river/campfire audio, pitch-varied hit/swing/UI SFX, bespoke 9-species enemy/wildlife vocalizations (`alert`/`attack`/`charge`/`hurt`/`death`) with distance attenuation (`2.5`–`22` tiles), toggleable Music/SFX volume sliders, plus the standalone **Sound Studio** (`/sound-studio.html`) with `+ Vocal Growl` and all 45 creature presets.
-- **Melee Combat, Starter Gear & Composable Gore/Blood/Goo**: Directional 3-hit weapon combos (Sword, Axe, Pickaxe, Torch), slash arc VFX, brief hitstop, knockback, stamina-cost dodge-roll (`0.24s` dodge i-frames) + `0.42s` post-hit player i-frames, default spawn armor equipping `chest`/`legs`/`feet` (helmet kept optional in backpack), and an orthogonal `GoreStyle` (`splatter`, `thin-streak`, `drip`, `chunk-spray`, `explode-away`) × `GoreSubstance` (`blood`, `slime`, `ichor`, `straw`, `bone`, `stone`) particle + fading decal system (bespoke blade arcs, chunky slime goop, bone/rubble corpse piles with emissive sparks, diffuse water plumes, opaque ground-sorted corpses, and Sandbox parity).
-- **Shield & Bow**: Dedicated 5th **Shield / Off-Hand** slot (`wooden-shield` auto-clipping the Lantern to the hip), directional block & timed parry stagger; hold-to-draw bow with clean above-head charge bar, rotated charge-scaled arrows, and elemental arrow hooks *(deferred to Phase 7 Composable Effects)*.
-- **Overworld Wildlife & Cognitive/Ecological AI *(4B initial pass)***: 3D-baked animated spritesheets for all 9 wildlife and POI guard archetypes (`wolf`, `bear`, `spider`, `boar`, `slime`, `goblin`, `orc`, `skeleton`, `golem`), elevation-aware LOS & vision cones, corner-peeking last-known-position investigation, scent trail tracking, dead-body non-aggression & bear scavenging/feeding, coordinated Wolf Pack flank-ring circling, Wild Boar windup + momentum charge, Forest Spider shadow-ambush, splattering Forest Slimes, and initial overhead diegetic AI state indicators (`!`, `!!`, `?`, `« »`, `•••` feed bob, and `ambush` stealth alpha).
-- **Deterministic Overworld POIs *(4C)***: Stamped `7×7` Bandit Camps (wooden palisade fences, tents, campfire, loot chest, goblin/orc guards) and `7×7` Ancient Forest Ruins (mossy pillars, chests, skeleton/golem guards) with `[E]`/tap interactive 27-slot POI chests, magnetic dropped enemy loot, and zero `[DEAD]` labels.
-- **Remaining to complete Phase 4 *(AI Pass Needed)***:
-  - **AI Behavior Overhaul (4B)**: Substantial AI tuning & state-machine fixes needed across movement/steering, aggro & disengage transitions, melee spacing/attack cadence, bear territorial warning vs feeding-vs-threat balance, wolf pack coordination/flanking, boar charge/recovery feel, and noise-event attraction (swings/hits/sprinting alerting nearby creatures).
-  - **Diegetic AI State Indicators & Tells (Known Bugs & Polish)**: Fix indicator bugs (state flicker, stuck/mismatched markers, visibility & offset edge cases across animated rigs) and polish visual readability across `alert`, `investigate`, `charge`, `flank`, `feed`, and `ambush`.
+### Phase 4 — Combat Core, HD-Pixel Gore, Spatial Creature Audio & Sound Studio ✅ *(v0.11.3 mini-release)*
+- **Hybrid Web Audio Engine**: Zero-latency mobile audio unlock, drop-in sample overrides + live **Sound Studio** (`localStorage` + cross-tab hot-reload) overrides, **Vocal-Tract Growl (`vocal`)** organic formant + flutter synth, Dawn/Day birdsong ↔ Dusk/Night crickets ambient beds, reactive combat-tension swell, terrain-matched footsteps, spatial river/campfire audio, pitch-varied combat/UI SFX, 9-species enemy/wildlife vocalizations (`alert`/`attack`/`charge`/`hurt`/`death`) with distance attenuation (`2.5`–`22` tiles), plus the standalone **Sound Studio** (`/sound-studio.html`) with `+ Vocal Growl` and all 45 creature presets.
+- **Melee Combat, Starter Gear & Composable Gore/Blood/Goo**: Directional 3-hit sword combos, axe/pickaxe/torch swings, slash arc VFX, brief hitstop, knockback, stamina-cost dodge-roll (`0.24s` dodge i-frames) + `0.42s` post-hit player i-frames, default spawn armor (`chest`/`legs`/`feet` equipped; helmet optional in backpack), and orthogonal `GoreStyle` × `GoreSubstance` particles + decals (bespoke blade arcs, chunky slime goop, bone/rubble corpse piles with emissive sparks, diffuse water plumes, opaque ground-sorted corpses, and Sandbox parity).
+- **Shield & Bow**: Dedicated 5th **Shield / Off-Hand** slot (`wooden-shield` auto-clipping Lantern to the hip), directional block & timed parry stagger; hold-to-draw bow with charge gauge and rotated charge-scaled arrows *(elemental hooks deferred to Phase 12)*.
+- **Baseline Wildlife, POIs & Initial Indicators**: 3D-baked spritesheets for all 9 wildlife and POI guard archetypes (`wolf`, `bear`, `spider`, `boar`, `slime`, `goblin`, `orc`, `skeleton`, `golem`), initial perception/scent/chase behaviors, stamped `7×7` Bandit Camps & Ancient Ruins with `[E]` chests and magnetic loot, and an initial pass of overhead AI state icons *(full AI & stealth overhaul promoted to Phase 6)*.
 
-### Phase 5 — Gathering, Light Survival & Gear Tiers
-- Harvestable trees (wood + stumps with regrowth timers), boulders/ore veins (stone, flint, copper, iron), and herbs/berries with hit shake & chip particles.
-- Authoritative **Chunk Delta Store** saving chopped resources, looted chests, and player-placed campfires, torches, wooden chests, workbenches, and forges.
-- Campfire cooking (`raw-meat` -> `cooked-meat`, herb teas/salves) granting timed **Well-Fed** and **Rested** stamina/regen buffs near warm campfires.
-- Four clear gear progression tiers: **Wood & Flint -> Copper & Leather -> Iron & Grizzly -> Shadowsteel & Runic** with tiered weapons, tools, shields, and armor sets.
+### Phase 5 — Zero-Mixel HD-Pixel World Art Pass 🚧 *(Next Up)*
+- Eliminate mixel mismatches between the `32px`-grid Cairo/3D-baked hero & creatures and older procedural world art.
+- Re-author crisp, palette-coherent **Oak & Pine trees** (trunks + layered canopies), **bushes**, **tall grass tufts**, **wildflowers**, **boulders & stumps**, **campfires/torches**, **Bandit Camp tents & wooden palisades**, **Ancient Ruin pillars**, **chests**, and matching item/HUD icons with unified pixel size and tuned relief normal maps.
 
-### Phase 6 — Multi-Biome World, Dynamic Weather & Enterable Underground Dungeons
-- Seamless deterministic outer biomes radiating from the Verdant Forest hub: **Whispering Woods** (dense bioluminescent twilight canopy), **Misty Wetlands** (lily pads, bog mist, slimes), **Craggy Highlands** (multi-tier stone cliffs, ore veins, mountain wind), and **Sunken Ruins** (flooded stonework, ancient guardians).
-- Server-synced **Dynamic Weather**: Clear, Overcast, Light Rain, Thunderstorm (angled GLSL rain streaks, animated puddle splash ripples, lightning flashes casting temporary crisp shadows, wet specular sheen on ground/props).
-- **Enterable Underground Dungeons**: Cave arches and sunken staircases transitioning players into dark, multi-floor procedural dungeons illuminated strictly by carried/placed torches, wall sconces, lava/crystal glow, traps, mini-boss arenas, and floor bosses (The Warden).
+### Phase 6 — Full Stealth RPG, Hearing/Vision & Ecological AI Overhaul
+- **Full Stealth Mechanics**: Dedicated crouch/sneak mode (lower speed & near-zero footstep noise), bush/tall-grass & shadow concealment, dynamic **light-level visibility meter** (driven by Day/Night lightmap + carried torch state + nearby campfires/torches), thrown distractions (pebbles/rocks creating investigate noise points), and **silent takedowns / backstab criticals** on unaware targets.
+- **3-Stage Perception & Bug-Free Diegetic Markers**: Split perception cleanly into **Heard / Suspicious (`?`)** -> **Spotted / Aggroed (brief crisp `!` pop, never stuck)** -> **Distinct Attack Windup / Telegraph**, fixing all flicker, stuck-marker, and offset bugs in `aiStateIndicators.ts`.
+- **Ecological & Hive-Mind AI Overhaul**:
+  - **Wolf Pack Hive-Mind**: Alerting one wolf immediately howls and rallies all nearby wolves regardless of spawn group; shared per-target encirclement with organic radius/angle jitter (never two overlapping uniform rings); wolves positioned *behind* the player's facing vector dart in for quick bites and peel back into cover.
+  - **Creature Tuning**: Bear territorial bluff/warning vs hunger/scavenging balance, Boar wall-stun & charge recovery feel, Spider true cover-ambush/pounce, Slime cohesion, and noise propagation from sprinting/swings/combat.
 
-### Phase 7 — Composable Effects Engine & Real-Time AI Crafting
-- **Data-Driven Composable Effects (`@dc2d/engine`)**: Composable primitives (`modify_health`, `modify_stat`, `apply_status`, `remove_status`, `spawn_area`, triggers, projectiles, custom visuals), elemental arrow & weapon hooks, and elemental area reactions (fire, frost, poison, shock, wet).
-- **Cross-Referenced Content Registries**: Runtime-validated registries for items, recipes, statuses, and effect graphs so scripted and generated content share one authoritative simulation path.
-- **Real-Time AI Crafting & Invention Pipeline**: Schema-validated AI crafting able to invent balanced novel items, consumables, recipes, and interactions safely during play.
+### Phase 7 — Weapon-Specific Attack Animations, Movesets & Combat Polish
+- Distinct per-weapon attack animations, hitboxes, stamina costs, and gore matching:
+  - **Sword**: agile 3-hit slash -> backhand -> finisher lunge combo.
+  - **Axe**: deliberate heavy sideways chop (single swing cadence, doubles seamlessly as tree-chopping stroke).
+  - **Pickaxe**: heavy overhead downward slam (single swing cadence, doubles cleanly as stone/ore mining stroke).
+  - **Torch**: short flame sweep / ignite thrust.
+  - Extensible archetype slots prepared for future **Spear** thrust, **Dagger** rapid stab + stealth-crit multiplier, and **Greatsword** cleave.
 
-### Phase 8 — Co-op Polish, Progression & QA Benchmarks
-- **Multiplayer & QoL**: Party invites, revive hold-interaction, compact minimap & POI compass, XP/perk milestones, and full desktop/mobile Playwright visual regression & frame-time benchmarks across Quality Presets (`High / Balanced / Performance`).
+### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas
+- Harvestable trees (wood + regrowing stumps), boulders/ore veins (`stone`, `flint`, `copper`, `iron`), and herbs/berries with hit shake & debris bursts.
+- **Valheim-Lite Camp Building**: Craft and place **campfires**, standing **torches**, **storage chests**, **workbenches**, **beds (set custom respawn point)**, and simple **wooden palisades / shelters**.
+- **Light Survival & Cooking**: Campfire cooking (`raw-meat` -> `cooked-meat`, herb teas/salves) granting timed **Well-Fed** and **Rested** stamina/HP regen buffs near warm hearths (zero punitive starvation deaths).
+- **Authoritative Persistence Store**: Save chunk deltas (chopped resources, looted POI chests, placed camp structures/beds) and player progression cleanly across server restarts.
+
+### Phase 9 — Exploration, Diverse Overworld POIs, Fog-of-War Map & Safe-Room Town Hubs
+- **Rich Overworld Landmarks**: Expand far beyond the first two `7×7` POIs — roadside **shrines**, **ruined watchtowers**, **abandoned camps**, **crossroads signposts**, **hidden foraging groves**, **corrupted clearings**, and **mini-boss lairs**.
+- **Fog-of-War Overworld Map**: Reveal explored tiles with clickable/readable landmark pins, placed campfire/bed markers, and **Stairwell** directional hints.
+- **Safe Rooms & Town Hubs *(DCC-Inspired)***: Restorative sanctuaries with persistent NPCs (Floor Guide mentor, blacksmith, merchant, **Bounty / Quest Board**), hand-authored floor side-quests, and safe shared crafting/stash space.
+
+### Phase 10 — Gear Tiers, Progression, Floor Bosses & DCC Floor Countdown Loop
+- **Gear Tiers & Loot Depth**: Four distinct progression tiers (**Wood & Flint -> Copper & Leather -> Iron & Grizzly -> Shadowsteel & Runic**) with meaningful drop tables and light skill/XP milestones.
+- **DCC Floor Collapse Countdown & Stairwell Descent**: Authoritative multi-day **Floor Countdown Timer** ticking across the floor's day/night cycle; explore, gear up, and locate/unlock the **Floor Stairwell** (guarded by a **Floor Boss** or stairwell seal) and descend before the floor collapses.
+
+### Phase 11 — Multi-Biome Floors, Dynamic Weather & Enterable Pitch-Black Dungeons
+- **Seamless Outer Biomes & Floor Themes**: **Verdant Overworld**, **Whispering Woods** (bioluminescent twilight canopy), **Misty Wetlands** (lily pads, bog mist, slimes), **Craggy Highlands** (multi-tier stone cliffs, ore veins, mountain wind), and **Sunken Ruins** (flooded stonework, ancient guardians).
+- **Server-Synced Dynamic Weather**: Clear, Overcast, Light Rain, and Thunderstorm (angled GLSL rain streaks, animated puddle splash ripples, lightning flashes casting temporary crisp shadows, wet specular sheen).
+- **Enterable Pitch-Black Dungeons & Deeper Floors**: Stairwells and cave arches transitioning players into multi-floor dark interiors lit strictly by carried/placed torches, wall sconces, lava/crystal glow, traps, mini-boss arenas, and iconic Floor Bosses (The Warden & beyond).
+
+### Phase 12 — Composable Effects Engine & Real-Time System-AI Crafting / Reward Boxes
+- **Data-Driven Composable Effects (`@dc2d/engine`)**: Composable primitives (`modify_health`, `modify_stat`, `apply_status`, `remove_status`, `spawn_area`, triggers, projectiles, custom visuals), elemental weapon/arrow hooks, and elemental area reactions (`fire`, `frost`, `poison`, `shock`, `wet`).
+- **System-AI Crafting & Achievement Reward Boxes *(DCC-Inspired)***: Cross-referenced runtime registries powering validated AI item/recipe invention plus **DCC-style Achievement & Sponsor Reward Boxes** rolling chaotic-yet-balanced loot safely during play.
+
+### Phase 13 — Co-op Polish, Adaptive Music & QA Benchmarks
+- **Adaptive Soundtrack & Audio Polish**: Context-reactive music across exploration, night, stealth tension, boss battles, and deep floors, plus harvest/build/stealth SFX and final curated creature audio.
+- **Multiplayer & Performance Gate**: Party invites, co-op downed revive hold-interaction, shared floor-countdown sync, and automated desktop/mobile Playwright visual regression & frame-time benchmarks across Quality Presets (`High / Balanced / Performance`).
