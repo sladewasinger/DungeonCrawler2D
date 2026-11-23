@@ -101,8 +101,10 @@ function triggerLiveStrike(opts: {
   const { actor, nx, ny, dist, stopDist, onHitPlayer, events } = opts;
   if (actor.snap.kind === "boar" && dist > 1.7) {
     actor.chargeDx = nx; actor.chargeDy = ny; actor.chargeSec = 1.55;
+    events.push({ kind: "creatureVocal", x: actor.snap.x, y: actor.snap.y, dirX: nx, dirY: ny, actorId: actor.snap.id, entityKind: actor.snap.kind, vocalKind: "charge" });
     return;
   }
+  events.push({ kind: "swing", x: actor.snap.x, y: actor.snap.y, dirX: nx, dirY: ny, actorId: actor.snap.id, entityKind: actor.snap.kind });
   if (dist <= stopDist + 0.55) {
     const ev = onHitPlayer();
     if (ev) events.push(ev);
@@ -147,14 +149,16 @@ function unitDir(dx: number, dy: number, dist: number): { readonly x: number; re
 }
 
 function tryStartWindup(opts: {
-  readonly actor: SandboxActor; readonly nx: number; readonly ny: number; readonly dist: number; readonly stopDist: number;
+  readonly actor: SandboxActor; readonly nx: number; readonly ny: number;
+  readonly dist: number; readonly stopDist: number; readonly events: WorldEvent[];
 }): boolean {
-  const { actor, nx, ny, dist, stopDist } = opts;
+  const { actor, nx, ny, dist, stopDist, events } = opts;
   const s = actor.snap;
   const inBoarRange = s.kind === "boar" && dist >= 1.9 && dist <= 11.5;
   if (actor.cooldownSec > 0 || (dist > stopDist + 0.35 && !inBoarRange)) return false;
   actor.windupSec = 0.55;
   actor.snap = { ...s, facingX: nx, facingY: ny, aiState: s.kind === "boar" ? "charge" : "idle", telegraphProgress: 0.1 };
+  events.push({ kind: "telegraph", x: s.x, y: s.y, actorId: s.id, entityKind: s.kind });
   return true;
 }
 
@@ -172,7 +176,7 @@ function stepLiveActor(opts: {
   const { x: nx, y: ny } = unitDir(dx, dy, dist);
   const stopDist = s.kind === "golem" ? 1.55 : 1.18;
   if (advanceWindupPhase({ actor, nx, ny, dist, stopDist, dt, onHitPlayer, events })) return;
-  if (tryStartWindup({ actor, nx, ny, dist, stopDist })) return;
+  if (tryStartWindup({ actor, nx, ny, dist, stopDist, events })) return;
   advanceLiveChase({ actor, allActors, nx, ny, dist, stopDist, dt });
 }
 

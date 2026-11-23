@@ -107,6 +107,7 @@ export interface WildlifeEntity {
   patrolMoveTimer: number;
   patrolGoalX: number;
   patrolGoalY: number;
+  vocalCooldown: number;
 }
 
 export function createWildlifeEntity(opts: {
@@ -128,6 +129,7 @@ export function createWildlifeEntity(opts: {
     navPath: [], navGoalX: opts.x, navGoalY: opts.y, navTimer: 0, navReachedGoal: true,
     unreachableTimer: 0, provokedTimer: 0, jumpZ: 0, jumpVz: 0, jumpStepped: false,
     patrolPauseTimer: 1.0 + (opts.packSlot % 3) * 0.9, patrolMoveTimer: 0, patrolGoalX: opts.x, patrolGoalY: opts.y,
+    vocalCooldown: 0,
   };
 }
 

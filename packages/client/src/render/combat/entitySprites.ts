@@ -10,13 +10,21 @@ type WorldEntityKind = WorldEntitySnapshot["kind"];
 
 const KIND_SLIME_DUMMY: WorldEntityKind = "slime-dummy";
 const KIND_SLIME: WorldEntityKind = "slime";
+const PILE_CORPSE_KINDS = new Set<WorldEntityKind>(["golem", "skeleton"]);
+const CORPSE_GROUND_Z_OFFSET = -500_000;
 
 function isCorpseState(snap: WorldEntitySnapshot): boolean {
   return Boolean(snap.corpse) || snap.hp <= 0;
 }
 
+function resolveEntityZIndex(snap: WorldEntitySnapshot, dead: boolean): number {
+  if (!dead) return Math.round(snap.y * TILE_PX) + snap.elevation * 2;
+  if (snap.elevation === 0) return CORPSE_GROUND_Z_OFFSET + Math.round(snap.y * TILE_PX);
+  return Math.floor(snap.y) * TILE_PX + snap.elevation + 0.5;
+}
+
 function resolveBodyTint(snap: WorldEntitySnapshot): number {
-  if (isCorpseState(snap)) return 0x94a3b8;
+  if (isCorpseState(snap)) return 0xcbd5e1;
   if (snap.hitTimer > 0) return 0xfca5a5;
   if (snap.staggerTimer > 0) return 0xfef08a;
   return 0xffffff;
@@ -95,6 +103,10 @@ class EntityView {
   }
 
   sync(snap: WorldEntitySnapshot, timeSec: number): void {
+    const dead = isCorpseState(snap);
+    const hidePileCorpse = dead && PILE_CORPSE_KINDS.has(snap.kind);
+    this.root.visible = !hidePileCorpse;
+    if (hidePileCorpse) return;
     const moved = Number.isFinite(this.lastX) && Math.hypot(snap.x - this.lastX, snap.y - this.lastY) > 0.004;
     if (moved) this.moveHoldUntilSec = timeSec + 0.14;
     this.lastX = snap.x;
@@ -102,7 +114,8 @@ class EntityView {
     const jumpZ = snap.jumpZ ?? 0;
     const lift = snap.elevation * ELEVATION_LIFT_PX;
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - lift);
-    this.root.zIndex = Math.round(snap.y * TILE_PX) + snap.elevation * 2;
+    this.root.zIndex = resolveEntityZIndex(snap, dead);
+    this.shadow.visible = !dead;
     this.shadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.6));
     this.shadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
     this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge" });
@@ -119,7 +132,7 @@ class EntityView {
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
     if (!frame) return false;
     this.body.texture = frame.texture;
-    this.body.alpha = opts.dead ? 0.82 : 1;
+    this.body.alpha = 1;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
     this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
     this.body.tint = resolveBodyTint(opts.snap);
@@ -133,14 +146,14 @@ class EntityView {
     if (this.syncAnimatedSprite({ snap, timeSec, moving, dead })) return;
     const slime = this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME;
     if (dead && slime) {
-      this.body.alpha = 0.25;
+      this.body.alpha = 1;
       this.body.rotation = 0;
       this.body.position.y = 0;
       this.body.scale.set(1.15 * this.baseScale, 0.35 * this.baseScale);
       this.body.tint = 0x86efac;
       return;
     }
-    this.body.alpha = dead ? 0.72 : 1;
+    this.body.alpha = 1;
     this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
     this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead });
     this.body.tint = resolveBodyTint(snap);

@@ -170,7 +170,7 @@ export function applyActorDamage(opts: {
     kind: "hit", actorId: attackerId, targetId: actor.snap.id, x: actor.snap.x, y: actor.snap.y,
     dirX, dirY, value: dmg, comboStep: opts.comboStep, sweepDir: opts.sweepDir,
     goreStyle: resolveActorGoreStyle({ actor, goreStyle: baseStyle, dead, comboStep: opts.comboStep }),
-    substance: actor.snap.substance, fatal: dead,
+    substance: actor.snap.substance, fatal: dead, entityKind: actor.snap.kind,
   };
 }
 

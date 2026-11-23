@@ -33,6 +33,7 @@ function decayTimers(e: WildlifeEntity, dt: number): void {
   e.alertedTimer = Math.max(0, e.alertedTimer - dt);
   e.navTimer = Math.max(0, e.navTimer - dt);
   e.provokedTimer = Math.max(0, e.provokedTimer - dt);
+  e.vocalCooldown = Math.max(0, e.vocalCooldown - dt);
 }
 
 function canNoticePlayer(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly p: CombatPlayerCandidate; readonly dist: number }): boolean {
@@ -73,7 +74,7 @@ function finishWindupStrike(opts: {
   e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
   if (e.telegraphTimer > 0) return;
   e.attackCooldown = spec.cooldownSec;
-  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id });
+  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id, entityKind: e.kind });
   if (Math.hypot(target.x - e.x, target.y - e.y) <= spec.range + 0.35) onStrike(e, target);
 }
 
@@ -93,7 +94,7 @@ function stepMeleeAttack(opts: {
     e.aiState = ST_CHASE;
     e.telegraphTimer = spec.windupSec;
     e.windupDuration = spec.windupSec;
-    events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id });
+    events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
     return true;
   }
   return false;
@@ -136,7 +137,7 @@ function stepBoarTarget(input: StepCreatureInput, target: CombatPlayerCandidate)
   const { cache, e, allEntities, events, dt, onStrike } = input;
   const spec = CREATURE_SPECS.boar;
   const stopRadius = Math.max(0.75, spec.range * 0.68);
-  const boar = stepBoarBehavior({ cache, e, target, dt, onStrike });
+  const boar = stepBoarBehavior({ cache, e, target, dt, onStrike, events });
   if (boar.mode === "done") return;
   if (boar.mode === "melee") {
     if (!stepMeleeAttack({ e, target, events, dt, onStrike })) {
@@ -222,6 +223,10 @@ function checkUnreachableGlare(e: WildlifeEntity, dt: number): boolean {
 function pursueKnownTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {
   const { cache, e, dayPhase, dt } = input;
   if (isOutsideLeash(e, target)) { enterReturnState(e); return; }
+  if (e.targetPlayerId !== target.id && e.vocalCooldown <= 0) {
+    e.vocalCooldown = 3.5;
+    input.events.push({ kind: "creatureVocal", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind, vocalKind: "alert" });
+  }
   e.targetPlayerId = target.id;
   e.lastKnownX = target.x;
   e.lastKnownY = target.y;

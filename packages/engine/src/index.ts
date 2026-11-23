@@ -102,6 +102,7 @@ export {
 } from "./net/protocol.js";
 export type {
   ClientMessage,
+  CreatureVocalKind,
   GroundLootSnapshot,
   InventorySnapshot,
   PlayerSnapshot,

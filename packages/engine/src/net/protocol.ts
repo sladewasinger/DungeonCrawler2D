@@ -209,7 +209,7 @@ export const GroundLootSnapshotSchema = z.object({
 export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 
 export const WorldEventSchema = z.object({
-  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot"]),
+  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal"]),
   x: z.number(),
   y: z.number(),
   dirX: z.number().optional(),
@@ -222,9 +222,12 @@ export const WorldEventSchema = z.object({
   goreStyle: GoreStyleSchema.optional(),
   substance: GoreSubstanceSchema.optional(),
   fatal: z.boolean().optional(),
+  entityKind: z.enum(ENTITY_KINDS).optional(),
+  vocalKind: z.enum(["alert", "attack", "charge", "hurt", "death"]).optional(),
 });
 
 export type WorldEvent = z.infer<typeof WorldEventSchema>;
+export type CreatureVocalKind = NonNullable<WorldEvent["vocalKind"]>;
 
 export const ServerWelcomeSchema = z.object({
   t: z.literal("welcome"),

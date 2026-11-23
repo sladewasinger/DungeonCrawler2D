@@ -1,7 +1,9 @@
 /** Mobile-unlocked Hybrid Web Audio Engine with sample-first overrides, panning, and footsteps. */
-import { GroundKind, advanceGaitClock, clamp, createGaitClock, type PlayerSnapshot, type WorldChunkCache, type WorldEvent } from "@dc2d/engine";
+import { GroundKind, advanceGaitClock, createGaitClock, type CreatureVocalKind, type PlayerSnapshot, type WorldChunkCache, type WorldEvent } from "@dc2d/engine";
 import { AmbienceBed } from "./ambienceBed.js";
 import { loadAudioPrefs, saveAudioPrefs, type AudioPrefs } from "./audioPrefs.js";
+import { isWildlifeVoiceKind, synthCreatureVocal, type CreatureVoiceKind } from "./creatures/synthCreatureSfx.js";
+import { computeSpatialMix, createSpatialBus } from "./spatialMix.js";
 import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
 import { synthCombatCue, synthImpact, synthSwing, synthUi } from "./synthSfx.js";
 
@@ -18,10 +20,9 @@ export class AudioEngine {
 
   constructor() {
     const unlock = (): void => { this.ensureUnlocked(); };
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("keydown", unlock, { passive: true });
-    window.addEventListener("touchstart", unlock, { passive: true });
-    try { this.ensureUnlocked(); } catch { /* Browsers blocking autoplay unlock on first gesture */ }
+    for (const evt of ["pointerdown", "mousedown", "keydown", "touchstart", "click"] as const) {
+      window.addEventListener(evt, unlock, { capture: true, passive: true });
+    }
   }
 
   getPrefs(): AudioPrefs { return this.prefs; }
@@ -45,6 +46,7 @@ export class AudioEngine {
   }
 
   playUi(kind: "click" | "equip" | "craft" | "open"): void {
+    this.ensureUnlocked();
     if (!this.ctx || !this.sfxGain) return;
     synthUi(this.ctx, this.sfxGain, kind);
   }
@@ -52,8 +54,9 @@ export class AudioEngine {
   handleWorldEvents(events: readonly WorldEvent[], listener: { readonly x: number; readonly y: number }): void {
     if (!this.ctx || !this.sfxGain) return;
     for (const ev of events) {
-      const pan = clamp((ev.x - listener.x) / 8, -0.85, 0.85);
-      const node = this.createPanner(pan);
+      const mix = computeSpatialMix({ dx: ev.x - listener.x, dy: ev.y - listener.y });
+      if (!mix.audible) continue;
+      const node = createSpatialBus({ ctx: this.ctx, dst: this.sfxGain, mix });
       this.dispatchWorldEvent(ev, node);
     }
   }
@@ -75,15 +78,71 @@ export class AudioEngine {
     if (input.local) this.stepLocalMovementAudio(input.local, input.cache);
   }
 
-  private dispatchWorldEvent(ev: WorldEvent, dst: AudioNode): void {
+  private playCreatureVoice(opts: {
+    readonly kind: CreatureVoiceKind;
+    readonly vocal: CreatureVocalKind;
+    readonly dst: AudioNode;
+    readonly gainScale?: number;
+    readonly delaySec?: number;
+  }): void {
     if (!this.ctx) return;
-    if (ev.kind === "hit") {
-      this.tension = Math.min(1, this.tension + 0.45);
-      synthImpact({ ctx: this.ctx, dst, substance: ev.substance ?? "blood", fatal: Boolean(ev.fatal) });
+    synthCreatureVocal({
+      ctx: this.ctx,
+      dst: opts.dst,
+      kind: opts.kind,
+      vocal: opts.vocal,
+      sampleOverride: this.bed.sample(`creature:${opts.kind}:${opts.vocal}`),
+      gainScale: opts.gainScale,
+      delaySec: opts.delaySec,
+    });
+  }
+
+  private dispatchHitEvent(ev: WorldEvent, dst: AudioNode): void {
+    if (!this.ctx) return;
+    this.tension = Math.min(1, this.tension + 0.45);
+    synthImpact({ ctx: this.ctx, dst, substance: ev.substance ?? "blood", fatal: Boolean(ev.fatal) });
+    if (isWildlifeVoiceKind(ev.entityKind)) {
+      this.playCreatureVoice({
+        kind: ev.entityKind,
+        vocal: ev.fatal ? "death" : "hurt",
+        dst,
+        gainScale: ev.fatal ? 1.2 : 1.0,
+        delaySec: 0.035,
+      });
+    }
+  }
+
+  private dispatchSwingEvent(ev: WorldEvent, dst: AudioNode): void {
+    if (!this.ctx) return;
+    if (isWildlifeVoiceKind(ev.entityKind)) {
+      this.playCreatureVoice({ kind: ev.entityKind, vocal: "attack", dst });
       return;
     }
-    if (ev.kind === "swing") { synthSwing(this.ctx, dst, ev.comboStep ?? 1); return; }
-    if (ev.kind === "telegraph") { this.tension = Math.min(1, this.tension + 0.35); synthCombatCue(this.ctx, dst, "telegraph"); return; }
+    synthSwing(this.ctx, dst, ev.comboStep ?? 1);
+  }
+
+  private dispatchTelegraphEvent(ev: WorldEvent, dst: AudioNode): void {
+    if (!this.ctx) return;
+    this.tension = Math.min(1, this.tension + 0.35);
+    if (isWildlifeVoiceKind(ev.entityKind)) {
+      this.playCreatureVoice({ kind: ev.entityKind, vocal: "alert", dst, gainScale: 0.9 });
+      return;
+    }
+    synthCombatCue(this.ctx, dst, "telegraph");
+  }
+
+  private dispatchVocalEvent(ev: WorldEvent, dst: AudioNode): void {
+    if (isWildlifeVoiceKind(ev.entityKind) && ev.vocalKind) {
+      this.playCreatureVoice({ kind: ev.entityKind, vocal: ev.vocalKind, dst });
+    }
+  }
+
+  private dispatchWorldEvent(ev: WorldEvent, dst: AudioNode): void {
+    if (!this.ctx) return;
+    if (ev.kind === "hit") { this.dispatchHitEvent(ev, dst); return; }
+    if (ev.kind === "swing") { this.dispatchSwingEvent(ev, dst); return; }
+    if (ev.kind === "telegraph") { this.dispatchTelegraphEvent(ev, dst); return; }
+    if (ev.kind === "creatureVocal") { this.dispatchVocalEvent(ev, dst); return; }
     synthCombatCue(this.ctx, dst, ev.kind);
   }
 
@@ -117,15 +176,6 @@ export class AudioEngine {
     if (gait.stepTriggered) synthFootstep({ ctx: this.ctx, dst: this.sfxGain, ground, sprinting });
   }
 
-  private createPanner(pan: number): AudioNode {
-    if (!this.ctx || !this.sfxGain) throw new Error("Audio context missing");
-    if (typeof this.ctx.createStereoPanner !== "function") return this.sfxGain;
-    const panner = this.ctx.createStereoPanner();
-    panner.pan.value = pan;
-    panner.connect(this.sfxGain);
-    return panner;
-  }
-
   private ensureUnlocked(): void {
     if (!this.ctx) {
       const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -139,7 +189,9 @@ export class AudioEngine {
       this.masterGain.connect(this.ctx.destination);
       this.syncGains();
     }
-    if (this.ctx.state === "suspended") void this.ctx.resume();
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume().then(() => this.syncGains()).catch(() => {});
+    }
   }
 
   private syncGains(): void {

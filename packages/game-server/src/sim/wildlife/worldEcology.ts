@@ -154,7 +154,7 @@ export class WorldEcology {
     opts.events.push({
       kind: "hit", x: e.x, y: e.y, dirX: opts.dirX, dirY: opts.dirY, value: opts.damage,
       actorId: opts.actorId, targetId: e.id, comboStep: opts.comboStep, sweepDir: opts.sweepDir,
-      goreStyle, substance: spec.substance, fatal,
+      goreStyle, substance: spec.substance, fatal, entityKind: e.kind,
     });
     if (fatal) this.finalizeDeath(e);
     return true;

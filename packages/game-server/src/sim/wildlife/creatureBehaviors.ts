@@ -1,5 +1,5 @@
 /** Specialized archetype steering, separation, and combat helpers for wildlife & POI guards. */
-import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, computeFlankRingSlot, hashUnit2d, isInSanctuary, resolveMovement, type AiState } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, computeFlankRingSlot, hashUnit2d, isInSanctuary, resolveMovement, type AiState, type WorldEvent } from "@dc2d/engine";
 import {
   CREATURE_SPECS, ITEM_RAW_MEAT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_FEED, ST_FLANK, ST_IDLE, ST_PATROL,
   type WildlifeEntity,
@@ -92,7 +92,7 @@ export function stepBearScavenge(opts: {
   return { x: hit.food.x, y: hit.food.y, speedMult: 0.85 };
 }
 
-function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate): void {
+function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate, events: WorldEvent[]): void {
   const dx = target.x - e.x;
   const dy = target.y - e.y;
   const mag = Math.max(0.01, Math.hypot(dx, dy));
@@ -103,6 +103,7 @@ function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate): void
   e.chargeTimer = AI_TUNING.boarChargeDurationSec;
   e.chargeHitDealt = false;
   e.aiState = ST_CHARGE;
+  events.push({ kind: "creatureVocal", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id, entityKind: e.kind, vocalKind: "charge" });
 }
 
 function advanceActiveBoarCharge(opts: {
@@ -150,7 +151,7 @@ function resolveBoarCooldownSteer(e: WildlifeEntity, offset: { readonly dx: numb
   return { mode: "steer", steer: { x: e.x + offset.dx, y: e.y + offset.dy, speedMult: 1.0 } };
 }
 
-function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidate): BoarAction {
+function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidate, events: WorldEvent[]): BoarAction {
   const dx = target.x - e.x;
   const dy = target.y - e.y;
   const dist = Math.hypot(dx, dy);
@@ -159,6 +160,7 @@ function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidat
     e.telegraphTimer = AI_TUNING.boarWindupSec;
     e.windupDuration = AI_TUNING.boarWindupSec;
     e.aiState = ST_CHARGE;
+    events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
     return { mode: "done" };
   }
   return resolveBoarCooldownSteer(e, { dx, dy, dist });
@@ -167,17 +169,18 @@ function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidat
 export function stepBoarBehavior(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
   readonly target: CombatPlayerCandidate; readonly dt: number; readonly onStrike: StrikePlayerFn;
+  readonly events: WorldEvent[];
 }): BoarAction {
-  const { cache, e, target, dt } = opts;
+  const { cache, e, target, dt, events } = opts;
   if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return { mode: "done" }; }
   if (e.chargeRecoverTimer > 0) { advanceBoarRecovery(e, cache, dt); return { mode: "done" }; }
   if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) {
     faceTarget(e, target);
     e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
-    if (e.telegraphTimer === 0) beginBoarCharge(e, target);
+    if (e.telegraphTimer === 0) beginBoarCharge(e, target, events);
     return { mode: "done" };
   }
-  return resolveBoarMoveOrCharge(e, target);
+  return resolveBoarMoveOrCharge(e, target, events);
 }
 
 function isNightPhase(dayPhase: number): boolean {
