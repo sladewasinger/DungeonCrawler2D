@@ -7,14 +7,17 @@ Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly s
 2. Run one command from repo root:
    ```bash
    npm run sprite:bake -- goblin
+   npm run sprite:bake -- boar
    ```
-   This runs headless Blender (`export_blend.py`), discovers every matching Action (`idle`, `walk`, `run`, `attack`, `corpse`), renders color + depth turntable frames (`South`, `Side`, `North`), applies Cainos hue-shifted sel-out post-processing (`bakeSpriteSheet.mjs`), writes `<creature>-sheet.png` + `<creature>.png`, and updates `sprite-manifest.json`.
+   This runs headless Blender (`export_blend.py`), auto-reads scene resolution (`64px` Goblin / `80px` Boar), discovers every matching Action (`idle`, `walk`, `run`, `attack`, `corpse`) plus optional `fps` / `loopStart` / `loopEnd` custom properties, renders color + depth turntable frames (`South`, `Side`, `North`), applies Cainos hue-shifted sel-out post-processing (`bakeSpriteSheet.mjs`), writes `<creature>-sheet.png` + `<creature>.png`, and updates `sprite-manifest.json`.
 3. Refresh `http://localhost:5174/?sandbox=1` to preview live.
 
 ## Pipeline Modules
 - `studio_core.py`: Locked `38°` orthographic `StudioCam`, upper-left `StudioSun`, `Standard` color management (`0.01px` filter, transparent RGBA), 3-band flat `make_toon_material()` EEVEE cel shader, `StudioDepthMat` linear depth pass, and `render_turntable_clip()`.
 - `build_goblin.py` / `goblin.blend`: Reusable `Rig_ChibiHumanoid` armature (`Socket_Hand_R`, `Socket_Hand_L`, `Socket_Head`, `Socket_Back` sockets) and bare Goblin model.
-- `humanoid_actions.py`: Reusable `Rig_ChibiHumanoid` Actions (`Walk`, `Run`, `Attack`, `Corpse`) runnable without altering custom sculpted meshes (`align_ears_to_bones()`, `apply_humanoid_actions()`).
+- `humanoid_actions.py`: Reusable `Rig_ChibiHumanoid` Actions (`Idle`, `Walk`, `Run`, `Attack`, `Corpse`) runnable without altering custom sculpted meshes (`align_ears_to_bones()`, `apply_humanoid_actions()`).
+- `build_boar.py` / `boar.blend`: Reusable `Rig_Quadruped` armature (`Socket_Head`, `Socket_Back`, `Socket_Mouth` sockets) and stylized Wild Boar (`80x80` cell, `groundY = 64`).
+- `quadruped_actions.py`: Reusable `Rig_Quadruped` Actions (`Idle`, `Walk`, `Run`, 8-frame `Attack` [F1-3 pawing windup, F4-6 charge loop, F7-8 braking outro], and `Corpse`).
 - `export_blend.py`: Headless Blender CLI script rendering all canonical Actions cleanly without modifying `.blend`.
 - `pngCodec.mjs`: Pure Node 8-bit PNG decoder and encoder.
 - `pixelPost.mjs`: Binary alpha cleanup, internal depth-crease separation, hue-shifted colored outlines (`sel-out`), horizontal centering, and foot grounding.

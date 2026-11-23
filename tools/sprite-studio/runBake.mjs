@@ -49,7 +49,7 @@ function parseBakeCli(argv) {
   return {
     creature,
     review: pickBakeOpt(opts, "review", positional[1] ?? ""),
-    groundY: pickBakeOpt(opts, "groundY", "52"),
+    groundY: pickBakeOpt(opts, "groundY", ""),
   };
 }
 
@@ -66,7 +66,8 @@ function run() {
   const exportScript = path.join(STUDIO_DIR, "export_blend.py");
   execFileSync(blenderExe, ["--background", blendPath, "--python-exit-code", "1", "--python", exportScript, "--", "--out", rawDir], { stdio: "inherit" });
 
-  const bakerArgs = [path.join(STUDIO_DIR, "bakeSpriteSheet.mjs"), "--creature", creature, "--rawDir", rawDir, "--groundY", groundY];
+  const bakerArgs = [path.join(STUDIO_DIR, "bakeSpriteSheet.mjs"), "--creature", creature, "--rawDir", rawDir];
+  if (groundY) bakerArgs.push("--groundY", groundY);
   if (review) bakerArgs.push("--reviewPath", review);
   execFileSync(process.execPath, bakerArgs, { stdio: "inherit" });
 }

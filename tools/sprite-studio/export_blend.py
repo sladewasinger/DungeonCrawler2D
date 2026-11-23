@@ -29,7 +29,7 @@ def parse_args(argv):
             opts[args[i][2:]] = args[i + 1]
     if "out" not in opts:
         raise ValueError("Missing required --out directory argument")
-    return {"out": opts["out"], "cell": int(opts.get("cell", "64"))}
+    return {"out": opts["out"], "cell": int(opts.get("cell", "0"))}
 
 
 def find_action_for_state(state_name):
@@ -63,10 +63,25 @@ def resolve_frame_list(action, state_name):
     return list(range(f_start, f_end + 1))
 
 
+def resolve_clip_entry(action, state_name, frames, defaults):
+    """Build manifest metadata honoring optional Action custom properties."""
+    fps = int(action["fps"]) if "fps" in action else defaults["fps"]
+    entry = {"state": state_name, "frameCount": len(frames), "fps": fps}
+    loop_start = int(action["loopStart"]) if "loopStart" in action else defaults.get("loopStart")
+    loop_end = int(action["loopEnd"]) if "loopEnd" in action else defaults.get("loopEnd")
+    if loop_start is not None and len(frames) > loop_start:
+        entry["loopStart"] = loop_start
+    if loop_end is not None and len(frames) >= loop_end:
+        entry["loopEnd"] = loop_end
+    return entry
+
+
 def main():
     opts = parse_args(sys.argv)
     scene = bpy.context.scene
-    studio_core.configure_color_and_render(scene, opts["cell"])
+    cell_px = opts["cell"] if opts["cell"] > 0 else int(scene.render.resolution_x)
+    ground_y = int(scene["sprite_ground_y"]) if "sprite_ground_y" in scene else (52 if cell_px == 64 else int(round(cell_px * 0.80)))
+    studio_core.configure_color_and_render(scene, cell_px)
     cam = bpy.data.objects.get("StudioCam")
     dist = 10.0 if not cam else cam.location.length
     studio_core.make_depth_override_material(near_dist=max(0.5, dist - 1.4), far_dist=dist + 1.4)
@@ -86,18 +101,13 @@ def main():
         frames = resolve_frame_list(action, state_name)
         bind_action(arm_obj, action)
         studio_core.render_turntable_clip(opts["out"], state_name, frames)
-
-        entry = {"state": state_name, "frameCount": len(frames), "fps": defaults["fps"]}
-        if "loopStart" in defaults and len(frames) > defaults["loopStart"]:
-            entry["loopStart"] = defaults["loopStart"]
-        if "loopEnd" in defaults and len(frames) >= defaults["loopEnd"]:
-            entry["loopEnd"] = defaults["loopEnd"]
-        manifest_clips.append(entry)
+        manifest_clips.append(resolve_clip_entry(action, state_name, frames, defaults))
 
     meta_path = os.path.join(opts["out"], "clips.json")
+    payload = {"cellPx": cell_px, "groundY": ground_y, "directions": ["south", "side", "north"], "clips": manifest_clips}
     with open(meta_path, "w", encoding="utf-8") as fh:
-        json.dump({"cellPx": opts["cell"], "directions": ["south", "side", "north"], "clips": manifest_clips}, fh, indent=2)
-    print(f"Exported {len(manifest_clips)} clips to {opts['out']}")
+        json.dump(payload, fh, indent=2)
+    print(f"Exported {len(manifest_clips)} clips ({cell_px}px, groundY={ground_y}) to {opts['out']}")
 
 
 if __name__ == "__main__":

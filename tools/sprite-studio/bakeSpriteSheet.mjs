@@ -27,7 +27,7 @@ function parseCliArgs(argv) {
     manifestPath: opt("manifestPath", DEFAULT_MANIFEST),
     reviewPath: opt("reviewPath", ""),
     frames: Number(opt("frames", "6")),
-    groundY: Number(opt("groundY", "52")),
+    groundY: map.has("groundY") ? Number(map.get("groundY")) : null,
   };
 }
 
@@ -146,17 +146,19 @@ function bakeAllClips(args, meta) {
 function run() {
   const args = parseCliArgs(process.argv.slice(2));
   const meta = loadClipsMetadata(args);
-  const { postRows, clipEntries } = bakeAllClips(args, meta);
+  const resolvedGroundY = args.groundY ?? meta.groundY ?? Math.round((meta.cellPx ?? 64) * 0.8125);
+  const effectiveArgs = { ...args, groundY: resolvedGroundY };
+  const { postRows, clipEntries } = bakeAllClips(effectiveArgs, meta);
   const cellW = postRows[0][0].width;
   const cellH = postRows[0][0].height;
   const sheet = packRows(postRows, cellW, cellH);
   fs.mkdirSync(args.outCreatures, { recursive: true });
   fs.writeFileSync(path.join(args.outCreatures, `${args.creature}-sheet.png`), encodePng(sheet.width, sheet.height, sheet.rgba));
   fs.writeFileSync(path.join(args.outCreatures, `${args.creature}.png`), encodePng(cellW, cellH, postRows[0][0].rgba));
-  writeReviewContactSheet({ rows: postRows, cellW, cellH, groundY: args.groundY, reviewPath: args.reviewPath });
+  writeReviewContactSheet({ rows: postRows, cellW, cellH, groundY: resolvedGroundY, reviewPath: args.reviewPath });
   const idleBounds = measureSpriteBounds(postRows[0][0]);
-  updateCreatureManifest({ manifestPath: args.manifestPath, creature: args.creature, cellW, cellH, idleBounds, groundY: args.groundY, clipEntries });
-  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, sheet: `${sheet.width}x${sheet.height}`, rows: postRows.length, bounds: idleBounds });
+  updateCreatureManifest({ manifestPath: args.manifestPath, creature: args.creature, cellW, cellH, idleBounds, groundY: resolvedGroundY, clipEntries });
+  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, groundY: resolvedGroundY, sheet: `${sheet.width}x${sheet.height}`, rows: postRows.length, bounds: idleBounds });
 }
 
 run();
