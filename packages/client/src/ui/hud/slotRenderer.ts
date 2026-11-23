@@ -16,6 +16,8 @@ export interface HudActions {
   readonly onMoveSlot: (move: { readonly from: number; readonly to: number }) => void;
   readonly onEquipArmor: (req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }) => void;
   readonly onUnequipArmor: (req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }) => void;
+  readonly onChestTransfer: (req: { readonly chestId?: string | undefined; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }) => void;
+  readonly onChestTakeAll: (chestId: string) => void;
   readonly onCraft: (recipeId: string) => void;
   readonly onSetCharacter: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
   readonly onToggleTorch: () => void;

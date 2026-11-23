@@ -18,6 +18,7 @@ export interface TileLookup {
 }
 
 export class WorldChunkCache {
+  private static readonly maxCachedChunks = 96;
   private readonly chunks = new Map<string, WorldChunk>();
 
   constructor(readonly worldSeed: number) {}
@@ -25,9 +26,17 @@ export class WorldChunkCache {
   getChunk(cx: number, cy: number): WorldChunk {
     const key = chunkKey(cx, cy);
     const existing = this.chunks.get(key);
-    if (existing) return existing;
+    if (existing) {
+      this.chunks.delete(key);
+      this.chunks.set(key, existing);
+      return existing;
+    }
     const generated = generateChunk(this.worldSeed, cx, cy);
     this.chunks.set(key, generated);
+    if (this.chunks.size > WorldChunkCache.maxCachedChunks) {
+      const oldestKey = this.chunks.keys().next().value;
+      if (oldestKey !== undefined) this.chunks.delete(oldestKey);
+    }
     return generated;
   }
 

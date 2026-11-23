@@ -25,9 +25,25 @@ export const enum PropKind {
   Campfire = "campfire",
   Torch = "torch",
   Stump = "stump",
+  Palisade = "palisade",
+  Tent = "tent",
+  RuinPillar = "ruin-pillar",
 }
 
 export type BiomeKind = "verdant-glade" | "deep-forest" | "riverbank" | "highland-ridge";
+export type PoiKind = "bandit-camp" | "ancient-ruins";
+
+export interface ChunkPoi {
+  readonly id: string;
+  readonly kind: PoiKind;
+  readonly cx: number;
+  readonly cy: number;
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly elevation: number;
+  readonly chestX: number;
+  readonly chestY: number;
+}
 
 export interface ChunkProp {
   readonly id: string;
@@ -59,6 +75,7 @@ export interface WorldChunk {
   readonly variant: Uint8Array;
   readonly props: readonly ChunkProp[];
   readonly lights: readonly PointLightSpec[];
+  readonly pois: readonly ChunkPoi[];
 }
 
 export function chunkKey(cx: number, cy: number): string {

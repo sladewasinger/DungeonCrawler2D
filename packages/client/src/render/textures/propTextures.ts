@@ -8,6 +8,7 @@ import {
   makeOutlinedTexture,
   makeTorchFrames,
 } from "./fxPropTextures.js";
+import { makePalisadeTexture, makeRuinPillarTexture, makeTentTexture } from "./poiPropTextures.js";
 
 export interface PropTextureSet {
   readonly oakTrunk: Texture;
@@ -22,6 +23,9 @@ export interface PropTextureSet {
   readonly campfireFrames: readonly Texture[];
   readonly torchFrames: readonly Texture[];
   readonly fallbackKnight: Texture;
+  readonly palisade: Texture;
+  readonly tent: Texture;
+  readonly ruinPillar: Texture;
 }
 
 const LEAF_DARK = "#1f5a2e";
@@ -108,6 +112,9 @@ export function createPropTextureSet(): PropTextureSet {
     campfireFrames: makeCampfireFrames(),
     torchFrames: makeTorchFrames(),
     fallbackKnight: makeFallbackKnight(),
+    palisade: makePalisadeTexture(),
+    tent: makeTentTexture(),
+    ruinPillar: makeRuinPillarTexture(),
   };
 }
 

@@ -100,4 +100,11 @@ describe("collision", () => {
     expect(res.inWater).toBe(true);
     expect(res.speedMultiplier).toBe(0.65);
   });
+
+  it("caps WorldChunkCache with LRU eviction during far exploration", () => {
+    const cache = new WorldChunkCache(1337);
+    for (let cx = 0; cx < 110; cx++) cache.getChunk(cx, 0);
+    expect(cache.size()).toBeLessThanOrEqual(96);
+    expect(cache.size()).toBe(96);
+  });
 });

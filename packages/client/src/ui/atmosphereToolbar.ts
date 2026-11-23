@@ -1,9 +1,12 @@
 /** Compact mobile-first top bar for connection, Bag, Craft, Torch, Quality, Fullscreen, and Atmosphere. */
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
-import { periodForPhase } from "@dc2d/engine";
+import { periodForPhase, type EntityKind } from "@dc2d/engine";
 import type { ConnectionMode } from "../net/worldClient.js";
 import { isFullscreenActive, isFullscreenSupported, onFullscreenChange, toggleFullscreen } from "./fullscreen.js";
+import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
+import { CompassBadge } from "./map/compassBadge.js";
+import { FpsCounter } from "./fpsCounter.js";
 import { ensureToolbarStyles } from "./toolbarStyles.js";
 
 export interface ToolbarCallbacks {
@@ -13,6 +16,7 @@ export interface ToolbarCallbacks {
   readonly onToggleCharacter: () => void;
   readonly onToggleAudio: () => void;
   readonly onZoom: (factor: number) => void;
+  readonly onDebugSpawn?: (kind: EntityKind, count: number) => void;
 }
 
 function isDebugMode(): boolean {
@@ -39,7 +43,10 @@ export class AtmosphereToolbar {
   private readonly qualityBtn: HTMLButtonElement;
   private readonly audioBtn: HTMLButtonElement;
   private readonly fsBtn: HTMLButtonElement;
+  private readonly compass = new CompassBadge();
+  private readonly fps = new FpsCounter();
   private readonly drawer: HTMLDivElement;
+  private readonly spawnPopover: DebugSpawnPopover | null;
   private readonly slider: HTMLInputElement;
   private readonly pauseBtn: HTMLButtonElement;
   private drawerOpen = false;
@@ -58,17 +65,19 @@ export class AtmosphereToolbar {
     this.heroBtn = btn("Hero", () => callbacks.onToggleCharacter());
     this.qualityBtn = btn("FX: High", () => this.cycleQuality(callbacks.onSetQuality));
     const timeBtn = btn("Atmosphere ▾", () => this.toggleDrawer());
-    if (this.debug) bar.append(statusPill, this.bagBtn, this.heroBtn, this.qualityBtn, timeBtn);
+    this.spawnPopover = this.debug ? new DebugSpawnPopover((kind, count) => callbacks.onDebugSpawn?.(kind, count)) : null;
+    const spawnBtn = btn("Spawn ▾", () => this.spawnPopover?.toggle());
+    if (this.debug) bar.append(statusPill, this.bagBtn, this.heroBtn, this.qualityBtn, timeBtn, spawnBtn);
     else bar.append(this.bagBtn, this.heroBtn);
 
     this.drawer = this.buildDrawer(callbacks.onSetDayPhase);
     this.slider = this.drawer.querySelector("input") as HTMLInputElement;
     this.pauseBtn = this.drawer.querySelector("[data-role='pause']") as HTMLButtonElement;
-    if (this.debug) root.append(bar, this.drawer);
+    if (this.debug && this.spawnPopover) root.append(bar, this.drawer, this.spawnPopover.el);
     else root.append(bar);
 
     const topRight = makeRightControls({
-      onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
+      fps: this.fps.el, compass: this.compass.el, onZoom: callbacks.onZoom, onToggleAudio: callbacks.onToggleAudio,
     });
     this.audioBtn = topRight.audioBtn;
     this.fsBtn = topRight.fsBtn;
@@ -92,6 +101,10 @@ export class AtmosphereToolbar {
     return drawer;
   }
 
+  tickFps(nowMs: number): void {
+    this.fps.tick(nowMs);
+  }
+
   sync(state: {
     readonly mode: ConnectionMode;
     readonly dayPhase: number;
@@ -100,11 +113,14 @@ export class AtmosphereToolbar {
     readonly activePanel: ActiveHudPanel;
     readonly audioOpen: boolean;
     readonly audioMuted: boolean;
+    readonly playerX?: number;
+    readonly playerY?: number;
   }): void {
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.heroBtn.dataset.active = String(state.activePanel === "character");
     this.audioBtn.dataset.active = String(state.audioOpen);
     this.audioBtn.textContent = state.audioMuted ? "Muted" : "Audio";
+    this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
     if (this.debug) this.syncDebugBar(state);
     this.syncFullscreenButton();
   }
@@ -154,6 +170,8 @@ function btn(label: string, onClick: () => void): HTMLButtonElement {
 }
 
 function makeRightControls(opts: {
+  readonly fps: HTMLDivElement;
+  readonly compass: HTMLDivElement;
   readonly onZoom: (factor: number) => void;
   readonly onToggleAudio: () => void;
 }): { readonly box: HTMLDivElement; readonly audioBtn: HTMLButtonElement; readonly fsBtn: HTMLButtonElement } {
@@ -174,7 +192,7 @@ function makeRightControls(opts: {
   zoomIn.textContent = "+";
   zoomIn.setAttribute("aria-label", "Zoom in");
   zoomIn.addEventListener("click", () => opts.onZoom(1.18));
-  box.append(audioBtn, fsBtn, zoomOut, zoomIn);
+  box.append(opts.fps, opts.compass, audioBtn, fsBtn, zoomOut, zoomIn);
   return { box, audioBtn, fsBtn };
 }
 

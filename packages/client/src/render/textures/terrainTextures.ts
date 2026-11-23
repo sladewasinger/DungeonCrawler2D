@@ -1,19 +1,27 @@
-/** Multi-variant pixel-art terrain tile painters with rock cliff strata and organic detail. */
-import { GroundKind, TILE_PX } from "@dc2d/engine";
+/** 32x32 pixel-art terrain tiles and extruded 136x306 GPU tileset atlas (nearest + 1px gutter). */
+import { GroundKind } from "@dc2d/engine";
+import { Texture } from "pixi.js";
 import { createPixelCanvas, seededPixelNoise } from "./pixelCanvas.js";
+import {
+  TERRAIN_TEX_PX,
+  paintCliffFaceTile32,
+  paintOrganicDetails,
+  paintStairFaceTile32,
+  type TilePalette,
+} from "./terrainTileDetails.js";
+
+export { TERRAIN_TEX_PX } from "./terrainTileDetails.js";
+
+export const TERRAIN_ATLAS_PAD = 1;
+export const TERRAIN_ATLAS_STRIDE = TERRAIN_TEX_PX + TERRAIN_ATLAS_PAD * 2;
+export const TERRAIN_ATLAS_COLS = 4;
+export const TERRAIN_ATLAS_ROWS = 9;
 
 export interface TerrainTileAtlas {
   readonly variants: ReadonlyMap<GroundKind, readonly HTMLCanvasElement[]>;
+  readonly gpuSheet: Texture;
   readonly cliffFace: HTMLCanvasElement;
   readonly stairFace: HTMLCanvasElement;
-}
-
-interface TilePalette {
-  readonly base: string;
-  readonly mid: string;
-  readonly dark: string;
-  readonly highlight: string;
-  readonly accent?: string;
 }
 
 const GROUND_PALETTES: Readonly<Record<GroundKind, TilePalette>> = {
@@ -28,99 +36,93 @@ const GROUND_PALETTES: Readonly<Record<GroundKind, TilePalette>> = {
   [GroundKind.MossStone]: { base: "#5d7c54", mid: "#4e6d47", dark: "#3d5838", highlight: "#769a67", accent: "#8896a3" },
 };
 
-function paintTerrainTile(kind: GroundKind, variant: number): HTMLCanvasElement {
-  const { canvas, ctx } = createPixelCanvas(TILE_PX, TILE_PX);
-  const palette = GROUND_PALETTES[kind];
-  ctx.fillStyle = palette.base;
-  ctx.fillRect(0, 0, TILE_PX, TILE_PX);
-  scatterTileTexture(ctx, { kind, variant, palette });
-  if (kind === GroundKind.Grass || kind === GroundKind.MeadowGrass || kind === GroundKind.ForestFloor) {
-    paintGrassTufts(ctx, variant, palette);
-  }
-  return canvas;
-}
+const GROUND_KINDS: readonly GroundKind[] = [
+  GroundKind.DeepWater, GroundKind.ShallowWater, GroundKind.Sand, GroundKind.Grass,
+  GroundKind.MeadowGrass, GroundKind.ForestFloor, GroundKind.DirtPath, GroundKind.CliffStone, GroundKind.MossStone,
+];
 
 function pickScatterColor(r: number, palette: TilePalette): string | null {
-  if (r < 0.24) return palette.mid;
-  if (r > 0.965 && palette.accent) return palette.accent;
-  if (r > 0.87) return palette.dark;
-  if (r > 0.74 && r < 0.81) return palette.highlight;
+  if (r < 0.22) return palette.mid;
+  if (r > 0.96 && palette.accent) return palette.accent;
+  if (r > 0.86) return palette.dark;
+  if (r > 0.72 && r < 0.8) return palette.highlight;
   return null;
 }
 
-function scatterTileTexture(
+function paintClusterCell(
   ctx: CanvasRenderingContext2D,
-  input: { readonly kind: GroundKind; readonly variant: number; readonly palette: TilePalette },
+  cell: { readonly x: number; readonly y: number; readonly seed: number },
+  palette: TilePalette,
 ): void {
-  const seed = Number(input.kind) * 193 + input.variant * 41;
-  for (let y = 0; y < TILE_PX; y++) {
-    for (let x = 0; x < TILE_PX; x++) {
-      const color = pickScatterColor(seededPixelNoise(seed, x, y), input.palette);
-      if (color) fillPx(ctx, { x, y, color });
+  const color = pickScatterColor(seededPixelNoise(cell.seed, cell.x, cell.y), palette);
+  if (!color) return;
+  ctx.fillStyle = color;
+  ctx.fillRect(cell.x, cell.y, 2, (cell.x + cell.y) % 4 === 0 ? 2 : 1);
+}
+
+function scatterTileClusters(input: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly kind: GroundKind;
+  readonly variant: number;
+  readonly palette: TilePalette;
+}): void {
+  const { ctx, kind, variant, palette } = input;
+  const seed = Number(kind) * 193 + variant * 41;
+  for (let y = 0; y < TERRAIN_TEX_PX; y += 2) {
+    for (let x = 0; x < TERRAIN_TEX_PX; x += 2) paintClusterCell(ctx, { x, y, seed }, palette);
+  }
+}
+
+function paintTerrainTile32(kind: GroundKind, variant: number): HTMLCanvasElement {
+  const { canvas, ctx } = createPixelCanvas(TERRAIN_TEX_PX, TERRAIN_TEX_PX);
+  const palette = GROUND_PALETTES[kind];
+  ctx.fillStyle = palette.base;
+  ctx.fillRect(0, 0, TERRAIN_TEX_PX, TERRAIN_TEX_PX);
+  scatterTileClusters({ ctx, kind, variant, palette });
+  paintOrganicDetails({ ctx, kind, variant, palette });
+  return canvas;
+}
+
+function extrudeSlotGutter(ctx: CanvasRenderingContext2D, tile: HTMLCanvasElement, pos: { readonly dx: number; readonly dy: number }): void {
+  const { dx, dy } = pos;
+  const inner = TERRAIN_TEX_PX;
+  ctx.drawImage(tile, dx, dy);
+  ctx.drawImage(tile, 0, 0, inner, 1, dx, dy - 1, inner, 1);
+  ctx.drawImage(tile, 0, inner - 1, inner, 1, dx, dy + inner, inner, 1);
+  ctx.drawImage(ctx.canvas, dx, dy - 1, 1, inner + 2, dx - 1, dy - 1, 1, inner + 2);
+  ctx.drawImage(ctx.canvas, dx + inner - 1, dy - 1, 1, inner + 2, dx + inner, dy - 1, 1, inner + 2);
+}
+
+function buildExtrudedGpuSheet(variants: ReadonlyMap<GroundKind, readonly HTMLCanvasElement[]>): Texture {
+  const sheetW = TERRAIN_ATLAS_COLS * TERRAIN_ATLAS_STRIDE;
+  const sheetH = TERRAIN_ATLAS_ROWS * TERRAIN_ATLAS_STRIDE;
+  const { canvas, ctx } = createPixelCanvas(sheetW, sheetH);
+  for (const kind of GROUND_KINDS) {
+    const bank = variants.get(kind) ?? [];
+    for (let v = 0; v < TERRAIN_ATLAS_COLS; v++) {
+      const tile = bank[v];
+      if (!tile) continue;
+      extrudeSlotGutter(ctx, tile, {
+        dx: v * TERRAIN_ATLAS_STRIDE + TERRAIN_ATLAS_PAD,
+        dy: Number(kind) * TERRAIN_ATLAS_STRIDE + TERRAIN_ATLAS_PAD,
+      });
     }
   }
-}
-
-function paintGrassTufts(ctx: CanvasRenderingContext2D, variant: number, palette: TilePalette): void {
-  const count = 2 + (variant % 3);
-  for (let i = 0; i < count; i++) {
-    const bx = 2 + Math.floor(seededPixelNoise(901 + variant, i, 1) * 11);
-    const by = 3 + Math.floor(seededPixelNoise(907 + variant, i, 2) * 10);
-    fillPx(ctx, { x: bx, y: by, color: palette.dark });
-    fillPx(ctx, { x: bx, y: by - 1, color: palette.highlight });
-    fillPx(ctx, { x: bx + 1, y: by - 1, color: palette.highlight });
-  }
-}
-
-function fillPx(ctx: CanvasRenderingContext2D, px: { readonly x: number; readonly y: number; readonly color: string }): void {
-  ctx.fillStyle = px.color;
-  ctx.fillRect(px.x, px.y, 1, 1);
-}
-
-function paintCliffFaceTile(): HTMLCanvasElement {
-  const { canvas, ctx } = createPixelCanvas(TILE_PX, TILE_PX);
-  ctx.fillStyle = "#524c58";
-  ctx.fillRect(0, 0, TILE_PX, TILE_PX);
-  ctx.fillStyle = "#6b6370";
-  ctx.fillRect(0, 2, TILE_PX, 5);
-  ctx.fillStyle = "#3c3742";
-  ctx.fillRect(0, 9, TILE_PX, 7);
-  ctx.fillStyle = "#3f7d3a";
-  ctx.fillRect(0, 0, TILE_PX, 2);
-  ctx.fillStyle = "#26212c";
-  ctx.fillRect(0, TILE_PX - 1, TILE_PX, 1);
-  for (let x = 1; x < TILE_PX; x += 5) {
-    fillPx(ctx, { x, y: 5, color: "#3c3742" });
-    fillPx(ctx, { x: (x + 2) % TILE_PX, y: 11, color: "#6b6370" });
-  }
-  return canvas;
-}
-
-function paintStairFaceTile(): HTMLCanvasElement {
-  const { canvas, ctx } = createPixelCanvas(TILE_PX, TILE_PX);
-  ctx.fillStyle = "#6c7382";
-  ctx.fillRect(0, 0, TILE_PX, TILE_PX);
-  for (let step = 0; step < 4; step++) {
-    const y = step * 4;
-    ctx.fillStyle = "#9da6b5";
-    ctx.fillRect(1, y, TILE_PX - 2, 2);
-    ctx.fillStyle = "#484e5c";
-    ctx.fillRect(1, y + 2, TILE_PX - 2, 2);
-  }
-  ctx.fillStyle = "#2b303a";
-  ctx.fillRect(0, 0, 1, TILE_PX);
-  ctx.fillRect(TILE_PX - 1, 0, 1, TILE_PX);
-  return canvas;
+  const tex = Texture.from({ resource: canvas, scaleMode: "nearest" });
+  tex.source.addressMode = "clamp-to-edge";
+  tex.source.update();
+  return tex;
 }
 
 export function createTerrainTileAtlas(): TerrainTileAtlas {
-  const kinds: readonly GroundKind[] = [
-    GroundKind.DeepWater, GroundKind.ShallowWater, GroundKind.Sand, GroundKind.Grass,
-    GroundKind.MeadowGrass, GroundKind.ForestFloor, GroundKind.DirtPath, GroundKind.CliffStone, GroundKind.MossStone,
-  ];
   const variants = new Map<GroundKind, readonly HTMLCanvasElement[]>();
-  for (const kind of kinds) {
-    variants.set(kind, [0, 1, 2, 3].map((v) => paintTerrainTile(kind, v)));
+  for (const kind of GROUND_KINDS) {
+    variants.set(kind, [0, 1, 2, 3].map((v) => paintTerrainTile32(kind, v)));
   }
-  return { variants, cliffFace: paintCliffFaceTile(), stairFace: paintStairFaceTile() };
+  return {
+    variants,
+    gpuSheet: buildExtrudedGpuSheet(variants),
+    cliffFace: paintCliffFaceTile32(),
+    stairFace: paintStairFaceTile32(),
+  };
 }
