@@ -88,6 +88,7 @@ export type {
 } from "./character/appearance.js";
 export {
   ArmorSlotKeySchema,
+  ClientAdminSchema,
   ClientMessageSchema,
   GoreStyleSchema,
   GoreSubstanceSchema,
@@ -99,6 +100,7 @@ export {
   WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema,
   WorldEventSchema,
+  WorldWebSnapshotSchema,
 } from "./net/protocol.js";
 export type {
   ClientMessage,
@@ -108,9 +110,12 @@ export type {
   PlayerSnapshot,
   ProjectileSnapshot,
   ServerMessage,
+  WebNodeSnapshot,
+  WebStrandSnapshot,
   WorldChestSnapshot,
   WorldEntitySnapshot,
   WorldEvent,
+  WorldWebSnapshot,
 } from "./net/protocol.js";
 export {
   BLEED_DURATION_SEC,
@@ -136,11 +141,15 @@ export {
   STAMINA_REGEN_PER_SEC,
   comboMultiplier,
   computeMitigatedDamage,
+  entityFootRadius,
   evaluateBowShot,
   isInSanctuary,
   isWithinSector,
+  playerProjectileHurtbox,
+  projectileHurtbox,
+  segmentHitsEllipse,
 } from "./combat/combatRules.js";
-export type { GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export type { EllipseHurtbox, GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
 export { WALK_CYCLE_TILES, RUN_CYCLE_TILES, createGaitClock, advanceGaitClock, gaitFrameIndex } from "./combat/gaitClock.js";
 export type { GaitClock, GaitStepInput, GaitStepResult } from "./combat/gaitClock.js";
 export {
@@ -154,3 +163,29 @@ export {
 export type { AiState, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";
 export { findTilePath } from "./combat/pathfinding.js";
 export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";
+export { STEALTH_TUNING, isBackstabAngle, sampleStealthExposure } from "./combat/stealthRules.js";
+export type { StealthExposure, StealthQuery } from "./combat/stealthRules.js";
+export {
+  MELEE_FEEL_TUNING, WEIGHT_FEEL_PRESETS, isArmorCrushTarget, isBurnVulnerable, isSharpWeapon,
+} from "./combat/weapons/weaponFeelTuning.js";
+export type { WeaponWeightTier, WeightFeelSpec } from "./combat/weapons/weaponFeelTuning.js";
+export {
+  WEAPON_ARCHETYPES, WEAPON_MOVESETS, getWeaponMoveset, getWeaponStepSpec, resolveWeaponArchetype, resolveWeaponAttackStep,
+} from "./combat/weapons/weaponMovesets.js";
+export type {
+  AttackMotionKind, HarvestToolKind, WeaponArchetype, WeaponMovesetSpec, WeaponStepSpec,
+} from "./combat/weapons/weaponMovesets.js";
+export {
+  HARVEST_NODE_SPECS, computeHarvestDamage, getHarvestNodeSpec, rollHarvestDrops,
+} from "./survival/harvestRules.js";
+export type { HarvestDropSpec, HarvestNodeSpec } from "./survival/harvestRules.js";
+export {
+  STRUCTURE_KINDS, STRUCTURE_SPECS, canPlaceStructure, structureToChunkProp, structureToPointLight,
+} from "./survival/campBuilding.js";
+export type { PlacedStructureRecord, StructureKind, StructureSpec } from "./survival/campBuilding.js";
+export { SURVIVAL_BUFF_TUNING, computeSurvivalRegen } from "./survival/survivalBuffs.js";
+export { WorldDeltaOverlay } from "./survival/worldDeltas.js";
+export type { DepletedPropDelta, WorldDeltaSnapshot } from "./survival/worldDeltas.js";
+export {
+  ClientPlaceStructureSchema, ClientSetRespawnBedSchema, DepletedPropSchema, PlacedStructureSchema, WorldDeltaSnapshotSchema,
+} from "./net/worldDeltaSchemas.js";

@@ -42,6 +42,7 @@ const DEFAULT_MAX_NODES = 900;
 const PROP_HARD_PAD = 0.34;
 const PROP_SOFT_PAD = 0.22;
 const WATER_STEP_PENALTY = 0.55;
+const DEEP_WATER_STEP_PENALTY = 2.8;
 const SQRT2 = Math.SQRT2;
 const ALL_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const;
 
@@ -81,20 +82,21 @@ function collectBlockingProps(
   return out;
 }
 
+function extraWaterPenalty(ground: GroundKind): number {
+  if (ground === GroundKind.DeepWater) return DEEP_WATER_STEP_PENALTY;
+  return ground === GroundKind.ShallowWater ? WATER_STEP_PENALTY : 0;
+}
+
 function sampleCell(grid: SearchGrid, lx: number, ly: number): CellSample {
   const idx = ly * grid.side + lx;
   const cached = grid.cells[idx];
   if (cached) return cached;
-  const tx = grid.minTx + lx;
-  const ty = grid.minTy + ly;
+  const tx = grid.minTx + lx; const ty = grid.minTy + ly;
   const tile = grid.cache.tileAt(tx, ty);
   const propPenalty = evaluatePropCost(grid, tx, ty);
-  const waterPenalty = tile.ground === GroundKind.ShallowWater ? WATER_STEP_PENALTY : 0;
   const sample: CellSample = {
-    blocked: tile.ground === GroundKind.DeepWater || propPenalty < 0,
-    elevation: tile.elevation,
-    stairs: tile.stairs,
-    extraCost: Math.max(0, propPenalty) + waterPenalty,
+    blocked: propPenalty < 0, elevation: tile.elevation, stairs: tile.stairs,
+    extraCost: Math.max(0, propPenalty) + extraWaterPenalty(tile.ground),
   };
   grid.cells[idx] = sample;
   return sample;
@@ -142,21 +144,15 @@ function canStepDiagonal(q: {
   return ok(q.from, fX) && ok(q.from, fY) && ok(fX, q.to) && ok(fY, q.to);
 }
 
-function inBounds(side: number, x: number, y: number): boolean {
-  return x >= 0 && y >= 0 && x < side && y < side;
-}
+const inGridBounds = (x: number, y: number, side: number): boolean => x >= 0 && y >= 0 && x < side && y < side;
 
-function stepCost(q: {
-  readonly grid: SearchGrid; readonly fx: number; readonly fy: number; readonly nx: number; readonly ny: number;
-}): number | null {
-  if (!inBounds(q.grid.side, q.nx, q.ny)) return null;
+function stepCost(q: { readonly grid: SearchGrid; readonly fx: number; readonly fy: number; readonly nx: number; readonly ny: number }): number | null {
+  if (!inGridBounds(q.nx, q.ny, q.grid.side)) return null;
   const from = sampleCell(q.grid, q.fx, q.fy);
   const to = sampleCell(q.grid, q.nx, q.ny);
-  if (q.fx === q.nx || q.fy === q.ny) {
-    const jumpPen = cardinalElevationPenalty(from, to, true);
-    return jumpPen === null ? null : 1 + to.extraCost + jumpPen;
-  }
-  return canStepDiagonal({ ...q, from, to }) ? SQRT2 + to.extraCost : null;
+  if (q.fx !== q.nx && q.fy !== q.ny) return canStepDiagonal({ ...q, from, to }) ? SQRT2 + to.extraCost : null;
+  const jumpPen = cardinalElevationPenalty(from, to, true);
+  return jumpPen === null ? null : 1 + to.extraCost + jumpPen;
 }
 
 function runAStarSearch(grid: SearchGrid, maxNodes: number): PathResult {
@@ -235,10 +231,7 @@ function expandCell(
   }
 }
 
-function octileDist(dx: number, dy: number): number {
-  return (dx + dy) + (SQRT2 - 2) * Math.min(dx, dy);
-}
-
+function octileDist(dx: number, dy: number): number { return (dx + dy) + (SQRT2 - 2) * Math.min(dx, dy); }
 function toCenter(grid: SearchGrid, idx: number): TileWaypoint {
   return { x: grid.minTx + (idx % grid.side) + 0.5, y: grid.minTy + Math.floor(idx / grid.side) + 0.5 };
 }

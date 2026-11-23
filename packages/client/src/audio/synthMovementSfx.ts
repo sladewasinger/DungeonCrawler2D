@@ -16,10 +16,10 @@ const STEP_SPECS: Readonly<Record<number, { readonly freq: number; readonly q: n
   [GroundKind.Sand]: { freq: 1100, q: 0.9, dur: 0.08, gain: 0.09 },
 };
 
-function synthWaterSplash(ctx: AudioContext, dst: AudioNode, sprinting: boolean): void {
-  if (playSavedStudioPreset({ ctx, dst, presetId: "water-step", gainScale: sprinting ? 1.0 : 0.76, pitchJitter: 0.06 })) return;
+function synthWaterSplash(ctx: AudioContext, dst: AudioNode, opts: { readonly sprinting: boolean; readonly crouching: boolean }): void {
+  const g = (opts.sprinting ? 1.0 : 0.76) * (opts.crouching ? 0.45 : 1);
+  if (playSavedStudioPreset({ ctx, dst, presetId: "water-step", gainScale: g, pitchJitter: 0.06 })) return;
   const ft = AUDIO_TUNING.footsteps;
-  const g = sprinting ? 1.0 : 0.76;
   playSweptNoise({
     ctx, dst, duration: 0.19, f0: 300 + Math.random() * 80, f1: ft.waterSplashFreqHz * 1.3,
     filterType: FILTER_BP, gain: ft.waterSplashGain * g, q: 1.35, attackSec: 0.045,
@@ -39,17 +39,19 @@ function synthWaterSplash(ctx: AudioContext, dst: AudioNode, sprinting: boolean)
 }
 
 export function synthFootstep(opts: {
-  readonly ctx: AudioContext; readonly dst: AudioNode; readonly ground: GroundKind; readonly sprinting?: boolean | undefined;
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly ground: GroundKind;
+  readonly sprinting?: boolean | undefined; readonly crouching?: boolean | undefined;
 }): void {
   const { ctx, dst, ground } = opts;
   const sprinting = Boolean(opts.sprinting);
+  const crouching = Boolean(opts.crouching);
   if (ground === GroundKind.ShallowWater || ground === GroundKind.DeepWater) {
-    synthWaterSplash(ctx, dst, sprinting);
+    synthWaterSplash(ctx, dst, { sprinting, crouching });
     return;
   }
   const ft = AUDIO_TUNING.footsteps;
   const spec = STEP_SPECS[ground] ?? { freq: 620, q: 0.85, dur: 0.07, gain: 0.085 };
-  const bodyGain = spec.gain * ft.masterGain * (sprinting ? 1.0 : 0.72);
+  const bodyGain = spec.gain * ft.masterGain * (sprinting ? 1.0 : 0.72) * (crouching ? 0.38 : 1);
   const freq = spec.freq * ft.pitchScale * (sprinting ? 1.06 : 0.92) * (0.9 + Math.random() * 0.2);
   playNoiseBurst({ ctx, dst, duration: spec.dur * 1.1, freq, filterType: FILTER_LP, gain: bodyGain, q: 0.65 });
   playNoiseBurst({

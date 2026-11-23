@@ -11,6 +11,17 @@ class RiverBarrierCache extends WorldChunkCache {
   }
 }
 
+class ShallowFordRiverCache extends WorldChunkCache {
+  override tileAt(wx: number, wy: number) {
+    if (Math.floor(wx) === 10) {
+      const ground = Math.floor(wy) === 2 ? GroundKind.ShallowWater : GroundKind.DeepWater;
+      return { ground, elevation: 0, stairs: false };
+    }
+    return super.tileAt(wx, wy);
+  }
+  override propsNear() { return []; }
+}
+
 class SheerTwoTileCliffCache extends WorldChunkCache {
   override tileAt(_wx: number, wy: number) {
     const elev = Math.floor(wy) <= -8 ? 2 : 0;
@@ -64,14 +75,20 @@ describe("pathfinding", () => {
     expect(sheer.closestPoint.y).toBeGreaterThan(-8);
   });
 
-  it("returns reachedGoal=false and nearest bank tile when blocked by deep water", () => {
+  it("swims across deep water when necessary while preferring shallow fords", () => {
     const cache = new RiverBarrierCache(1337);
     const res = findTilePath({
       cache, startX: 6.5, startY: 0.5, goalX: 13.5, goalY: 0.5, maxRadiusTiles: 10,
     });
-    expect(res.reachedGoal).toBe(false);
-    expect(res.closestPoint.x).toBeGreaterThan(6.5);
-    expect(res.closestPoint.x).toBeLessThan(10);
+    expect(res.reachedGoal).toBe(true);
+    expect(res.waypoints.some((wp) => Math.floor(wp.x) === 10)).toBe(true);
+
+    const fordCache = new ShallowFordRiverCache(1337);
+    const fordRes = findTilePath({
+      cache: fordCache, startX: 8.5, startY: 0.5, goalX: 12.5, goalY: 0.5, maxRadiusTiles: 10,
+    });
+    expect(fordRes.reachedGoal).toBe(true);
+    expect(fordRes.waypoints.some((wp) => Math.floor(wp.x) === 10 && Math.floor(wp.y) === 2)).toBe(true);
   });
 
   it("routes around POI chests and campfires without stepping through their colliders", () => {

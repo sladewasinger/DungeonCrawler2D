@@ -67,6 +67,7 @@ def make_gear_mats():
         "cord": studio_core.make_toon_material("Gear_Cord", "#94a3b8", "#e2e8f0", "#ffffff", 0.25, 0.70),
         "flame_out": studio_core.make_toon_material("Gear_FlameOut", "#c2410c", "#f97316", "#fb923c", 0.15, 0.55),
         "flame_in": studio_core.make_toon_material("Gear_FlameIn", "#f59e0b", "#fde047", "#fef9c3", 0.10, 0.50),
+        "flint": studio_core.make_toon_material("Gear_Flint", "#1e293b", "#334155", "#64748b", 0.24, 0.62),
     }
 
 
@@ -231,6 +232,39 @@ def build_lantern(out_dir):
         render_pair(out_dir, f"lantern-{f}")
 
 
+def build_flint_dagger(out_dir):
+    reset_gear_studio(42, 24)
+    m = make_gear_mats()
+    add_ellipsoid("Pommel", (0.032, 0.032, 0.032), (-0.28, 0.0, 0.0), m["wood_lt"], segs=8, rings=6)
+    add_capsule("Grip", (-0.26, 0.0, 0.0), (-0.11, 0.0, 0.0), 0.022, 0.025, m["wood_dk"], segs=8)
+    add_box("Guard", (0.032, 0.044, 0.11), (-0.09, 0.0, 0.0), m["cord"], bevel=0.006)
+    add_box("BladeBase", (0.19, 0.032, 0.068), (0.02, 0.0, 0.0), m["flint"], bevel=0.005)
+    add_capsule("Tip", (0.10, 0.0, 0.0), (0.28, 0.0, 0.0), 0.036, 0.003, m["steel"], segs=4, flat=True)
+    render_pair(out_dir, "flint-dagger")
+
+
+def build_wooden_spear(out_dir):
+    reset_gear_studio(72, 24)
+    m = make_gear_mats()
+    add_capsule("Shaft", (-0.58, 0.0, 0.0), (0.38, 0.0, 0.0), 0.020, 0.022, m["wood_lt"], segs=10)
+    add_box("Lashing", (0.09, 0.048, 0.056), (0.36, 0.0, 0.0), m["cord"], bevel=0.006)
+    add_box("Socket", (0.07, 0.042, 0.052), (0.42, 0.0, 0.0), m["steel_dk"], bevel=0.005)
+    add_capsule("Head", (0.44, 0.0, 0.0), (0.68, 0.0, 0.0), 0.042, 0.003, m["steel"], segs=4, flat=True)
+    render_pair(out_dir, "wooden-spear")
+
+
+def build_iron_greatsword(out_dir):
+    reset_gear_studio(72, 34)
+    m = make_gear_mats()
+    add_ellipsoid("Pommel", (0.055, 0.055, 0.055), (-0.54, 0.0, 0.0), m["gold"], segs=10, rings=8)
+    add_capsule("Grip", (-0.50, 0.0, 0.0), (-0.18, 0.0, 0.0), 0.030, 0.032, m["wood_dk"], segs=8)
+    add_box("Guard", (0.055, 0.068, 0.28), (-0.15, 0.0, 0.0), m["steel_dk"], bevel=0.01)
+    add_box("Blade", (0.64, 0.044, 0.12), (0.19, 0.0, 0.0), m["steel"], bevel=0.008)
+    add_box("Fuller", (0.48, 0.052, 0.032), (0.14, 0.0, 0.0), m["steel_dk"], bevel=0.003)
+    add_capsule("Tip", (0.49, 0.0, 0.0), (0.66, 0.0, 0.0), 0.060, 0.005, m["steel"], segs=6, flat=True)
+    render_pair(out_dir, "iron-greatsword")
+
+
 def main():
     out_dir = parse_out_dir(sys.argv)
     os.makedirs(out_dir, exist_ok=True)
@@ -242,6 +276,9 @@ def main():
     build_shield(out_dir)
     build_torch(out_dir)
     build_lantern(out_dir)
+    build_flint_dagger(out_dir)
+    build_wooden_spear(out_dir)
+    build_iron_greatsword(out_dir)
     with open(os.path.join(out_dir, "gear-meta.json"), "w", encoding="utf-8") as fh:
         json.dump({"pxPerMeter": PX_PER_METER, "scale": round(16.0 / PX_PER_METER, 4)}, fh)
     print(f"Rendered 48 px/m 3D gear frames to {out_dir}")

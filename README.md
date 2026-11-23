@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.3** (Phase 4 mini-release — 3D Hero Rig & Gait Sync, Bespoke HD-Pixel Gore & Corpse Sorting, Organic Vocal-Tract Creature Audio + Live Sound Studio, Default Starter Armor, & Initial Overhead AI Indicators — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.4** (Phase 6/7 Combat & Stealth Polish mini-release — Skyrim-style Symbol Stealth Eye, Weapon Movesets & 2H Block, Starter Spear Loadout, Spider Venom + Dynamic Spring-Cloth Webs & Silk Cocoons, Wolf AI Stability, Duplicate-Player Session Cleanup, & DevTools `window.admin` Console — shipped on `overworld` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 
@@ -21,7 +21,7 @@ Documentation lives next to the code it describes:
 
 | Location | Covers |
 | --- | --- |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Master phased roadmap (`overworld`, Phases 0–7) and AI-crafting effects vision |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Master phased roadmap (`overworld`, Phases 0–13), DCC floor loop & AI-crafting vision |
 | [docs/LESSONS.md](docs/LESSONS.md) | Durable engineering pitfalls and repository constraints |
 | [packages/engine/README.md](packages/engine/README.md) | Platform-free simulation core, noise, collision, Day/Night, Zod wire protocol |
 | [packages/engine/src/world/README.md](packages/engine/src/world/README.md) | Deterministic `32×32` chunk generator, elevation, and spatial collision |

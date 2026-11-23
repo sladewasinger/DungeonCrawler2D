@@ -1,4 +1,5 @@
 /** Offscreen pixel-art canvas helpers and nearest-neighbor PixiJS texture builders. */
+import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import { Texture } from "pixi.js";
 
 export type PixelRect = readonly [x: number, y: number, w: number, h: number, color: string];
@@ -91,4 +92,100 @@ export function seededPixelNoise(seed: number, x: number, y: number): number {
   let h = (Math.imul(seed, 374761393) + Math.imul(x, 668265263) + Math.imul(y, 1442695041)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+
+export interface PixelEllipseSpec {
+  readonly cx: number; readonly cy: number;
+  readonly rx: number; readonly ry: number;
+  readonly color: string;
+}
+
+export function fillEllipsePixel(ctx: CanvasRenderingContext2D, s: PixelEllipseSpec): void {
+  ctx.fillStyle = s.color;
+  const minY = Math.floor(s.cy - s.ry);
+  const maxY = Math.ceil(s.cy + s.ry);
+  const ry = Math.max(0.5, s.ry);
+  for (let y = minY; y <= maxY; y++) {
+    const dy = (y + 0.5 - s.cy) / ry;
+    if (Math.abs(dy) >= 1) continue;
+    const halfX = Math.max(0, Math.round(s.rx * Math.sqrt(1 - dy * dy)));
+    ctx.fillRect(Math.round(s.cx) - halfX, y, halfX * 2 + 1, 1);
+  }
+}
+
+export function fillCluster(ctx: CanvasRenderingContext2D, blobs: readonly PixelEllipseSpec[]): void {
+  for (const blob of blobs) fillEllipsePixel(ctx, blob);
+}
+
+function buildOffsetRing(aaRadius: number): readonly (readonly [number, number, number])[] {
+  const r = Math.ceil(aaRadius);
+  const list: [number, number, number][] = [];
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist <= aaRadius) list.push([dx, dy, dist]);
+    }
+  }
+  list.sort((a, b) => a[2] - b[2]);
+  return list;
+}
+
+function toSelOutInk(data: Uint8ClampedArray, idx: number): readonly [number, number, number] {
+  return [
+    Math.min(255, Math.round(data[idx]! * 0.22 + 5)),
+    Math.min(255, Math.round(data[idx + 1]! * 0.20 + 3)),
+    Math.min(255, Math.round(data[idx + 2]! * 0.26 + 9)),
+  ];
+}
+
+function findNearestInk(
+  data: Uint8ClampedArray,
+  q: { readonly w: number; readonly h: number; readonly x: number; readonly y: number; readonly ring: readonly (readonly [number, number, number])[] },
+): { readonly rgb: readonly [number, number, number]; readonly dist: number } | null {
+  for (const [dx, dy, dist] of q.ring) {
+    const nx = q.x + dx; const ny = q.y + dy;
+    const inRange = nx >= 0 && ny >= 0 && nx < q.w && ny < q.h;
+    if (!inRange) continue;
+    const idx = (ny * q.w + nx) * 4;
+    if (data[idx + 3]! >= 128) return { rgb: toSelOutInk(data, idx), dist };
+  }
+  return null;
+}
+
+function paintSelOutPixel(opts: {
+  readonly src: Uint8ClampedArray; readonly out: Uint8ClampedArray;
+  readonly x: number; readonly y: number; readonly w: number; readonly h: number;
+  readonly ring: readonly (readonly [number, number, number])[];
+  readonly overrideRgb?: readonly [number, number, number];
+}): void {
+  const i = (opts.y * opts.w + opts.x) * 4;
+  if (opts.src[i + 3]! >= 128) return;
+  const hit = findNearestInk(opts.src, opts);
+  if (!hit) return;
+  const c = opts.overrideRgb ?? hit.rgb;
+  opts.out[i] = c[0]; opts.out[i + 1] = c[1]; opts.out[i + 2] = c[2]; opts.out[i + 3] = 255;
+}
+
+export function stampSelOutOutline(
+  ctx: CanvasRenderingContext2D,
+  opts: {
+    readonly w: number; readonly h: number;
+    readonly solidPx?: number;
+    readonly overrideRgb?: readonly [number, number, number];
+  },
+): void {
+  const rawSolid = opts.solidPx ?? ACTIVE_OUTLINE_STYLE.propSolidPx;
+  if (rawSolid <= 0) return;
+  const { w, h } = opts;
+  const img = ctx.getImageData(0, 0, w, h);
+  const out = new Uint8ClampedArray(img.data);
+  const solidR = Math.max(0.75, rawSolid);
+  const ring = buildOffsetRing(solidR);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      paintSelOutPixel({ src: img.data, out, x, y, w, h, ring, ...(opts.overrideRgb ? { overrideRgb: opts.overrideRgb } : {}) });
+    }
+  }
+  ctx.putImageData(new ImageData(out, w, h), 0, 0);
 }

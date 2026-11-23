@@ -13,16 +13,27 @@ import {
 interface GroundLootItem {
   readonly id: string; readonly itemId: string; readonly count: number;
   x: number; y: number; vx: number; vy: number; readonly elevation: number; ageSec: number;
+  readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
 }
 
 interface StoredChest {
   readonly id: string;
-  readonly poiKind: ChunkPoi["kind"];
+  readonly poiKind: ChunkPoi["kind"] | "player-chest";
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
   opened: boolean;
   readonly slots: InventorySlot[];
+}
+
+export interface SavedChestRecord {
+  readonly id: string;
+  readonly poiKind: ChunkPoi["kind"] | "player-chest";
+  readonly x: number;
+  readonly y: number;
+  readonly elevation: number;
+  readonly opened: boolean;
+  readonly slots: readonly InventorySlot[];
 }
 
 const BANDIT_CAMP_POI = "bandit-camp" as const;
@@ -51,10 +62,41 @@ export class LootManager {
     });
   }
 
-  spawnLoot(opts: { readonly itemId: string; readonly count: number; readonly x: number; readonly y: number; readonly vx: number; readonly vy: number }): void {
+  registerCustomChest(opts: { readonly id: string; readonly x: number; readonly y: number; readonly elevation: number }): void {
+    if (this.chests.has(opts.id)) return;
+    this.chests.set(opts.id, {
+      id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation,
+      opened: false, slots: createEmptyChestSlots(),
+    });
+  }
+
+  exportChests(): readonly SavedChestRecord[] {
+    return Array.from(this.chests.values(), (c) => ({
+      id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
+      opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+    }));
+  }
+
+  importChests(list: readonly SavedChestRecord[]): void {
+    for (const c of list) {
+      this.chests.set(c.id, {
+        id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
+        opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+      });
+    }
+  }
+
+  spawnLoot(opts: {
+    readonly itemId: string; readonly count: number; readonly x: number; readonly y: number;
+    readonly vx: number; readonly vy: number; readonly manualPickup?: boolean | undefined;
+    readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
+  }): void {
     this.groundLoot.push({
       id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count, x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
       elevation: this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation, ageSec: 0,
+      ...(opts.manualPickup ? { manualPickup: true } : {}),
+      ...(opts.angle !== undefined ? { angle: opts.angle } : {}),
+      ...(opts.stuck ? { stuck: true } : {}),
     });
   }
 
@@ -110,15 +152,37 @@ export class LootManager {
     return moved;
   }
 
+  private findManualLootIdx(player: CombatPlayerRef, lootId: string | undefined): number {
+    let idx = -1;
+    let bestDist = 2.25;
+    for (let i = 0; i < this.groundLoot.length; i++) {
+      const g = this.groundLoot[i]!;
+      const valid = Boolean(g.manualPickup) && (!lootId || g.id === lootId);
+      const d = valid ? Math.hypot(g.x - player.x, g.y - player.y) : Infinity;
+      if (d <= bestDist) { bestDist = d; idx = i; }
+    }
+    return idx;
+  }
+
+  pickupManualLoot(player: CombatPlayerRef, lootId: string | undefined, events: WorldEvent[]): boolean {
+    const idx = this.findManualLootIdx(player, lootId);
+    if (idx < 0) return false;
+    const g = this.groundLoot[idx]!;
+    const added = insertIntoSlots(player.inventory.slots, { itemId: g.itemId, count: g.count }, maxStackForItem);
+    if (added <= 0) return false;
+    events.push({ kind: "loot", x: g.x, y: g.y, actorId: player.id, value: added });
+    if (added >= g.count) this.groundLoot.splice(idx, 1);
+    else this.groundLoot[idx] = { ...g, count: g.count - added };
+    return true;
+  }
+
   step(players: readonly CombatPlayerRef[], events: WorldEvent[], dt: number): void {
     for (let i = this.groundLoot.length - 1; i >= 0; i--) {
       const g = this.groundLoot[i]!;
       g.ageSec += dt;
-      g.x += g.vx * dt;
-      g.y += g.vy * dt;
-      g.vx *= Math.max(0, 1 - dt * 6);
-      g.vy *= Math.max(0, 1 - dt * 6);
-      if (g.ageSec >= 0.25 && this.pullOrCollectLoot({ g, players, events, dt })) this.groundLoot.splice(i, 1);
+      g.x += g.vx * dt; g.y += g.vy * dt;
+      g.vx *= Math.max(0, 1 - dt * 6); g.vy *= Math.max(0, 1 - dt * 6);
+      if (!g.manualPickup && g.ageSec >= 0.25 && this.pullOrCollectLoot({ g, players, events, dt })) this.groundLoot.splice(i, 1);
     }
   }
 
@@ -154,6 +218,9 @@ export class LootManager {
       })),
       groundLoot: this.groundLoot.map((g) => ({
         id: g.id, itemId: g.itemId, count: g.count, x: g.x, y: g.y, elevation: g.elevation, ageSec: g.ageSec,
+        ...(g.manualPickup ? { manualPickup: true } : {}),
+        ...(g.angle !== undefined ? { angle: g.angle } : {}),
+        ...(g.stuck ? { stuck: true } : {}),
       })),
     };
   }

@@ -44,6 +44,8 @@ export class ChunkRenderer {
       const cx = input.centerCx + dx;
       const key = chunkKey(cx, input.cy);
       input.needed.add(key);
+      const prev = this.mounted.get(key);
+      if (prev && (prev.revision ?? 0) !== input.cache.chunkRevision(cx, input.cy)) this.unmountChunk(prev);
       if (!this.mounted.has(key)) this.mountChunk(input.cache, { key, cx, cy: input.cy });
     }
   }
@@ -52,9 +54,12 @@ export class ChunkRenderer {
     readonly cache: WorldChunkCache;
     readonly players: readonly PlayerSnapshot[];
     readonly entities?: readonly WorldEntitySnapshot[];
+    readonly localPlayerId?: string | undefined;
     readonly timeSec: number;
   }): { lights: PointLightSpec[]; campfires: PointLightSpec[]; casters: ShadowCaster[] } {
     this.reconcilePlayerViews(input.cache, input.players, input.timeSec);
+    const localPlayer = input.localPlayerId ? input.players.find((p) => p.id === input.localPlayerId) : input.players[0];
+    this.entities.setLocalPlayer(localPlayer);
     this.entities.sync(this.layers.ysort, input.entities ?? [], input.timeSec);
     const out = { lights: [] as PointLightSpec[], campfires: [] as PointLightSpec[], casters: [] as ShadowCaster[] };
     for (const player of input.players) this.appendPlayerVisuals(player, out);
@@ -96,6 +101,7 @@ export class ChunkRenderer {
     const activeIds = new Set(players.map((p) => p.id));
     for (const [id, view] of this.playerViews) {
       if (activeIds.has(id)) continue;
+      view.root.removeFromParent();
       view.root.destroy({ children: true });
       this.playerViews.delete(id);
     }
@@ -138,7 +144,10 @@ export class ChunkRenderer {
       target.ysortSprites.push(sp);
     }
     for (const prop of chunk.props) mountChunkProp({ prop, layers: this.layers, propsAtlas: this.atlases.props, target });
-    this.mounted.set(loc.key, { key: loc.key, cx: loc.cx, cy: loc.cy, ground: baked.ground, water: baked.water, ...target, lights: chunk.lights });
+    this.mounted.set(loc.key, {
+      key: loc.key, cx: loc.cx, cy: loc.cy, revision: cache.chunkRevision(loc.cx, loc.cy),
+      ground: baked.ground, water: baked.water, ...target, lights: chunk.lights,
+    });
   }
 
   private unmountChunk(entry: MountedChunk): void {

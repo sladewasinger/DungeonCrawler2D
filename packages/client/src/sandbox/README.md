@@ -6,8 +6,8 @@ Localhost-only interactive `96×32` asset gallery, terrain biome diorama, and co
 - **Left Half — Asset Gallery (`x = 0..47`)**:
   1. **Terrain Swatches (`y = 2`)**: All `GroundKind` variants plus cliff & stair faces.
   2. **Nature Props (`y = 8`)**: Trees, bushes, tall grass, flowers, boulders, stumps, and animated campfires/torches.
-  3. **POI Structures & Chests (`y = 13`)**: Unified `0.50×` `18c` palisade wall segments, bandit tent, ruin pillar, and 4 interactive `WorldChestSnapshot` wood/stone chests (`[E]` opens the bidirectional `ChestModal`).
-  4. **Held Gear Rack (`y = 17.5`)**: Weapons, shield, torch, pickaxe, and held `Overworld Map`.
+  3. **POI Structures & Chests (`y = 13`)**: Unified `0.50×` `18c` palisade wall segments, bandit tent, ruin pillar, and 4 interactive `WorldChestSnapshot` wood/stone chests (`[E]` opens the bidirectional `ChestModal`, stocked with potions, arrows, coins, armor, and all Phase 7 weapons: `flint-dagger`, `wooden-spear`, `iron-greatsword`, `axe`, `pickaxe`, `torch`).
+  4. **Held Gear Rack (`y = 17.5`)**: Weapons, shield, torch, pickaxe, and held `Overworld Map` (`sandboxCombat.ts` runs weapon movesets via `resolveWeaponArchetype` & `resolveWeaponAttackStep`).
   5. **Enemies & Dummies Lineup (`y = 22.4`)**: All 9 unified `0.50×` `18`-color PNG enemies (`wolf`, `bear`, `spider`, `boar`, `slime`, `goblin`, `orc`, `skeleton`, and `80×80` `golem`) plus the 3 procedural dummies.
 - **Right Half — Live Terrain Diorama (`x = 48..95`)**:
   Curated biome slice rendered with real `buildChunkTilemapMeshes`, `bakeElevatedChunkRows`, `WaterSurfaceEffect`, `FoliageWindEffect`, `CastShadowLayer`, `LightingSystem`, and `resolveMovement` physics: winding river with shallow ford & sandy shoreline, wildflower meadow with campfire, oak/pine tree cluster with boulders & stumps, and a raised `elevation = 1` stone cliff plateau with working stairs (`[E]` ruin chest on top).

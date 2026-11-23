@@ -1,5 +1,5 @@
 /** Dedicated 1px-outlined grip-anchored in-hand weapon, torch, lantern, and hand sprites. */
-import type { Texture } from "pixi.js";
+import { Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../textures/pixelCanvas.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
@@ -46,6 +46,7 @@ const lanternAnim: Texture[] = [];
 function bake(key: string, size: { readonly w: number; readonly h: number }, rects: readonly PixelRect[]): Texture {
   const existing = cache.get(key);
   if (existing) return existing;
+  if (typeof document === "undefined") return Texture.EMPTY;
   const { canvas, ctx } = createPixelCanvas(size.w, size.h);
   drawRects(ctx, rects);
   stampDarkOutline(ctx, size, OUTLINE_RGB);
@@ -81,6 +82,25 @@ function makePickaxeTex(): Texture {
     [2, 7, 16, 2, WOOD_DARK], [4, 7, 12, 1, WOOD_LIGHT], [16, 6, 3, 4, STEEL_MID],
     [15, 2, 4, 12, STEEL_DARK], [17, 2, 4, 4, STEEL_MID], [17, 10, 4, 4, STEEL_MID],
     [20, 2, 2, 2, STEEL_EDGE], [20, 12, 2, 2, STEEL_EDGE],
+  ]);
+}
+
+function makeDaggerTex(): Texture {
+  return bake("flint-dagger", { w: 18, h: 10 }, [
+    [2, 4, 4, 2, WOOD_DARK], [6, 3, 2, 4, "#e2e8f0"], [8, 3, 7, 4, "#334155"], [14, 4, 3, 2, STEEL_EDGE],
+  ]);
+}
+
+function makeSpearTex(): Texture {
+  return bake("wooden-spear", { w: 34, h: 10 }, [
+    [2, 4, 24, 2, WOOD_LIGHT], [23, 3, 3, 4, "#e2e8f0"], [26, 3, 6, 4, STEEL_MID], [31, 4, 2, 2, STEEL_EDGE],
+  ]);
+}
+
+function makeGreatswordTex(): Texture {
+  return bake("iron-greatsword", { w: 36, h: 14 }, [
+    [2, 6, 2, 2, GOLD], [4, 6, 6, 2, WOOD_DARK], [10, 2, 2, 10, STEEL_DARK],
+    [12, 4, 20, 6, STEEL_MID], [12, 4, 21, 2, STEEL_EDGE], [32, 5, 3, 4, STEEL_EDGE],
   ]);
 }
 
@@ -164,8 +184,17 @@ const BOW_GRIPS: WeaponGripSockets = {
   twoHandStyle: "bowDraw",
 };
 
+const SHAFT_TWO_HAND_GRIPS: WeaponGripSockets = {
+  primary: { x: 0, y: 0, showHand: true },
+  secondary: { x: -4, y: 0, showHand: true },
+  twoHandStyle: "shaftTwoHand",
+};
+
 const WEAPON_SPECS: Readonly<Record<string, WeaponSpec>> = {
   sword: { buildTex: makeSwordTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
+  "flint-dagger": { buildTex: makeDaggerTex, anchorX: 0.24, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
+  "wooden-spear": { buildTex: makeSpearTex, anchorX: 0.34, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
+  "iron-greatsword": { buildTex: makeGreatswordTex, anchorX: 0.26, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: true, grips: SHAFT_TWO_HAND_GRIPS },
   bow: { buildTex: makeBowTex, anchorX: 0.44, anchorY: 0.5, aimMode: "aim360", twoHanded: true, grips: BOW_GRIPS },
   axe: { buildTex: makeAxeTex, anchorX: 0.22, anchorY: 0.42, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
   pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },

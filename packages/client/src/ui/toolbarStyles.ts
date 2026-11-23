@@ -45,6 +45,7 @@ const TOOLBAR_CSS = `
   border-color: #f59e0b;
   background: rgba(120, 53, 15, 0.75);
 }
+.ow-pill[hidden] { display: none; }
 .ow-dot {
   width: 8px;
   height: 8px;
@@ -137,11 +138,11 @@ const TOOLBAR_CSS = `
 .ow-jump-btn, .ow-combat-cluster {
   display: none;
   position: fixed;
-  right: max(12px, env(safe-area-inset-right));
+  right: max(46px, calc(env(safe-area-inset-right) + 38px));
   z-index: 35;
 }
 .ow-jump-btn {
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 124px);
+  bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 114px);
   width: 48px;
   height: 48px;
   border-radius: 999px;
@@ -155,7 +156,7 @@ const TOOLBAR_CSS = `
   cursor: pointer;
 }
 .ow-combat-cluster {
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--ow-slot-size) + 54px);
+  bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 46px);
   align-items: flex-end;
   gap: 8px;
 }
@@ -174,7 +175,12 @@ const TOOLBAR_CSS = `
 }
 .ow-touch-btn[hidden] { display: none; }
 .ow-atk-btn { width: 60px; height: 60px; font-size: 13px; border-color: rgba(248, 113, 113, 0.55); }
+.ow-atk-btn[data-role="heal"] { border-color: rgba(74, 222, 128, 0.65); color: #bbf7d0; }
+.ow-atk-btn[data-role="bow"] { border-color: rgba(251, 191, 36, 0.65); color: #fef08a; }
+.ow-atk-btn[data-role="map"] { border-color: rgba(56, 189, 248, 0.65); color: #bae6fd; }
 .ow-roll-btn, .ow-block-btn { width: 50px; height: 50px; font-size: 9px; padding: 0; }
+.ow-sneak-btn[data-active="true"] { background: rgba(6, 95, 70, 0.88); border-color: #34d399; color: #a7f3d0; }
+.ow-torch-btn[data-active="true"] { background: rgba(180, 83, 9, 0.88); border-color: #fbbf24; color: #fef08a; }
 .ow-jump-btn:active, .ow-touch-btn:active, .ow-touch-btn[data-active="true"] {
   background: rgba(180, 83, 9, 0.85);
   border-color: #f59e0b;

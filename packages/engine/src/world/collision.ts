@@ -1,6 +1,8 @@
 /** Deterministic infinite chunk cache and continuous sliding movement collision. */
 import { generateChunk } from "./chunkGenerator.js";
 import { forEachFootTile, resolveDestElevation } from "./jumpPhysics.js";
+import { WorldDeltaOverlay, type DepletedPropDelta, type WorldDeltaSnapshot } from "../survival/worldDeltas.js";
+import type { PlacedStructureRecord } from "../survival/campBuilding.js";
 import {
   GroundKind, PropKind, chunkKey, worldTileIndex, worldToChunkCoord, worldToLocalCoord,
   type ChunkPoi, type ChunkProp, type WorldChunk,
@@ -34,6 +36,7 @@ function pushPropObstacles(prop: ChunkProp, out: BlockingObstacle[]): void {
 export class WorldChunkCache {
   private static readonly maxCachedChunks = 96;
   private readonly chunks = new Map<string, WorldChunk>();
+  private readonly deltaOverlay = new WorldDeltaOverlay();
 
   constructor(readonly worldSeed: number) {}
 
@@ -45,7 +48,7 @@ export class WorldChunkCache {
       this.chunks.set(key, existing);
       return existing;
     }
-    const generated = generateChunk(this.worldSeed, cx, cy);
+    const generated = this.deltaOverlay.applyChunkDeltas(generateChunk(this.worldSeed, cx, cy));
     this.chunks.set(key, generated);
     if (this.chunks.size > WorldChunkCache.maxCachedChunks) {
       const oldestKey = this.chunks.keys().next().value;
@@ -95,9 +98,15 @@ export class WorldChunkCache {
     return out;
   }
 
-  size(): number {
-    return this.chunks.size;
-  }
+  size(): number { return this.chunks.size; }
+  deltaRevision(): number { return this.deltaOverlay.revision; }
+  chunkRevision(cx: number, cy: number): number { return this.deltaOverlay.chunkRevision(cx, cy); }
+  worldDeltaSnapshot(): WorldDeltaSnapshot { return this.deltaOverlay.toSnapshot(); }
+  setDepletedProp(delta: DepletedPropDelta): void { const k = this.deltaOverlay.setDepletedProp(delta); if (k) this.chunks.delete(k); }
+  restoreProp(propId: string): void { const k = this.deltaOverlay.restoreProp(propId); if (k) this.chunks.delete(k); }
+  addPlacedStructure(rec: PlacedStructureRecord): void { this.chunks.delete(this.deltaOverlay.addStructure(rec)); }
+  removePlacedStructure(id: string): void { const k = this.deltaOverlay.removeStructure(id); if (k) this.chunks.delete(k); }
+  applyWorldDeltaSnapshot(snap: WorldDeltaSnapshot): void { for (const k of this.deltaOverlay.replaceFromSnapshot(snap)) this.chunks.delete(k); }
 }
 
 export interface MovementQuery {
@@ -119,6 +128,7 @@ export interface MovementResult {
   readonly elevationDrop: number;
   readonly speedMultiplier: number;
   readonly inWater: boolean;
+  readonly inDeepWater: boolean;
 }
 
 interface StandCheck {
@@ -133,7 +143,6 @@ interface StandCheck {
 }
 
 function tilePassable(check: StandCheck, tile: TileLookup): boolean {
-  if (tile.ground === GroundKind.DeepWater) return false;
   if (check.airborne) return tile.elevation <= check.fromElevation + (check.canClimbUp ? 1 : 0);
   const bridged = tile.stairs || check.onStairs;
   return bridged ? Math.abs(tile.elevation - check.fromElevation) <= 1 : tile.elevation === check.fromElevation;
@@ -248,6 +257,8 @@ export function resolveMovement(query: MovementQuery): MovementResult {
   const { nextElevation, elevationDrop } = resolveDestElevation((tx, ty) => cache.tileAt(tx, ty).elevation, {
     x: cur.x, y: cur.y, radius, elevation, airborne, stairs: destTile.stairs,
   });
-  const inWater = destTile.ground === GroundKind.ShallowWater;
-  return { x: cur.x, y: cur.y, elevation: nextElevation, elevationDrop, speedMultiplier: inWater ? 0.65 : 1, inWater };
+  const inDeepWater = destTile.ground === GroundKind.DeepWater;
+  const inWater = inDeepWater || destTile.ground === GroundKind.ShallowWater;
+  const speedMultiplier = inDeepWater ? 0.56 : inWater ? 0.78 : 1;
+  return { x: cur.x, y: cur.y, elevation: nextElevation, elevationDrop, speedMultiplier, inWater, inDeepWater };
 }

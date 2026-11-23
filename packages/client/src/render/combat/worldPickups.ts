@@ -1,8 +1,9 @@
-/** Renders POI chests, floating Open prompt, and magnetized ground loot pickups. */
+/** Renders POI chests, floating Open/Pickup prompts, and ground loot/arrow views. */
 import { AI_TUNING, TILE_PX, type GroundLootSnapshot, type PlayerSnapshot, type WorldChestSnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite } from "pixi.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
+import { createGroundLootView, syncGroundLootView, type LootView } from "./lootViewHelpers.js";
 
 const PROMPT_CSS = `
 .ow-chest-prompt {
@@ -15,13 +16,6 @@ const PROMPT_CSS = `
 }
 .ow-chest-prompt[hidden] { display: none; }
 `;
-
-function lootTintFor(itemId: string): number {
-  if (itemId.includes("meat") || itemId === "bandage") return 0xf87171;
-  if (itemId === "arrow" || itemId === "torch") return 0xfbbf24;
-  if (itemId === "herb") return 0x4ade80;
-  return 0x93c5fd;
-}
 
 function drawChestGraphic(g: Graphics, c: WorldChestSnapshot, nearAndClosed: boolean): void {
   const stone = c.poiKind === "ancient-ruins";
@@ -81,10 +75,11 @@ function pruneChestViews(views: Map<string, ChestView>, items: readonly { readon
 export class WorldPickupsRenderer {
   readonly container = new Container();
   private readonly chestViews = new Map<string, ChestView>();
-  private readonly lootViews = new Map<string, Graphics>();
+  private readonly lootViews = new Map<string, LootView>();
   private readonly promptBtn: HTMLButtonElement;
+  private nearLootId: string | undefined;
 
-  constructor(host: HTMLElement, onInteractChest: () => void) {
+  constructor(host: HTMLElement, onInteract: (lootId?: string) => void) {
     this.container.sortableChildren = true;
     this.ensurePromptStyle();
     this.promptBtn = document.createElement("button");
@@ -93,7 +88,7 @@ export class WorldPickupsRenderer {
     this.promptBtn.textContent = "[E] Open Chest";
     this.promptBtn.hidden = true;
     this.promptBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
-    this.promptBtn.addEventListener("click", (e) => { e.stopPropagation(); onInteractChest(); });
+    this.promptBtn.addEventListener("click", (e) => { e.stopPropagation(); onInteract(this.nearLootId); });
     host.append(this.promptBtn);
   }
 
@@ -111,9 +106,12 @@ export class WorldPickupsRenderer {
     readonly local: PlayerSnapshot | undefined;
     readonly timeSec: number;
   }): void {
-    const nearId = this.syncChests(opts.chests, opts.local);
-    this.promptBtn.hidden = nearId === null;
-    this.syncGroundLoot(opts.groundLoot, opts.timeSec);
+    const nearChestId = this.syncChests(opts.chests, opts.local);
+    const nearArrowId = this.syncGroundLoot(opts.groundLoot, opts.local, opts.timeSec);
+    this.nearLootId = nearChestId ? undefined : (nearArrowId ?? undefined);
+    this.promptBtn.hidden = nearChestId === null && nearArrowId === null;
+    if (nearChestId) this.promptBtn.textContent = "[E] Open Chest";
+    else if (nearArrowId) this.promptBtn.textContent = "[E] Pick up Arrow";
   }
 
   private syncChests(chests: readonly WorldChestSnapshot[], local: PlayerSnapshot | undefined): string | null {
@@ -147,29 +145,29 @@ export class WorldPickupsRenderer {
     return view;
   }
 
-  private syncGroundLoot(list: readonly GroundLootSnapshot[], timeSec: number): void {
-    const active = new Set(list.map((g) => g.id));
-    for (const [id, view] of this.lootViews) {
-      if (!active.has(id)) { view.destroy(); this.lootViews.delete(id); }
-    }
+  private findNearestManualLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined): string | null {
+    if (!local) return null;
+    let bestId: string | null = null;
+    let bestDist = 2.25;
     for (const item of list) {
-      const view = this.lootViews.get(item.id) ?? this.createLootView(item);
-      const bob = Math.sin(timeSec * 6 + item.x * 2) * 1.6;
-      const lift = item.elevation * ELEVATION_LIFT_PX;
-      view.position.set(item.x * TILE_PX, item.y * TILE_PX - lift + bob);
-      view.zIndex = Math.round(item.y * TILE_PX) + item.elevation * 2 + 1;
+      if (!item.manualPickup) continue;
+      const d = Math.hypot(item.x - local.x, item.y - local.y);
+      if (d <= bestDist) { bestDist = d; bestId = item.id; }
     }
+    return bestId;
   }
 
-  private createLootView(item: GroundLootSnapshot): Graphics {
-    const g = new Graphics();
-    const tint = lootTintFor(item.itemId);
-    g.circle(0, -3, 5).fill({ color: tint, alpha: 0.25 });
-    g.rect(-3, -6, 6, 6).fill(0x0f172a);
-    g.rect(-2, -5, 4, 4).fill(tint);
-    g.rect(-1, -5, 2, 1).fill(0xffffff);
-    this.lootViews.set(item.id, g);
-    this.container.addChild(g);
-    return g;
+  private syncGroundLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined, timeSec: number): string | null {
+    const active = new Set(list.map((g) => g.id));
+    for (const [id, view] of this.lootViews) {
+      if (!active.has(id)) { view.root.destroy({ children: true }); this.lootViews.delete(id); }
+    }
+    const nearId = this.findNearestManualLoot(list, local);
+    for (const item of list) {
+      let view = this.lootViews.get(item.id);
+      if (!view) { view = createGroundLootView(item); this.lootViews.set(item.id, view); this.container.addChild(view.root); }
+      syncGroundLootView(view, { item, tilePx: TILE_PX, timeSec, highlighted: item.id === nearId });
+    }
+    return nearId;
   }
 }

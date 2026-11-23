@@ -1,12 +1,42 @@
-/** Touch-only right-hand combat action cluster: ATK (tap or 360-deg bow drag), ROLL, and BLOCK. */
+/** Touch-only right-hand combat action cluster: dynamic primary action, SNEAK, ROLL, TORCH, and BLOCK. */
+import { getItemDef, resolveBlockMode } from "@dc2d/content";
 
 export interface MobileCombatState {
   readonly attack: boolean;
+  readonly attackHold: boolean;
   readonly bowDraw: boolean;
   readonly bowRelease: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
+  readonly crouch: boolean;
   readonly aim: { readonly x: number; readonly y: number } | undefined;
+}
+
+export interface MobileCombatHandlers {
+  readonly onMapTap?: () => void;
+  readonly onToggleTorch?: () => void;
+}
+
+const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
+  bow: "BOW",
+  bandage: "HEAL",
+  "healing-salve": "HEAL",
+  "cooked-meat": "EAT",
+  "raw-meat": "EAT",
+  berry: "EAT",
+  "herb-tea": "EAT",
+  axe: "CHOP",
+  pickaxe: "MINE",
+  map: "MAP",
+  stone: "TOSS",
+};
+
+const HEAL_OR_EAT_ITEMS = new Set(["bandage", "healing-salve", "cooked-meat", "raw-meat", "berry", "herb-tea"]);
+
+export function actionLabelForHeldItem(heldItem: string | null): string {
+  if (!heldItem) return "ATK";
+  if (ITEM_ACTION_LABELS[heldItem]) return ITEM_ACTION_LABELS[heldItem];
+  return getItemDef(heldItem)?.placeStructure ? "PLACE" : "ATK";
 }
 
 function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElement {
@@ -21,7 +51,11 @@ function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElem
 export class MobileCombatControls {
   private readonly atkBtn: HTMLButtonElement;
   private readonly rollBtn: HTMLButtonElement;
+  private readonly sneakBtn: HTMLButtonElement;
+  private readonly torchBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
+  private readonly handlers: MobileCombatHandlers;
+  private heldItem: string | null = null;
   private isBowHeld = false;
   private atkPointerId: number | null = null;
   private atkOrigin = { x: 0, y: 0 };
@@ -30,41 +64,55 @@ export class MobileCombatControls {
   private bowReleaseQueued = false;
   private dodgeQueued = false;
   private blockHeld = false;
+  private crouching = false;
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, handlers: MobileCombatHandlers = {}) {
+    this.handlers = handlers;
     const cluster = document.createElement("div");
     cluster.className = "ow-combat-cluster";
-    this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Attack or draw bow");
+    this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Use held item or draw bow");
     this.rollBtn = makeCombatBtn("ow-roll-btn", "ROLL", "Dodge roll");
+    this.sneakBtn = makeCombatBtn("ow-roll-btn ow-sneak-btn", "SNEAK", "Toggle crouch sneak");
+    this.torchBtn = makeCombatBtn("ow-roll-btn ow-torch-btn", "TORCH", "Toggle torch flame");
     this.blockBtn = makeCombatBtn("ow-block-btn", "BLOCK", "Raise shield block");
     this.blockBtn.hidden = true;
-    cluster.append(this.blockBtn, this.rollBtn, this.atkBtn);
+    cluster.append(this.blockBtn, this.torchBtn, this.sneakBtn, this.rollBtn, this.atkBtn);
     host.append(cluster);
     this.bindAtk();
     this.bindRollAndBlock();
   }
 
-  setGear(gear: { readonly isBowHeld: boolean; readonly hasShield: boolean }): void {
-    this.isBowHeld = gear.isBowHeld;
-    this.atkBtn.textContent = gear.isBowHeld ? "BOW" : "ATK";
-    this.blockBtn.hidden = !gear.hasShield;
-    if (!gear.hasShield) this.setBlockHeld(false);
+  setCrouching(next: boolean): void {
+    this.crouching = next;
+    this.sneakBtn.dataset.active = String(next);
+  }
+
+  setTorchLit(lit: boolean): void {
+    this.torchBtn.dataset.active = String(lit);
+  }
+
+  setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
+    this.heldItem = gear.heldItem;
+    this.isBowHeld = gear.heldItem === "bow";
+    this.atkBtn.textContent = actionLabelForHeldItem(gear.heldItem);
+    this.atkBtn.dataset.role = gear.heldItem && HEAL_OR_EAT_ITEMS.has(gear.heldItem) ? "heal" : (gear.heldItem ?? "none");
+    const blockMode = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null);
+    this.blockBtn.hidden = blockMode === "none";
+    this.blockBtn.textContent = blockMode === "twoHanded" ? "PARRY" : "BLOCK";
+    if (blockMode === "none") this.setBlockHeld(false);
   }
 
   consumeState(): MobileCombatState {
     const attack = this.attackQueued;
     const bowRelease = this.bowReleaseQueued;
     const dodge = this.dodgeQueued;
-    this.attackQueued = false;
-    this.bowReleaseQueued = false;
-    this.dodgeQueued = false;
+    this.attackQueued = false; this.bowReleaseQueued = false; this.dodgeQueued = false;
+    const held = this.atkPointerId !== null;
     return {
-      attack,
-      bowDraw: this.isBowHeld && this.atkPointerId !== null,
-      bowRelease,
-      block: this.blockHeld,
-      dodge,
-      aim: this.atkPointerId !== null ? this.atkDragAim : undefined,
+      attack, attackHold: !this.isBowHeld && held,
+      bowDraw: this.isBowHeld && held, bowRelease,
+      block: this.blockHeld, dodge, crouch: this.crouching,
+      aim: this.isBowHeld && held ? this.atkDragAim : undefined,
     };
   }
 
@@ -72,17 +120,17 @@ export class MobileCombatControls {
     this.atkBtn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       this.atkBtn.setPointerCapture?.(e.pointerId);
-      if (!this.isBowHeld) { this.attackQueued = true; return; }
+      if (this.heldItem === "map" && this.handlers.onMapTap) { this.handlers.onMapTap(); return; }
       this.atkPointerId = e.pointerId;
+      this.atkBtn.dataset.active = "true";
+      if (!this.isBowHeld) { this.attackQueued = true; return; }
       this.atkOrigin = { x: e.clientX, y: e.clientY };
       this.atkDragAim = undefined;
-      this.atkBtn.dataset.active = "true";
     });
     this.atkBtn.addEventListener("pointermove", (e) => this.updateBowDrag(e));
     const finishAtk = (e: PointerEvent): void => {
       if (e.pointerId !== this.atkPointerId) return;
-      this.atkPointerId = null;
-      this.atkBtn.dataset.active = "false";
+      this.atkPointerId = null; this.atkBtn.dataset.active = "false";
       if (this.isBowHeld) this.bowReleaseQueued = true;
     };
     this.atkBtn.addEventListener("pointerup", finishAtk);
@@ -90,7 +138,7 @@ export class MobileCombatControls {
   }
 
   private updateBowDrag(e: PointerEvent): void {
-    if (e.pointerId !== this.atkPointerId) return;
+    if (!this.isBowHeld || e.pointerId !== this.atkPointerId) return;
     const dx = e.clientX - this.atkOrigin.x;
     const dy = e.clientY - this.atkOrigin.y;
     const mag = Math.hypot(dx, dy);
@@ -98,22 +146,14 @@ export class MobileCombatControls {
   }
 
   private bindRollAndBlock(): void {
-    this.rollBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      this.dodgeQueued = true;
-    });
-    this.blockBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      this.blockBtn.setPointerCapture?.(e.pointerId);
-      this.setBlockHeld(true);
-    });
+    this.rollBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.dodgeQueued = true; });
+    this.sneakBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.setCrouching(!this.crouching); });
+    this.torchBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onToggleTorch?.(); });
+    this.blockBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.blockBtn.setPointerCapture?.(e.pointerId); this.setBlockHeld(true); });
     const endBlock = (): void => this.setBlockHeld(false);
     this.blockBtn.addEventListener("pointerup", endBlock);
     this.blockBtn.addEventListener("pointercancel", endBlock);
   }
 
-  private setBlockHeld(next: boolean): void {
-    this.blockHeld = next;
-    this.blockBtn.dataset.active = String(next);
-  }
+  private setBlockHeld(next: boolean): void { this.blockHeld = next; this.blockBtn.dataset.active = String(next); }
 }

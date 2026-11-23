@@ -28,6 +28,11 @@ export const enum PropKind {
   Palisade = "palisade",
   Tent = "tent",
   RuinPillar = "ruin-pillar",
+  CopperVein = "copper-vein",
+  IronVein = "iron-vein",
+  Workbench = "workbench",
+  Bed = "bed",
+  WoodChest = "wood-chest",
 }
 
 export type BiomeKind = "verdant-glade" | "deep-forest" | "riverbank" | "highland-ridge";

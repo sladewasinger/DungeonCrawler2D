@@ -37,7 +37,7 @@ def parse_args(argv):
         "out": opts["out"],
         "cell": int(opts.get("cell", "0")),
         "pxPerMeter": float(opts.get("pxPerMeter", "48")),
-        "dirs": DIRS_8 if opts.get("dirs", "4") == "8" else DIRS_4,
+        "dirs": DIRS_4 if opts.get("dirs", "8") == "4" else DIRS_8,
     }
 
 

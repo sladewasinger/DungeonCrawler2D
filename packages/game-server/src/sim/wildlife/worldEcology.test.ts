@@ -11,9 +11,9 @@ class ForestCoverCache extends WorldChunkCache {
   override propsNear() { return []; }
 }
 
-class RiverBarrierCache extends WorldChunkCache {
+class SheerCliffBarrierCache extends WorldChunkCache {
   override tileAt(wx: number) {
-    if (Math.floor(wx) === 28) return { ground: GroundKind.DeepWater, elevation: 0, stairs: false };
+    if (Math.floor(wx) >= 28) return { ground: GroundKind.CliffStone, elevation: 2, stairs: false };
     return { ground: GroundKind.Grass, elevation: 0, stairs: false };
   }
   override propsNear() { return []; }
@@ -57,6 +57,7 @@ describe("WorldEcology & POIs", () => {
     expect(events.some((e) => e.kind === "chestOpen")).toBe(true);
     expect(eco.snapshots().groundLoot).toHaveLength(0);
 
+    p.inventory.slots[11] = { itemId: "wood", count: 8 };
     expect(eco.transferChest(p, { chestId: chest.id, from: "inv", fromSlot: 11, to: "chest", toSlot: 20 })).toBe(true);
     expect(eco.snapshots().chests.find((c) => c.id === chest.id)?.slots[20]).not.toBeNull();
     expect(eco.takeAllChest(p, chest.id, events)).toBeGreaterThan(0);
@@ -204,7 +205,7 @@ describe("WorldEcology & POIs", () => {
   });
 
   it("scales knockback by archetype resistance, climbs cliff stairs, and disengages unreachable ledges", () => {
-    const barrierEco = new WorldEcology(new RiverBarrierCache(1337));
+    const barrierEco = new WorldEcology(new SheerCliffBarrierCache(1337));
     const slime = barrierEco.spawnEntity({ kind: "slime", x: 20, y: 12, homeRadius: 10, poiId: null, packId: null, packSlot: 0 });
     const golem = barrierEco.spawnEntity({ kind: "golem", x: 20, y: 18, homeRadius: 10, poiId: null, packId: null, packSlot: 0 });
     barrierEco.damageEntity({ entity: slime, damage: 12, dirX: 1, dirY: 0, goreStyle: "splatter", actorId: "p1", events: [] });
@@ -215,7 +216,9 @@ describe("WorldEcology & POIs", () => {
 
     const goblin = barrierEco.spawnEntity({ kind: "goblin", x: 23, y: 12, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
     goblin.facingX = 1;
-    stepEco({ eco: barrierEco, players: [makePlayer(29.5, 12)], ticks: 80 });
+    const cliffTopPlayer = makePlayer(29.5, 12);
+    cliffTopPlayer.elevation = 2;
+    stepEco({ eco: barrierEco, players: [cliffTopPlayer], ticks: 80 });
     expect(goblin.x).toBeLessThan(28);
     expect(goblin.aiState).toBe("return");
 

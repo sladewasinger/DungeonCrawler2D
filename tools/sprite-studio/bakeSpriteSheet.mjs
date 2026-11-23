@@ -43,7 +43,7 @@ function loadClipsMetadata(args) {
 }
 
 function processDirectionClip(opts) {
-  const { rawDir, dir, state, frameCount, groundY, baseAnchor, minIslandArea, bodyAlpha } = opts;
+  const { rawDir, dir, state, frameCount, groundY, baseAnchor, minIslandArea, bodyAlpha, outlineRadius } = opts;
   const rawFrames = [];
   const processed = [];
   let anchorShift = baseAnchor ?? null;
@@ -53,7 +53,7 @@ function processDirectionClip(opts) {
     const depthImg = fs.existsSync(depthFile) ? decodePng(fs.readFileSync(depthFile)) : null;
     rawFrames.push(colorImg);
     const res = postProcessFrame({
-      colorImg, depthImg, groundY, minIslandArea, bodyAlpha,
+      colorImg, depthImg, groundY, minIslandArea, bodyAlpha, outlineRadius,
       dx: anchorShift?.dx, dy: anchorShift?.dy,
     });
     anchorShift ??= { dx: res.dx, dy: res.dy };
@@ -129,7 +129,8 @@ function bakeDirectionRow(opts) {
   const baseAnchor = isCorpse ? null : anchorsByDir.get(dir);
   const res = processDirectionClip({
     rawDir: args.rawDir, dir, state, frameCount,
-    groundY: args.groundY, minIslandArea: args.minIslandArea, bodyAlpha: args.bodyAlpha, baseAnchor,
+    groundY: args.groundY, minIslandArea: args.minIslandArea, bodyAlpha: args.bodyAlpha,
+    outlineRadius: args.outlineRadius, baseAnchor,
   });
   if (!isCorpse && !anchorsByDir.has(dir)) anchorsByDir.set(dir, res.anchorShift);
   return res.processed;
@@ -157,9 +158,10 @@ function run() {
   const pxPerMeter = Number(meta.pxPerMeter ?? 32);
   const scale = Number((16 / pxPerMeter).toFixed(4));
   const minIslandArea = Math.max(4, Math.round(4 * (pxPerMeter / 32)));
+  const outlineRadius = Math.max(1.5, Math.round(2 * (pxPerMeter / 48)));
   const bodyAlpha = Number(meta.bodyAlpha ?? 1.0);
   const resolvedGroundY = args.groundY ?? meta.groundY ?? Math.round((meta.cellPx ?? 64) * 0.8125);
-  const effectiveArgs = { ...args, groundY: resolvedGroundY, minIslandArea, bodyAlpha };
+  const effectiveArgs = { ...args, groundY: resolvedGroundY, minIslandArea, bodyAlpha, outlineRadius };
   const { postRows, clipEntries } = bakeAllClips(effectiveArgs, meta);
   const cellW = postRows[0][0].width;
   const cellH = postRows[0][0].height;

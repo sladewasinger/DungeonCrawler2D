@@ -167,8 +167,8 @@ export function stampPoiLayoutPropsAndLights(opts: {
     props.push(makeProp({ kind: PropKind.RuinPillar, x: cx + dx, y: cy + dy, elevation, radius: 0.4, blocks: true }));
   }
   spec.campfires.forEach(([dx, dy], i) => {
-    props.push(makeProp({ kind: PropKind.Campfire, x: cx + dx, y: cy + dy, elevation, radius: 0.48, blocks: true }));
-    lights.push({ id: `${poi.id}-fire-${i}`, kind: "campfire", x: cx + dx, y: cy + dy, color: CAMPFIRE_COLOR, radiusPx: 175, intensity: 1.1 });
+    props.push(makeProp({ kind: PropKind.Campfire, x: cx + dx, y: cy + dy, elevation, radius: 0.78, blocks: true }));
+    lights.push({ id: `${poi.id}-fire-${i}`, kind: "campfire", x: cx + dx, y: cy + dy, color: CAMPFIRE_COLOR, radiusPx: 230, intensity: 1.25 });
   });
   spec.torches.forEach(([dx, dy], i) => {
     props.push(makeProp({ kind: PropKind.Torch, x: cx + dx, y: cy + dy, elevation, radius: 0.2, blocks: false }));

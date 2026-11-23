@@ -53,18 +53,24 @@ export interface LosQuery {
   readonly toElev: number;
 }
 
+function propOcclusionRadius(p: { readonly kind: PropKind; readonly radius: number }): number {
+  if (p.kind === PropKind.Palisade || p.kind === PropKind.Boulder) return Math.min(0.22, p.radius * 0.46);
+  return Math.max(0.24, p.radius * 0.72);
+}
+
 function hasPropOcclusion(cache: WorldChunkCache, ray: { readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number }): boolean {
   const rx = ray.bx - ray.ax;
   const ry = ray.by - ray.ay;
   const lenSq = rx * rx + ry * ry;
   if (lenSq < 0.01) return false;
-  for (const p of cache.propsNear(ray.ax, ray.ay)) {
+  const mx = (ray.ax + ray.bx) * 0.5;
+  const my = (ray.ay + ray.by) * 0.5;
+  for (const p of cache.propsNear(mx, my)) {
     if (!LOS_BLOCKING_PROPS.has(p.kind)) continue;
-    const t = Math.max(0.05, Math.min(0.95, ((p.x - ray.ax) * rx + (p.y - ray.ay) * ry) / lenSq));
+    const t = Math.max(0.08, Math.min(0.92, ((p.x - ray.ax) * rx + (p.y - ray.ay) * ry) / lenSq));
     const cx = ray.ax + rx * t;
     const cy = ray.ay + ry * t;
-    const r = Math.max(0.28, p.radius * 0.85);
-    if (Math.hypot(p.x - cx, p.y - cy) < r) return true;
+    if (Math.hypot(p.x - cx, p.y - cy) < propOcclusionRadius(p)) return true;
   }
   return false;
 }
@@ -99,10 +105,26 @@ export interface PerceptionQuery {
     readonly y: number;
     readonly elevation: number;
     readonly moving: boolean;
+    readonly visibility?: number | undefined;
+    readonly noiseRadius?: number | undefined;
   };
   readonly visionRange: number;
   readonly halfConeRad: number;
   readonly hearRange: number;
+}
+
+function resolveEffectiveHear(opts: PerceptionQuery): number {
+  const nr = opts.target.noiseRadius;
+  if (nr !== undefined) return Math.min(opts.hearRange * 1.65, nr);
+  return opts.target.moving ? opts.hearRange : opts.hearRange * 0.55;
+}
+
+function isCloseFrontalSight(opts: {
+  readonly observer: PerceptionQuery["observer"];
+  readonly target: PerceptionQuery["target"];
+  readonly dist: number;
+}): boolean {
+  return opts.dist <= 2.8 && (opts.target.visibility ?? 1) >= 0.45 && Math.abs(opts.observer.elevation - opts.target.elevation) <= 1;
 }
 
 export function canPerceiveTarget(opts: PerceptionQuery): boolean {
@@ -110,17 +132,14 @@ export function canPerceiveTarget(opts: PerceptionQuery): boolean {
   const dx = target.x - observer.x;
   const dy = target.y - observer.y;
   const dist = Math.hypot(dx, dy);
-  if (dist > opts.visionRange) return false;
-  const effectiveHear = target.moving ? opts.hearRange : opts.hearRange * 0.55;
-  if (dist <= effectiveHear) {
-    return Math.abs(observer.elevation - target.elevation) <= 1;
-  }
+  const effectiveVision = opts.visionRange * (0.32 + 0.68 * (target.visibility ?? 1));
+  if (dist > Math.max(effectiveVision, resolveEffectiveHear(opts))) return false;
+  if (dist <= resolveEffectiveHear(opts)) return Math.abs(observer.elevation - target.elevation) <= 1;
   const dirMag = Math.max(0.01, Math.hypot(observer.facingX, observer.facingY));
-  const cosAngle = (dx * observer.facingX + dy * observer.facingY) / (dist * dirMag);
-  if (cosAngle < Math.cos(opts.halfConeRad)) return false;
+  if ((dx * observer.facingX + dy * observer.facingY) / (dist * dirMag) < Math.cos(opts.halfConeRad)) return false;
+  if (isCloseFrontalSight({ observer, target, dist })) return true;
   return hasElevationLineOfSight({
-    cache: opts.cache,
-    fromX: observer.x, fromY: observer.y, fromElev: observer.elevation,
+    cache: opts.cache, fromX: observer.x, fromY: observer.y, fromElev: observer.elevation,
     toX: target.x, toY: target.y, toElev: target.elevation,
   });
 }

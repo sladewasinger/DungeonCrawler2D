@@ -1,7 +1,9 @@
 /** Procedural Web Audio API SFX synthesis with shared noise/tone envelope builders. */
-import type { GoreSubstance } from "@dc2d/engine";
+import type { GoreSubstance, WeaponArchetype } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
 import { playSavedStudioPreset } from "./studioOverrides.js";
+import { synthWeaponSwingByArchetype } from "./weapons/synthWeaponSfx.js";
+import { EXTENDED_SIMPLE_CUES } from "./weapons/synthCombatCues.js";
 import {
   applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
   type NoiseColor, type ProceduralTrackSpec,
@@ -119,11 +121,12 @@ export function playTone(opts: ToneOpts): void {
   osc.stop(now + duration + 0.02);
 }
 
-export function synthSwing(ctx: AudioContext, dst: AudioNode, comboStep: number): void {
-  if (playSavedStudioPreset({ ctx, dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
-  const pitch = 1 + (comboStep - 1) * 0.14;
-  playNoiseBurst({ ctx, dst, duration: 0.14, freq: 1350 * pitch, filterType: FILTER_BP, gain: AUDIO_TUNING.combat.swingGain, q: 1.8 });
-  playTone({ ctx, dst, wave: WAVE_TRI, f0: 290 * pitch, f1: 120, duration: 0.1, gain: AUDIO_TUNING.combat.swingGain * 0.55 });
+export function synthSwing(opts: {
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly comboStep: number; readonly archetype?: WeaponArchetype;
+}): void {
+  const archetype = opts.archetype ?? "sword";
+  if (archetype === "sword" && playSavedStudioPreset({ ctx: opts.ctx, dst: opts.dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
+  synthWeaponSwingByArchetype({ ctx: opts.ctx, dst: opts.dst, comboStep: opts.comboStep, archetype });
 }
 
 const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: AudioNode, opts: { readonly baseGain: number; readonly fatal: boolean }) => void>> = {
@@ -134,6 +137,8 @@ const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: A
   stone: (ctx, dst, { baseGain, fatal }) => {
     playNoiseBurst({ ctx, dst, duration: fatal ? 0.2 : 0.12, freq: 1450, filterType: FILTER_BP, gain: baseGain * (fatal ? 1.25 : 0.95), q: 1.4 });
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 140, f1: 52, duration: 0.12, gain: baseGain * 0.85 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 1920, f1: 1260, duration: 0.11, gain: baseGain * 0.42 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 3120, f1: 2150, duration: 0.08, gain: baseGain * 0.28, delay: 0.01 });
   },
   bone: (ctx, dst, { baseGain, fatal }) => {
     playNoiseBurst({ ctx, dst, duration: fatal ? 0.18 : 0.1, freq: 2150, filterType: FILTER_BP, gain: baseGain * 0.95, q: 2.6 });
@@ -154,12 +159,50 @@ export function synthImpact(opts: {
 }
 
 export type CombatCueKind =
-  | "block" | "parry" | "bowDraw" | "arrowFire" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot";
+  | "block" | "parry" | "guardBreak" | "riposte" | "heavyCharge" | "slamImpact" | "burnTick" | "burnExtinguish"
+  | "poisonTick" | "webSpit" | "webCut" | "cocoonWrap" | "cocoonBreak"
+  | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph"
+  | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave" | "distract" | "backstab"
+  | "ambushShot" | "wolfHowl" | "bearBluff" | "boarCrash" | "pebbleLand"
+  | "harvestHit" | "harvestBreak" | "placeStructure" | "bedSet";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
-  parry: (ctx, dst) => {
-    playTone({ ctx, dst, wave: WAVE_TRI, f0: 1180, f1: 1620, duration: 0.28, gain: AUDIO_TUNING.combat.parryGain });
-    playTone({ ctx, dst, wave: WAVE_SINE, f0: 2360, f1: 1900, duration: 0.22, gain: AUDIO_TUNING.combat.parryGain * 0.58 });
+  arrowEmbed: (ctx, dst) => playNoiseBurst({ ctx, dst, duration: 0.08, freq: 420, filterType: FILTER_BP, gain: 0.14, q: 2.0 }),
+  arrowRicochet: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 1580, f1: 980, duration: 0.14, gain: 0.15 });
+    playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2400, filterType: FILTER_BP, gain: 0.12, q: 3.0 });
+  },
+  distract: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 760, f1: 480, duration: 0.07, gain: 0.13 });
+    playNoiseBurst({ ctx, dst, duration: 0.06, freq: 1400, filterType: FILTER_BP, gain: 0.1, q: 2.5 });
+  },
+  pebbleLand: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 880, f1: 520, duration: 0.06, gain: 0.13 });
+    playNoiseBurst({ ctx, dst, duration: 0.045, freq: 1850, filterType: FILTER_BP, gain: 0.09, q: 2.8 });
+  },
+  ambushShot: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1480, duration: 0.14, gain: 0.16 });
+    playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2400, filterType: "highpass", gain: 0.12 });
+  },
+  wolfHowl: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 290, f1: 465, duration: 0.34, gain: 0.15 });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 465, f1: 330, duration: 0.3, gain: 0.1, delay: 0.28 });
+  },
+  bearBluff: (ctx, dst) => {
+    playTone({ ctx, dst, wave: "sawtooth", f0: 145, f1: 78, duration: 0.28, gain: 0.17 });
+    playNoiseBurst({ ctx, dst, duration: 0.24, freq: 340, filterType: "lowpass", gain: 0.15 });
+  },
+  boarCrash: (ctx, dst) => {
+    playTone({ ctx, dst, wave: "square", f0: 190, f1: 58, duration: 0.2, gain: 0.18 });
+    playNoiseBurst({ ctx, dst, duration: 0.16, freq: 620, filterType: "lowpass", gain: 0.16 });
+  },
+  placeStructure: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 260, f1: 120, duration: 0.11, gain: 0.16 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 520, f1: 780, duration: 0.12, gain: 0.11, delay: 0.05 });
+  },
+  bedSet: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 440, f1: 660, duration: 0.16, gain: 0.14 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 660, f1: 880, duration: 0.2, gain: 0.12, delay: 0.09 });
   },
   block: (ctx, dst) => {
     playTone({ ctx, dst, wave: "square", f0: 210, f1: 95, duration: 0.09, gain: 0.12 });
@@ -176,6 +219,10 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 784, f1: 1046, duration: 0.22, gain: 0.13, delay: 0.11 });
   },
   loot: (ctx, dst) => playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1320, duration: 0.09, gain: 0.1 }),
+  playerLeave: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 155, f1: 42, duration: 0.24, gain: 0.22 });
+    playSweptNoise({ ctx, dst, duration: 0.42, f0: 1500, f1: 220, filterType: "lowpass", gain: 0.24, q: 1.1, attackSec: 0.015, noiseColor: "pink" });
+  },
 };
 
 const STUDIO_CUE_OVERRIDES: Partial<Record<CombatCueKind, string>> = {
@@ -186,7 +233,7 @@ const STUDIO_CUE_OVERRIDES: Partial<Record<CombatCueKind, string>> = {
 export function synthCombatCue(ctx: AudioContext, dst: AudioNode, kind: CombatCueKind): void {
   const overrideId = STUDIO_CUE_OVERRIDES[kind];
   if (overrideId && playSavedStudioPreset({ ctx, dst, presetId: overrideId })) return;
-  const fn = SIMPLE_CUES[kind];
+  const fn = EXTENDED_SIMPLE_CUES[kind] ?? SIMPLE_CUES[kind];
   if (fn) { fn(ctx, dst); return; }
   if (kind === "heal" || kind === "respawn") {
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 523, f1: 659, duration: 0.14, gain: 0.12 });
