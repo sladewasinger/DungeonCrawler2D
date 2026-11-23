@@ -3,7 +3,7 @@ import { GroundKind, PropKind, TILE_PX, type PointLightSpec } from "@dc2d/engine
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { getHeldWeaponVisual, getShieldTexture } from "../render/character/heldWeapons.js";
 import { getPoiPropSpriteSpec } from "../render/textures/poiPropTextures.js";
-import { createPropTextureSet, type PropTextureSet } from "../render/textures/propTextures.js";
+import { createPropTextureSet, HD_PROP_SCALE, type PropTextureSet } from "../render/textures/propTextures.js";
 import { TERRAIN_TEX_PX, createTerrainTileAtlas } from "../render/textures/terrainTextures.js";
 import { LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y } from "./sandboxAi.js";
 
@@ -117,17 +117,18 @@ function spritePlacement(kind: PropKind, x: number, y: number) {
 }
 
 function mountNatureShowcase(layers: { readonly ground: Container; readonly ysort: Container; readonly canopy: Container }, props: PropTextureSet) {
-  mountSprite(layers.ysort, props.oakTrunk, { x: 5.5, y: 8.2 });
-  mountSprite(layers.canopy, props.oakCanopy, { x: 5.5, y: 7.8 });
-  mountSprite(layers.ysort, props.pineTrunk, { x: 10.2, y: 8.2 });
-  mountSprite(layers.canopy, props.pineCanopy, { x: 10.2, y: 7.8 });
-  mountSprite(layers.ysort, props.bush[0]!, { x: 14.5, y: 8.2 });
-  mountSprite(layers.ysort, props.tallGrass[0]!, { x: 18.2, y: 8.2 });
-  mountSprite(layers.ysort, props.wildflower[0]!, { x: 21.8, y: 8.2 });
-  mountSprite(layers.ysort, props.boulder[0]!, { x: 25.5, y: 8.2 });
-  mountSprite(layers.ysort, props.stump, { x: 29.2, y: 8.2 });
-  const campfire = mountSprite(layers.ysort, props.campfireFrames[0]!, { x: 33.2, y: 8.2 });
-  const torch = mountSprite(layers.ysort, props.torchFrames[0]!, { x: 37.0, y: 8.2 });
+  const s = HD_PROP_SCALE;
+  mountSprite(layers.ysort, props.oakTrunk, { x: 5.5, y: 8.2, scale: s });
+  mountSprite(layers.canopy, props.oakCanopy, { x: 5.5, y: 7.8, scale: s });
+  mountSprite(layers.ysort, props.pineTrunk, { x: 10.2, y: 8.2, scale: s });
+  mountSprite(layers.canopy, props.pineCanopy, { x: 10.2, y: 7.8, scale: s });
+  mountSprite(layers.ysort, props.bush[0]!, { x: 14.5, y: 8.2, scale: s });
+  mountSprite(layers.ysort, props.tallGrass[0]!, { x: 18.2, y: 8.2, scale: s, ax: 0.5, ay: 0.94 });
+  mountSprite(layers.ysort, props.wildflower[0]!, { x: 21.8, y: 8.2, scale: s, ax: 0.5, ay: 0.94 });
+  mountSprite(layers.ysort, props.boulder[0]!, { x: 25.5, y: 8.2, scale: s });
+  mountSprite(layers.ysort, props.stump, { x: 29.2, y: 8.2, scale: s });
+  const campfire = mountSprite(layers.ysort, props.campfireFrames[0]!, { x: 33.2, y: 8.2, scale: s });
+  const torch = mountSprite(layers.ysort, props.torchFrames[0]!, { x: 37.0, y: 8.2, scale: s });
   NATURE_LABELS.forEach((lbl, i) => addTinyLabel(layers.ground, { xTiles: NATURE_XS[i]!, yTiles: 8.5, text: lbl }));
   return { campfire, torch };
 }

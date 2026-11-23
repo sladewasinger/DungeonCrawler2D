@@ -4,7 +4,9 @@ import { Container, Sprite, type Texture } from "pixi.js";
 import { shadowCasterForProp, type ShadowCaster } from "../shaders/castShadows.js";
 import type { TilemapLayerHandle } from "../shaders/tilemapMesh.js";
 import { getPoiPropSpriteSpec, type PoiPropSpriteSpec } from "../textures/poiPropTextures.js";
-import { isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
+import { HD_PROP_SCALE, isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
+
+const grassBendState = new WeakMap<Sprite, number>();
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 
 export interface WorldLayers {
@@ -50,8 +52,9 @@ export function addPropSprite(
   const elev = prop.elevation ?? 0;
   const sprite = new Sprite(tex);
   const spec = resolvePoiSpec(prop.kind, tex);
-  sprite.anchor.set(spec ? spec.anchorX : 0.5, spec ? spec.anchorY : 0.9);
-  if (spec) sprite.scale.set(spec.scale);
+  const foliage = prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower;
+  sprite.anchor.set(spec ? spec.anchorX : 0.5, spec ? spec.anchorY : foliage ? 0.94 : 0.9);
+  sprite.scale.set(spec ? spec.scale : HD_PROP_SCALE);
   sprite.position.set(prop.x * TILE_PX, prop.y * TILE_PX - elev * ELEVATION_LIFT_PX);
   sprite.zIndex = Math.round(prop.y * TILE_PX) + elev * 2;
   parent.addChild(sprite);
@@ -125,9 +128,32 @@ function updateCanopyAlpha(canopy: { sprite: Sprite; wx: number; wy: number }, p
   canopy.sprite.alpha += ((behind ? 0.42 : 1) - canopy.sprite.alpha) * 0.2;
 }
 
-function updateGrassRustle(grass: { sprite: Sprite; wx: number; wy: number }, players: readonly PlayerSnapshot[]): void {
-  const rustled = players.some((p) => Math.hypot(p.x - grass.wx, p.y - grass.wy) < 0.85);
-  grass.sprite.scale.x += ((rustled ? 1.18 : 1) - grass.sprite.scale.x) * 0.22;
+function findGrassPush(grass: { wx: number; wy: number }, players: readonly PlayerSnapshot[]): number {
+  let bestDist = 0.95;
+  let pushDir = 0;
+  for (const p of players) {
+    const dx = grass.wx - p.x;
+    const d = Math.hypot(dx, grass.wy - p.y);
+    if (d < bestDist) {
+      bestDist = d;
+      pushDir = dx >= 0 ? 1 : -1;
+    }
+  }
+  return bestDist < 0.95 ? ((0.95 - bestDist) / 0.95) * pushDir * 0.44 : 0;
+}
+
+function updateGrassRustle(
+  grass: { sprite: Sprite; wx: number; wy: number },
+  players: readonly PlayerSnapshot[],
+  timeSec: number,
+): void {
+  const phase = grass.wx * 0.42 + grass.wy * 0.31;
+  const gust = Math.sin(timeSec * 2.1 + phase) * 0.08 + Math.sin(timeSec * 4.3 + phase * 1.7) * 0.035;
+  const prev = grassBendState.get(grass.sprite) ?? 0;
+  const bend = prev + (findGrassPush(grass, players) - prev) * 0.22;
+  grassBendState.set(grass.sprite, bend);
+  grass.sprite.rotation = gust + bend;
+  grass.sprite.scale.set(HD_PROP_SCALE, HD_PROP_SCALE * (1 - Math.abs(bend) * 0.14));
 }
 
 export function animateChunkPropsAndFoliage(input: {
@@ -138,5 +164,5 @@ export function animateChunkPropsAndFoliage(input: {
 }): void {
   for (const anim of input.chunk.animatedProps) animateFireSprite(anim, input.propsAtlas, input.timeSec);
   for (const canopy of input.chunk.canopySprites) updateCanopyAlpha(canopy, input.players);
-  for (const grass of input.chunk.grassSprites) updateGrassRustle(grass, input.players);
+  for (const grass of input.chunk.grassSprites) updateGrassRustle(grass, input.players, input.timeSec);
 }

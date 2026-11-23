@@ -46,7 +46,7 @@ export const CAMERA_TUNING = {
   maxZoom: 5.0,
   followLerpRate: 9,
   hitstopTimeScale: 0.12,
-  grassWindStrength: 1.4,
+  grassWindStrength: 0,
   canopyWindStrength: 0.9,
 } as const;
 
