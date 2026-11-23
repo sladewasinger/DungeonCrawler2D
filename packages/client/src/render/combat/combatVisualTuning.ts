@@ -1,5 +1,6 @@
 /** Editable visual combat, melee swing/smear, hitstop, and gore tuning levers. */
 import type { GoreStyle, GoreSubstance } from "@dc2d/engine";
+import type { ChunkKind } from "./goreTextures.js";
 
 export interface ComboArmSpec {
   readonly sweep: number;
@@ -21,13 +22,21 @@ export interface SmearSpec {
   readonly dir: number;
 }
 
+export interface SubstancePalette {
+  readonly fresh: readonly number[];
+  readonly dried: readonly number[];
+  readonly solid: boolean;
+  readonly chunkKind: ChunkKind;
+}
+
 export interface GoreStyleTuning {
   readonly count: number;
+  readonly streaks: number;
+  readonly chunks: number;
   readonly speed: number;
   readonly spread: number;
-  readonly minR: number;
-  readonly maxR: number;
-  readonly stretch: number;
+  readonly minScale: number;
+  readonly maxScale: number;
   readonly decalAlpha: number;
   readonly ttlSec: number;
   readonly vz: number;
@@ -57,23 +66,26 @@ export const MELEE_SWING_TUNING = {
 } as const;
 
 export const GORE_TUNING = {
-  maxDecals: 200,
-  maxDroplets: 140,
-  gravityPx: 165,
-  bleedDripIntervalSec: 0.34,
-  decalFadeSec: 6,
+  maxDecals: 800,
+  maxDroplets: 240,
+  gravityPx: 195,
+  bleedDripIntervalSec: 0.32,
+  decalTtlSec: 150,
+  decalFadeSec: 14,
+  dryDurationSec: 14,
   palettes: {
-    blood: [0x991b1b, 0xb91c1c, 0x7f1d1d, 0xef4444],
-    slime: [0x22c55e, 0x4ade80, 0x15803d, 0x86efac],
-    ichor: [0xa855f7, 0xc084fc, 0x6b21a8, 0xe879f9],
-    straw: [0xeab308, 0xfacc15, 0xa16207, 0xfef08a],
-    bone: [0xe2e8f0, 0xcbd5e1, 0x94a3b8, 0xf8fafc],
-  } as Readonly<Record<GoreSubstance, readonly number[]>>,
+    blood: { fresh: [0x9e1b1b, 0xb91c1c, 0x7f1d1d, 0xc82828], dried: [0x4a1216, 0x3b0e12, 0x56161b], solid: false, chunkKind: "soft" },
+    slime: { fresh: [0x2f9e44, 0x40c057, 0x2b8a3e, 0x69db7c], dried: [0x245e31, 0x1b4725, 0x2d6a3e], solid: false, chunkKind: "soft" },
+    ichor: { fresh: [0x7e22ce, 0x9333ea, 0x6b21a8, 0xa855f7], dried: [0x3b185f, 0x2e124a, 0x481e70], solid: false, chunkKind: "soft" },
+    straw: { fresh: [0xd4a017, 0xeab308, 0xa16207, 0xf5d042], dried: [0x9a7514, 0x7a590f, 0xb0861c], solid: true, chunkKind: "straw" },
+    bone: { fresh: [0xe2e8f0, 0xcbd5e1, 0xf1f5f9, 0xb8c4d4], dried: [0xb8c0cc, 0x9aa4b2, 0xcbd2dc], solid: true, chunkKind: "bone" },
+    stone: { fresh: [0x7c8594, 0x94a3b8, 0x64748b, 0x525d6d], dried: [0x646c7a, 0x4b5563, 0x707988], solid: true, chunkKind: "stone" },
+  } as Readonly<Record<GoreSubstance, SubstancePalette>>,
   styles: {
-    splatter: { count: 9, speed: 46, spread: 1.15, minR: 1.0, maxR: 2.2, stretch: 1.35, decalAlpha: 0.78, ttlSec: 45, vz: 26 },
-    "thin-streak": { count: 7, speed: 68, spread: 0.36, minR: 0.8, maxR: 1.3, stretch: 2.8, decalAlpha: 0.82, ttlSec: 42, vz: 14 },
-    drip: { count: 2, speed: 9, spread: 3.1, minR: 0.8, maxR: 1.2, stretch: 1.0, decalAlpha: 0.72, ttlSec: 30, vz: 4 },
-    "chunk-spray": { count: 14, speed: 62, spread: 1.45, minR: 1.2, maxR: 2.8, stretch: 1.7, decalAlpha: 0.84, ttlSec: 52, vz: 38 },
-    "explode-away": { count: 24, speed: 82, spread: Math.PI * 2, minR: 1.3, maxR: 3.1, stretch: 2.0, decalAlpha: 0.86, ttlSec: 55, vz: 50 },
+    splatter: { count: 14, streaks: 2, chunks: 1, speed: 58, spread: 1.35, minScale: 0.42, maxScale: 0.72, decalAlpha: 0.84, ttlSec: 150, vz: 34 },
+    "thin-streak": { count: 14, streaks: 5, chunks: 1, speed: 84, spread: 0.95, minScale: 0.36, maxScale: 0.62, decalAlpha: 0.86, ttlSec: 150, vz: 22 },
+    drip: { count: 4, streaks: 1, chunks: 0, speed: 32, spread: 0.38, minScale: 0.32, maxScale: 0.48, decalAlpha: 0.78, ttlSec: 120, vz: 10 },
+    "chunk-spray": { count: 20, streaks: 6, chunks: 6, speed: 78, spread: 1.65, minScale: 0.48, maxScale: 0.84, decalAlpha: 0.88, ttlSec: 150, vz: 52 },
+    "explode-away": { count: 28, streaks: 6, chunks: 9, speed: 92, spread: Math.PI * 2, minScale: 0.54, maxScale: 0.92, decalAlpha: 0.9, ttlSec: 150, vz: 64 },
   } as Readonly<Record<GoreStyle, GoreStyleTuning>>,
 } as const;

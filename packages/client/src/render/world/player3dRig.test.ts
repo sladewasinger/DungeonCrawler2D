@@ -91,7 +91,18 @@ describe("computeActorCombatFx is3d mode", () => {
       dodging: true, staggered: false, is3d: true,
     });
     expect(dodge.rot).toBe(0);
-    expect(dodge.alpha).toBeGreaterThan(0.8);
+    expect(dodge.alpha).toBeCloseTo(0.62, 2);
+
+    const invulnA = computeActorCombatFx({
+      aimX: 0, aimY: 1, facingX: 1, swingProgress: 0, comboStep: 1,
+      dodging: false, invulnTimer: 0.3, staggered: false, timeSec: 0, is3d: true,
+    });
+    const invulnB = computeActorCombatFx({
+      aimX: 0, aimY: 1, facingX: 1, swingProgress: 0, comboStep: 1,
+      dodging: false, invulnTimer: 0.3, staggered: false, timeSec: 0.05, is3d: true,
+    });
+    expect(invulnA.alpha).toBeCloseTo(0.48, 2);
+    expect(invulnB.alpha).toBeCloseTo(0.96, 2);
   });
 });
 

@@ -1,6 +1,7 @@
-/** Compact floating audio settings popover (Music slider, SFX slider, and Mute toggle). */
+/** Compact floating audio & gore settings popover (Music/SFX sliders, Mute, Gore). */
 import type { AudioEngine } from "../audio/audioEngine.js";
 import type { AudioPrefs } from "../audio/audioPrefs.js";
+import { loadGoreLevel, saveGoreLevel, type GoreLevel } from "../render/combat/gorePrefs.js";
 
 function makeEl<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -37,6 +38,38 @@ function makeVolumeRow(label: string, initial: number, onInput: (val: number) =>
   return { row, slider, valueEl };
 }
 
+const GORE_LEVELS: readonly { readonly id: GoreLevel; readonly label: string }[] = [
+  { id: "full", label: "Full" },
+  { id: "reduced", label: "Reduced" },
+  { id: "off", label: "Off" },
+];
+
+function makeGoreRow(onChange?: (level: GoreLevel) => void): HTMLDivElement {
+  const row = makeEl("div", "ow-audio-row");
+  const head = makeEl("div", "ow-audio-row-head");
+  const title = makeEl("span", "");
+  title.textContent = "Gore";
+  head.append(title);
+  const pills = makeEl("div", "ow-presets");
+  let active = loadGoreLevel();
+  const buttons = GORE_LEVELS.map((entry) => {
+    const btn = makeEl("button", "ow-pill");
+    btn.type = "button";
+    btn.textContent = entry.label;
+    btn.dataset.active = String(entry.id === active);
+    btn.addEventListener("click", () => {
+      active = entry.id;
+      saveGoreLevel(entry.id);
+      onChange?.(entry.id);
+      for (let i = 0; i < buttons.length; i++) buttons[i]!.dataset.active = String(GORE_LEVELS[i]!.id === active);
+    });
+    pills.append(btn);
+    return btn;
+  });
+  row.append(head, pills);
+  return row;
+}
+
 export class AudioPopover {
   readonly el: HTMLDivElement;
   private readonly muteBtn: HTMLButtonElement;
@@ -46,7 +79,7 @@ export class AudioPopover {
   private readonly sfxVal: HTMLSpanElement;
   private open = false;
 
-  constructor(host: HTMLElement, private readonly audio: AudioEngine) {
+  constructor(host: HTMLElement, private readonly audio: AudioEngine, opts?: { readonly onSetGoreLevel?: (level: GoreLevel) => void }) {
     const prefs = audio.getPrefs();
     this.el = makeEl("div", "ow-audio-popover");
     this.el.hidden = true;
@@ -66,7 +99,7 @@ export class AudioPopover {
     this.sfxSlider = sfx.slider;
     this.sfxVal = sfx.valueEl;
 
-    this.el.append(head, music.row, sfx.row);
+    this.el.append(head, music.row, sfx.row, makeGoreRow(opts?.onSetGoreLevel));
     host.append(this.el);
     this.syncUi(prefs);
     window.addEventListener("pointerdown", (e) => {

@@ -195,16 +195,16 @@ export class CombatWorld {
     c.blocking = false;
     c.actionCooldown = COMBO_SWING_SEC * 0.88;
     const rawDamage = Math.round(stats.damage * comboMultFor(c.comboStep));
+    const sweepDir = c.comboStep === 2 ? -1 : 1;
+    const goreStyle = finisherGore(stats.gore, c.comboStep);
     this.events.push({ kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, comboStep: c.comboStep });
     resolveMeleeHits({
       attacker: p, players: players.values(), dummies: this.dummies, rawDamage,
-      range: stats.range, halfArcRad: stats.halfArc,
-      goreStyle: finisherGore(stats.gore, c.comboStep), events: this.events,
+      range: stats.range, halfArcRad: stats.halfArc, goreStyle, comboStep: c.comboStep, sweepDir, events: this.events,
     });
     this.ecology.hitSector({
       attacker: p, dir: { x: p.aimX, y: p.aimY }, damage: rawDamage,
-      range: stats.range, halfArcRad: stats.halfArc,
-      goreStyle: finisherGore(stats.gore, c.comboStep), events: this.events,
+      range: stats.range, halfArcRad: stats.halfArc, goreStyle, comboStep: c.comboStep, sweepDir, events: this.events,
     });
   }
 }
@@ -216,7 +216,7 @@ export function playerCombatExtras(p: CombatPlayerRef) {
     comboStep: c.comboStep,
     swingProgress: c.swingTimer > 0 ? Math.min(1, 1 - c.swingTimer / c.swingDuration) : 0,
     bowCharge: Math.min(1, c.bowCharge / BOW_MAX_CHARGE_SEC),
-    blocking: c.blocking, dodging: c.dodgeTimer > 0, staggerTimer: c.staggerTimer,
+    blocking: c.blocking, dodging: c.dodgeTimer > 0, invulnTimer: c.invulnTimer, staggerTimer: c.staggerTimer,
     bleedTimer: c.bleedTimer, hitTimer: c.hitTimer, respawnTimer: c.respawnTimer, inSanctuary: isInSanctuary(p.x, p.y),
   };
 }

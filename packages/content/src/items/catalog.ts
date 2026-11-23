@@ -33,7 +33,7 @@ const CAT_CONSUMABLE: ItemCategory = "consumable";
 const CAT_MATERIAL: ItemCategory = "material";
 
 export const ITEM_CATALOG: readonly ItemDef[] = [
-  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "splatter" },
+  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "thin-streak" },
   { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, damage: 22, staminaCost: 14, range: 11, goreStyle: "drip" },
   { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, goreStyle: "chunk-spray" },
   { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: "chunk-spray" },

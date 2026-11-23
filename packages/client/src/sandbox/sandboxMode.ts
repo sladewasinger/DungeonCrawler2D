@@ -17,6 +17,7 @@ import { createPropTextureSet } from "../render/textures/propTextures.js";
 import { getLoadedSpriteIds } from "../render/textures/spriteManifest.js";
 import { playerVisualElevation } from "../render/world/cliffStrips.js";
 import { PlayerView } from "../render/world/playerSprite.js";
+import { buildGoreSpawn, resolveEventElev } from "../render/world/sceneHelpers.js";
 import { FpsCounter } from "../ui/fpsCounter.js";
 import { HudRoot } from "../ui/hud/hudRoot.js";
 import type { HudActions } from "../ui/hud/slotRenderer.js";
@@ -114,6 +115,16 @@ function resolveSandboxAim(opts: {
   return st.sim.isInCombatAim() || st.poseTuner.isOpen() ? computeAimTarget(st, nowMs) : undefined;
 }
 
+function applySandboxGoreAndVfx(st: SandboxState, cur: ReturnType<SandboxSim["step"]>, ctx: { readonly pl: ReturnType<SandboxSim["step"]>["player"]; readonly dt: number }): void {
+  st.vfx.handleEvents(cur.events, ctx.pl.id, [ctx.pl]);
+  st.gore.setTileSampler(st.sim.cache);
+  for (const ev of cur.events) if (ev.kind === "hit" && ev.goreStyle && ev.substance) st.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, cur.entities, ctx.pl), st.sim.cache));
+  st.gore.stepBleedDrips([ctx.pl], cur.entities, ctx.dt);
+  st.gore.stepFootprints([ctx.pl], cur.entities);
+  st.gore.step(ctx.dt);
+  st.vfx.step({ dt: ctx.dt, projectiles: cur.projectiles, players: [ctx.pl], local: ctx.pl });
+}
+
 function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
   st.fps.tick(nowMs);
   const move = st.input.movement();
@@ -140,9 +151,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
   st.pickups.sync({ chests: cur.chests, groundLoot: [], local: pl, timeSec });
   st.gallery.animate(timeSec);
   st.diorama.animate([pl], timeSec);
-  st.vfx.handleEvents(cur.events, pl.id, [pl]);
-  st.vfx.step({ dt, projectiles: cur.projectiles, players: [pl], local: pl });
-  st.gore.step(dt);
+  applySandboxGoreAndVfx(st, cur, { pl, dt });
   renderSandboxAtmosphere(st, { timeSec, pl });
   st.hud.sync({ inventory: cur.inventory, name: pl.name, appearance: pl.appearance ?? DEFAULT_APPEARANCE, localPlayer: pl, cache: st.sim.cache, players: [pl], entities: cur.entities, chests: cur.chests });
   st.compass.sync(pl.x, pl.y);
@@ -212,23 +221,17 @@ function createSandboxControls(opts: {
     onSpawnPack: () => sim.spawnWolfPack(), onSetPose: (pose) => sim.setPose(pose),
     onSetFacing: (facing) => sim.setFacing(facing), onSetDayPhase: (phase) => { getState().dayPhase = phase; },
     onZoom: setZoom, onJumpGallery: () => jumpTo(21, 26.2), onJumpTerrain: () => jumpTo(68, 16.5),
-    onTogglePoseTuner: () => poseTuner.toggle(), onReset: () => { sim.resetArena(); hud.closePanels(); jumpTo(21, 26.2); },
+    onTogglePoseTuner: () => poseTuner.toggle(), onReset: () => { sim.resetArena(); getState().gore.clear(); hud.closePanels(); jumpTo(21, 26.2); },
   }, getLoadedSpriteIds().length);
   return { input, toolbar };
 }
 
 function createSandboxState(host: HTMLElement, rig: SandboxRig): SandboxState {
-  const sim = new SandboxSim();
-  const gore = new GoreSystem();
-  const vfx = new CombatVfxLayer();
-  rig.decalCam.addChild(gore.decalLayer);
-  rig.ysortCam.addChild(gore.particleLayer);
-  rig.emissiveCam.addChild(vfx.container);
+  const sim = new SandboxSim(); const gore = new GoreSystem(); const vfx = new CombatVfxLayer();
+  gore.attachElevatedLayer(rig.ysortCam); rig.decalCam.addChild(gore.decalLayer);
+  rig.ysortCam.addChild(gore.particleLayer); rig.emissiveCam.addChild(vfx.container);
   const propsAtlas = createPropTextureSet();
-  const diorama = mountSandboxTerrainDiorama({
-    layers: { ground: rig.groundCam, water: rig.waterCam, grass: rig.grassCam, ysort: rig.ysortCam, canopy: rig.canopyCam },
-    cache: sim.cache, propsAtlas,
-  });
+  const diorama = mountSandboxTerrainDiorama({ layers: { ground: rig.groundCam, water: rig.waterCam, grass: rig.grassCam, ysort: rig.ysortCam, canopy: rig.canopyCam }, cache: sim.cache, propsAtlas });
   const gallery = buildSandboxGallery({ ground: rig.groundCam, ysort: rig.ysortCam, canopy: rig.canopyCam, propsAtlas });
   const { hud, onInteract, pickups } = mountSandboxHud(host, sim, new AudioEngine());
   rig.ysortCam.addChild(pickups.container);
@@ -236,10 +239,7 @@ function createSandboxState(host: HTMLElement, rig: SandboxRig): SandboxState {
   const ref: { st?: SandboxState } = {};
   const poseTuner = new PoseTunerPanel(host, { onZoomClose: () => { if (ref.st) ref.st.zoom = 4.2; } });
   const { input, toolbar } = createSandboxControls({ host, sim, hud, poseTuner, getState: () => ref.st!, onInteract });
-  ref.st = {
-    rig, sim, gallery, diorama, entities: new EntityRenderer(), pickups, gore, vfx, hud, compass, fps, input, toolbar, poseTuner,
-    playerView: null, zoom: 2.6, dayPhase: 0.42, camX: 21, camY: 23.6,
-  };
+  ref.st = { rig, sim, gallery, diorama, entities: new EntityRenderer(), pickups, gore, vfx, hud, compass, fps, input, toolbar, poseTuner, playerView: null, zoom: 2.6, dayPhase: 0.42, camX: 21, camY: 23.6 };
   return ref.st;
 }
 
@@ -250,9 +250,7 @@ export async function bootAssetSandbox(host: HTMLElement): Promise<void> {
   let prevMs = performance.now();
   const loop = (nowMs: number): void => {
     const dt = Math.min(0.05, Math.max(0.001, (nowMs - prevMs) / 1000));
-    prevMs = nowMs;
-    stepSandboxFrame(st, nowMs, dt);
-    requestAnimationFrame(loop);
+    prevMs = nowMs; stepSandboxFrame(st, nowMs, dt); requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
 }

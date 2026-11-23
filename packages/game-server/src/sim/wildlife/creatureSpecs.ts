@@ -181,7 +181,7 @@ export const CREATURE_SPECS: Readonly<Record<WildlifeKind, CreatureArchetypeSpec
   },
   golem: {
     kind: "golem", hp: 145, speed: 2.2, damage: 24, range: 1.85, windupSec: 0.78, cooldownSec: 1.9,
-    visionRange: 8.0, hearRange: 3.2, substance: GORE_BONE, goreStyle: STYLE_CHUNK, fatalStyle: STYLE_CHUNK,
+    visionRange: 8.0, hearRange: 3.2, substance: "stone", goreStyle: STYLE_CHUNK, fatalStyle: STYLE_CHUNK,
     scavenger: false, sentryIdle: true, territorialGuard: true, knockbackResist: 0.85, lootDrops: [{ itemId: ITEM_STONE, min: 2, max: 4 }, { itemId: ITEM_FLINT, min: 1, max: 3 }],
   },
 };

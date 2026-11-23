@@ -64,7 +64,7 @@ function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
   return {
     hp: serverMe.hp, maxHp: serverMe.maxHp, stamina: serverMe.stamina, maxStamina: serverMe.maxStamina,
     comboStep: serverMe.comboStep, swingProgress: serverMe.swingProgress, bowCharge: serverMe.bowCharge,
-    blocking: serverMe.blocking, dodging: serverMe.dodging,
+    blocking: serverMe.blocking, dodging: serverMe.dodging, invulnTimer: serverMe.invulnTimer,
     staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
     hitTimer: serverMe.hitTimer, respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary,
   };

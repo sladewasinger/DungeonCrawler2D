@@ -192,6 +192,7 @@ export function stepSandboxActors(opts: {
       ...actor.snap,
       hitTimer: Math.max(0, actor.snap.hitTimer - opts.dt),
       staggerTimer: Math.max(0, actor.snap.staggerTimer - opts.dt),
+      bleedTimer: Math.max(0, actor.snap.bleedTimer - opts.dt),
     };
     actor.cooldownSec = Math.max(0, actor.cooldownSec - opts.dt);
     const active = !isDummyKind(actor.snap.kind) && (opts.aiLive || actor.awake);

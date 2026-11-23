@@ -124,16 +124,28 @@ export function synthSwing(ctx: AudioContext, dst: AudioNode, comboStep: number)
   playTone({ ctx, dst, wave: WAVE_TRI, f0: 290 * pitch, f1: 120, duration: 0.1, gain: AUDIO_TUNING.combat.swingGain * 0.55 });
 }
 
+const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: AudioNode, opts: { readonly baseGain: number; readonly fatal: boolean }) => void>> = {
+  straw: (ctx, dst, { baseGain }) => {
+    playNoiseBurst({ ctx, dst, duration: 0.11, freq: 680, filterType: "lowpass", gain: baseGain });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 155, f1: 75, duration: 0.09, gain: baseGain * 0.7 });
+  },
+  stone: (ctx, dst, { baseGain, fatal }) => {
+    playNoiseBurst({ ctx, dst, duration: fatal ? 0.2 : 0.12, freq: 1450, filterType: FILTER_BP, gain: baseGain * (fatal ? 1.25 : 0.95), q: 1.4 });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 140, f1: 52, duration: 0.12, gain: baseGain * 0.85 });
+  },
+  bone: (ctx, dst, { baseGain, fatal }) => {
+    playNoiseBurst({ ctx, dst, duration: fatal ? 0.18 : 0.1, freq: 2150, filterType: FILTER_BP, gain: baseGain * 0.95, q: 2.6 });
+    playTone({ ctx, dst, wave: "square", f0: 360, f1: 120, duration: 0.07, gain: baseGain * 0.55 });
+  },
+};
+
 export function synthImpact(opts: {
   readonly ctx: AudioContext; readonly dst: AudioNode; readonly substance: GoreSubstance; readonly fatal: boolean;
 }): void {
   const { ctx, dst, substance, fatal } = opts;
   const baseGain = AUDIO_TUNING.combat.impactGain;
-  if (substance === "straw") {
-    playNoiseBurst({ ctx, dst, duration: 0.11, freq: 680, filterType: "lowpass", gain: baseGain });
-    playTone({ ctx, dst, wave: WAVE_TRI, f0: 155, f1: 75, duration: 0.09, gain: baseGain * 0.7 });
-    return;
-  }
+  const dry = DRY_IMPACT_SPECS[substance];
+  if (dry) { dry(ctx, dst, { baseGain, fatal }); return; }
   const wetFreq = substance === "slime" ? 960 : 540;
   playTone({ ctx, dst, wave: WAVE_SINE, f0: substance === "slime" ? 260 : 185, f1: 65, duration: fatal ? 0.22 : 0.13, gain: fatal ? baseGain * 1.3 : baseGain * 0.9 });
   playNoiseBurst({ ctx, dst, duration: fatal ? 0.24 : 0.14, freq: wetFreq, filterType: FILTER_BP, gain: fatal ? baseGain * 1.3 : baseGain * 0.8, q: 2.2 });

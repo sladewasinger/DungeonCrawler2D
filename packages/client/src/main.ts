@@ -87,14 +87,14 @@ function assistMobileAim(
 function syncUiAndAudio(opts: {
   readonly ctx: AppCtx;
   readonly view: ReturnType<WorldClient["snapshot"]>;
-  readonly preEvents: WorldViewState["events"];
+  readonly events: WorldViewState["events"];
   readonly dt: number;
   readonly dists: { readonly campfireDist: number; readonly waterDist: number };
 }): void {
-  const { ctx, view, dists } = opts;
+  const { ctx, view, events, dists } = opts;
   const local = view.players.find((p) => p.id === view.localPlayerId);
   const pos = local ? { x: local.x, y: local.y } : { x: 0.5, y: 0.5 };
-  ctx.audio.handleWorldEvents([...opts.preEvents, ...view.events], pos);
+  ctx.audio.handleWorldEvents(events, pos);
   ctx.audio.stepFrame({
     local, cache: view.cache, dt: opts.dt, dayPhase: view.dayPhase,
     campfireDist: dists.campfireDist, waterDist: dists.waterDist,
@@ -105,7 +105,7 @@ function syncUiAndAudio(opts: {
   });
   ctx.feedback.sync({
     local,
-    events: [...opts.preEvents, ...view.events],
+    events,
     localId: view.localPlayerId,
     dt: opts.dt,
   });
@@ -117,23 +117,21 @@ function syncUiAndAudio(opts: {
   });
 }
 
+function renderTitleFrame(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
+  ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
+  const idle = ctx.client.snapshot();
+  ctx.scene.renderFrame({
+    dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idle.dayPhase, cache: idle.cache,
+    players: idle.players, localPlayerId: idle.localPlayerId,
+  });
+}
+
 function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
   ctx.toolbar.tickFps(ctx.nowMs);
   const pre = ctx.client.snapshot();
-  if (ctx.titleScreen?.isOpen()) {
-    ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
-    const idleView = ctx.client.snapshot();
-    ctx.scene.renderFrame({
-      dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idleView.dayPhase, cache: idleView.cache,
-      players: idleView.players, localPlayerId: idleView.localPlayerId,
-    });
-    return;
-  }
+  if (ctx.titleScreen?.isOpen()) { renderTitleFrame(ctx); return; }
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
-  ctx.input.setGearState({
-    isBowHeld: preLocal?.heldItem === "bow",
-    hasShield: pre.inventory.armor.offhand === "wooden-shield",
-  });
+  ctx.input.setGearState({ isBowHeld: preLocal?.heldItem === "bow", hasShield: pre.inventory.armor.offhand === "wooden-shield" });
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const standingStill = Math.hypot(move.x, move.y) <= 0.05;
@@ -145,12 +143,13 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
     block: combat.block, dodge: combat.dodge, interact: combat.interact,
   });
   const view = ctx.client.snapshot();
+  const frameEvents = [...pre.events, ...view.events];
   const dists = ctx.scene.renderFrame({
     dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache,
     players: view.players, localPlayerId: view.localPlayerId,
-    projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, events: view.events,
+    projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, events: frameEvents,
   });
-  syncUiAndAudio({ ctx, view, preEvents: pre.events, dt: ctx.dt, dists });
+  syncUiAndAudio({ ctx, view, events: frameEvents, dt: ctx.dt, dists });
 }
 
 function startRenderLoop(ctx: AppCtx): void {
@@ -204,7 +203,7 @@ function mountHudAndControls(opts: {
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onInteract: onInteractChest, onClosePanels: () => hud.closePanels(),
   });
-  const audioPopover = new AudioPopover(host, audio);
+  const audioPopover = new AudioPopover(host, audio, { onSetGoreLevel: (lvl) => scene.setGoreLevel(lvl) });
   const toolbar = new AtmosphereToolbar(host, {
     onSetDayPhase: (phase, paused) => client.setDayPhase(phase, paused), onSetQuality: (preset) => scene.setQualityPreset(preset),
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },

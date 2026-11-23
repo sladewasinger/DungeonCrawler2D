@@ -1,7 +1,7 @@
 /** Player combat state, shield parry/block resolution, melee combo hits, and heals. */
 import { getItemDef } from "@dc2d/content";
 import {
-  BLEED_DURATION_SEC, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
+  BLEED_DURATION_SEC, HIT_IFRAME_SEC, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
   SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC, comboMultiplier, computeArmorDefense,
   computeMitigatedDamage, consumeItemFromSlots, isInSanctuary, isWithinSector,
   type GoreStyle, type PlayerInventoryState, type WorldEvent,
@@ -129,6 +129,8 @@ export interface IncomingHit {
   readonly attackerId: string;
   readonly rawDamage: number;
   readonly goreStyle: GoreStyle;
+  readonly comboStep?: number | undefined;
+  readonly sweepDir?: number | undefined;
   readonly attackerIsPlayer: boolean;
   readonly events: WorldEvent[];
   readonly onParry?: () => void;
@@ -171,7 +173,8 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
   const mag = Math.max(0.01, Math.hypot(dx, dy));
   events.push({
     kind: "hit", x: target.x, y: target.y, dirX: dx / mag, dirY: dy / mag, value: dmg,
-    actorId: hit.attackerId, targetId: target.id, goreStyle: fatal ? "explode-away" : hit.goreStyle, substance: "blood", fatal,
+    actorId: hit.attackerId, targetId: target.id, comboStep: hit.comboStep, sweepDir: hit.sweepDir,
+    goreStyle: fatal ? "explode-away" : hit.goreStyle, substance: "blood", fatal,
   });
   if (fatal) {
     target.combat.respawnTimer = 1.65;
@@ -179,6 +182,8 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
     target.combat.bowCharge = 0;
     target.combat.swingTimer = 0;
     target.combat.dodgeTimer = 0;
+  } else {
+    target.combat.invulnTimer = Math.max(target.combat.invulnTimer, HIT_IFRAME_SEC);
   }
 }
 
@@ -190,6 +195,8 @@ interface MeleePassInput {
   readonly range: number;
   readonly halfArcRad: number;
   readonly goreStyle: GoreStyle;
+  readonly comboStep?: number | undefined;
+  readonly sweepDir?: number | undefined;
   readonly events: WorldEvent[];
 }
 
@@ -197,7 +204,10 @@ function hitDummyTargets(input: MeleePassInput, dir: { readonly x: number; reado
   for (const entity of input.dummies) {
     if (entity.respawnTimer > 0) continue;
     if (!isWithinSector({ origin: input.attacker, dir, target: entity, range: input.range, halfArcRad: input.halfArcRad })) continue;
-    damageDummy({ entity, damage: input.rawDamage, dirX: dir.x, dirY: dir.y, goreStyle: input.goreStyle, actorId: input.attacker.id, events: input.events });
+    damageDummy({
+      entity, damage: input.rawDamage, dirX: dir.x, dirY: dir.y, goreStyle: input.goreStyle,
+      comboStep: input.comboStep, sweepDir: input.sweepDir, actorId: input.attacker.id, events: input.events,
+    });
   }
 }
 
@@ -207,7 +217,8 @@ function hitPlayerTargets(input: MeleePassInput, dir: { readonly x: number; read
     if (!isWithinSector({ origin: input.attacker, dir, target: other, range: input.range, halfArcRad: input.halfArcRad })) continue;
     applyIncomingPlayerHit({
       target: other, attackerOrigin: input.attacker, attackerId: input.attacker.id,
-      rawDamage: input.rawDamage, goreStyle: input.goreStyle, attackerIsPlayer: true, events: input.events,
+      rawDamage: input.rawDamage, goreStyle: input.goreStyle, comboStep: input.comboStep, sweepDir: input.sweepDir,
+      attackerIsPlayer: true, events: input.events,
       onParry: () => { input.attacker.combat.staggerTimer = PARRY_STAGGER_SEC; },
     });
   }
@@ -231,7 +242,7 @@ export function resolveDummyStrikeOnPlayer(opts: {
 }
 
 export function finisherGore(base: GoreStyle, step: number): GoreStyle {
-  return step === 3 && base === "splatter" ? "chunk-spray" : base;
+  return step === 3 && (base === "splatter" || base === "thin-streak") ? "chunk-spray" : base;
 }
 
 export function comboMultFor(step: number): number {

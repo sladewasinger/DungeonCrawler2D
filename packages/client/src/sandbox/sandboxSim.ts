@@ -89,7 +89,7 @@ export class SandboxSim {
   private facing: SandboxFacing = "auto";
   private aiLive = false;
   private player: PlayerSnapshot;
-  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0 };
+  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0, invulnTimer: 0 };
 
   constructor() {
     this.player = this.initialPlayer();
@@ -144,6 +144,7 @@ export class SandboxSim {
     this.aiLive = false;
     this.pose = "idle";
     this.facing = "auto";
+    this.timers.invulnTimer = 0;
     this.player = this.initialPlayer();
   }
 
@@ -233,7 +234,7 @@ export class SandboxSim {
     events.push(...stepSandboxActors({
       actors: this.actors, player: this.player, pose: this.pose, facing: this.facing, aiLive: this.aiLive,
       dt: input.dt, timeSec: input.timeSec,
-      onHitPlayer: () => { const h = applySandboxPlayerHit(this.player, 8); this.player = h.nextPlayer; return h.event; },
+      onHitPlayer: () => { const h = applySandboxPlayerHit(this.player, this.timers, 8); if (!h) return null; this.player = h.nextPlayer; return h.event; },
     }));
     return {
       player: this.player,

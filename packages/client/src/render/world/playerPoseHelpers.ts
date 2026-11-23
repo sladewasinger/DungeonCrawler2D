@@ -70,7 +70,7 @@ export function computePlayerCombatFx(snap: PlayerSnapshot, timeSec: number, is3
   return computeActorCombatFx({
     aimX: snap.aimX ?? snap.facingX, aimY: snap.aimY ?? snap.facingY, facingX: snap.facingX,
     swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 1,
-    dodging: Boolean(snap.dodging), staggered: (snap.staggerTimer ?? 0) > 0,
+    dodging: Boolean(snap.dodging), invulnTimer: snap.invulnTimer, staggered: (snap.staggerTimer ?? 0) > 0,
     hitTimer: snap.hitTimer, downed: (snap.respawnTimer ?? 0) > 0, timeSec, is3d,
   });
 }
