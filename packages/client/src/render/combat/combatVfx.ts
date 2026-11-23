@@ -83,6 +83,7 @@ export class CombatVfxLayer {
       arrowEmbed: () => this.spawnStuckArrow(ev),
       distract: () => this.spawnNoiseRipple(ev),
       backstab: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "BACKSTAB!" }),
+      bedSet: () => this.spawnPopup({ x: ev.x, y: ev.y - 1.1, label: "RESPAWN SET!", color: 0x4ade80 }),
     };
     bursts[ev.kind]?.();
   }

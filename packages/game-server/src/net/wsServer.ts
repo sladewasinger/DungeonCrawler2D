@@ -2,7 +2,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
   ClientMessageSchema, PROTOCOL_VERSION,
-  type ClientMessage, type PlayerSnapshot, type ServerMessage, type WorldEvent,
+  type ClientMessage, type PlayerSnapshot, type ServerMessage, type WorldDeltaSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
@@ -15,7 +15,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -39,33 +39,46 @@ interface TickBroadcastData {
   readonly chests: ReturnType<WorldSim["combatSnapshots"]>["chests"];
   readonly groundLoot: ReturnType<WorldSim["combatSnapshots"]>["groundLoot"];
   readonly events: WorldEvent[];
+  readonly worldDeltas: WorldDeltaSnapshot;
+  readonly deltaRev: number;
 }
+
+interface ClientSession { readonly playerId: string; sentDeltaRev: number }
 
 function buildClientSnapshot(input: {
-  readonly sim: WorldSim; readonly playerId: string; readonly data: TickBroadcastData;
+  readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
 }): ServerMessage {
+  const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
+  if (sendDeltas) input.session.sentDeltaRev = input.data.deltaRev;
   return {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
-    actionAckSeq: input.sim.actionAckSeq(input.playerId), players: input.data.players,
-    selfInventory: input.sim.inventorySnapshot(input.playerId),
+    actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: input.data.players,
+    selfInventory: input.sim.inventorySnapshot(input.session.playerId),
     projectiles: input.data.projectiles, entities: input.data.entities,
     chests: input.data.chests, groundLoot: input.data.groundLoot, events: input.data.events,
+    ...(sendDeltas ? { worldDeltas: input.data.worldDeltas } : {}),
   };
 }
 
-function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, string>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
-  const { projectiles, entities, chests, groundLoot } = ctx.sim.combatSnapshots();
-  const data: TickBroadcastData = {
-    players: ctx.sim.snapshots(), projectiles, entities, chests, groundLoot,
-    events: ctx.includeEvents === false ? [] : ctx.sim.drainCombatEvents(),
+function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
+  const { projectiles, entities, chests, groundLoot } = sim.combatSnapshots();
+  return {
+    players: sim.snapshots(), projectiles, entities, chests, groundLoot,
+    events: includeEvents ? sim.drainCombatEvents() : [],
+    worldDeltas: sim.worldDeltaSnapshot(), deltaRev: sim.cache.deltaRevision(),
   };
-  for (const [ws, playerId] of ctx.clients) sendJson(ws, buildClientSnapshot({ sim: ctx.sim, playerId, data }));
+}
+
+function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, ClientSession>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
+  const data = makeTickBroadcastData(ctx.sim, ctx.includeEvents !== false);
+  for (const [ws, session] of ctx.clients) sendJson(ws, buildClientSnapshot({ sim: ctx.sim, session, data }));
 }
 
 function dispatchMessage(ctx: {
-  readonly msg: ClientMessage; readonly playerId: string; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, string>;
+  readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>;
 }): void {
-  const { msg, playerId, sim, ws, clients } = ctx;
+  const { msg, session, sim, ws, clients } = ctx;
+  const { playerId } = session;
   if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(playerId, msg.seq);
   const handlers: Record<ClientMessage["t"], () => void> = {
     hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
@@ -82,18 +95,17 @@ function dispatchMessage(ctx: {
     openChest: () => msg.t === "openChest" && sim.handleChestAction(playerId, msg),
     chestTransfer: () => msg.t === "chestTransfer" && sim.handleChestAction(playerId, msg),
     chestTakeAll: () => msg.t === "chestTakeAll" && sim.handleChestAction(playerId, msg),
+    placeStructure: () => msg.t === "placeStructure" && sim.placeStructure(playerId, msg),
+    setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     debugSpawn: () => msg.t === "debugSpawn" && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
   };
   handlers[msg.t]();
   if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });
-  else if (msg.t !== "input") {
-    const { projectiles, entities, chests, groundLoot } = sim.combatSnapshots();
-    sendJson(ws, buildClientSnapshot({ sim, playerId, data: { players: sim.snapshots(), projectiles, entities, chests, groundLoot, events: [] } }));
-  }
+  else if (msg.t !== "input") sendJson(ws, buildClientSnapshot({ sim, session, data: makeTickBroadcastData(sim, false) }));
 }
 
 function handleSocketMessage(ctx: {
-  readonly raw: string; readonly playerId: string; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, string>;
+  readonly raw: string; readonly session: ClientSession; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>;
 }): void {
   let parsedJson: unknown;
   try { parsedJson = JSON.parse(ctx.raw); } catch { return; }
@@ -101,32 +113,38 @@ function handleSocketMessage(ctx: {
   if (msg.success) dispatchMessage({ ...ctx, msg: msg.data });
 }
 
-function resolveServerConfig(options: { readonly port?: number; readonly worldSeed?: number }) {
+function resolveSavePath(explicit?: string): string | undefined {
+  if (explicit !== undefined) return explicit;
+  return process.env.WORLD_SAVE_PATH === "none" ? undefined : process.env.WORLD_SAVE_PATH;
+}
+
+function resolveServerConfig(options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined }) {
   const port = options.port ?? Number(process.env.GAME_PORT ?? process.env.PORT ?? 4000);
   const host = process.env.GAME_HOST ?? "0.0.0.0";
   const worldSeed = options.worldSeed ?? (Number(process.env.WORLD_SEED) || 1337);
-  return { port, host, worldSeed };
+  return { port, host, worldSeed, savePath: resolveSavePath(options.savePath) };
 }
 
-export async function startGameServer(options: { readonly port?: number; readonly worldSeed?: number } = {}): Promise<RunningGameServer> {
-  const { port, host, worldSeed } = resolveServerConfig(options);
-  const sim = new WorldSim(worldSeed);
+export async function startGameServer(options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined } = {}): Promise<RunningGameServer> {
+  const { port, host, worldSeed, savePath } = resolveServerConfig(options);
+  const sim = new WorldSim(worldSeed, { persistencePath: savePath });
   const httpServer = createServer(handleHealthRequest);
   const wss = new WebSocketServer({ server: httpServer });
-  const clients = new Map<WebSocket, string>();
+  const clients = new Map<WebSocket, ClientSession>();
   wss.on("connection", (ws) => attachClient({ ws, sim, clients }));
   const timer = setInterval(() => { sim.step(1 / TICK_RATE); broadcastTickSnapshots({ clients, sim }); }, 1000 / TICK_RATE);
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
   const address = httpServer.address();
   const actualPort = typeof address === "object" && address ? address.port : port;
   console.log(`[game-server] listening on http://${host}:${actualPort}`);
-  return { port: actualPort, close: () => new Promise((resolve) => { clearInterval(timer); wss.close(() => httpServer.close(() => resolve())); }) };
+  return { port: actualPort, close: () => new Promise((resolve) => { clearInterval(timer); sim.savePersistenceNow(); wss.close(() => httpServer.close(() => resolve())); }) };
 }
 
-function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, string> }): void {
+function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, ClientSession> }): void {
   const playerId = ctx.sim.addPlayer("Traveler");
-  ctx.clients.set(ctx.ws, playerId);
+  const session: ClientSession = { playerId, sentDeltaRev: -1 };
+  ctx.clients.set(ctx.ws, session);
   sendJson(ctx.ws, { t: "welcome", playerId, worldSeed: ctx.sim.worldSeed, dayPhase: ctx.sim.dayPhase, dayPaused: ctx.sim.dayPaused, tickRate: TICK_RATE });
-  ctx.ws.on("message", (buf) => handleSocketMessage({ raw: buf.toString(), playerId, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients }));
+  ctx.ws.on("message", (buf) => handleSocketMessage({ raw: buf.toString(), session, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients }));
   ctx.ws.on("close", () => { ctx.clients.delete(ctx.ws); ctx.sim.removePlayer(playerId); });
 }

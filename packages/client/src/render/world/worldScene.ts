@@ -12,6 +12,7 @@ import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
+import { HarvestFxLayer } from "../survival/harvestFxLayer.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
 import { FoliageWindEffect } from "../shaders/foliageWindFilter.js";
@@ -63,6 +64,7 @@ export class WorldScene {
   private readonly gore = new GoreSystem();
   private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
+  private readonly harvestFx = new HarvestFxLayer();
   private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
@@ -88,7 +90,7 @@ export class WorldScene {
     goreCam!.addChild(this.gore.decalLayer);
     this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
     this.configureGoreLayers(ysortCam!);
-    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer, this.hitboxDebug.container);
+    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];
@@ -190,6 +192,7 @@ export class WorldScene {
     this.gore.stepFootprints(input.players, entities);
     this.gore.step(simDt);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
+    this.harvestFx.step(simDt);
     this.hitboxDebug.render({ cache: input.cache, local, players: input.players, entities, projectiles: input.projectiles ?? [] });
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
@@ -207,6 +210,7 @@ export class WorldScene {
     const events = input.events ?? [];
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
+    this.harvestFx.handleEvents(events, input.players, local?.elevation ?? 0);
     for (const ev of events) this.applyWorldHitFx(ev, input, local);
   }
 

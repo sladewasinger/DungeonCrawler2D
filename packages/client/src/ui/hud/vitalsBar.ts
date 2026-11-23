@@ -2,17 +2,25 @@
 import type { PlayerSnapshot } from "@dc2d/engine";
 import { domNode } from "./slotRenderer.js";
 
+function readStealthAndBuffs(player: PlayerSnapshot) {
+  return {
+    stealth: Boolean(player.crouching || player.inCover),
+    vis: player.stealthVis ?? 0.8,
+    cover: Boolean(player.inCover),
+    fed: Math.ceil(player.wellFedTimer ?? 0),
+    rest: Math.ceil(player.restedTimer ?? 0),
+  };
+}
+
 function readVitals(player: PlayerSnapshot | undefined) {
-  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, stealth: false, vis: 1, cover: false };
+  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, stealth: false, vis: 1, cover: false, fed: 0, rest: 0 };
   return {
     hp: Math.max(0, Math.round(player.hp ?? 100)),
     maxHp: Math.max(1, Math.round(player.maxHp ?? 100)),
     stam: Math.max(0, Math.round(player.stamina ?? 100)),
     maxStam: Math.max(1, Math.round(player.maxStamina ?? 100)),
     safe: player.inSanctuary !== false,
-    stealth: Boolean(player.crouching || player.inCover),
-    vis: player.stealthVis ?? 0.8,
-    cover: Boolean(player.inCover),
+    ...readStealthAndBuffs(player),
   };
 }
 
@@ -32,6 +40,8 @@ export class VitalsBar {
   private readonly stamFill: HTMLDivElement;
   private readonly sanctuaryPill: HTMLSpanElement;
   private readonly stealthPill: HTMLSpanElement;
+  private readonly fedPill: HTMLSpanElement;
+  private readonly restedPill: HTMLSpanElement;
   private lastKey = "";
 
   constructor(host: HTMLElement) {
@@ -41,11 +51,15 @@ export class VitalsBar {
     this.hpText = domNode("span", "ow-vbar-text");
     hpWrap.append(this.hpFill, this.hpText);
 
+    this.fedPill = domNode("span", "ow-buff-pill ow-buff-fed");
+    this.fedPill.hidden = true;
+    this.restedPill = domNode("span", "ow-buff-pill ow-buff-rested");
+    this.restedPill.hidden = true;
     this.stealthPill = domNode("span", "ow-stealth-pill");
     this.stealthPill.hidden = true;
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill");
     this.sanctuaryPill.textContent = "Sanctuary";
-    this.el.append(hpWrap, this.stealthPill, this.sanctuaryPill);
+    this.el.append(hpWrap, this.fedPill, this.restedPill, this.stealthPill, this.sanctuaryPill);
 
     this.staminaRail = domNode("div", "ow-stamina-rail");
     this.staminaRail.setAttribute("aria-label", "Stamina");
@@ -58,7 +72,7 @@ export class VitalsBar {
   sync(player: PlayerSnapshot | undefined): void {
     const v = readVitals(player);
     const visPct = Math.round(v.vis * 100);
-    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.stealth}:${v.cover}:${visPct}`;
+    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.stealth}:${v.cover}:${visPct}:${v.fed}:${v.rest}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
     this.hpFill.style.width = `${Math.min(100, (v.hp / v.maxHp) * 100)}%`;
@@ -67,6 +81,10 @@ export class VitalsBar {
     this.stamFill.style.height = `${stamPct}%`;
     this.stamFill.dataset.tier = staminaTierForPct(stamPct);
     this.sanctuaryPill.hidden = !v.safe;
+    this.fedPill.hidden = v.fed <= 0;
+    if (v.fed > 0) this.fedPill.textContent = `FED ${v.fed}s`;
+    this.restedPill.hidden = v.rest <= 0;
+    if (v.rest > 0) this.restedPill.textContent = `REST ${v.rest}s`;
     this.stealthPill.hidden = !v.stealth;
     if (v.stealth) {
       const s = stealthTier(v.vis, v.cover);

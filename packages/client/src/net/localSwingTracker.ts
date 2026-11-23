@@ -22,9 +22,10 @@ export class LocalSwingTracker {
   }
 
   private canTriggerSwing(opts: {
-    readonly attack: boolean; readonly heldId: string | null; readonly stamina: number | undefined; readonly cost: number;
+    readonly attack: boolean; readonly heldId: string | null; readonly stamina: number | undefined;
+    readonly cost: number; readonly placeable: boolean;
   }): boolean {
-    if (!opts.attack || this.cooldown > 0 || (opts.stamina ?? 100) < opts.cost) return false;
+    if (!opts.attack || this.cooldown > 0 || opts.placeable || (opts.stamina ?? 100) < opts.cost) return false;
     return !(opts.heldId && NON_MELEE_ITEMS.has(opts.heldId));
   }
 
@@ -41,7 +42,7 @@ export class LocalSwingTracker {
     this.cooldown = Math.max(0, this.cooldown - opts.dt);
     this.comboReset = Math.max(0, this.comboReset - opts.dt);
     const def = opts.heldId ? getItemDef(opts.heldId) : undefined;
-    if (!this.canTriggerSwing({ attack: opts.attack, heldId: opts.heldId, stamina: opts.player.stamina, cost: def?.staminaCost ?? 8 })) return;
+    if (!this.canTriggerSwing({ attack: opts.attack, heldId: opts.heldId, stamina: opts.player.stamina, cost: def?.staminaCost ?? 8, placeable: Boolean(def?.placeStructure) })) return;
     const archetype = resolveWeaponArchetype(opts.heldId, def?.weaponArchetype);
     const { stepIndex, moveset, spec } = resolveWeaponAttackStep({ archetype, currentStep: this.comboStep, comboActive: this.comboReset > 0 });
     this.swingDuration = spec.swingDurationSec;

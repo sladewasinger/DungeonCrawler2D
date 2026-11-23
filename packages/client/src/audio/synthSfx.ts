@@ -159,7 +159,8 @@ export function synthImpact(opts: {
 
 export type CombatCueKind =
   | "block" | "parry" | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph"
-  | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave" | "distract" | "backstab";
+  | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave" | "distract" | "backstab"
+  | "harvestHit" | "harvestBreak" | "placeStructure" | "bedSet";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
   arrowEmbed: (ctx, dst) => playNoiseBurst({ ctx, dst, duration: 0.08, freq: 420, filterType: FILTER_BP, gain: 0.14, q: 2.0 }),
@@ -174,6 +175,14 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
   backstab: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 980, f1: 1640, duration: 0.16, gain: 0.18 });
     playNoiseBurst({ ctx, dst, duration: 0.1, freq: 2600, filterType: "highpass", gain: 0.14 });
+  },
+  placeStructure: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 260, f1: 120, duration: 0.11, gain: 0.16 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 520, f1: 780, duration: 0.12, gain: 0.11, delay: 0.05 });
+  },
+  bedSet: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 440, f1: 660, duration: 0.16, gain: 0.14 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 660, f1: 880, duration: 0.2, gain: 0.12, delay: 0.09 });
   },
   parry: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 1180, f1: 1620, duration: 0.28, gain: AUDIO_TUNING.combat.parryGain });

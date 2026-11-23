@@ -1,4 +1,5 @@
 /** Touch-only right-hand combat action cluster: dynamic primary action, SNEAK, ROLL, and BLOCK. */
+import { getItemDef } from "@dc2d/content";
 
 export interface MobileCombatState {
   readonly attack: boolean;
@@ -13,16 +14,23 @@ export interface MobileCombatState {
 const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
   bow: "BOW",
   bandage: "HEAL",
+  "healing-salve": "HEAL",
   "cooked-meat": "EAT",
   "raw-meat": "EAT",
+  berry: "EAT",
+  "herb-tea": "EAT",
   axe: "CHOP",
   pickaxe: "MINE",
   map: "MAP",
   stone: "TOSS",
 };
 
+const HEAL_OR_EAT_ITEMS = new Set(["bandage", "healing-salve", "cooked-meat", "raw-meat", "berry", "herb-tea"]);
+
 export function actionLabelForHeldItem(heldItem: string | null): string {
-  return (heldItem && ITEM_ACTION_LABELS[heldItem]) || "ATK";
+  if (!heldItem) return "ATK";
+  if (ITEM_ACTION_LABELS[heldItem]) return ITEM_ACTION_LABELS[heldItem];
+  return getItemDef(heldItem)?.placeStructure ? "PLACE" : "ATK";
 }
 
 function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElement {
@@ -73,7 +81,7 @@ export class MobileCombatControls {
     this.heldItem = gear.heldItem;
     this.isBowHeld = gear.heldItem === "bow";
     this.atkBtn.textContent = actionLabelForHeldItem(gear.heldItem);
-    this.atkBtn.dataset.role = gear.heldItem === "bandage" || gear.heldItem?.endsWith("-meat") ? "heal" : (gear.heldItem ?? "none");
+    this.atkBtn.dataset.role = gear.heldItem && HEAL_OR_EAT_ITEMS.has(gear.heldItem) ? "heal" : (gear.heldItem ?? "none");
     this.blockBtn.hidden = !gear.hasShield;
     if (!gear.hasShield) this.setBlockHeld(false);
   }

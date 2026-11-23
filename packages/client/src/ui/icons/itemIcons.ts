@@ -3,6 +3,7 @@ import { Texture } from "pixi.js";
 import {
   canvasToNearestTexture, createPixelCanvas, fillCluster, fillEllipsePixel, stampSelOutOutline,
 } from "../../render/textures/pixelCanvas.js";
+import { CAMP_ITEM_PAINTERS } from "./campItemIcons.js";
 
 const iconUrlCache = new Map<string, string>();
 const heldTextureCache = new Map<string, Texture>();
@@ -144,6 +145,7 @@ const PAINTERS: Readonly<Record<string, (ctx: CanvasRenderingContext2D, id: stri
   "leather-leggings": paintLeatherArmor, "leather-boots": paintLeatherArmor,
   bandage: paintBandage, "raw-meat": paintMeat, "cooked-meat": paintMeat,
   arrow: paintArrowMat, wood: paintWoodMat, stone: paintStoneMat, flint: paintStoneMat, herb: paintHerbMat,
+  ...CAMP_ITEM_PAINTERS,
 };
 
 function buildItemCanvas(itemId: string): HTMLCanvasElement {

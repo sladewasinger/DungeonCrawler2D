@@ -21,6 +21,7 @@ export interface MountedChunk {
   readonly key: string;
   readonly cx: number;
   readonly cy: number;
+  readonly revision?: number;
   readonly ground: TilemapLayerHandle;
   readonly water: TilemapLayerHandle;
   readonly grassSprites: readonly { sprite: Sprite; wx: number; wy: number }[];
@@ -62,15 +63,23 @@ export function addPropSprite(
   return sprite;
 }
 
+const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) => Texture>> = {
+  [PropKind.Boulder]: (p, v) => p.boulder[v % p.boulder.length]!,
+  [PropKind.Bush]: (p, v) => p.bush[v % p.bush.length]!,
+  [PropKind.Campfire]: (p) => p.campfireFrames[0]!,
+  [PropKind.Torch]: (p) => p.torchFrames[0]!,
+  [PropKind.Palisade]: (p) => p.palisade,
+  [PropKind.Tent]: (p) => p.tent,
+  [PropKind.RuinPillar]: (p) => p.ruinPillar,
+  [PropKind.CopperVein]: (p) => p.copperVein,
+  [PropKind.IronVein]: (p) => p.ironVein,
+  [PropKind.Workbench]: (p) => p.workbench,
+  [PropKind.Bed]: (p) => p.bed,
+  [PropKind.WoodChest]: (p) => p.woodChest,
+};
+
 function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
-  if (prop.kind === PropKind.Boulder) return p.boulder[prop.variant % p.boulder.length]!;
-  if (prop.kind === PropKind.Bush) return p.bush[prop.variant % p.bush.length]!;
-  if (prop.kind === PropKind.Campfire) return p.campfireFrames[0]!;
-  if (prop.kind === PropKind.Torch) return p.torchFrames[0]!;
-  if (prop.kind === PropKind.Palisade) return p.palisade;
-  if (prop.kind === PropKind.Tent) return p.tent;
-  if (prop.kind === PropKind.RuinPillar) return p.ruinPillar;
-  return p.stump;
+  return PROP_TEX_BY_KIND[prop.kind]?.(p, prop.variant) ?? p.stump;
 }
 
 function mountTreeProp(input: {
@@ -111,6 +120,7 @@ export function mountChunkProp(input: {
   if (caster) target.casters.push(caster);
   if (prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower) { mountFoliageProp(input); return; }
   if (isTreeProp(prop.kind)) { mountTreeProp(input); return; }
+  if (prop.kind === PropKind.WoodChest) return;
   const sprite = addPropSprite(layers.ysort, propTextureFor(prop, propsAtlas), prop);
   target.ysortSprites.push(sprite);
   if (prop.kind === PropKind.Campfire || prop.kind === PropKind.Torch) {

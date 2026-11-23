@@ -57,3 +57,20 @@ export function synthWeaponSwingByArchetype(opts: {
   const fn = WEAPON_SYNTH_MAP[opts.archetype] ?? SWORD_SYNTH;
   fn(opts.ctx, opts.dst, opts.comboStep);
 }
+
+function playStoneHarvest(ctx: AudioContext, dst: AudioNode, broken: boolean): void {
+  playTone({ ctx, dst, wave: "sine", f0: broken ? 1480 : 1820, f1: 940, duration: 0.14, gain: 0.16 });
+  playNoiseBurst({ ctx, dst, duration: broken ? 0.22 : 0.1, freq: 1650, filterType: "bandpass", gain: 0.14, q: 1.8 });
+}
+
+function playWoodHarvest(ctx: AudioContext, dst: AudioNode, broken: boolean): void {
+  playTone({ ctx, dst, wave: "triangle", f0: broken ? 190 : 240, f1: 72, duration: broken ? 0.22 : 0.12, gain: 0.18 });
+  playNoiseBurst({ ctx, dst, duration: broken ? 0.24 : 0.09, freq: 620, filterType: "lowpass", gain: 0.14 });
+}
+
+export function synthHarvestSfx(opts: {
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly stone: boolean; readonly broken: boolean;
+}): void {
+  if (opts.stone) playStoneHarvest(opts.ctx, opts.dst, opts.broken);
+  else playWoodHarvest(opts.ctx, opts.dst, opts.broken);
+}

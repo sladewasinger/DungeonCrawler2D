@@ -2,6 +2,7 @@
 
 export type ItemCategory = "weapon" | "tool" | "armor" | "consumable" | "material";
 export type ItemWeaponArchetype = "sword" | "axe" | "pickaxe" | "torch" | "spear" | "dagger" | "greatsword";
+export type PlaceableStructureKind = "campfire" | "torch" | "wood-chest" | "workbench" | "bed" | "palisade";
 export type ArmorSlot = "head" | "chest" | "legs" | "feet" | "offhand";
 export type GoreStyle = "splatter" | "thin-streak" | "drip" | "chunk-spray" | "explode-away";
 export type CosmeticLayerSlot =
@@ -39,7 +40,9 @@ export interface ItemDef {
   readonly range?: number;
   readonly arcRad?: number;
   readonly weaponArchetype?: ItemWeaponArchetype;
+  readonly placeStructure?: PlaceableStructureKind;
   readonly healHp?: number;
+  readonly wellFedSec?: number;
   readonly goreStyle?: GoreStyle;
   readonly visualLayer?: ItemVisualLayerSpec;
 }
@@ -100,12 +103,23 @@ export const ITEM_CATALOG: readonly ItemDef[] = [
   },
   { id: "torch", name: "Torch", category: CAT_CONSUMABLE, maxStack: 32, weaponArchetype: "torch", damage: 10, staminaCost: 10, range: 1.65, arcRad: 1.5, goreStyle: "splatter" },
   { id: "bandage", name: "Bandage", category: CAT_CONSUMABLE, maxStack: 16, healHp: 25 },
-  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: 16, healHp: 40 },
+  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: 16, healHp: 40, wellFedSec: 180 },
+  { id: "berry", name: "Wild Berries", category: CAT_CONSUMABLE, maxStack: 24, healHp: 12, wellFedSec: 45 },
+  { id: "herb-tea", name: "Herbal Tea", category: CAT_CONSUMABLE, maxStack: 16, healHp: 22, wellFedSec: 150 },
+  { id: "healing-salve", name: "Herbal Salve", category: CAT_CONSUMABLE, maxStack: 12, healHp: 50 },
+  { id: "camp-campfire", name: "Campfire Kit", category: CAT_TOOL, maxStack: 8, placeStructure: "campfire" },
+  { id: "standing-torch", name: "Standing Torch", category: CAT_TOOL, maxStack: 16, placeStructure: "torch" },
+  { id: "storage-chest", name: "Storage Chest", category: CAT_TOOL, maxStack: 8, placeStructure: "wood-chest" },
+  { id: "workbench", name: "Workbench", category: CAT_TOOL, maxStack: 4, placeStructure: "workbench" },
+  { id: "camp-bed", name: "Camp Bed", category: CAT_TOOL, maxStack: 4, placeStructure: "bed" },
+  { id: "wood-palisade", name: "Wooden Palisade", category: CAT_TOOL, maxStack: 24, placeStructure: "palisade" },
   { id: "raw-meat", name: "Raw Meat", category: CAT_MATERIAL, maxStack: 16 },
   { id: "arrow", name: "Arrow", category: CAT_MATERIAL, maxStack: 64 },
   { id: "wood", name: "Wood", category: CAT_MATERIAL, maxStack: 64 },
   { id: "stone", name: "Stone", category: CAT_MATERIAL, maxStack: 64 },
   { id: "flint", name: "Flint", category: CAT_MATERIAL, maxStack: 32 },
+  { id: "copper-ore", name: "Copper Ore", category: CAT_MATERIAL, maxStack: 32 },
+  { id: "iron-ore", name: "Iron Ore", category: CAT_MATERIAL, maxStack: 32 },
   { id: "herb", name: "Forest Herb", category: CAT_MATERIAL, maxStack: 32 },
 ];
 

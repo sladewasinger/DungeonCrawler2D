@@ -53,7 +53,12 @@ const HUD_CSS = `
   padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
   color: #86efac; background: rgba(20, 83, 45, 0.6); border: 1px solid rgba(74, 222, 128, 0.35);
 }
-.ow-sanctuary-pill[hidden], .ow-stealth-pill[hidden] { display: none; }
+.ow-sanctuary-pill[hidden], .ow-stealth-pill[hidden], .ow-buff-pill[hidden] { display: none; }
+.ow-buff-pill {
+  padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.02em;
+}
+.ow-buff-fed { color: #fde68a; background: rgba(120, 53, 15, 0.78); border: 1px solid rgba(251, 191, 36, 0.45); }
+.ow-buff-rested { color: #bae6fd; background: rgba(12, 74, 110, 0.78); border: 1px solid rgba(56, 189, 248, 0.45); }
 .ow-stealth-pill {
   padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
   color: #6ee7b7; background: rgba(6, 78, 59, 0.72); border: 1px solid rgba(52, 211, 153, 0.45);

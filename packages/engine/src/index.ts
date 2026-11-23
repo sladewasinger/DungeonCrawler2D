@@ -166,3 +166,17 @@ export {
 export type {
   AttackMotionKind, HarvestToolKind, WeaponArchetype, WeaponMovesetSpec, WeaponStepSpec,
 } from "./combat/weapons/weaponMovesets.js";
+export {
+  HARVEST_NODE_SPECS, computeHarvestDamage, getHarvestNodeSpec, rollHarvestDrops,
+} from "./survival/harvestRules.js";
+export type { HarvestDropSpec, HarvestNodeSpec } from "./survival/harvestRules.js";
+export {
+  STRUCTURE_KINDS, STRUCTURE_SPECS, canPlaceStructure, structureToChunkProp, structureToPointLight,
+} from "./survival/campBuilding.js";
+export type { PlacedStructureRecord, StructureKind, StructureSpec } from "./survival/campBuilding.js";
+export { SURVIVAL_BUFF_TUNING, computeSurvivalRegen } from "./survival/survivalBuffs.js";
+export { WorldDeltaOverlay } from "./survival/worldDeltas.js";
+export type { DepletedPropDelta, WorldDeltaSnapshot } from "./survival/worldDeltas.js";
+export {
+  ClientPlaceStructureSchema, ClientSetRespawnBedSchema, DepletedPropSchema, PlacedStructureSchema, WorldDeltaSnapshotSchema,
+} from "./net/worldDeltaSchemas.js";

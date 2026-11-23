@@ -6,6 +6,7 @@ import { isWildlifeVoiceKind, synthCreatureVocal, type CreatureVoiceKind } from 
 import { computeSpatialMix, createSpatialBus } from "./spatialMix.js";
 import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
 import { synthCombatCue, synthImpact, synthSwing, synthUi } from "./synthSfx.js";
+import { synthHarvestSfx } from "./weapons/synthWeaponSfx.js";
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -143,6 +144,10 @@ export class AudioEngine {
     if (ev.kind === "swing") { this.dispatchSwingEvent(ev, dst); return; }
     if (ev.kind === "telegraph") { this.dispatchTelegraphEvent(ev, dst); return; }
     if (ev.kind === "creatureVocal") { this.dispatchVocalEvent(ev, dst); return; }
+    if (ev.kind === "harvestHit" || ev.kind === "harvestBreak") {
+      synthHarvestSfx({ ctx: this.ctx, dst, stone: ev.substance === "stone", broken: ev.kind === "harvestBreak" });
+      return;
+    }
     synthCombatCue(this.ctx, dst, ev.kind);
   }
 

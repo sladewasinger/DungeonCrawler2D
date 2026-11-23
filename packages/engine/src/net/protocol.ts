@@ -4,6 +4,7 @@ import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { GORE_STYLES, GORE_SUBSTANCES } from "../combat/combatRules.js";
 import { WEAPON_ARCHETYPES } from "../combat/weapons/weaponMovesets.js";
+import { ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -17,11 +18,8 @@ export const GoreSubstanceSchema = z.enum(GORE_SUBSTANCES);
 export const GoreStyleSchema = z.enum(GORE_STYLES);
 
 export const ArmorEquipmentSchema = z.object({
-  head: z.string().nullable(),
-  chest: z.string().nullable(),
-  legs: z.string().nullable(),
-  feet: z.string().nullable(),
-  offhand: z.string().nullable().default(null),
+  head: z.string().nullable(), chest: z.string().nullable(), legs: z.string().nullable(),
+  feet: z.string().nullable(), offhand: z.string().nullable().default(null),
 });
 
 export const InventorySnapshotSchema = z.object({
@@ -96,21 +94,10 @@ export const ClientDebugSpawnSchema = z.object({
 });
 
 export const ClientMessageSchema = z.discriminatedUnion("t", [
-  ClientHelloSchema,
-  ClientSetAppearanceSchema,
-  ClientInputSchema,
-  ClientRespawnSchema,
-  ClientTorchToggleSchema,
-  ClientSetDayPhaseSchema,
-  ClientMoveSlotSchema,
-  ClientEquipArmorSchema,
-  ClientUnequipArmorSchema,
-  ClientSelectHotbarSchema,
-  ClientCraftSchema,
-  ClientOpenChestSchema,
-  ClientChestTransferSchema,
-  ClientChestTakeAllSchema,
-  ClientDebugSpawnSchema,
+  ClientHelloSchema, ClientSetAppearanceSchema, ClientInputSchema, ClientRespawnSchema, ClientTorchToggleSchema,
+  ClientSetDayPhaseSchema, ClientMoveSlotSchema, ClientEquipArmorSchema, ClientUnequipArmorSchema,
+  ClientSelectHotbarSchema, ClientCraftSchema, ClientOpenChestSchema, ClientChestTransferSchema,
+  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -154,6 +141,9 @@ export const PlayerSnapshotSchema = z.object({
   crouching: z.boolean().optional(),
   stealthVis: z.number().optional(),
   inCover: z.boolean().optional(),
+  wellFedTimer: z.number().optional(),
+  restedTimer: z.number().optional(),
+  hasBedRespawn: z.boolean().optional(),
 });
 
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
@@ -200,7 +190,7 @@ export type WorldEntitySnapshot = z.infer<typeof WorldEntitySnapshotSchema>;
 
 export const WorldChestSnapshotSchema = z.object({
   id: z.string(),
-  poiKind: z.enum(["bandit-camp", "ancient-ruins"]),
+  poiKind: z.enum(["bandit-camp", "ancient-ruins", "player-chest"]),
   x: z.number(),
   y: z.number(),
   elevation: z.number(),
@@ -226,7 +216,7 @@ export const WorldEventSchema = z.object({
   kind: z.enum([
     "swing", "hit", "block", "parry", "arrowFire", "arrowEmbed", "arrowRicochet", "dodge",
     "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal", "playerLeave",
-    "distract", "backstab",
+    "distract", "backstab", "harvestHit", "harvestBreak", "placeStructure", "bedSet",
   ]),
   x: z.number(),
   y: z.number(),
@@ -270,6 +260,7 @@ export const ServerSnapshotSchema = z.object({
   chests: z.array(WorldChestSnapshotSchema).optional(),
   groundLoot: z.array(GroundLootSnapshotSchema).optional(),
   events: z.array(WorldEventSchema).optional(),
+  worldDeltas: WorldDeltaSnapshotSchema.optional(),
 });
 
 export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema]);

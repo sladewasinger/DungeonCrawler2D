@@ -17,12 +17,22 @@ interface GroundLootItem {
 
 interface StoredChest {
   readonly id: string;
-  readonly poiKind: ChunkPoi["kind"];
+  readonly poiKind: ChunkPoi["kind"] | "player-chest";
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
   opened: boolean;
   readonly slots: InventorySlot[];
+}
+
+export interface SavedChestRecord {
+  readonly id: string;
+  readonly poiKind: ChunkPoi["kind"] | "player-chest";
+  readonly x: number;
+  readonly y: number;
+  readonly elevation: number;
+  readonly opened: boolean;
+  readonly slots: readonly InventorySlot[];
 }
 
 const BANDIT_CAMP_POI = "bandit-camp" as const;
@@ -49,6 +59,30 @@ export class LootManager {
       id: poi.id, poiKind: poi.kind, x: poi.chestX, y: poi.chestY, elevation: poi.elevation,
       opened: false, slots: populateChestSlots(poi.kind),
     });
+  }
+
+  registerCustomChest(opts: { readonly id: string; readonly x: number; readonly y: number; readonly elevation: number }): void {
+    if (this.chests.has(opts.id)) return;
+    this.chests.set(opts.id, {
+      id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation,
+      opened: false, slots: createEmptyChestSlots(),
+    });
+  }
+
+  exportChests(): readonly SavedChestRecord[] {
+    return Array.from(this.chests.values(), (c) => ({
+      id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
+      opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+    }));
+  }
+
+  importChests(list: readonly SavedChestRecord[]): void {
+    for (const c of list) {
+      this.chests.set(c.id, {
+        id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
+        opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+      });
+    }
   }
 
   spawnLoot(opts: { readonly itemId: string; readonly count: number; readonly x: number; readonly y: number; readonly vx: number; readonly vy: number }): void {

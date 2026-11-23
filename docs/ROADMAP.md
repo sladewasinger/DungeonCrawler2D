@@ -107,11 +107,11 @@ flowchart LR
   - **Pickaxe**: overhead downward `overheadSlam` (high `-18.7px` overhead windup raising before slamming downward onto the target tile with stone/gold ground impact shock-rings and metallic strike SFX, plus `harvestKind: "stone"` hook).
   - **Torch**: 2-hit fiery sweep -> ember `thrust` lance with warm flame trails & crackling whoosh SFX.
 
-### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas
-- Harvestable trees (wood + regrowing stumps), boulders/ore veins (`stone`, `flint`, `copper`, `iron`), and herbs/berries with hit shake & debris bursts.
-- **Valheim-Lite Camp Building**: Craft and place **campfires**, standing **torches**, **storage chests**, **workbenches**, **beds (set custom respawn point)**, and simple **wooden palisades / shelters**.
-- **Light Survival & Cooking**: Campfire cooking (`raw-meat` -> `cooked-meat`, herb teas/salves) granting timed **Well-Fed** and **Rested** stamina/HP regen buffs near warm hearths (zero punitive starvation deaths).
-- **Authoritative Persistence Store**: Save chunk deltas (chopped resources, looted POI chests, placed camp structures/beds) and player progression cleanly across server restarts.
+### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas ✅
+- **Tool-Gated Gathering & Regrowth (`survival/harvestRules.ts`, `resourceHarvester.ts`)**: Harvestable Oak/Pine trees (felling to Stumps + `wood`), Boulders (`stone`/`flint`), highland **Copper** & **Iron** ore veins (`copper-ore`/`iron-ore`, requiring Pickaxe), and bushes/wildflowers (`berry`/`herb`), with debounced chunk-delta updates, bouncing wood/stone/ore/forage chips, and timed node regrowth.
+- **Valheim-Lite Camp Building (`survival/campBuilding.ts`, `campStructures.ts`)**: Craft and place **campfires**, **standing torches**, **27-slot storage chests**, **workbenches**, **camp beds (setting personal respawn points)**, and **wooden palisades** with live chunk delta remounting, dynamic point lights, and custom respawn overrides.
+- **Light Survival Buffs (`survival/survivalBuffs.ts`, `vitalsBar.ts`)**: Campfire cooking (`cooked-meat`, `herb-tea`, `healing-salve`) and foraged `berry` granting timed **Well-Fed**, plus warming near hearths for `5s` granting **Rested** stamina/HP regeneration pills beside HP (zero punitive starvation deaths).
+- **Persistent World Delta Store (`survival/worldDeltas.ts`, `persistenceStore.ts`)**: Atomic `.tmp` rename JSON persistence saving chunk depletions, placed camp structures/beds, POI & player chest contents, and player profiles across server restarts (`WORLD_SAVE_PATH`, `data/world-save.json`).
 
 ### Phase 9 — Exploration, Diverse Overworld POIs, Fog-of-War Map & Safe-Room Town Hubs
 - **Rich Overworld Landmarks**: Expand far beyond the first two `7×7` POIs — roadside **shrines**, **ruined watchtowers**, **abandoned camps**, **crossroads signposts**, **hidden foraging groves**, **corrupted clearings**, and **mini-boss lairs**.

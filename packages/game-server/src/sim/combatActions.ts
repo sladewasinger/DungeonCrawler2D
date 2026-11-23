@@ -2,7 +2,7 @@
 import { getItemDef } from "@dc2d/content";
 import {
   BLEED_DURATION_SEC, COMBAT_TUNING, HIT_IFRAME_SEC, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
-  SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC, comboMultiplier, computeArmorDefense,
+  SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC, computeArmorDefense,
   computeMitigatedDamage, consumeItemFromSlots, isInSanctuary, isWithinSector,
   type GoreStyle, type PlayerInventoryState, type WorldEvent,
 } from "@dc2d/engine";
@@ -29,8 +29,8 @@ export interface PlayerCombatState {
   bleedTimer: number;
   hitTimer: number;
   respawnTimer: number;
-  actionCooldown: number;
-  pebbleCooldown: number;
+  actionCooldown: number; pebbleCooldown: number;
+  wellFedTimer: number; restedTimer: number; hearthWarmSec: number;
 }
 
 export interface CombatPlayerRef {
@@ -60,7 +60,8 @@ export function createCombatState(): PlayerCombatState {
     hp: MAX_PLAYER_HP, maxHp: MAX_PLAYER_HP, stamina: MAX_PLAYER_STAMINA, maxStamina: MAX_PLAYER_STAMINA,
     comboStep: 0, comboResetTimer: 0, swingTimer: 0, swingDuration: 0.26, bowCharge: 0,
     blocking: false, blockElapsed: 0, dodgeTimer: 0, dodgeCooldown: 0, dodgeDirX: 0, dodgeDirY: 1,
-    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, hitTimer: 0, respawnTimer: 0, actionCooldown: 0, pebbleCooldown: 0,
+    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, hitTimer: 0, respawnTimer: 0,
+    actionCooldown: 0, pebbleCooldown: 0, wellFedTimer: 0, restedTimer: 0, hearthWarmSec: 0,
   };
 }
 
@@ -105,20 +106,38 @@ export function stepCombatTimers(p: CombatPlayerRef, blockHeld: boolean, dt: num
   c.stamina = Math.min(c.maxStamina, c.stamina + rate * dt);
 }
 
-export function tryHealConsumable(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): boolean {
-  const heal = getItemDef(itemId)?.healHp;
-  if (!heal || p.combat.hp >= p.combat.maxHp || p.combat.actionCooldown > 0 || p.combat.respawnTimer > 0) return false;
-  if (!consumeItemFromSlots(p.inventory.slots, itemId, 1)) return false;
-  p.combat.hp = Math.min(p.combat.maxHp, p.combat.hp + heal);
+export interface RespawnSpot {
+  readonly x: number;
+  readonly y: number;
+  readonly elevation: number;
+}
+
+function canUseConsumable(p: CombatPlayerRef, heal: number, fed: number): boolean {
+  if ((!heal && !fed) || p.combat.actionCooldown > 0 || p.combat.respawnTimer > 0) return false;
+  return !(heal > 0 && !fed && p.combat.hp >= p.combat.maxHp);
+}
+
+function applyConsumableEffects(opts: { readonly p: CombatPlayerRef; readonly heal: number; readonly fed: number; readonly events: WorldEvent[] }): void {
+  const { p, heal, fed, events } = opts;
+  if (heal > 0) p.combat.hp = Math.min(p.combat.maxHp, p.combat.hp + heal);
+  if (fed > 0) p.combat.wellFedTimer = Math.max(p.combat.wellFedTimer, fed);
   p.combat.actionCooldown = 0.45;
-  events.push({ kind: "heal", x: p.x, y: p.y, value: heal, actorId: p.id });
+  events.push({ kind: "heal", x: p.x, y: p.y, value: heal || Math.round(fed / 10), actorId: p.id });
+}
+
+export function tryHealConsumable(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): boolean {
+  const def = getItemDef(itemId);
+  const heal = def?.healHp ?? 0;
+  const fed = def?.wellFedSec ?? 0;
+  if (!canUseConsumable(p, heal, fed) || !consumeItemFromSlots(p.inventory.slots, itemId, 1)) return false;
+  applyConsumableEffects({ p, heal, fed, events });
   return true;
 }
 
-export function stepPlayerRespawn(target: CombatPlayerRef, events: WorldEvent[], dt: number): boolean {
+export function stepPlayerRespawn(target: CombatPlayerRef, events: WorldEvent[], opts: { readonly dt: number; readonly spot?: RespawnSpot | null | undefined }): boolean {
   if (target.combat.respawnTimer <= 0) return false;
-  target.combat.respawnTimer = Math.max(0, target.combat.respawnTimer - dt);
-  if (target.combat.respawnTimer === 0) respawnAtSanctuary(target, events);
+  target.combat.respawnTimer = Math.max(0, target.combat.respawnTimer - opts.dt);
+  if (target.combat.respawnTimer === 0) respawnAtPoint(target, events, opts.spot);
   return true;
 }
 
@@ -129,37 +148,25 @@ function isBlockedFromFront(target: CombatPlayerRef, attackerOrigin: { readonly 
   });
 }
 
-export function forceRespawnPlayer(target: CombatPlayerRef, events: WorldEvent[]): void {
-  respawnAtSanctuary(target, events);
+export function forceRespawnPlayer(target: CombatPlayerRef, events: WorldEvent[], spot?: RespawnSpot | null): void {
+  respawnAtPoint(target, events, spot);
 }
 
-function respawnAtSanctuary(target: CombatPlayerRef, events: WorldEvent[]): void {
-  target.x = SANCTUARY_CENTER.x;
-  target.y = SANCTUARY_CENTER.y;
-  target.elevation = 0;
-  target.combat.hp = target.combat.maxHp;
-  target.combat.stamina = target.combat.maxStamina;
-  target.combat.bleedTimer = 0;
-  target.combat.staggerTimer = 0;
-  target.combat.hitTimer = 0;
-  target.combat.respawnTimer = 0;
-  target.combat.invulnTimer = 2.0;
-  target.combat.bowCharge = 0;
-  target.combat.blocking = false;
+function respawnAtPoint(target: CombatPlayerRef, events: WorldEvent[], spot?: RespawnSpot | null): void {
+  const dest = spot ?? { x: SANCTUARY_CENTER.x, y: SANCTUARY_CENTER.y, elevation: 0 };
+  const c = target.combat;
+  target.x = dest.x; target.y = dest.y; target.elevation = dest.elevation;
+  c.hp = c.maxHp; c.stamina = c.maxStamina; c.bleedTimer = 0; c.staggerTimer = 0;
+  c.hitTimer = 0; c.respawnTimer = 0; c.invulnTimer = 2.0;
+  c.bowCharge = 0; c.blocking = false;
   events.push({ kind: "respawn", x: target.x, y: target.y, actorId: target.id });
 }
 
 export interface IncomingHit {
-  readonly target: CombatPlayerRef;
-  readonly attackerOrigin: { readonly x: number; readonly y: number };
-  readonly attackerId: string;
-  readonly rawDamage: number;
-  readonly goreStyle: GoreStyle;
-  readonly comboStep?: number | undefined;
-  readonly sweepDir?: number | undefined;
-  readonly attackerIsPlayer: boolean;
-  readonly events: WorldEvent[];
-  readonly onParry?: () => void;
+  readonly target: CombatPlayerRef; readonly attackerOrigin: { readonly x: number; readonly y: number };
+  readonly attackerId: string; readonly rawDamage: number; readonly goreStyle: GoreStyle;
+  readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
+  readonly attackerIsPlayer: boolean; readonly events: WorldEvent[]; readonly onParry?: () => void;
 }
 
 function resolveBlockedHit(hit: IncomingHit): void {
@@ -214,15 +221,9 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
 }
 
 interface MeleePassInput {
-  readonly attacker: CombatPlayerRef;
-  readonly players: Iterable<CombatPlayerRef>;
-  readonly dummies: readonly SimEntity[];
-  readonly rawDamage: number;
-  readonly range: number;
-  readonly halfArcRad: number;
-  readonly goreStyle: GoreStyle;
-  readonly comboStep?: number | undefined;
-  readonly sweepDir?: number | undefined;
+  readonly attacker: CombatPlayerRef; readonly players: Iterable<CombatPlayerRef>; readonly dummies: readonly SimEntity[];
+  readonly rawDamage: number; readonly range: number; readonly halfArcRad: number;
+  readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
   readonly events: WorldEvent[];
 }
 
@@ -265,12 +266,4 @@ export function resolveDummyStrikeOnPlayer(opts: {
     goreStyle: "splatter", attackerIsPlayer: false, events,
     onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.telegraphTimer = 0; },
   });
-}
-
-export function finisherGore(base: GoreStyle, step: number): GoreStyle {
-  return step === 3 && (base === "splatter" || base === "thin-streak") ? "chunk-spray" : base;
-}
-
-export function comboMultFor(step: number): number {
-  return comboMultiplier(step);
 }

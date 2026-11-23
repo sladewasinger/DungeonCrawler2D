@@ -58,7 +58,7 @@ function findClearGuardSpot(cache: WorldChunkCache, poi: ChunkPoi, raw: { readon
 
 export class WorldEcology {
   readonly list: WildlifeEntity[] = [];
-  private readonly loot: LootManager;
+  readonly loot: LootManager;
   private readonly spawnedChunks = new Set<string>();
   private readonly scent = new ScentTrail();
   private nextId = 1;
