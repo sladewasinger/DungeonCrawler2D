@@ -1,5 +1,5 @@
 /** Editable visual combat, melee swing/smear, hitstop, and gore tuning levers. */
-import type { GoreStyle, GoreSubstance } from "@dc2d/engine";
+import type { GoreStyle, GoreSubstance, WeaponArchetype } from "@dc2d/engine";
 import type { ChunkKind } from "./gore/goreTextures.js";
 
 export interface ComboArmSpec {
@@ -63,6 +63,16 @@ export const MELEE_SWING_TUNING = {
     2: { radius: 22, inner: 11, span: 2.12, fill: 0xe0f2fe, edge: 0xffffff, fillAlpha: 0.48, edgeAlpha: 0.92, ttl: 0.28, dir: -1 },
     3: { radius: 25, inner: 12, span: 2.56, fill: 0xfef08a, edge: 0xffffff, fillAlpha: 0.56, edgeAlpha: 0.96, ttl: 0.32, dir: 1 },
   } as Readonly<Record<number, SmearSpec>>,
+  palettes: {
+    sword: { fill: 0xbae6fd, edge: 0xffffff },
+    axe: { fill: 0xfdba74, edge: 0xfff7ed },
+    pickaxe: { fill: 0xe2e8f0, edge: 0xfef08a },
+    torch: { fill: 0xf97316, edge: 0xfef08a },
+    unarmed: { fill: 0xe2e8f0, edge: 0xffffff },
+    dagger: { fill: 0xf1f5f9, edge: 0xffffff },
+    spear: { fill: 0x7dd3fc, edge: 0xffffff },
+    greatsword: { fill: 0xfde68a, edge: 0xffffff },
+  } as Readonly<Record<WeaponArchetype, { readonly fill: number; readonly edge: number }>>,
 } as const;
 
 export const GORE_TUNING = {

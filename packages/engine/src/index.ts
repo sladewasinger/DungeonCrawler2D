@@ -160,3 +160,9 @@ export { findTilePath } from "./combat/pathfinding.js";
 export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";
 export { STEALTH_TUNING, isBackstabAngle, sampleStealthExposure } from "./combat/stealthRules.js";
 export type { StealthExposure, StealthQuery } from "./combat/stealthRules.js";
+export {
+  WEAPON_ARCHETYPES, WEAPON_MOVESETS, getWeaponMoveset, getWeaponStepSpec, resolveWeaponArchetype, resolveWeaponAttackStep,
+} from "./combat/weapons/weaponMovesets.js";
+export type {
+  AttackMotionKind, HarvestToolKind, WeaponArchetype, WeaponMovesetSpec, WeaponStepSpec,
+} from "./combat/weapons/weaponMovesets.js";

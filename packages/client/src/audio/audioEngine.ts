@@ -118,7 +118,7 @@ export class AudioEngine {
       this.playCreatureVoice({ kind: ev.entityKind, vocal: "attack", dst });
       return;
     }
-    synthSwing(this.ctx, dst, ev.comboStep ?? 1);
+    synthSwing({ ctx: this.ctx, dst, comboStep: ev.comboStep ?? 1, archetype: ev.weaponArchetype ?? "sword" });
   }
 
   private dispatchTelegraphEvent(ev: WorldEvent, dst: AudioNode): void {

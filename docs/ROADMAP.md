@@ -99,13 +99,13 @@ flowchart LR
   - **Wolf Pack Hive-Mind (`wolfPackAi.ts`)**: Alerting one wolf howls and rallies all living wolves within `18` tiles regardless of spawn group; organic hash-jittered encirclement slots; wolves behind the player's facing vector dart in for quick bites and peel back cleanly.
   - **Creature Tuning**: Bear mid-range territorial bluff warning vs close-range engagement/scavenging balance, Boar wall-impact stun (`1.45s` stagger + sparks/hurt vocal), Spider cover-ambush leap pounce, and Slime pack cohesion.
 
-### Phase 7 — Weapon-Specific Attack Animations, Movesets & Combat Polish
-- Distinct per-weapon attack animations, hitboxes, stamina costs, and gore matching:
-  - **Sword**: agile 3-hit slash -> backhand -> finisher lunge combo.
-  - **Axe**: deliberate heavy sideways chop (single swing cadence, doubles seamlessly as tree-chopping stroke).
-  - **Pickaxe**: heavy overhead downward slam (single swing cadence, doubles cleanly as stone/ore mining stroke).
-  - **Torch**: short flame sweep / ignite thrust.
-  - Extensible archetype slots prepared for future **Spear** thrust, **Dagger** rapid stab + stealth-crit multiplier, and **Greatsword** cleave.
+### Phase 7 — Weapon-Specific Attack Animations, Movesets & Combat Polish ✅
+- **Extensible Weapon Moveset Registry (`weapons/weaponMovesets.ts`)**: Shared `@dc2d/engine` data-driven table and `@dc2d/content` `ItemDef.weaponArchetype` metadata governing swing duration, cooldown ratio, damage/reach/arc multipliers, backstab multipliers, torso lean/lunge, and Phase 8 harvest-tool hooks (`wood` / `stone` / `forage`), with future-ready slots for **Spear**, **Dagger**, and **Greatsword**.
+- **Distinct Weapon Kinematics, VFX Trails & Audio**:
+  - **Sword**: agile 3-hit `slash` -> `backhand` -> piercing `lunge` finisher combo with steel-blue -> gold streaks and rising 3-step slash + lunge hiss SFX.
+  - **Axe**: deliberate heavy sideways `chop` (single-swing cadence, deep windup pullback, wide `1.32 rad` amber-steel arc, heavy pink-noise cleave SFX, and `harvestKind: "wood"` hook).
+  - **Pickaxe**: overhead downward `overheadSlam` (high `-18.7px` overhead windup raising before slamming downward onto the target tile with stone/gold ground impact shock-rings and metallic strike SFX, plus `harvestKind: "stone"` hook).
+  - **Torch**: 2-hit fiery sweep -> ember `thrust` lance with warm flame trails & crackling whoosh SFX.
 
 ### Phase 8 — Gathering, Light Survival, Valheim-Lite Camp Building & Persistent World Deltas
 - Harvestable trees (wood + regrowing stumps), boulders/ore veins (`stone`, `flint`, `copper`, `iron`), and herbs/berries with hit shake & debris bursts.

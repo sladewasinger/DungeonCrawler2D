@@ -1,5 +1,5 @@
 /** Pure dominant-hand weapon carry, 360-degree bow aim, and off-hand torch/lantern calculator. */
-import { MELEE_SWING_TUNING } from "../combat/combatVisualTuning.js";
+import { computeWeaponSwingLunge, computeWeaponSwingPose } from "../combat/weapons/weaponSwingMotion.js";
 import { CHARACTER_WORLD_SCALE, resolveFacingDir } from "./characterTypes.js";
 
 export type CardinalFacing = "south" | "north" | "east" | "west";
@@ -103,25 +103,12 @@ function resolveDirContext(dx: number, dy: number): ResolvedDirContext {
   return { ax, ay, cardinal };
 }
 
-function swingEase(p: number): number {
-  if (p < 0.14) return -0.12 * (p / 0.14);
-  if (p < 0.72) {
-    const t = (p - 0.14) / 0.58;
-    const inv = 1 - t;
-    return -0.12 + 1.04 * (1 - inv * inv * inv);
-  }
-  return 0.92 + ((p - 0.72) / 0.28) * 0.08;
-}
-
 export function computeSwingLunge(opts: {
   readonly aimX: number; readonly aimY: number; readonly swingProgress: number; readonly comboStep: number;
+  readonly heldItem?: string | null | undefined;
 }): { readonly x: number; readonly y: number; readonly rot: number } {
-  const p = Math.min(1, Math.max(0, opts.swingProgress));
-  if (p <= 0) return { x: 0, y: 0, rot: 0 };
   const ctx = resolveDirContext(opts.aimX, opts.aimY);
-  const lunge = Math.sin(p * Math.PI) * (opts.comboStep === 3 ? MELEE_SWING_TUNING.lungeFinisherPx : MELEE_SWING_TUNING.lungeNormalPx);
-  const sign = opts.comboStep === 2 ? -1 : 1;
-  return { x: ctx.ax * lunge, y: ctx.ay * lunge * 0.7, rot: (p - 0.5) * MELEE_SWING_TUNING.torsoLeanRad * sign };
+  return computeWeaponSwingLunge({ ax: ctx.ax, ay: ctx.ay, swingProgress: opts.swingProgress, comboStep: opts.comboStep, heldItem: opts.heldItem });
 }
 
 export function resolveAimCardinal(ax: number, ay: number, fallback: CardinalFacing): CardinalFacing {
@@ -149,6 +136,7 @@ function resolveActorAlpha(dodging: boolean, invulnTimer: number | undefined, ti
 export function computeActorCombatFx(opts: {
   readonly aimX: number; readonly aimY: number; readonly facingX: number;
   readonly swingProgress: number; readonly comboStep: number;
+  readonly heldItem?: string | null | undefined;
   readonly dodging: boolean; readonly staggered: boolean;
   readonly invulnTimer?: number | undefined;
   readonly hitTimer?: number | undefined; readonly downed?: boolean | undefined; readonly timeSec?: number | undefined;
@@ -161,34 +149,6 @@ export function computeActorCombatFx(opts: {
   const hit = opts.hitTimer ?? 0;
   const w = hit > 0 ? Math.sin((opts.timeSec ?? 0) * 58) * 1.4 : 0;
   return { x: lunge.x + w, y: lunge.y, rot: lunge.rot + resolveDodgeRot(opts.dodging, opts.facingX, opts.is3d), alpha: resolveActorAlpha(opts.dodging, opts.invulnTimer, opts.timeSec), tint: resolveActorTint(hit, opts.staggered) };
-}
-
-function swingMeleePose(opts: {
-  readonly ctx: ResolvedDirContext;
-  readonly spec: (typeof MELEE_SPECS)[CardinalFacing];
-  readonly scale: number;
-  readonly walkBob: number;
-  readonly progress: number;
-  readonly comboStep: number;
-  readonly uprightSprite?: boolean;
-}): MainHandPlacement {
-  const { ctx, scale, progress, comboStep, uprightSprite } = opts;
-  const p = Math.min(1, Math.max(0, progress));
-  const arc = MELEE_SWING_TUNING.combos[comboStep] ?? MELEE_SWING_TUNING.combos[1]!;
-  const aimAng = Math.atan2(ctx.ay, ctx.ax);
-  const eased = swingEase(p);
-  const bladeAng = aimAng + arc.dir * (-arc.sweep + 2 * arc.sweep * eased);
-  const reach = arc.baseReach + Math.sin(p * Math.PI) * arc.extReach;
-  const punch = 1 + Math.sin(p * Math.PI) * arc.punch;
-  const sScale = scale * punch;
-  return {
-    x: Math.cos(bladeAng) * reach,
-    y: -9.2 + Math.sin(bladeAng) * reach * 0.78,
-    rotation: uprightSprite ? bladeAng + Math.PI * 0.5 : bladeAng,
-    scaleX: sScale * (uprightSprite ? arc.dir : 1),
-    scaleY: sScale * (uprightSprite ? 1 : arc.dir),
-    behindBody: Math.sin(bladeAng) < -0.42,
-  };
 }
 
 function computeAim360Placement(input: {
@@ -213,17 +173,18 @@ function computeAim360Placement(input: {
 function computeMainPlacement(input: {
   readonly ctx: ResolvedDirContext; readonly twoHanded: boolean; readonly aimMode: "aim360" | "meleeCarry" | "upright";
   readonly scale: number; readonly walkBob: number; readonly sway: number; readonly swingProgress: number; readonly comboStep: number;
+  readonly heldItem: string | null;
 }): MainHandPlacement {
   if (input.aimMode === "meleeCarry") {
     const s = MELEE_SPECS[input.ctx.cardinal];
     return input.swingProgress > 0
-      ? swingMeleePose({ ctx: input.ctx, spec: s, scale: input.scale, walkBob: input.walkBob, progress: input.swingProgress, comboStep: input.comboStep })
+      ? computeWeaponSwingPose({ ax: input.ctx.ax, ay: input.ctx.ay, scale: input.scale, progress: input.swingProgress, comboStep: input.comboStep, heldItem: input.heldItem })
       : { x: s.x, y: s.y + input.walkBob, rotation: s.rot + s.rotSign * input.sway, scaleX: s.scaleSign * input.scale, scaleY: input.scale, behindBody: s.behind };
   }
   if (input.aimMode === "upright") {
     const s = UPRIGHT_SPECS[input.ctx.cardinal];
     return input.swingProgress > 0
-      ? swingMeleePose({ ctx: input.ctx, spec: MELEE_SPECS[input.ctx.cardinal], scale: input.scale, walkBob: input.walkBob, progress: input.swingProgress, comboStep: input.comboStep, uprightSprite: true })
+      ? computeWeaponSwingPose({ ax: input.ctx.ax, ay: input.ctx.ay, scale: input.scale, progress: input.swingProgress, comboStep: input.comboStep, heldItem: input.heldItem, uprightSprite: true })
       : { x: s.x, y: s.y + input.walkBob, rotation: s.rot, scaleX: s.scaleSign * input.scale, scaleY: input.scale, behindBody: s.behind };
   }
   return computeAim360Placement(input);
@@ -261,7 +222,7 @@ export function computeHeldLayout(input: HeldPlacementInput): HeldLayout {
   return {
     main: computeMainPlacement({
       ctx, twoHanded: input.twoHanded, aimMode: input.aimMode, scale, walkBob, sway,
-      swingProgress: input.swingProgress ?? 0, comboStep: input.comboStep ?? 0,
+      swingProgress: input.swingProgress ?? 0, comboStep: input.comboStep ?? 0, heldItem: input.heldItem,
     }),
     offhand: computeOffhandPlacement({
       ctx, heldItem: input.heldItem, torchLit: input.torchLit, twoHanded: input.twoHanded, hasShield, walkBob, sway,

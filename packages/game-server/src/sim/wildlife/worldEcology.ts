@@ -19,10 +19,11 @@ const KIND_SLIME: WildlifeKind = "slime";
 const BLEED_SUBSTANCES = new Set<GoreSubstance>(["blood", "slime", "ichor"]);
 const UNAWARE_STATES = new Set([ST_IDLE, ST_PATROL, ST_INVESTIGATE, ST_FEED, ST_AMBUSH]);
 
-function computeSectorStrike(attacker: CombatPlayerRef, e: WildlifeEntity, baseDmg: number): { readonly damage: number; readonly sneakHit: boolean } {
+function computeSectorStrike(attacker: CombatPlayerRef, e: WildlifeEntity, opts: { readonly baseDmg: number; readonly backstabMult?: number | undefined }): { readonly damage: number; readonly sneakHit: boolean } {
   const unaware = e.targetPlayerId === null || UNAWARE_STATES.has(e.aiState);
   const sneakHit = unaware && (Boolean(attacker.crouching) || isBackstabAngle({ attacker, target: e, targetFacing: { x: e.facingX, y: e.facingY } }));
-  return { sneakHit, damage: sneakHit ? Math.round(baseDmg * STEALTH_TUNING.backstabDamageMult) : baseDmg };
+  const mult = opts.backstabMult ?? STEALTH_TUNING.backstabDamageMult;
+  return { sneakHit, damage: sneakHit ? Math.round(opts.baseDmg * mult) : opts.baseDmg };
 }
 
 function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
@@ -214,12 +215,13 @@ export class WorldEcology {
   hitSector(opts: {
     readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
     readonly damage: number; readonly range: number; readonly halfArcRad: number;
-    readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined; readonly events: WorldEvent[];
+    readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
+    readonly backstabMult?: number | undefined; readonly events: WorldEvent[];
   }): void {
     for (const e of this.list) {
       if (e.corpse || e.hp <= 0) continue;
       if (!isWithinSector({ origin: opts.attacker, dir: opts.dir, target: e, range: opts.range, halfArcRad: opts.halfArcRad })) continue;
-      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, opts.damage);
+      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: opts.backstabMult });
       if (sneakHit) { e.staggerTimer = Math.max(e.staggerTimer, 0.85); opts.events.push({ kind: "backstab", x: e.x, y: e.y, value: damage, actorId: opts.attacker.id, targetId: e.id }); }
       this.damageEntity({ entity: e, damage, dirX: opts.dir.x, dirY: opts.dir.y, goreStyle: opts.goreStyle, comboStep: opts.comboStep, sweepDir: opts.sweepDir, actorId: opts.attacker.id, events: opts.events, silentKill: sneakHit });
     }

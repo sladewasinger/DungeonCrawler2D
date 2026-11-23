@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { GORE_STYLES, GORE_SUBSTANCES } from "../combat/combatRules.js";
+import { WEAPON_ARCHETYPES } from "../combat/weapons/weaponMovesets.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -235,6 +236,7 @@ export const WorldEventSchema = z.object({
   actorId: z.string().optional(),
   targetId: z.string().optional(),
   comboStep: z.number().int().optional(),
+  weaponArchetype: z.enum(WEAPON_ARCHETYPES).optional(),
   sweepDir: z.number().optional(),
   goreStyle: GoreStyleSchema.optional(),
   substance: GoreSubstanceSchema.optional(),
@@ -270,9 +272,6 @@ export const ServerSnapshotSchema = z.object({
   events: z.array(WorldEventSchema).optional(),
 });
 
-export const ServerMessageSchema = z.discriminatedUnion("t", [
-  ServerWelcomeSchema,
-  ServerSnapshotSchema,
-]);
+export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

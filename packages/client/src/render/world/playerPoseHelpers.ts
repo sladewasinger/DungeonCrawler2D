@@ -57,7 +57,7 @@ export function resolvePlayerFacing(opts: {
 export function computePlayerCombatFx(snap: PlayerSnapshot, timeSec: number, is3d: boolean) {
   return computeActorCombatFx({
     aimX: snap.aimX ?? snap.facingX, aimY: snap.aimY ?? snap.facingY, facingX: snap.facingX,
-    swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 1,
+    swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 1, heldItem: snap.heldItem ?? null,
     dodging: Boolean(snap.dodging), invulnTimer: snap.invulnTimer, staggered: (snap.staggerTimer ?? 0) > 0,
     hitTimer: snap.hitTimer, downed: (snap.respawnTimer ?? 0) > 0, timeSec, is3d,
   });

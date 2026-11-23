@@ -1,10 +1,12 @@
-/** Renders slash arcs, arrows, bow draw charge gauges, parry bursts, and damage popups. */
+/** Renders weapon-specific slash arcs, thrusts, slam impacts, arrows, bow gauges, parry bursts, and popups. */
 import {
-  TILE_PX, type PlayerSnapshot, type ProjectileSnapshot, type WorldEvent,
+  TILE_PX, resolveWeaponArchetype, type AttackMotionKind, type PlayerSnapshot, type ProjectileSnapshot,
+  type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import { Container, Graphics, Text } from "pixi.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { MELEE_SWING_TUNING, type SmearSpec } from "./combatVisualTuning.js";
+import { drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
 
 type SlashSpec = SmearSpec;
 
@@ -15,6 +17,8 @@ interface SlashEffect {
   readonly baseAngle: number;
   readonly spec: SlashSpec | null;
   readonly actorId: string | undefined;
+  readonly motion: AttackMotionKind;
+  readonly archetype: WeaponArchetype;
 }
 
 interface FloatingPopup {
@@ -30,41 +34,6 @@ function drawArrowGraphic(g: Graphics, charge: number): void {
   g.rect(-5, -0.7, 9, 1.4).fill(0xa16207);
   g.rect(4, -1.3, 2.5, 2.6).fill(0xe2e8f0);
   g.rect(-6, -1.6, 2, 3.2).fill(0xf8fafc);
-}
-
-function smearAngle(baseAngle: number, s: SlashSpec, t: number): number {
-  const half = s.span * 0.5;
-  return baseAngle + s.dir * (-half + t * s.span);
-}
-
-function drawProgressiveSmear(s: SlashEffect, u: number): void {
-  const spec = s.spec;
-  if (!spec) { s.g.alpha = 1 - u * u; return; }
-  const tailT = Math.pow(Math.max(0, (u - 0.14) / 0.86), 1.45);
-  const headT = 1 - Math.pow(1 - Math.min(1, u / 0.72), 3);
-  s.g.clear();
-  if (headT - tailT <= 0.03) return;
-  const pts: number[] = [];
-  const steps = 12;
-  for (let i = 0; i <= steps; i++) {
-    const a = smearAngle(s.baseAngle, spec, tailT + (i / steps) * (headT - tailT));
-    pts.push(Math.cos(a) * spec.radius, Math.sin(a) * spec.radius);
-  }
-  for (let i = steps; i >= 0; i--) {
-    const frac = i / steps;
-    const a = smearAngle(s.baseAngle, spec, tailT + frac * (headT - tailT));
-    const r = spec.radius - (spec.radius - spec.inner) * Math.pow(frac, 0.75);
-    pts.push(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  const fade = Math.max(0, 1 - Math.max(0, (u - 0.45) / 0.55));
-  s.g.poly(pts, true).fill({ color: spec.fill, alpha: spec.fillAlpha * fade });
-  const a0 = smearAngle(s.baseAngle, spec, Math.max(tailT, headT - 0.38));
-  const a1 = smearAngle(s.baseAngle, spec, headT);
-  const lo = spec.dir > 0 ? a0 : a1;
-  const hi = spec.dir > 0 ? a1 : a0;
-  s.g.moveTo(Math.cos(lo) * spec.radius, Math.sin(lo) * spec.radius)
-    .arc(0, 0, spec.radius, lo, hi)
-    .stroke({ color: spec.edge, width: 2.2, alpha: spec.edgeAlpha * fade });
 }
 
 function drawBurst(opts: { readonly g: Graphics; readonly color: number; readonly radius: number; readonly rays: number }): void {
@@ -124,7 +93,7 @@ export class CombatVfxLayer {
     g.circle(0, 0, 12).stroke({ color: 0xfde047, width: 0.9, alpha: 0.45 });
     g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 2);
     this.container.addChild(g);
-    this.slashes.push({ g, age: 0, ttl: 0.65, baseAngle: 0, spec: null, actorId: undefined });
+    this.slashes.push({ g, age: 0, ttl: 0.65, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
   }
 
   private spawnStuckArrow(ev: WorldEvent): void {
@@ -133,7 +102,7 @@ export class CombatVfxLayer {
     g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 8);
     g.rotation = Math.atan2(ev.dirY ?? 0, ev.dirX ?? 1);
     this.container.addChild(g);
-    this.slashes.push({ g, age: 0, ttl: 3.5, baseAngle: 0, spec: null, actorId: undefined });
+    this.slashes.push({ g, age: 0, ttl: 3.5, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
   }
 
   step(input: {
@@ -165,15 +134,13 @@ export class CombatVfxLayer {
   private spawnSlash(ev: WorldEvent, players: readonly PlayerSnapshot[]): void {
     const g = new Graphics();
     const baseAngle = Math.atan2(ev.dirY ?? 1, ev.dirX ?? 0);
-    const baseSpec = MELEE_SWING_TUNING.smears[ev.comboStep ?? 1] ?? MELEE_SWING_TUNING.smears[1]!;
     const actor = ev.actorId ? players.find((p) => p.id === ev.actorId) : undefined;
-    const spec = actor?.heldItem === "torch"
-      ? { ...baseSpec, fill: MELEE_SWING_TUNING.torchFill, edge: MELEE_SWING_TUNING.torchEdge }
-      : baseSpec;
+    const archetype = ev.weaponArchetype ?? resolveWeaponArchetype(actor?.heldItem);
+    const { smear, motion, ttl } = resolveWeaponSmearSpec(archetype, ev.comboStep ?? 1);
     g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 10);
     this.container.addChild(g);
-    const effect: SlashEffect = { g, age: 0, ttl: spec.ttl, baseAngle, spec, actorId: ev.actorId };
-    drawProgressiveSmear(effect, 0.08);
+    const effect: SlashEffect = { g, age: 0, ttl, baseAngle, spec: smear, actorId: ev.actorId, motion, archetype };
+    drawWeaponSmear({ g, u: 0.08, baseAngle, spec: smear, motion, archetype });
     this.slashes.push(effect);
   }
 
@@ -182,7 +149,7 @@ export class CombatVfxLayer {
     drawBurst({ g, color: opts.color, radius: opts.radius, rays: 8 });
     g.position.set(opts.x * TILE_PX, opts.y * TILE_PX - 10);
     this.container.addChild(g);
-    this.slashes.push({ g, age: 0, ttl: 0.22, baseAngle: 0, spec: null, actorId: undefined });
+    this.slashes.push({ g, age: 0, ttl: 0.22, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
     if (opts.text) this.spawnPopup({ x: opts.x, y: opts.y - 1.1, label: opts.text, color: opts.color });
   }
 
@@ -209,7 +176,7 @@ export class CombatVfxLayer {
       if (s.age >= s.ttl) { s.g.destroy(); this.slashes.splice(i, 1); continue; }
       const actor = s.actorId ? players.find((p) => p.id === s.actorId) : undefined;
       if (actor) s.g.position.set(actor.x * TILE_PX, actor.y * TILE_PX - actor.elevation * ELEVATION_LIFT_PX - 10);
-      drawProgressiveSmear(s, s.age / s.ttl);
+      drawWeaponSmear({ g: s.g, u: s.age / s.ttl, baseAngle: s.baseAngle, spec: s.spec, motion: s.motion, archetype: s.archetype });
     }
   }
 

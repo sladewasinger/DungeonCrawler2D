@@ -1,7 +1,8 @@
 /** Procedural Web Audio API SFX synthesis with shared noise/tone envelope builders. */
-import type { GoreSubstance } from "@dc2d/engine";
+import type { GoreSubstance, WeaponArchetype } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
 import { playSavedStudioPreset } from "./studioOverrides.js";
+import { synthWeaponSwingByArchetype } from "./weapons/synthWeaponSfx.js";
 import {
   applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
   type NoiseColor, type ProceduralTrackSpec,
@@ -119,11 +120,12 @@ export function playTone(opts: ToneOpts): void {
   osc.stop(now + duration + 0.02);
 }
 
-export function synthSwing(ctx: AudioContext, dst: AudioNode, comboStep: number): void {
-  if (playSavedStudioPreset({ ctx, dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
-  const pitch = 1 + (comboStep - 1) * 0.14;
-  playNoiseBurst({ ctx, dst, duration: 0.14, freq: 1350 * pitch, filterType: FILTER_BP, gain: AUDIO_TUNING.combat.swingGain, q: 1.8 });
-  playTone({ ctx, dst, wave: WAVE_TRI, f0: 290 * pitch, f1: 120, duration: 0.1, gain: AUDIO_TUNING.combat.swingGain * 0.55 });
+export function synthSwing(opts: {
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly comboStep: number; readonly archetype?: WeaponArchetype;
+}): void {
+  const archetype = opts.archetype ?? "sword";
+  if (archetype === "sword" && playSavedStudioPreset({ ctx: opts.ctx, dst: opts.dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
+  synthWeaponSwingByArchetype({ ctx: opts.ctx, dst: opts.dst, comboStep: opts.comboStep, archetype });
 }
 
 const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: AudioNode, opts: { readonly baseGain: number; readonly fatal: boolean }) => void>> = {

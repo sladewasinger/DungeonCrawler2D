@@ -1,13 +1,13 @@
 /** Authoritative world combat coordinator: melee combos, dodge, bow projectiles, and dummies. */
 import { getItemDef } from "@dc2d/content";
 import {
-  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, COMBO_SWING_SEC, COMBO_WINDOW_SEC, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC,
+  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC,
   DODGE_IFRAME_SEC, DODGE_STAMINA_COST, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  consumeItemFromSlots, evaluateBowShot, isInSanctuary,
+  consumeItemFromSlots, evaluateBowShot, isInSanctuary, resolveWeaponArchetype, resolveWeaponAttackStep,
   type GoreStyle, type WorldEvent,
 } from "@dc2d/engine";
 import {
-  applyIncomingPlayerHit, comboMultFor, finisherGore, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
+  applyIncomingPlayerHit, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
   resolveMeleeHits, stepCombatTimers, stepPlayerRespawn, tryHealConsumable, type CombatPlayerRef,
 } from "./combatActions.js";
 import {
@@ -200,25 +200,33 @@ export class CombatWorld {
     const c = p.combat;
     const stats = meleeStatsFor(heldId);
     if (c.swingTimer > 0 || c.dodgeTimer > 0 || c.actionCooldown > 0 || c.stamina < stats.cost) return;
+    const { stepIndex, moveset, spec } = resolveWeaponAttackStep({
+      archetype: stats.archetype, currentStep: c.comboStep, comboActive: c.comboResetTimer > 0,
+    });
     c.stamina -= stats.cost;
-    c.comboStep = c.comboResetTimer > 0 ? (c.comboStep % 3) + 1 : 1;
-    c.comboResetTimer = COMBO_WINDOW_SEC;
-    c.swingTimer = COMBO_SWING_SEC;
-    c.swingDuration = COMBO_SWING_SEC;
+    c.comboStep = stepIndex;
+    c.comboResetTimer = moveset.comboWindowSec;
+    c.swingTimer = spec.swingDurationSec;
+    c.swingDuration = spec.swingDurationSec;
     c.blocking = false;
-    c.actionCooldown = COMBO_SWING_SEC * 0.88;
-    const rawDamage = Math.round(stats.damage * comboMultFor(c.comboStep));
-    const sweepDir = c.comboStep === 2 ? -1 : 1;
-    const goreStyle = finisherGore(stats.gore, c.comboStep);
-    this.events.push({ kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, comboStep: c.comboStep });
+    c.actionCooldown = spec.swingDurationSec * spec.cooldownRatio;
+    const rawDamage = Math.round(stats.damage * spec.damageMult);
+    const range = stats.range * spec.rangeMult;
+    const halfArcRad = stats.halfArc * spec.arcMult;
+    const goreStyle = spec.goreOverride ?? stats.gore;
+    this.events.push({
+      kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY,
+      actorId: p.id, comboStep: c.comboStep, weaponArchetype: stats.archetype,
+    });
     this.ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 2.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
     resolveMeleeHits({
       attacker: p, players: players.values(), dummies: this.dummies, rawDamage,
-      range: stats.range, halfArcRad: stats.halfArc, goreStyle, comboStep: c.comboStep, sweepDir, events: this.events,
+      range, halfArcRad, goreStyle, comboStep: c.comboStep, sweepDir: spec.sweepDir, events: this.events,
     });
     this.ecology.hitSector({
       attacker: p, dir: { x: p.aimX, y: p.aimY }, damage: rawDamage,
-      range: stats.range, halfArcRad: stats.halfArc, goreStyle, comboStep: c.comboStep, sweepDir, events: this.events,
+      range, halfArcRad, goreStyle, comboStep: c.comboStep, sweepDir: spec.sweepDir,
+      backstabMult: moveset.backstabMult, events: this.events,
     });
   }
 }
@@ -251,14 +259,13 @@ function baseActionMult(p: CombatPlayerRef): number {
   return p.combat.bowCharge > 0 ? m.bowDraw : 1;
 }
 
+function pickDefStats(def: NonNullable<ReturnType<typeof getItemDef>>, archetype: ReturnType<typeof resolveWeaponArchetype>) {
+  const d = DEFAULT_MELEE_STATS;
+  return { archetype, cost: def.staminaCost ?? d.cost, damage: def.damage ?? d.damage, range: def.range ?? d.range, halfArc: (def.arcRad ?? 1.5) * 0.5, gore: def.goreStyle ?? d.gore };
+}
+
 function meleeStatsFor(heldId: string | null) {
   const def = heldId ? getItemDef(heldId) : undefined;
-  if (!def) return DEFAULT_MELEE_STATS;
-  return {
-    cost: def.staminaCost ?? 8,
-    damage: def.damage ?? 10,
-    range: def.range ?? 1.5,
-    halfArc: (def.arcRad ?? 1.5) * 0.5,
-    gore: def.goreStyle ?? ("splatter" as GoreStyle),
-  };
+  if (!def) return { ...DEFAULT_MELEE_STATS, archetype: resolveWeaponArchetype(heldId) };
+  return pickDefStats(def, resolveWeaponArchetype(heldId, def.weaponArchetype));
 }
