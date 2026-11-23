@@ -36,6 +36,11 @@ const GORE_CHOICES: readonly { readonly id: GoreLevel; readonly label: string }[
   { id: "off", label: "Off" },
 ];
 
+const CROUCH_CHOICES: readonly { readonly id: "toggle" | "hold"; readonly label: string }[] = [
+  { id: "toggle", label: "Toggle (C)" },
+  { id: "hold", label: "Hold (C)" },
+];
+
 const CLS_ROW = "ow-settings-row";
 
 export class SettingsMenu {
@@ -178,7 +183,11 @@ export class SettingsMenu {
   private buildControlsSection(): HTMLDivElement {
     const sec = makeSection("Controls");
     const autoAim = makeToggleRow("Mobile Auto-Aim", this.prefs.autoAim, (val) => this.updatePrefs({ autoAim: val }));
-    sec.append(autoAim.row);
+    const crouchChoice = makeChoiceRow({
+      label: "Crouch Key", choices: CROUCH_CHOICES, activeId: this.prefs.crouchMode,
+      onSelect: (mode) => { crouchChoice.setActive(mode); this.updatePrefs({ crouchMode: mode }); },
+    });
+    sec.append(autoAim.row, crouchChoice.row);
     return sec;
   }
 

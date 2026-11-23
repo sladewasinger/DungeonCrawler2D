@@ -11,6 +11,21 @@ import { getGoreTextures } from "./goreTextures.js";
 
 export type { TileSampler } from "./goreDecalHelpers.js";
 
+function buildStaticFeatureSprite(opts: {
+  readonly feat: ReturnType<typeof resolveFeatureSpec>;
+  readonly pal: ReturnType<typeof pickGoreColors>;
+  readonly scale: number;
+}): Sprite {
+  const { feat, pal, scale } = opts;
+  const sprite = new Sprite(feat.tex);
+  sprite.anchor.set(0.5, 0.5);
+  sprite.scale.set(scale * feat.growFrom);
+  sprite.rotation = feat.trackPuddle ? (Math.random() - 0.5) * 0.45 : (Math.random() - 0.5) * 0.18;
+  sprite.tint = feat.tintOverride ?? pal.fresh;
+  sprite.alpha = feat.tintOverride !== undefined ? 0.84 : pal.solid ? 0.96 : 0.88;
+  return sprite;
+}
+
 export interface SurfaceDecalInput {
   readonly tileX: number;
   readonly tileY: number;
@@ -113,12 +128,7 @@ export class GoreDecalManager {
     this.trimForNext();
     const feat = resolveFeatureSpec(opts.kind);
     const scale = feat.baseScale * opts.scaleMult * (0.94 + Math.random() * 0.14);
-    const sprite = new Sprite(feat.tex);
-    sprite.anchor.set(0.5, 0.5);
-    sprite.scale.set(scale * feat.growFrom);
-    sprite.rotation = feat.trackPuddle ? (Math.random() - 0.5) * 0.45 : (Math.random() - 0.5) * 0.18;
-    sprite.tint = pal.fresh;
-    sprite.alpha = pal.solid ? 0.96 : 0.88;
+    const sprite = buildStaticFeatureSprite({ feat, pal, scale });
     this.mountSprite(sprite, { tileX: opts.x, tileY: opts.y, elevation: opts.elevation });
     this.decals.push({
       sprite, age: 0, ttl: GORE_TUNING.decalTtlSec, baseAlpha: sprite.alpha, freshColor: pal.fresh, driedColor: pal.dried,

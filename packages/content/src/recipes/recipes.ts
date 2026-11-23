@@ -21,6 +21,35 @@ const ITEM_HERB = "herb";
 
 export const RECIPE_CATALOG: readonly RecipeDef[] = [
   {
+    id: "craft-flint-dagger",
+    outputItemId: "flint-dagger",
+    outputCount: 1,
+    ingredients: [
+      { itemId: ITEM_WOOD, count: 2 },
+      { itemId: ITEM_FLINT, count: 2 },
+    ],
+  },
+  {
+    id: "craft-wooden-spear",
+    outputItemId: "wooden-spear",
+    outputCount: 1,
+    ingredients: [
+      { itemId: ITEM_WOOD, count: 4 },
+      { itemId: ITEM_FLINT, count: 1 },
+    ],
+  },
+  {
+    id: "craft-iron-greatsword",
+    outputItemId: "iron-greatsword",
+    outputCount: 1,
+    requiresCampfire: true,
+    ingredients: [
+      { itemId: ITEM_WOOD, count: 2 },
+      { itemId: "iron-ore", count: 4 },
+      { itemId: ITEM_STONE, count: 2 },
+    ],
+  },
+  {
     id: "craft-axe",
     outputItemId: "axe",
     outputCount: 1,

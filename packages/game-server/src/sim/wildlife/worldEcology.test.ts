@@ -57,6 +57,7 @@ describe("WorldEcology & POIs", () => {
     expect(events.some((e) => e.kind === "chestOpen")).toBe(true);
     expect(eco.snapshots().groundLoot).toHaveLength(0);
 
+    p.inventory.slots[11] = { itemId: "wood", count: 8 };
     expect(eco.transferChest(p, { chestId: chest.id, from: "inv", fromSlot: 11, to: "chest", toSlot: 20 })).toBe(true);
     expect(eco.snapshots().chests.find((c) => c.id === chest.id)?.slots[20]).not.toBeNull();
     expect(eco.takeAllChest(p, chest.id, events)).toBeGreaterThan(0);

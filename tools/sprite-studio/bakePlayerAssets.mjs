@@ -23,6 +23,9 @@ const CLIPS = [
   { state: "downed", frames: 2, fps: 4 },
   { state: "swim", frames: 4, fps: 6 },
   { state: "bow", frames: 3, fps: 8 },
+  { state: "crouch_idle", frames: 4, fps: 5 },
+  { state: "crouch_walk", frames: 6, fps: 7 },
+  { state: "attack", frames: 3, fps: 10 },
 ];
 const PORTRAIT_ROW = CLIPS.length * DIRS.length;
 const SHEET_ROWS = PORTRAIT_ROW + 1;

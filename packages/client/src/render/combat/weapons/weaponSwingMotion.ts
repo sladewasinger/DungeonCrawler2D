@@ -126,11 +126,14 @@ function computeOverheadSlamPose(input: WeaponSwingPoseInput, p: number): Weapon
   };
 }
 
+const isLinearMotion = (motion: AttackMotionKind): boolean =>
+  motion === "lunge" || motion === "thrust" || motion === "punch";
+
 export function computeWeaponSwingPose(input: WeaponSwingPoseInput): WeaponSwingPlacement {
   const p = Math.min(1, Math.max(0, input.progress));
   const spec = resolveStep(input.heldItem, input.comboStep);
   if (spec.motion === "overheadSlam") return computeOverheadSlamPose(input, p);
-  if (spec.motion === "lunge" || spec.motion === "thrust") return computeThrustSwingPose(input, spec.motion, p);
+  if (isLinearMotion(spec.motion)) return computeThrustSwingPose(input, spec.motion, p);
   return computeArcSwingPose(input, spec, p);
 }
 
@@ -141,7 +144,7 @@ export function computeWeaponSwingLunge(opts: {
   const p = Math.min(1, Math.max(0, opts.swingProgress));
   if (p <= 0) return { x: 0, y: 0, rot: 0 };
   const spec = resolveStep(opts.heldItem, opts.comboStep);
-  const forwardEnv = spec.motion === "lunge" || spec.motion === "thrust" ? Math.max(-0.25, thrustEnvelope(p)) : Math.sin(p * Math.PI);
+  const forwardEnv = isLinearMotion(spec.motion) ? Math.max(-0.25, thrustEnvelope(p)) : Math.sin(p * Math.PI);
   const slamYOffset = spec.motion === "overheadSlam" ? (p < 0.34 ? -1.1 : Math.sin(((p - 0.34) / 0.66) * Math.PI) * 1.4) : 0;
   return {
     x: opts.ax * spec.lungePx * forwardEnv,

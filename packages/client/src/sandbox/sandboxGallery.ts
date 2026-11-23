@@ -35,7 +35,7 @@ export interface SandboxGallery {
 
 function addTinyLabel(parent: Container, opts: { readonly xTiles: number; readonly yTiles: number; readonly text: string }): void {
   const lbl = new Text({
-    text: opts.text, resolution: 2, roundPixels: false,
+    text: opts.text, resolution: 2, roundPixels: false, textureStyle: { scaleMode: "linear" },
     style: {
       fontSize: 22, fontWeight: "700", fill: 0xf8fafc,
       fontFamily: "system-ui, -apple-system, sans-serif",

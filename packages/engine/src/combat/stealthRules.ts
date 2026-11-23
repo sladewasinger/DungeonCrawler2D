@@ -20,6 +20,8 @@ export const STEALTH_TUNING = {
   sprintNoiseRadiusTiles: 6.5,
   combatNoiseRadiusTiles: 9.5,
   spottedPopDurationSec: 0.85,
+  attackFlashSec: 0.6,
+  attackFlashLightBoost: 0.28,
 } as const;
 
 export interface StealthExposure {
@@ -40,6 +42,7 @@ export interface StealthQuery {
   readonly moving: boolean;
   readonly sprinting: boolean;
   readonly inWater?: boolean | undefined;
+  readonly attackFlash?: boolean | undefined;
 }
 
 const COVER_PROPS = new Set<PropKind>([PropKind.Bush, PropKind.TallGrass]);
@@ -86,7 +89,8 @@ export function sampleStealthExposure(q: StealthQuery): StealthExposure {
   const { inCover, inShade, propLight } = scanNearbyProps(q.cache.propsNear(q.x, q.y), q.x, q.y);
   const rawAmbient = 1 - sampleDayNight(q.dayPhase).nightFactor * 0.82;
   const ambient = inShade ? Math.max(0.36, rawAmbient - 0.18) : rawAmbient;
-  const lightLevel = clamp(ambient + (q.torchLit ? 0.55 : 0) + propLight, 0.14, 1.0);
+  const attackBoost = q.attackFlash ? STEALTH_TUNING.attackFlashLightBoost : 0;
+  const lightLevel = clamp(ambient + (q.torchLit ? 0.55 : 0) + propLight + attackBoost, 0.14, 1.0);
   const visibility = clamp(applyStealthModifiers(Math.max(0.24, lightLevel), q, inCover), 0.12, 1.0);
   return { visibility, lightLevel, inCover, inShade, noiseRadius: computeNoiseRadius(q) };
 }

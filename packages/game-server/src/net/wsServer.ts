@@ -15,7 +15,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot", "admin",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -38,12 +38,13 @@ interface TickBroadcastData {
   readonly entities: ReturnType<WorldSim["combatSnapshots"]>["entities"];
   readonly chests: ReturnType<WorldSim["combatSnapshots"]>["chests"];
   readonly groundLoot: ReturnType<WorldSim["combatSnapshots"]>["groundLoot"];
+  readonly webs?: ReturnType<WorldSim["combatSnapshots"]>["webs"] | undefined;
   readonly events: WorldEvent[];
   readonly worldDeltas: WorldDeltaSnapshot;
   readonly deltaRev: number;
 }
 
-interface ClientSession { readonly playerId: string; sentDeltaRev: number }
+interface ClientSession { readonly playerId: string; sentDeltaRev: number; alive: boolean; readonly cleanup: () => void }
 
 function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
@@ -56,14 +57,15 @@ function buildClientSnapshot(input: {
     selfInventory: input.sim.inventorySnapshot(input.session.playerId),
     projectiles: input.data.projectiles, entities: input.data.entities,
     chests: input.data.chests, groundLoot: input.data.groundLoot, events: input.data.events,
+    ...(input.data.webs ? { webs: input.data.webs } : {}),
     ...(sendDeltas ? { worldDeltas: input.data.worldDeltas } : {}),
   };
 }
 
 function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
-  const { projectiles, entities, chests, groundLoot } = sim.combatSnapshots();
+  const { projectiles, entities, chests, groundLoot, webs } = sim.combatSnapshots();
   return {
-    players: sim.snapshots(), projectiles, entities, chests, groundLoot,
+    players: sim.snapshots(), projectiles, entities, chests, groundLoot, ...(webs ? { webs } : {}),
     events: includeEvents ? sim.drainCombatEvents() : [],
     worldDeltas: sim.worldDeltaSnapshot(), deltaRev: sim.cache.deltaRevision(),
   };
@@ -71,7 +73,10 @@ function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroad
 
 function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, ClientSession>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
   const data = makeTickBroadcastData(ctx.sim, ctx.includeEvents !== false);
-  for (const [ws, session] of ctx.clients) sendJson(ws, buildClientSnapshot({ sim: ctx.sim, session, data }));
+  for (const [ws, session] of ctx.clients) {
+    if (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) { session.cleanup(); continue; }
+    sendJson(ws, buildClientSnapshot({ sim: ctx.sim, session, data }));
+  }
 }
 
 function dispatchMessage(ctx: {
@@ -99,6 +104,7 @@ function dispatchMessage(ctx: {
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
     debugSpawn: () => msg.t === "debugSpawn" && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
+    admin: () => msg.t === "admin" && sim.handleAdminAction(playerId, msg),
   };
   handlers[msg.t]();
   if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });
@@ -126,6 +132,18 @@ function resolveServerConfig(options: { readonly port?: number; readonly worldSe
   return { port, host, worldSeed, savePath: resolveSavePath(options.savePath) };
 }
 
+function sweepDeadClients(clients: Map<WebSocket, ClientSession>): void {
+  for (const [ws, session] of clients) {
+    if (!session.alive || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+      session.cleanup();
+      ws.terminate();
+      continue;
+    }
+    session.alive = false;
+    if (ws.readyState === WebSocket.OPEN) ws.ping();
+  }
+}
+
 export async function startGameServer(options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined } = {}): Promise<RunningGameServer> {
   const { port, host, worldSeed, savePath } = resolveServerConfig(options);
   const sim = new WorldSim(worldSeed, { persistencePath: savePath });
@@ -134,18 +152,37 @@ export async function startGameServer(options: { readonly port?: number; readonl
   const clients = new Map<WebSocket, ClientSession>();
   wss.on("connection", (ws) => attachClient({ ws, sim, clients }));
   const timer = setInterval(() => { sim.step(1 / TICK_RATE); broadcastTickSnapshots({ clients, sim }); }, 1000 / TICK_RATE);
+  const heartbeat = setInterval(() => sweepDeadClients(clients), 5000);
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
   const address = httpServer.address();
   const actualPort = typeof address === "object" && address ? address.port : port;
   console.log(`[game-server] listening on http://${host}:${actualPort}`);
-  return { port: actualPort, close: () => new Promise((resolve) => { clearInterval(timer); sim.savePersistenceNow(); wss.close(() => httpServer.close(() => resolve())); }) };
+  return {
+    port: actualPort,
+    close: () => new Promise((resolve) => {
+      clearInterval(timer); clearInterval(heartbeat);
+      sim.savePersistenceNow(); wss.close(() => httpServer.close(() => resolve()));
+    }),
+  };
 }
 
 function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, ClientSession> }): void {
   const playerId = ctx.sim.addPlayer("Traveler");
-  const session: ClientSession = { playerId, sentDeltaRev: -1 };
+  let cleaned = false;
+  const cleanup = (): void => {
+    if (cleaned) return;
+    cleaned = true;
+    ctx.clients.delete(ctx.ws);
+    ctx.sim.removePlayer(playerId);
+  };
+  const session: ClientSession = { playerId, sentDeltaRev: -1, alive: true, cleanup };
   ctx.clients.set(ctx.ws, session);
   sendJson(ctx.ws, { t: "welcome", playerId, worldSeed: ctx.sim.worldSeed, dayPhase: ctx.sim.dayPhase, dayPaused: ctx.sim.dayPaused, tickRate: TICK_RATE });
-  ctx.ws.on("message", (buf) => handleSocketMessage({ raw: buf.toString(), session, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients }));
-  ctx.ws.on("close", () => { ctx.clients.delete(ctx.ws); ctx.sim.removePlayer(playerId); });
+  ctx.ws.on("pong", () => { session.alive = true; });
+  ctx.ws.on("message", (buf) => {
+    session.alive = true;
+    handleSocketMessage({ raw: buf.toString(), session, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients });
+  });
+  ctx.ws.on("close", cleanup);
+  ctx.ws.on("error", cleanup);
 }

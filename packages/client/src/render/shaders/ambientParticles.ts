@@ -23,6 +23,8 @@ export interface ParticleStepInput {
   readonly torches?: readonly PointLightSpec[];
   readonly playerWading?: boolean;
   readonly waterActors?: readonly WaterRippleActor[];
+  readonly burningActors?: readonly { readonly x: number; readonly y: number }[];
+  readonly coverActors?: readonly { readonly x: number; readonly y: number }[];
 }
 
 export class AmbientParticleLayer {
@@ -36,7 +38,7 @@ export class AmbientParticleLayer {
     this.textures = { glow: createSoftDotTexture(), ripple: createRingTexture(), smoke: createSmokePuffTexture() };
   }
 
-  spawnSmokePoof(opts: { readonly x: number; readonly y: number; readonly durationSec?: number }): void {
+  spawnSmokePoof(opts: { readonly x: number; readonly y: number; readonly durationSec?: number | undefined }): void {
     const baseDur = Math.max(0.8, opts.durationSec ?? 4.0);
     for (let i = 0; i < 18; i++) {
       const ang = (i / 18) * Math.PI * 2 + (this.rand() - 0.5) * 0.4;
@@ -59,11 +61,33 @@ export class AmbientParticleLayer {
       if (slot.active) activeCount += 1;
     }
     this.rippleTimer = Math.max(0, this.rippleTimer - input.dt);
-    let budget = input.maxParticles - activeCount;
-    if (budget <= 0) return;
-    budget -= this.maybeSpawnRipples(input);
-    if (budget > 0) budget -= this.maybeSpawnFireParticles(input);
-    this.spawnAmbientFloaters(input, Math.min(2, budget));
+    const budget = input.maxParticles - activeCount;
+    if (budget > 0) this.runSpawners(input, budget);
+  }
+
+  private runSpawners(input: ParticleStepInput, budget: number): void {
+    let rem = budget - this.maybeSpawnRipples(input);
+    if (rem > 0) rem -= this.maybeSpawnFireParticles(input);
+    if (rem > 0) rem -= this.spawnBurnAndCoverFx(input);
+    this.spawnAmbientFloaters(input, Math.min(2, rem));
+  }
+
+  private spawnBurnAndCoverFx(input: ParticleStepInput): number {
+    let used = 0;
+    for (const b of input.burningActors ?? []) {
+      if (this.rand() < 0.65) { this.emitTorchFlame(b.x, b.y - 0.55); used += 1; }
+    }
+    for (const c of input.coverActors ?? []) {
+      if (this.rand() < 0.28) { this.emitCoverLeaf(c.x, c.y); used += 1; }
+    }
+    return used;
+  }
+
+  private emitCoverLeaf(x: number, y: number): void {
+    this.spawnAt("leaf", {
+      x: x + (this.rand() - 0.5) * 0.45, y: y - 0.3,
+      vx: (this.rand() - 0.5) * 0.85, vy: 0.25 + this.rand() * 0.45, life: 0.9 + this.rand() * 0.4,
+    });
   }
 
   private maybeSpawnRipples(input: ParticleStepInput): number {

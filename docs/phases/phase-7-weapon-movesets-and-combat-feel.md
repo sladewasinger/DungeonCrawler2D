@@ -1,6 +1,6 @@
 # Phase 7 — Weapon-Specific Movesets, Combat Timing & Tactile Feel
 
-> **Status**: 🚧 Pass 1 Landed (`7ae80712`) — **Pass 2 Spec & Completion Pending**
+> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; `Hero_Punch` combo spritesheet explicitly deferred to [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks))
 > **Primary Touchpoints**:
 > `@dc2d/content` (`src/items/catalog.ts`, `src/recipes/recipes.ts`),
 > `@dc2d/engine` (`src/combat/weapons/weaponMovesets.ts`, `src/combat/combatRules.ts`, `src/net/protocol.ts`),
@@ -94,14 +94,20 @@ Promote `"dagger"`, `"spear"`, and `"greatsword"` from empty engine stubs into f
 
 | Weapon Item (`id`) | Archetype | Style & Signature Role | Crafting / Source |
 | :--- | :--- | :--- | :--- |
-| **`sword`** (Iron Sword) | `sword` | 3-hit `slash -> backhand -> lunge` finisher (`1.48×` reach-poke); balanced stamina (`12`). | Starter slot 0 + lootable / Workbench craftable |
+| **`sword`** (Iron Sword) | `sword` | 3-hit `slash -> backhand -> lunge` finisher (`1.48×` reach-poke); balanced stamina (`12`). | Craftable / lootable / Sandbox chest |
 | **`flint-dagger`** / **`dagger`** | `dagger` | Fast 3-hit `thrust -> backhand -> thrust` (`0.18s/step`), low stamina (`7`), **`3.0×` stealth backstab** multiplier, highest movement fluidity. | Craftable in hand/Workbench (`1 wood + 2 flint`) + Bandit drops + `32×32` HUD & `48 px/m` held sprite |
-| **`wooden-spear`** / **`spear`** | `spear` | Long-reach narrow-arc 2-hit `thrust -> lunge` (`1.32×–1.46×` range, `0.42×` narrow cone), ideal for kiting charging boars and **Shield-Poke** spacing while blocking! | Craftable (`3 wood + 2 flint`) + dedicated `48 px/m` held spear & smear (`spear` long lance trail) |
+| **`wooden-spear`** / **`spear`** | `spear` | Long-reach narrow-arc 2-hit `thrust -> lunge` (`1.32×–1.46×` range, `0.42×` narrow cone), ideal for kiting charging boars and **Shield-Poke** spacing while blocking! | Starter slot 0 + craftable (`3 wood + 2 flint`) + dedicated `48 px/m` held spear & smear (`spear` long lance trail) |
 | **`axe`** (Woodcutter Axe) | `axe` | 2-step heavy chop -> reverse cleave (`chop` -> `cleave`), wide `1.32 rad` sweep, breaks shields & staggers foes, harvests Wood (`28` power). | Craftable (`3 wood + 2 stone`) + Bandit drops |
 | **`pickaxe`** (Stone Pickaxe) | `pickaxe` | `overheadSlam`: high `-18.7px` lift arcing down into a `0.65`-tile AoE stone shock-ring; deals **`1.40×` bonus armor-crush damage** to rocky/armored foes (`golem`, `skeleton`); harvests Stone & Ores. | Craftable (`2 wood + 3 stone`) |
-| **`iron-greatsword`** | `greatsword` | **Two-Handed Heavy Blade** (auto-clips offhand torch/shield cleanly like Bow), sweeping `cleave -> reverse cleave` (`1.35× -> 1.65×` damage, `1.24×` reach, massive knockback & stagger). | Workbench Tier-2 craftable (Phase 8 ingots/materials) + dedicated long broadblade art |
-| **`torch`** | `torch` | Fast 2-hit `slash -> flame thrust` illuminating dark spaces and **inflicting Burn**! | Starter + Craftable (`2 wood + 1 flint`) |
-| **`bow`** (Hunter Bow) | `bow` | Vertical 3D-held `Hero_Bow` with slight mouse-aim tilt, 3-frame draw pose, sweet-spot arrow glint, recoverable arrows. | Starter + arrow crafting |
+| **`iron-greatsword`** | `greatsword` | **Two-Handed Heavy Blade** (auto-clips offhand shield cleanly like Bow; supports a weaker **2H blade block & timed parry** with `0.45` mitigation, `1.35×` stamina drain & `0.8×` parry window), sweeping `cleave -> reverse cleave` (`1.35× -> 1.65×` damage, `1.24×` reach, massive knockback & stagger). | Workbench Tier-2 craftable (Phase 8 ingots/materials) + dedicated long broadblade art |
+| **`torch`** | `torch` | Fast 2-hit `slash -> flame thrust` illuminating dark spaces and **inflicting Burn**! | Craftable (`2 wood + 1 flint`) + Sandbox chest |
+| **`bow`** (Hunter Bow) | `bow` | Vertical 3D-held `Hero_Bow` with slight mouse-aim tilt, 3-frame draw pose, sweet-spot arrow glint, recoverable arrows. | Craftable / Sandbox chest + arrow crafting |
+
+### 5.4 Non-Weapon Item Use vs. Bare-Fist Punching & Polish Action Items
+- **Non-Weapon Use Guard (`isMeleeItem`)**: Activating non-weapon items (`bandage`, `berry`, `cooked-meat`, `wood`, `map`, placeables, etc.) uses the item without playing a melee weapon swing or slash trail—even when a consumable cannot apply (e.g., bandage at full HP).
+- **Bare-Fist Punching Indicator (`unarmed` `"punch"` motion)**: Empty-handed attacks (`heldItem === null`) cycle alternating `"punch"` combo steps (`sweepDir: 1 | -1`) with forward thrust lunges, alternating knuckle speed-lines + forward fist shockwave arcs (`drawPunchImpact`), and punch thump SFX (`synthWeaponSfx`).
+- **Crisp Hi-DPI Popups & Badges**: Damage/callout popups and ground-loot count badges render at `resolution: 2` with linear texture filtering and `scale = 0.24`, with stealth callouts (`AMBUSH!`, `BACKSTAB!`) offset above damage numbers.
+- **Polish Phase Action Item**: Bake dedicated `Hero_Punch` combo animations into the 3D player spritesheets (tracked in [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks)).
 
 ### 5.2 Torch Ignition & Burn Status (`ignites: true`)
 - Wire `spec.ignites` cleanly into `combatSim.ts` / `creatureAi.ts` / `combatActions.ts`:
@@ -114,14 +120,15 @@ Promote `"dagger"`, `"spear"`, and `"greatsword"` from empty engine stubs into f
   - Holding Left Mouse (or holding the mobile `ATK` button for melee items >= `0.35s`) enters a short melee charge (`meleeCharge = 0..1` over `0.55s`) with a crisp glint & pulled-back stance, releasing a **Heavy Strike** on button up (or auto-launching cleanly at full hold? **Release-to-fire** above `0.25s`, while quick tap `< 0.20s` fires light combo immediately on release or minimal buffer!). Wait: to ensure **zero tap latency** on light combos, keep light attack starting immediately on `pointerdown` for quick taps? **NO—standard crisp Souls/Action pattern**:
     - Option A (Dedicated Heavy key `R` / Right-Click when no shield OR Shift+Click / Hold-Threshold): Wait—remember `Right-Click` blocks when shield is equipped! Better clean design:
       - **PC**: `Left-Click` quick tap fires instant responsive light swing (`0ms` delay!), OR hold **`Middle-Click` / `R`** / **`Shift + Left-Click`** OR hold **`Right-Click` when no shield equipped**? Even more intuitive across BOTH PC & Mobile:
-      - **Tapping Left-Click / `ATK` starts a `0.10s` Windup immediately**: if the player is STILL holding the pointer past `0.24s` inside windup (for non-bow melee), the windup smoothly extends into a glowing **Heavy Charge Windup** (`0.55s` total) until release, dealing **`1.65×` damage, `+65%` knockback, and breaking shields cleanly**! If they simply clicked normally (`pointerup` within `< 0.22s`), the swing completes seamlessly as a crisp light attack with zero perceived lag! Wait: what about mobile thumb taps (~`80ms`)? Works identically on BOTH PC and mobile with a single intuitive Attack control!
+      - **Tapping Left-Click / `ATK` starts a `0.10s` Windup immediately**: if the player is STILL holding the pointer past `0.24s` inside windup (for non-bow melee), the windup smoothly extends into a glowing **Heavy Charge Windup** (`0.55s` total) until release, spending `+14` extra stamina (`heavyStaminaExtra`) and dealing **`1.65×` damage, `+65%` knockback, and breaking shields cleanly**! If they simply clicked normally (`pointerup` within `< 0.22s`), the swing completes seamlessly as a crisp light attack with zero perceived lag! Wait: what about mobile thumb taps (~`80ms`)? Works identically on BOTH PC and mobile with a single intuitive Attack control!
 
 ---
 
 ## 6. Shield Block, Timed Parry, Guard Break & Riposte Payoff
 
-- **Shield Blocking (`Right-Click` / Mobile `BLOCK`)**:
-  - Mitigates incoming frontal damage by `blockMitigation` (`0.75` wooden shield, `0.85` upgraded) at stamina cost (`rawDmg * 0.6`).
+- **Shield & Two-Handed Blade Blocking (`Right-Click` / Mobile `BLOCK` / `PARRY`)**:
+  - Offhand shields mitigate incoming frontal damage by `blockMitigation` (`0.75` wooden shield, `0.85` upgraded) at stamina cost (`rawDmg * 0.6`).
+  - **Two-Handed Blade Guard (`iron-greatsword`)**: Raises the greatsword defensively even without a shield (suppressed on `bow`), providing a weaker block (`0.45` mitigation, `1.35×` stamina drain) and a tighter timed-parry window (`0.8× PARRY_WINDOW_SEC`).
   - Blocking when stamina drops to `0` triggers **Guard Break**: knocks block off, stuns player `0.65s` with crack SFX + white shatter sparks!
   - **Spear Shield-Poke**: Pressing Attack while blocking with a `spear` allows a safe forward thrust while keeping `blockMitigation` active during windup (`+stamina cost`)!
 - **Timed Parry (`blockElapsed <= PARRY_WINDOW_SEC = 0.22s`)**:
@@ -155,6 +162,6 @@ Promote `"dagger"`, `"spear"`, and `"greatsword"` from empty engine stubs into f
 6. **Dagger, Spear & Greatsword Items**: All 8 weapon archetypes resolve cleanly from `ITEM_CATALOG`, craft from `RECIPE_CATALOG`, enforce `maxStack: 1`, and pass `heldPlacement` pixel bounds tests.
 
 ### Playtest Sign-Off Checklist (PC & Mobile)
-- [ ] Every weapon feels unmistakably distinct in cadence, hero body animation/commitment, weapon trail, sound, hitstop, and screen shake.
-- [ ] Attack hits land at the visual blade/head impact frame rather than instantaneously on button press, and buffered inputs chain combos smoothly without dropped clicks.
-- [ ] Held Heavy Attacks, Torch Burn DoT, Pickaxe Ground Slams, Dagger Backstabs, Spear Reach Pokes, and Greatsword Cleaves all work smoothly on desktop and touch controls.
+- [x] Every weapon (`sword`, `flint-dagger`, `wooden-spear`, `axe`, `pickaxe`, `iron-greatsword`, `torch`, `bow`, `unarmed`) feels distinct in cadence, 3-frame `Hero_Attack` pose + hand-socket alignment, weapon trail, sound, weight-scaled hitstop, and screen shake.
+- [x] Attack hits land across the 3-phase `windupEnd .. activeEnd` window rather than instantaneously on button press, early windup dodge-cancels abort cleanly, and `0.18s` buffered inputs chain combos smoothly.
+- [x] Held Heavy Attacks (`>= 0.24s`), Torch Burn DoT + water extinguish, Pickaxe Armor-Crush + AoE Ground Slams (`groundCrack`), Dagger `3.0x` Backstabs, Spear Shield-Pokes, Greatsword 2H Cleaves, Timed Parries (`1.45s`), and `1.75x` Ripostes all work across server combat and Sandbox.

@@ -15,7 +15,7 @@ export const COMBAT_TUNING = {
   swim: { staminaDrainPerSec: 7, idleTreadRegenPerSec: 4 },
   dodge: { staminaCost: 22, durationSec: 0.30, iframeSec: 0.24, cooldownSec: 0.55 },
   melee: { comboWindowSec: 0.65, swingSec: 0.26, comboDamageMult: [1.0, 1.1, 1.45] as const },
-  defense: { parryWindowSec: 0.22, parryStaggerSec: 1.25, blockStaminaDrain: 10, hitIframeSec: 0.42 },
+  defense: { parryWindowSec: 0.22, parryStaggerSec: 1.45, blockStaminaDrain: 10, hitIframeSec: 0.42 },
   bow: { maxChargeSec: 0.85, minSpeedTilesPerSec: 11, extraSpeedTilesPerSec: 9, minDamageMult: 0.55, extraDamageMult: 0.8, staminaCost: 10 },
   bleed: { durationSec: 3.5 },
 } as const;

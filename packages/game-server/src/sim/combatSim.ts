@@ -1,24 +1,38 @@
-/** Authoritative world combat coordinator: melee combos, dodge, bow projectiles, and dummies. */
-import { getItemDef } from "@dc2d/content";
+/** Authoritative world combat coordinator: 3-phase melee, heavy hold, dodge cancel, bow, and dummies. */
+import { getItemDef, isMeleeItem } from "@dc2d/content";
 import {
-  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC,
-  DODGE_IFRAME_SEC, DODGE_STAMINA_COST, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  consumeItemFromSlots, evaluateBowShot, isInSanctuary, resolveWeaponArchetype, resolveWeaponAttackStep,
-  type GoreStyle, type WorldEvent,
+  COMBAT_TUNING, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC, DODGE_IFRAME_SEC, DODGE_STAMINA_COST,
+  MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
+  consumeItemFromSlots, evaluateBowShot, type WorldEvent,
 } from "@dc2d/engine";
 import {
   applyIncomingPlayerHit, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
-  resolveMeleeHits, stepCombatTimers, stepPlayerRespawn, tryHealConsumable, type CombatPlayerRef, type RespawnSpot,
+  stepCombatTimers, stepPlayerBurnTimer, stepPlayerPoisonTimer, stepPlayerRespawn, tryHealConsumable,
+  type CombatPlayerRef, type RespawnSpot,
 } from "./combatActions.js";
+import { applyAdminAction, type AdminActionRequest } from "./combat/adminActions.js";
+import {
+  buildPlayerCombatExtras, clearSwingOnCancel, clearSwingOnStagger, computePlayerMoveMultiplier,
+  runSwingActivePass, startTrackedMeleeSwing,
+} from "./combat/combatSimHelpers.js";
+import {
+  advanceHeavyCharge, canDodgeCancelSwing, shouldHoldHeavyWindup, swingOverlapsActive,
+} from "./combat/meleeTimeline.js";
 import { createTrainingDummies, serializeDummies, stepTrainingDummies, type SimEntity } from "./dummySim.js";
 import { CampStructureManager } from "./survival/campStructures.js";
 import { ResourceHarvester } from "./survival/resourceHarvester.js";
-import { CREATURE_SPECS } from "./wildlife/creatureSpecs.js";
-import { createArrowProjectile, createPebbleProjectile, serializeProjectiles, stepProjectileList, type SimProjectile } from "./wildlife/projectileSim.js";
+import { WorldWebNetwork } from "./webs/webNetwork.js";
+import { stepPlayerWebAndCocoonTimers } from "./webs/webCocoon.js";
+import { CREATURE_SPECS, type WildlifeEntity } from "./wildlife/creatureSpecs.js";
+import {
+  createArrowProjectile, createPebbleProjectile, createWebProjectile, serializeProjectiles, stepProjectileList, type SimProjectile,
+} from "./wildlife/projectileSim.js";
 import { WorldEcology } from "./wildlife/worldEcology.js";
 
+export { buildPlayerCombatExtras as playerCombatExtras };
+
 export interface CombatStepRequest {
-  readonly player: CombatPlayerRef;
+  readonly player: CombatPlayerRef & { attackFlashTimer?: number };
   readonly players: Map<string, CombatPlayerRef>;
   readonly playerName?: string | undefined;
   readonly respawnPos?: RespawnSpot | null | undefined;
@@ -29,16 +43,21 @@ export interface CombatStepRequest {
 export interface CombatInputFlags {
   readonly moveX: number; readonly moveY: number;
   readonly dodgeDirX?: number | undefined; readonly dodgeDirY?: number | undefined;
-  readonly attackQueued: boolean; readonly bowDrawing: boolean; readonly bowReleaseQueued: boolean;
+  readonly attackQueued: boolean; readonly attackHold?: boolean | undefined;
+  readonly bowDrawing: boolean; readonly bowReleaseQueued: boolean;
   readonly blockHeld: boolean; readonly dodgeQueued: boolean;
   readonly throwPebble?: boolean | undefined; readonly interactQueued?: boolean;
 }
+
+const isTrappedOrDrowning = (p: CombatPlayerRef): boolean =>
+  p.inDeepWater || p.combat.cocoonProgress > 0 || p.combat.webStick >= MELEE_FEEL_TUNING.webStuckThreshold;
 
 export class CombatWorld {
   readonly dummies: SimEntity[];
   readonly ecology: WorldEcology;
   readonly harvester = new ResourceHarvester();
   readonly structures = new CampStructureManager();
+  readonly webs = new WorldWebNetwork();
   private readonly projectiles: SimProjectile[] = [];
   private events: WorldEvent[] = [];
   private nextProjId = 1;
@@ -54,11 +73,15 @@ export class CombatWorld {
     const playerName = req.playerName ?? p.id;
     if (stepPlayerRespawn(p, this.events, { dt, spot: req.respawnPos })) return;
     stepCombatTimers(p, input.blockHeld, dt);
-    if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
+    stepPlayerBurnTimer(p, dt, this.events);
+    stepPlayerPoisonTimer(p, dt, this.events);
+    stepPlayerWebAndCocoonTimers({ p, dt, events: this.events, webs: this.webs });
+    if (p.combat.staggerTimer > 0) { clearSwingOnStagger(p); return; }
     if (input.interactQueued) this.handleInteract(p, playerName);
-    if (input.dodgeQueued && !p.inDeepWater) this.startInputDodge(p, input);
+    this.handleDodgeOrBuffer(p, input);
     if (input.throwPebble) this.throwPebble(p, false);
-    this.stepOffense({ p, players, input, dt, playerName });
+    this.stepActiveSwingTimeline({ p, players, input, dt });
+    this.stepOffense({ p, input, dt, playerName });
   }
 
   private handleInteract(p: CombatPlayerRef, playerName: string): void {
@@ -67,37 +90,90 @@ export class CombatWorld {
     this.structures.bindNearestBed({ player: p, playerName, events: this.events });
   }
 
-  pickupLoot(p: CombatPlayerRef, lootId?: string): boolean {
-    return this.ecology.pickupManualLoot(p, lootId, this.events);
+  pickupLoot(p: CombatPlayerRef, lootId?: string): boolean { return this.ecology.pickupManualLoot(p, lootId, this.events); }
+
+  private handleDodgeOrBuffer(p: CombatPlayerRef, input: CombatInputFlags): void {
+    if (!input.dodgeQueued || isTrappedOrDrowning(p)) return;
+    const c = p.combat;
+    if (c.pendingSwing && canDodgeCancelSwing(c.pendingSwing)) {
+      clearSwingOnCancel(p);
+      this.startInputDodge(p, input);
+      return;
+    }
+    if (c.swingTimer > 0 || c.pendingSwing) {
+      c.bufferedAction = { kind: "dodge", expiresSec: this.simTimeSec + MELEE_FEEL_TUNING.inputBufferSec, dodgeDirX: input.dodgeDirX, dodgeDirY: input.dodgeDirY };
+      return;
+    }
+    this.startInputDodge(p, input);
   }
 
-  private startInputDodge(p: CombatPlayerRef, input: CombatInputFlags): void {
+  private startInputDodge(p: CombatPlayerRef, input: Pick<CombatInputFlags, "moveX" | "moveY" | "dodgeDirX" | "dodgeDirY">): void {
     const hasDir = input.dodgeDirX !== undefined && input.dodgeDirY !== undefined;
     this.tryStartDodge(p, hasDir ? input.dodgeDirX! : input.moveX, hasDir ? input.dodgeDirY! : input.moveY);
   }
 
-  respawnPlayerNow(p: CombatPlayerRef, spot?: RespawnSpot | null): void {
-    forceRespawnPlayer(p, this.events, spot);
-  }
-
+  respawnPlayerNow(p: CombatPlayerRef, spot?: RespawnSpot | null): void { forceRespawnPlayer(p, this.events, spot); }
   placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly itemId: string; readonly x: number; readonly y: number }): boolean {
     return Boolean(this.structures.placeStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events }));
   }
-
   setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly structureId: string }): boolean {
     return this.structures.bindNearestBed({ ...opts, events: this.events });
   }
 
-  private stepOffense(opts: {
-    readonly p: CombatPlayerRef; readonly players: Map<string, CombatPlayerRef>; readonly input: CombatInputFlags; readonly dt: number; readonly playerName: string;
+  private stepActiveSwingTimeline(opts: {
+    readonly p: CombatPlayerRef; readonly players: Map<string, CombatPlayerRef>; readonly input: CombatInputFlags; readonly dt: number;
   }): void {
-    const { p, players, input, dt, playerName } = opts;
+    const { p, players, input, dt } = opts;
+    const c = p.combat;
+    const sw = c.pendingSwing;
+    if (!sw) { this.flushBufferedAction(p, input); return; }
+    if (shouldHoldHeavyWindup(sw, Boolean(input.attackHold), dt)) {
+      advanceHeavyCharge({ state: c, swing: sw, dt, pos: p, events: this.events });
+      return;
+    }
+    const prev = sw.elapsedSec;
+    sw.elapsedSec = Math.min(sw.durationSec, prev + dt);
+    c.swingTimer = Math.max(0, sw.durationSec - sw.elapsedSec);
+    if (swingOverlapsActive({ swing: sw, prevElapsed: prev, nextElapsed: sw.elapsedSec })) {
+      runSwingActivePass({ cache: this.cache, p, players, dummies: this.dummies, ecology: this.ecology, harvester: this.harvester, webs: this.webs, sw, timeSec: this.simTimeSec, events: this.events });
+    }
+    if (sw.elapsedSec >= sw.durationSec - 1e-6) {
+      c.pendingSwing = null; c.swingTimer = 0; c.heavyCharge = 0;
+      this.flushBufferedAction(p, input);
+    }
+  }
+
+  private tryConsumeDodgeBuffer(p: CombatPlayerRef, input: CombatInputFlags): boolean {
+    const buf = p.combat.bufferedAction;
+    if (!buf || buf.kind !== "dodge" || p.inDeepWater || p.combat.dodgeCooldown > 0) return false;
+    p.combat.bufferedAction = null;
+    this.startInputDodge(p, { moveX: input.moveX, moveY: input.moveY, dodgeDirX: buf.dodgeDirX, dodgeDirY: buf.dodgeDirY });
+    return true;
+  }
+
+  private tryConsumeAttackBuffer(p: CombatPlayerRef): void {
+    const heldId = p.inventory.slots[p.selectedHotbar]?.itemId ?? null;
+    if (!isMeleeItem(heldId) || heldId === "bow") { p.combat.bufferedAction = null; return; }
+    if (startTrackedMeleeSwing({ p, heldId, events: this.events })) p.combat.bufferedAction = null;
+  }
+
+  private flushBufferedAction(p: CombatPlayerRef, input: CombatInputFlags): void {
+    const buf = p.combat.bufferedAction;
+    if (!buf) return;
+    if (this.simTimeSec > buf.expiresSec) { p.combat.bufferedAction = null; return; }
+    if (!this.tryConsumeDodgeBuffer(p, input) && buf.kind === "attack") this.tryConsumeAttackBuffer(p);
+  }
+
+  private stepOffense(opts: {
+    readonly p: CombatPlayerRef & { attackFlashTimer?: number }; readonly input: CombatInputFlags; readonly dt: number; readonly playerName: string;
+  }): void {
+    const { p, input, dt, playerName } = opts;
     const heldId = p.inventory.slots[p.selectedHotbar]?.itemId ?? null;
     if (heldId === "bow") { this.stepBowAction(p, input, dt); return; }
     p.combat.bowCharge = 0;
-    if (!input.attackQueued) return;
-    if (this.tryItemAction(p, heldId, playerName)) return;
-    this.tryMeleeSwing(p, heldId, players);
+    if (!input.attackQueued || this.tryItemAction(p, heldId, playerName) || !isMeleeItem(heldId)) return;
+    if (startTrackedMeleeSwing({ p, heldId, events: this.events })) return;
+    p.combat.bufferedAction = { kind: "attack", expiresSec: this.simTimeSec + MELEE_FEEL_TUNING.inputBufferSec };
   }
 
   private tryItemAction(p: CombatPlayerRef, heldId: string | null, playerName: string): boolean {
@@ -126,137 +202,72 @@ export class CombatWorld {
         if (hitPlayer) resolveDummyStrikeOnPlayer({ entity, target: hitPlayer, damage: dmg, events: this.events });
       },
     });
+    this.webs.step({ cache: this.cache, players: targets, dt });
     this.ecology.step({
       dt, timeSec, dayPhase,
       players: targets.filter((p) => p.combat.respawnTimer <= 0).map((p) => Object.assign(p, { moving: Boolean(p.moving) })),
       events: this.events,
-      onStrike: (entity, target) => {
-        const hitPlayer = players.get(target.id);
-        if (!hitPlayer) return;
-        const spec = CREATURE_SPECS[entity.kind];
-        applyIncomingPlayerHit({
-          target: hitPlayer, attackerOrigin: entity, attackerId: entity.id, rawDamage: spec.damage,
-          goreStyle: spec.goreStyle, attackerIsPlayer: false, events: this.events,
-          onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.telegraphTimer = 0; },
-        });
-      },
+      onStrike: (entity, target) => this.handleCreatureStrike(players, entity, target.id),
+      spawnWeb: (spider, target) => this.projectiles.push(createWebProjectile({ id: `p${this.nextProjId++}`, spider, targetX: target.x, targetY: target.y })),
     });
-    stepProjectileList({ cache: this.cache, projectiles: this.projectiles, dummies: this.dummies, ecology: this.ecology, players, events: this.events, dt });
+    stepProjectileList({ cache: this.cache, projectiles: this.projectiles, dummies: this.dummies, ecology: this.ecology, players, events: this.events, webs: this.webs, dt });
   }
 
-  moveMultiplier(p: CombatPlayerRef): number {
-    return baseActionMult(p) * waterMoveMult(p) * (p.crouching ? STEALTH_TUNING.crouchSpeedMult : 1);
+  private handleCreatureStrike(players: Map<string, CombatPlayerRef>, entity: WildlifeEntity, targetId: string): void {
+    const hitPlayer = players.get(targetId);
+    if (!hitPlayer) return;
+    const spec = CREATURE_SPECS[entity.kind];
+    applyIncomingPlayerHit({
+      target: hitPlayer, attackerOrigin: entity, attackerId: entity.id, rawDamage: spec.damage,
+      goreStyle: spec.goreStyle, attackerIsPlayer: false, events: this.events, appliesPoison: entity.kind === "spider",
+      shakePx: entity.kind === "golem" ? 3.5 : undefined,
+      onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.parried = true; entity.telegraphTimer = 0; },
+    });
   }
 
+  moveMultiplier(p: CombatPlayerRef): number { return computePlayerMoveMultiplier(p); }
   pushEvent(ev: WorldEvent): void { this.events.push(ev); }
   snapshots() {
-    const eco = this.ecology.snapshots();
-    return { entities: [...serializeDummies(this.dummies), ...eco.entities], projectiles: serializeProjectiles(this.projectiles), chests: eco.chests, groundLoot: eco.groundLoot };
+    const eco = this.ecology.snapshots(); const webs = this.webs.snapshot();
+    return { entities: [...serializeDummies(this.dummies), ...eco.entities], projectiles: serializeProjectiles(this.projectiles), chests: eco.chests, groundLoot: eco.groundLoot, ...(webs ? { webs } : {}) };
   }
   drainEvents(): WorldEvent[] { const out = this.events; this.events = []; return out; }
   debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void { this.ecology.debugSpawnNearPlayer(p, kind, count); }
-  handleChestRequest(p: CombatPlayerRef, req:
-    | { readonly t: "openChest"; readonly chestId: string }
-    | { readonly t: "chestTransfer"; readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }
-    | { readonly t: "chestTakeAll"; readonly chestId: string },
-  ): void {
+  handleAdminAction(p: CombatPlayerRef, req: AdminActionRequest): boolean { return applyAdminAction({ player: p, webs: this.webs, events: this.events, req }); }
+  handleChestRequest(p: CombatPlayerRef, req: { readonly t: "openChest" | "chestTransfer" | "chestTakeAll"; readonly chestId: string; readonly from?: "chest" | "inv"; readonly fromSlot?: number; readonly to?: "chest" | "inv"; readonly toSlot?: number; readonly quick?: boolean | undefined }): void {
     if (req.t === "openChest") this.ecology.openChest(p, req.chestId, this.events);
-    else if (req.t === "chestTransfer") this.ecology.transferChest(p, req);
+    else if (req.t === "chestTransfer") this.ecology.transferChest(p, req as Parameters<WorldEcology["transferChest"]>[1]);
     else this.ecology.takeAllChest(p, req.chestId, this.events);
   }
 
   private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {
     const c = p.combat;
-    if (c.dodgeCooldown > 0 || c.dodgeTimer > 0 || c.stamina < DODGE_STAMINA_COST) return;
-    c.stamina -= DODGE_STAMINA_COST; c.dodgeTimer = DODGE_DURATION_SEC; c.invulnTimer = DODGE_IFRAME_SEC;
-    c.dodgeCooldown = DODGE_COOLDOWN_SEC; c.bowCharge = 0; c.blocking = false;
+    if (c.dodgeCooldown > 0 || c.dodgeTimer > 0 || (!c.godMode && c.stamina < DODGE_STAMINA_COST)) return;
+    if (!c.godMode) c.stamina -= DODGE_STAMINA_COST;
+    c.dodgeTimer = DODGE_DURATION_SEC; c.invulnTimer = DODGE_IFRAME_SEC; c.dodgeCooldown = DODGE_COOLDOWN_SEC;
+    c.bowCharge = 0; c.blocking = false;
     const mag = Math.hypot(moveX, moveY);
     c.dodgeDirX = mag > 0.05 ? moveX / mag : p.facingX;
     c.dodgeDirY = mag > 0.05 ? moveY / mag : p.facingY;
     this.events.push({ kind: "dodge", x: p.x, y: p.y, dirX: c.dodgeDirX, dirY: c.dodgeDirY, actorId: p.id });
   }
 
-  private stepBowAction(p: CombatPlayerRef, input: CombatInputFlags, dt: number): void {
+  private stepBowAction(p: CombatPlayerRef & { attackFlashTimer?: number }, input: CombatInputFlags, dt: number): void {
     const c = p.combat;
     if (c.dodgeTimer > 0 || c.actionCooldown > 0) return;
-    if (input.bowDrawing) { c.bowCharge = Math.min(BOW_MAX_CHARGE_SEC, c.bowCharge + dt); return; }
+    if (input.bowDrawing) { c.bowCharge = Math.min(COMBAT_TUNING.bow.maxChargeSec, c.bowCharge + dt); return; }
     if (!input.bowReleaseQueued && c.bowCharge <= 0) return;
     const chargeSec = c.bowCharge; c.bowCharge = 0;
     this.fireArrow(p, chargeSec);
   }
 
-  private fireArrow(p: CombatPlayerRef, chargeSec: number): void {
+  private fireArrow(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {
     const c = p.combat;
-    if (c.stamina < 10 || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
-    c.stamina -= 10; c.actionCooldown = 0.25;
+    if ((!c.godMode && c.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
+    if (!c.godMode) c.stamina -= 10; c.actionCooldown = 0.25; p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
     const shot = evaluateBowShot(chargeSec);
-    this.projectiles.push(createArrowProjectile({
-      id: `p${this.nextProjId++}`, p, speed: shot.speedTilesPerSec, charge: shot.ratio,
-      damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult),
-    }));
+    this.projectiles.push(createArrowProjectile({ id: `p${this.nextProjId++}`, p, speed: shot.speedTilesPerSec, charge: shot.ratio, damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult) }));
     this.events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
-    this.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
+    this.ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 3.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
   }
-
-  private dispatchMeleeSector(opts: {
-    readonly p: CombatPlayerRef; readonly players: Map<string, CombatPlayerRef>; readonly rawDamage: number;
-    readonly range: number; readonly halfArcRad: number; readonly goreStyle: GoreStyle;
-    readonly spec: ReturnType<typeof resolveWeaponAttackStep>["spec"]; readonly moveset: ReturnType<typeof resolveWeaponAttackStep>["moveset"];
-  }): void {
-    const { p, players, rawDamage, range, halfArcRad, goreStyle, spec, moveset } = opts;
-    resolveMeleeHits({ attacker: p, players: players.values(), dummies: this.dummies, rawDamage, range, halfArcRad, goreStyle, comboStep: p.combat.comboStep, sweepDir: spec.sweepDir, events: this.events });
-    this.ecology.hitSector({ attacker: p, dir: { x: p.aimX, y: p.aimY }, damage: rawDamage, range, halfArcRad, goreStyle, comboStep: p.combat.comboStep, sweepDir: spec.sweepDir, backstabMult: moveset.backstabMult, events: this.events });
-    this.harvester.hitHarvestableInSector({ cache: this.cache, loot: this.ecology.loot, attacker: p, range, halfArcRad, toolKind: moveset.harvestKind, toolPower: moveset.harvestPower, timeSec: this.simTimeSec, events: this.events });
-  }
-
-  private tryMeleeSwing(p: CombatPlayerRef, heldId: string | null, players: Map<string, CombatPlayerRef>): void {
-    const c = p.combat; const stats = meleeStatsFor(heldId);
-    if (c.swingTimer > 0 || c.dodgeTimer > 0 || c.actionCooldown > 0 || c.stamina < stats.cost) return;
-    const { stepIndex, moveset, spec } = resolveWeaponAttackStep({ archetype: stats.archetype, currentStep: c.comboStep, comboActive: c.comboResetTimer > 0 });
-    c.stamina -= stats.cost; c.comboStep = stepIndex; c.comboResetTimer = moveset.comboWindowSec;
-    c.swingTimer = spec.swingDurationSec; c.swingDuration = spec.swingDurationSec;
-    c.blocking = false; c.actionCooldown = spec.swingDurationSec * spec.cooldownRatio;
-    this.events.push({ kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, comboStep: c.comboStep, weaponArchetype: stats.archetype });
-    this.ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 2.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
-    this.dispatchMeleeSector({ p, players, rawDamage: Math.round(stats.damage * spec.damageMult), range: stats.range * spec.rangeMult, halfArcRad: stats.halfArc * spec.arcMult, goreStyle: spec.goreOverride ?? stats.gore, spec, moveset });
-  }
-}
-
-export function playerCombatExtras(p: CombatPlayerRef) {
-  const c = p.combat;
-  return {
-    hp: c.hp, maxHp: c.maxHp, stamina: Math.round(c.stamina), maxStamina: c.maxStamina, comboStep: c.comboStep,
-    swingProgress: c.swingTimer > 0 ? Math.min(1, 1 - c.swingTimer / c.swingDuration) : 0,
-    bowCharge: Math.min(1, c.bowCharge / BOW_MAX_CHARGE_SEC),
-    blocking: c.blocking, dodging: c.dodgeTimer > 0, invulnTimer: c.invulnTimer, staggerTimer: c.staggerTimer,
-    bleedTimer: c.bleedTimer, hitTimer: c.hitTimer, respawnTimer: c.respawnTimer,
-    wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer, inSanctuary: isInSanctuary(p.x, p.y),
-  };
-}
-
-const DEFAULT_MELEE_STATS = { cost: 8, damage: 10, range: 1.5, halfArc: 0.75, gore: "splatter" as GoreStyle };
-
-function waterMoveMult(p: CombatPlayerRef): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (p.inDeepWater) return p.combat.stamina <= 1 ? m.exhaustedSwim : m.deepWater;
-  return p.inWater ? m.shallowWater : 1;
-}
-
-function baseActionMult(p: CombatPlayerRef): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (p.combat.dodgeTimer > 0) return m.dodge;
-  if (p.combat.swingTimer > 0) return m.swing;
-  if (p.combat.blocking) return m.block;
-  return p.combat.bowCharge > 0 ? m.bowDraw : 1;
-}
-
-function pickDefStats(def: NonNullable<ReturnType<typeof getItemDef>>, archetype: ReturnType<typeof resolveWeaponArchetype>) {
-  const d = DEFAULT_MELEE_STATS;
-  return { archetype, cost: def.staminaCost ?? d.cost, damage: def.damage ?? d.damage, range: def.range ?? d.range, halfArc: (def.arcRad ?? 1.5) * 0.5, gore: def.goreStyle ?? d.gore };
-}
-
-function meleeStatsFor(heldId: string | null) {
-  const def = heldId ? getItemDef(heldId) : undefined;
-  if (!def) return { ...DEFAULT_MELEE_STATS, archetype: resolveWeaponArchetype(heldId) };
-  return pickDefStats(def, resolveWeaponArchetype(heldId, def.weaponArchetype));
 }

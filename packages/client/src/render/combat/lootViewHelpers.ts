@@ -45,34 +45,32 @@ export function drawUnifiedArrowGraphic(g: Graphics, opts?: { readonly charge?: 
   g.poly([-5.9, 1.4, -3.5, 0.4, -4.6, 0], true).fill(0xe2e8f0);
 }
 
-function drawGroundArrow(g: Graphics, angle: number, stuck: boolean): void {
-  const shadow = new Graphics();
-  shadow.ellipse(0, 1, 5, 1.8).fill({ color: 0x090d14, alpha: 0.35 });
-  const shaft = new Graphics();
-  drawUnifiedArrowGraphic(shaft);
-  shaft.position.set(0, stuck ? -6 : -1);
-  shaft.rotation = angle;
-  g.addChild(shadow, shaft);
-}
-
 function createArrowView(item: GroundLootSnapshot): LootView {
   const root = new Container();
   const body = new Container();
   const shadow = new Graphics();
+  shadow.ellipse(0, 1, 5, 1.8).fill({ color: 0x090d14, alpha: 0.35 });
   const highlight = new Graphics();
-  const arrowContainer = new Graphics();
-  drawGroundArrow(arrowContainer, item.angle ?? 0.35, Boolean(item.stuck));
-  body.addChild(arrowContainer);
-  root.addChild(highlight, body);
+  const shaft = new Graphics();
+  drawUnifiedArrowGraphic(shaft);
+  shaft.position.set(0, item.stuck ? -6 : -1);
+  shaft.rotation = item.angle ?? 0.35;
+  body.addChild(shaft);
+  root.addChild(shadow, highlight, body);
   return { root, body, shadow, highlight, lastHighlighted: false };
 }
 
 function createCountBadge(count: number): Text {
   const txt = new Text({
-    text: String(count),
-    style: { fontSize: 7, fontWeight: "800", fill: 0xfef08a, stroke: { color: 0x0f172a, width: 2 } },
+    text: String(count), resolution: 2, roundPixels: false, textureStyle: { scaleMode: "linear" },
+    style: {
+      fontSize: 28, fontWeight: "800", fill: 0xfef08a,
+      fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+      stroke: { color: 0x0f172a, width: 6, join: "round" },
+    },
   });
   txt.anchor.set(1, 1);
+  txt.scale.set(0.24);
   txt.position.set(7, 2);
   return txt;
 }

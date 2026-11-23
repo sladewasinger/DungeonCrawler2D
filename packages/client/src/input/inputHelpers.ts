@@ -36,6 +36,49 @@ export function createJoystickDom(): { readonly ring: HTMLDivElement; readonly k
   return { ring, knob };
 }
 
+function resolveAttackAndBow(opts: {
+  readonly isBowHeld: boolean; readonly leftMouseDown: boolean; readonly bowReleaseQueued: boolean;
+  readonly mob: { readonly attackHold: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean };
+}) {
+  return {
+    attackHold: !opts.isBowHeld && (opts.leftMouseDown || opts.mob.attackHold),
+    bowDraw: opts.mob.bowDraw || (opts.isBowHeld && opts.leftMouseDown),
+    bowRelease: opts.bowReleaseQueued || opts.mob.bowRelease,
+  };
+}
+
+export function assembleCombatFrame(opts: {
+  readonly attack: boolean; readonly dodge: boolean;
+  readonly attackQueued: boolean; readonly bowReleaseQueued: boolean;
+  readonly leftMouseDown: boolean; readonly rightMouseDown: boolean;
+  readonly isBowHeld: boolean; readonly hasShield: boolean;
+  readonly crouching: boolean; readonly throwPebble: boolean; readonly interact: boolean;
+  readonly dodgeDir: { readonly x: number; readonly y: number } | undefined;
+  readonly mob: {
+    readonly attackHold: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean;
+    readonly block: boolean; readonly crouch: boolean;
+    readonly aim: { readonly x: number; readonly y: number } | undefined;
+  };
+}) {
+  const { mob } = opts;
+  return {
+    attack: opts.attack,
+    ...resolveAttackAndBow(opts),
+    block: opts.hasShield && (opts.rightMouseDown || mob.block),
+    dodge: opts.dodge,
+    dodgeDir: opts.dodge ? opts.dodgeDir : undefined,
+    crouch: opts.crouching || mob.crouch,
+    throwPebble: opts.throwPebble,
+    interact: opts.interact,
+    mobileAim: mob.aim,
+  };
+}
+
+export function nextCrouchState(mode: "toggle" | "hold", current: boolean, action: "press" | "release" | "blur"): boolean {
+  if (mode === "hold") return action === "press";
+  return action === "press" ? !current : current;
+}
+
 export function createJumpButton(onPress: () => void): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";

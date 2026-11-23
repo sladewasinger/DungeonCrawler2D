@@ -1,8 +1,12 @@
 /** Renders interactive combat training targets, wildlife, POI guards, and fallen bodies. */
-import { JUMP_VISUAL_PX_PER_TILE, TILE_PX, type WorldEntitySnapshot } from "@dc2d/engine";
+import { JUMP_VISUAL_PX_PER_TILE, TILE_PX, type PlayerSnapshot, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite } from "pixi.js";
 import { getLoadedSpriteAsset, type LoadedSpriteAnimations } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
+import {
+  createWaterSubmergeRig, syncSubmergedSprite, syncWaterSubmergeState,
+  type WaterSubmergeRig, type WaterlineMetrics,
+} from "../world/playerPoseHelpers.js";
 import { AiIndicatorView, resolveAiVisualEffects } from "./aiStateIndicators.js";
 import { drawCreatureBody } from "./creatureDrawers.js";
 import { createAnimatorTrackState, sampleAnimatedFrame } from "./entityAnimator.js";
@@ -24,9 +28,10 @@ function resolveEntityZIndex(snap: WorldEntitySnapshot, dead: boolean): number {
   return Math.floor(snap.y) * TILE_PX + snap.elevation + 0.5;
 }
 
-function resolveBodyTint(snap: WorldEntitySnapshot): number {
+function resolveBodyTint(snap: WorldEntitySnapshot, timeSec: number): number {
   if (isCorpseState(snap)) return 0xcbd5e1;
   if (snap.hitTimer > 0) return 0xfca5a5;
+  if (snap.burning) return Math.floor(timeSec * 12) % 2 === 0 ? 0xfdba74 : 0xfed7aa;
   if (snap.staggerTimer > 0) return 0xfef08a;
   return 0xffffff;
 }
@@ -47,6 +52,7 @@ function createEntityBody(kind: WorldEntityKind): {
   readonly baseScale: number;
   readonly hpTopY: number;
   readonly shadowRx: number;
+  readonly visualH: number;
   readonly animations: LoadedSpriteAnimations | null;
 } {
   const asset = getLoadedSpriteAsset(kind);
@@ -61,35 +67,31 @@ function createEntityBody(kind: WorldEntityKind): {
       baseScale: asset.scale,
       hpTopY: -Math.round(visualH) - 4,
       shadowRx: Math.max(6, Math.round(visualW * 0.36)),
+      visualH,
       animations: asset.loadedAnimations ?? null,
     };
   }
   const gfx = new Graphics();
   drawCreatureBody(kind, gfx);
-  return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7, animations: null };
+  return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7, visualH: 22, animations: null };
 }
 
-function makeEntityWaterRing(): Graphics {
-  const g = new Graphics();
-  g.ellipse(0, -4, 7.5, 2.8).stroke({ color: 0xbae6fd, width: 1.1, alpha: 0.65 });
-  g.visible = false;
-  return g;
-}
-
-function makeEntityWaterMask(): Graphics {
-  const g = new Graphics();
-  g.rect(-48, -96, 96, 90).fill(0xffffff);
-  g.visible = false;
-  return g;
+function buildEntityWaterMetrics(shadowRx: number, visualH: number): WaterlineMetrics {
+  const halfW = Math.max(7.5, shadowRx + 2.0);
+  return {
+    cutY: -Math.max(5.5, Math.min(9.5, Math.round(visualH * 0.28))),
+    halfW,
+    bowPx: Math.max(2.0, Math.min(3.2, halfW * 0.28)),
+  };
 }
 
 class EntityView {
   readonly root = new Container();
   private readonly shadow = new Graphics();
-  private readonly waterRing = makeEntityWaterRing();
-  private readonly waterMask = makeEntityWaterMask();
+  private readonly waterRig: WaterSubmergeRig;
   private readonly body: Sprite | Graphics;
   private readonly baseScale: number;
+  private readonly visualH: number;
   private readonly animations: LoadedSpriteAnimations | null;
   private readonly animTrack = createAnimatorTrackState();
   private readonly hpBg = new Graphics();
@@ -105,26 +107,30 @@ class EntityView {
     const built = createEntityBody(kind);
     this.body = built.body;
     this.baseScale = built.baseScale;
+    this.visualH = built.visualH;
     this.animations = built.animations;
+    this.waterRig = createWaterSubmergeRig(buildEntityWaterMetrics(built.shadowRx, built.visualH), built.body instanceof Sprite);
+    if (this.waterRig.submergedBody && built.body instanceof Sprite) {
+      this.waterRig.submergedBody.anchor.copyFrom(built.body.anchor);
+    }
     this.indicator = new AiIndicatorView(built.hpTopY);
     this.shadow.ellipse(0, 0, built.shadowRx, Math.max(2.2, built.shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
     this.hpBg.rect(-9, built.hpTopY, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow, this.waterRing, this.waterMask, this.body, this.hpBg, this.hpFill, this.indicator.container);
+    this.root.addChild(this.shadow);
+    if (this.waterRig.submergedBody) this.root.addChild(this.waterRig.submergedMask, this.waterRig.submergedBody);
+    this.root.addChild(this.waterRig.waterRing, this.waterRig.waterMask, this.body, this.waterRig.waterFrontLip, this.hpBg, this.hpFill, this.indicator.container);
   }
 
   private syncWaterState(snap: WorldEntitySnapshot, dead: boolean, jumpZ: number): boolean {
     const swimming = Boolean(snap.inDeepWater && !dead && jumpZ <= 0.03);
-    this.waterMask.visible = swimming;
-    this.body.mask = swimming ? this.waterMask : null;
-    this.waterRing.visible = swimming;
-    this.shadow.visible = !dead && !swimming;
+    syncWaterSubmergeState({ rig: this.waterRig, target: this.body, shadow: this.shadow, swimming, showShadow: !dead && !swimming });
     return swimming;
   }
 
-  sync(snap: WorldEntitySnapshot, timeSec: number): void {
+  sync(snap: WorldEntitySnapshot, timeSec: number, localPlayer?: PlayerSnapshot): void {
     const dead = isCorpseState(snap);
     const hidePileCorpse = dead && PILE_CORPSE_KINDS.has(snap.kind);
     this.root.visible = !hidePileCorpse;
@@ -141,11 +147,12 @@ class EntityView {
     this.shadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
     this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge", swimming });
     const hpVisible = this.syncHpBar(snap, dead);
-    this.indicator.sync({ snap, timeSec, dead, hpVisible });
+    this.indicator.sync({ snap, timeSec, dead, hpVisible, localPlayer });
   }
 
   private syncAnimatedSprite(opts: {
-    readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean; readonly dead: boolean; readonly swimBob: number;
+    readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean;
+    readonly dead: boolean; readonly swimBob: number; readonly swimming: boolean;
   }): boolean {
     if (!this.animations || !(this.body instanceof Sprite)) return false;
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
@@ -155,16 +162,22 @@ class EntityView {
     this.body.alpha = fx.alpha;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
     this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE + opts.swimBob;
-    this.body.tint = resolveBodyTint(opts.snap);
+    this.body.tint = resolveBodyTint(opts.snap, opts.timeSec);
     this.body.scale.set(frame.flipX * this.baseScale, this.baseScale * fx.scaleYMult);
+    syncSubmergedSprite({
+      sub: this.waterRig.submergedBody, src: this.body, swimming: opts.swimming,
+      x: this.body.position.x, y: this.body.position.y, rot: this.body.rotation,
+      scaleX: this.body.scale.x, scaleY: this.body.scale.y, alpha: this.body.alpha,
+    });
     return true;
   }
 
   private syncBodyState(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean; readonly swimming: boolean }): void {
     const { snap, timeSec, moving, swimming } = opts;
     const dead = isCorpseState(snap);
-    const swimBob = swimming ? 2.2 + Math.sin(timeSec * 4.8 + snap.x) * 0.6 : 0;
-    if (this.syncAnimatedSprite({ snap, timeSec, moving, dead, swimBob })) return;
+    const swimBob = swimming ? Math.max(3.2, Math.min(6.0, this.visualH * 0.22)) + Math.sin(timeSec * 4.8 + snap.x) * 0.55 : 0;
+    if (this.syncAnimatedSprite({ snap, timeSec, moving, dead, swimBob, swimming })) return;
+    if (this.waterRig.submergedBody) this.waterRig.submergedBody.visible = false;
     const slime = this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME;
     if (dead && slime) {
       this.body.alpha = 1; this.body.rotation = 0; this.body.position.y = 0;
@@ -174,7 +187,7 @@ class EntityView {
     this.body.alpha = resolveAiVisualEffects(snap, timeSec, dead).alpha;
     this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
     this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead }) + swimBob;
-    this.body.tint = resolveBodyTint(snap);
+    this.body.tint = resolveBodyTint(snap, timeSec);
     this.applyBodyScale(snap, timeSec, dead);
   }
 
@@ -209,6 +222,9 @@ class EntityView {
 
 export class EntityRenderer {
   private readonly views = new Map<string, EntityView>();
+  private localPlayer: PlayerSnapshot | undefined;
+
+  setLocalPlayer(localPlayer: PlayerSnapshot | undefined): void { this.localPlayer = localPlayer; }
 
   sync(ysortLayer: Container, entities: readonly WorldEntitySnapshot[], timeSec: number): void {
     const active = new Set(entities.map((e) => e.id));
@@ -224,7 +240,7 @@ export class EntityRenderer {
         this.views.set(snap.id, view);
         ysortLayer.addChild(view.root);
       }
-      view.sync(snap, timeSec);
+      view.sync(snap, timeSec, this.localPlayer);
     }
   }
 }

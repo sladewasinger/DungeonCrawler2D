@@ -1,7 +1,9 @@
 /** Touch joystick + combat buttons, swipe-to-roll, world tap, desktop WASD, and shortcuts. */
+import { resolveBlockMode } from "@dc2d/content";
 import { COMBAT_TUNING } from "@dc2d/engine";
 import {
-  HOTBAR_DIGIT_MAP, createJoystickDom, createJumpButton, isEditingText, isGuardedBrowserCombo, isUiTarget,
+  HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, createJumpButton, isEditingText, isGuardedBrowserCombo,
+  isUiTarget, nextCrouchState,
 } from "./inputHelpers.js";
 import { MobileCombatControls } from "./mobileCombatControls.js";
 
@@ -10,7 +12,6 @@ export interface InputCallbacks {
   readonly onZoom: (factor: number) => void;
   readonly onSelectHotbar: (slot: number) => void;
   readonly onToggleInventory: () => void;
-  readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
   readonly onToggleMap?: () => void;
   readonly onInteract?: () => void;
@@ -20,6 +21,7 @@ export interface InputCallbacks {
 
 export interface CombatInputsFrame {
   readonly attack: boolean;
+  readonly attackHold: boolean;
   readonly bowDraw: boolean;
   readonly bowRelease: boolean;
   readonly block: boolean;
@@ -44,6 +46,7 @@ export class InputController {
   private dodgeQueued = false;
   private dodgeDir: { readonly x: number; readonly y: number } | undefined;
   private crouching = false;
+  private crouchMode: "toggle" | "hold" = "toggle";
   private throwPebbleQueued = false;
   private interactQueued = false;
   private attackQueued = false;
@@ -51,7 +54,7 @@ export class InputController {
   private leftMouseDown = false;
   private rightMouseDown = false;
   private isBowHeld = false;
-  private hasShield = false;
+  private canBlock = false;
   private enabled = true;
   private readonly callbacks: InputCallbacks;
   private readonly stickEl: HTMLDivElement;
@@ -65,61 +68,43 @@ export class InputController {
     this.knobEl = knob;
     const jumpBtn = createJumpButton(() => { this.jumpQueued = true; });
     host.append(ring, jumpBtn);
-    this.mobileCombat = new MobileCombatControls(host, () => callbacks.onToggleMap?.());
+    this.mobileCombat = new MobileCombatControls(host, {
+      onMapTap: () => callbacks.onToggleMap?.(),
+      onToggleTorch: () => callbacks.onToggleTorch(),
+    });
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
   }
 
+  setCrouchMode(mode: "toggle" | "hold"): void { this.crouchMode = mode; }
+  setTorchLit(lit: boolean): void { this.mobileCombat.setTorchLit(lit); }
   setGearState(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
     this.isBowHeld = gear.heldItem === "bow";
-    this.hasShield = gear.hasShield;
+    this.canBlock = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null) !== "none";
     this.mobileCombat.setGear(gear);
   }
-
   setEnabled(enabled: boolean): void { this.enabled = enabled; if (!enabled) this.resetHeldInputs(); }
   queueInteract(): void { this.interactQueued = true; }
   consumeJump(): boolean { const fired = this.jumpQueued; this.jumpQueued = false; return fired; }
-
-  private resolveBowDraw(mobBowDraw: boolean): boolean {
-    return mobBowDraw || (this.isBowHeld && this.leftMouseDown);
-  }
-
-  private resolveDodgeDir(): { readonly x: number; readonly y: number } | undefined {
-    return this.dodgeQueued ? this.dodgeDir : undefined;
-  }
 
   consumeCombat(): CombatInputsFrame {
     const mob = this.mobileCombat.consumeState();
     const dodge = this.dodgeQueued || mob.dodge;
     const attack = this.attackQueued || mob.attack;
-    if (this.shouldCancelCrouch(dodge, attack)) this.syncCrouch(false);
-    const out: CombatInputsFrame = {
-      attack,
-      bowDraw: this.resolveBowDraw(mob.bowDraw),
-      bowRelease: this.bowReleaseQueued || mob.bowRelease,
-      block: this.isBlockHeld(mob.block),
-      dodge,
-      dodgeDir: this.resolveDodgeDir(),
-      crouch: this.crouching || mob.crouch,
-      throwPebble: this.throwPebbleQueued,
-      interact: this.interactQueued,
-      mobileAim: mob.aim,
-    };
+    if (dodge || attack || this.down("ShiftLeft", "ShiftRight")) this.syncCrouch(false);
+    const out = assembleCombatFrame({
+      attack, dodge, attackQueued: this.attackQueued, bowReleaseQueued: this.bowReleaseQueued,
+      leftMouseDown: this.leftMouseDown, rightMouseDown: this.rightMouseDown, isBowHeld: this.isBowHeld,
+      hasShield: this.canBlock, crouching: this.crouching, throwPebble: this.throwPebbleQueued,
+      interact: this.interactQueued, dodgeDir: this.dodgeQueued ? this.dodgeDir : undefined, mob,
+    });
     this.clearQueuedCombat();
     return out;
-  }
-
-  private shouldCancelCrouch(dodge: boolean, attack: boolean): boolean {
-    return dodge || attack || this.down("ShiftLeft", "ShiftRight");
   }
 
   private syncCrouch(next: boolean): void {
     this.crouching = next;
     this.mobileCombat.setCrouching(next);
-  }
-
-  private isBlockHeld(mobileBlock: boolean): boolean {
-    return this.hasShield && (this.rightMouseDown || mobileBlock);
   }
 
   movement(): { readonly x: number; readonly y: number } {
@@ -152,11 +137,17 @@ export class InputController {
       this.keys.add(e.code);
       if (!e.repeat) this.handleShortcut(e, callbacks);
     });
-    window.addEventListener("keyup", (e) => this.keys.delete(e.code));
+    window.addEventListener("keyup", (e) => {
+      this.keys.delete(e.code);
+      if (e.code === "KeyC" && this.crouchMode === "hold") this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "release"));
+    });
     window.addEventListener("blur", () => this.resetHeldInputs());
   }
 
-  private resetHeldInputs(): void { this.keys.clear(); this.leftMouseDown = false; this.rightMouseDown = false; }
+  private resetHeldInputs(): void {
+    this.keys.clear(); this.leftMouseDown = false; this.rightMouseDown = false;
+    this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "blur"));
+  }
 
   private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
@@ -171,9 +162,8 @@ export class InputController {
     if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
     const actions: Readonly<Record<string, () => void>> = {
       KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
-      KeyX: () => this.syncCrouch(!this.crouching),
+      KeyC: () => this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "press")),
       KeyQ: () => { this.throwPebbleQueued = true; },
-      KeyC: callbacks.onToggleCrafting,
       KeyH: callbacks.onToggleCharacter,
       KeyF: callbacks.onToggleTorch,
       KeyM: () => { callbacks.onToggleMap?.(); },

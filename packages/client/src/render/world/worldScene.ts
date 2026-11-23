@@ -3,7 +3,7 @@ import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import {
   TILE_PX, WorldChunkCache, clamp, sampleDayNight,
   type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
-  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
@@ -11,6 +11,7 @@ import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js
 import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
+import { WebLayer } from "../combat/webs/webRenderer.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
 import { HarvestFxLayer } from "../survival/harvestFxLayer.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
@@ -24,23 +25,18 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  buildGoreSpawn, collectWaterActors, nearestCampfireDist, nearestWaterDist, resolveEventElev, type SceneAudioDistances,
+  applyWorldEventFx, buildGoreSpawn, collectActorParticleEmitters, collectWaterActors,
+  nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
 export type { SceneAudioDistances } from "./sceneHelpers.js";
 
 export interface SceneFrameInput {
-  readonly dt: number;
-  readonly timeSec: number;
-  readonly dayPhase: number;
-  readonly cache: WorldChunkCache;
-  readonly players: readonly PlayerSnapshot[];
-  readonly localPlayerId: string;
-  readonly projectiles?: readonly ProjectileSnapshot[];
-  readonly entities?: readonly WorldEntitySnapshot[];
-  readonly chests?: readonly WorldChestSnapshot[];
-  readonly groundLoot?: readonly GroundLootSnapshot[];
-  readonly events?: readonly WorldEvent[];
+  readonly dt: number; readonly timeSec: number; readonly dayPhase: number; readonly cache: WorldChunkCache;
+  readonly players: readonly PlayerSnapshot[]; readonly localPlayerId: string;
+  readonly projectiles?: readonly ProjectileSnapshot[]; readonly entities?: readonly WorldEntitySnapshot[];
+  readonly chests?: readonly WorldChestSnapshot[]; readonly groundLoot?: readonly GroundLootSnapshot[];
+  readonly webs?: WorldWebSnapshot | undefined; readonly events?: readonly WorldEvent[];
 }
 
 const ZOOM_STOPS = [1.5, 2.0, 3.0, 4.0, 6.0] as const;
@@ -62,6 +58,7 @@ export class WorldScene {
   private readonly castShadows = new CastShadowLayer();
   private readonly particles = new AmbientParticleLayer();
   private readonly gore = new GoreSystem();
+  private readonly webLayer = new WebLayer();
   private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
   private readonly harvestFx = new HarvestFxLayer();
@@ -87,7 +84,7 @@ export class WorldScene {
     grassHost.addChild(grassCam!);
     canopyHost.addChild(canopyCam!);
     shadowCam!.addChild(this.castShadows.container);
-    goreCam!.addChild(this.gore.decalLayer);
+    goreCam!.addChild(this.gore.decalLayer, this.webLayer.container);
     this.pickups = new WorldPickupsRenderer(host, (lootId) => this.interactHandler?.(lootId));
     this.configureGoreLayers(ysortCam!);
     emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
@@ -167,7 +164,7 @@ export class WorldScene {
     this.syncCameraContainers();
     this.chunks.syncVisibleChunks(input.cache, { x: this.camX, y: this.camY, radius: preset.chunkRadius });
     const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({
-      cache: input.cache, players: input.players, entities: input.entities ?? [], timeSec: input.timeSec,
+      cache: input.cache, players: input.players, entities: input.entities ?? [], localPlayerId: input.localPlayerId, timeSec: input.timeSec,
     });
     this.renderEffectsAndLighting({ input, local, simDt, lights, campfires, casters, preset });
     this.app.render();
@@ -191,13 +188,15 @@ export class WorldScene {
     this.gore.stepBleedDrips(input.players, entities, simDt);
     this.gore.stepFootprints(input.players, entities);
     this.gore.step(simDt);
+    this.webLayer.sync(input.webs, simDt, input.timeSec);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
     this.harvestFx.step(simDt);
     this.hitboxDebug.render({ cache: input.cache, local, players: input.players, entities, projectiles: input.projectiles ?? [] });
+    const emitters = collectActorParticleEmitters(input.players, entities);
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
       maxParticles: preset.maxParticles, campfires, torches: lights.filter((l) => l.kind === "torch"),
-      waterActors: collectWaterActors(input.players, entities),
+      waterActors: collectWaterActors(input.players, entities), ...emitters,
     });
     this.lighting.renderPass({
       renderer: this.app.renderer, width: this.app.screen.width, height: this.app.screen.height,
@@ -211,25 +210,22 @@ export class WorldScene {
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
     this.harvestFx.handleEvents(events, input.players, local?.elevation ?? 0);
-    for (const ev of events) this.applyWorldHitFx(ev, input, local);
-  }
-
-  private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
-    if (ev.kind === "playerLeave") { this.particles.spawnSmokePoof({ x: ev.x, y: ev.y, durationSec: PLAYER_LEAVE_SMOKE_DURATION_SEC }); return; }
-    if (ev.kind === "arrowRicochet") { this.emitSparksAt(ev, local?.elevation ?? 0); return; }
-    if (ev.kind === "hit") this.applyEntityHitFx(ev, input, local);
-  }
-
-  private emitSparksAt(ev: NonNullable<SceneFrameInput["events"]>[number], elevation: number): void {
-    this.gore.spawnClashSparks({ x: ev.x, y: ev.y, dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1, elevation });
-  }
-
-  private applyEntityHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
-    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
-    if (!ev.goreStyle || !ev.substance) return;
-    const elev = resolveEventElev(ev.targetId, input.entities, local);
-    this.gore.spawn(buildGoreSpawn(ev, elev, input.cache));
-    if (ev.substance === "stone") this.emitSparksAt(ev, elev);
+    const sinks = {
+      spawnSmoke: (x: number, y: number, durationSec?: number) => this.particles.spawnSmokePoof({ x, y, durationSec }),
+      spawnSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
+        this.gore.spawnClashSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+      spawnCritSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
+        this.gore.spawnCritSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+      spawnCrack: (x: number, y: number, elevation: number) => this.gore.spawnGroundCrack({ x, y, elevation, cache: input.cache }),
+      spawnGore: (ev: NonNullable<SceneFrameInput["events"]>[number], elev: number) => this.gore.spawn(buildGoreSpawn(ev, elev, input.cache)),
+    };
+    for (const ev of events) {
+      const shake = applyWorldEventFx({
+        ev, localId: input.localPlayerId, entities: input.entities, local,
+        leaveSmokeDur: PLAYER_LEAVE_SMOKE_DURATION_SEC, sinks,
+      });
+      if (shake > 0) this.shakeMag = Math.max(this.shakeMag, shake);
+    }
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {

@@ -152,4 +152,37 @@ describe("Phase 6 stealth and ecological AI", () => {
     expect(cwEvs.some((e) => e.kind === "pebbleLand")).toBe(true);
     expect(gob.aiState).toBe("investigate");
   });
+
+  it("keeps aggro wolves focused on combat when a packmate dies and slows enemies in deep water", () => {
+    const eco = new WorldEcology(new FlatTestCache(1337));
+    const w1 = eco.spawnEntity({ kind: "wolf", x: 23, y: 12, homeRadius: 12, poiId: null, packId: "pack-aggro", packSlot: 0 });
+    const w2 = eco.spawnEntity({ kind: "wolf", x: 24.5, y: 12.5, homeRadius: 12, poiId: null, packId: "pack-aggro", packSlot: 1 });
+    w1.facingX = -1; w2.facingX = -1;
+    const p = makePlayer(19, 12);
+    for (let i = 0; i < 6; i++) eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [p], events: [], onStrike: () => {} });
+    expect(w2.targetPlayerId).toBe(p.id);
+    eco.damageEntity({ entity: w1, damage: 999, dirX: 1, dirY: 0, goreStyle: "splatter", actorId: p.id, events: [] });
+    expect(w1.corpse).toBe(true);
+    for (let i = 0; i < 20; i++) eco.step({ dt: 0.05, timeSec: 0.3 + i * 0.05, dayPhase: 0.5, players: [p], events: [], onStrike: () => {} });
+    expect(w2.targetPlayerId).toBe(p.id);
+    expect(w2.aiState).not.toBe("feed");
+    expect(w2.aiState).not.toBe("investigate");
+
+    class DeepWaterCache extends WorldChunkCache {
+      override tileAt() { return { ground: GroundKind.DeepWater, elevation: 0, stairs: false }; }
+      override propsNear() { return []; }
+    }
+    const landEco = new WorldEcology(new FlatTestCache(1337));
+    const waterEco = new WorldEcology(new DeepWaterCache(1337));
+    const landWolf = landEco.spawnEntity({ kind: "wolf", x: 20, y: 12, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
+    const waterWolf = waterEco.spawnEntity({ kind: "wolf", x: 20, y: 12, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
+    landWolf.facingX = 1; waterWolf.facingX = 1;
+    const target = makePlayer(26.5, 12);
+    for (let i = 0; i < 16; i++) {
+      landEco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [target], events: [], onStrike: () => {} });
+      waterEco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [target], events: [], onStrike: () => {} });
+    }
+    expect(waterWolf.inDeepWater).toBe(true);
+    expect(waterWolf.x - 20).toBeLessThan((landWolf.x - 20) * 0.65);
+  });
 });

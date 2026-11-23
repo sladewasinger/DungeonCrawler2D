@@ -170,16 +170,26 @@ function computeAim360Placement(input: {
   };
 }
 
+function computeMeleeCarryIdle(opts: {
+  readonly cardinal: CardinalFacing; readonly twoHanded: boolean; readonly blocking: boolean;
+  readonly scale: number; readonly walkBob: number; readonly sway: number;
+}): MainHandPlacement {
+  const s = MELEE_SPECS[opts.cardinal];
+  if (opts.blocking && opts.twoHanded) {
+    return { x: s.x * 0.45, y: s.y - 2.2 + opts.walkBob * 0.4, rotation: s.scaleSign * -0.55, scaleX: s.scaleSign * opts.scale, scaleY: opts.scale, behindBody: opts.cardinal === "north" };
+  }
+  return { x: s.x, y: s.y + opts.walkBob, rotation: s.rot + s.rotSign * opts.sway, scaleX: s.scaleSign * opts.scale, scaleY: opts.scale, behindBody: s.behind };
+}
+
 function computeMainPlacement(input: {
   readonly ctx: ResolvedDirContext; readonly twoHanded: boolean; readonly aimMode: "aim360" | "meleeCarry" | "upright";
   readonly scale: number; readonly walkBob: number; readonly sway: number; readonly swingProgress: number; readonly comboStep: number;
-  readonly heldItem: string | null;
+  readonly heldItem: string | null; readonly blocking: boolean;
 }): MainHandPlacement {
   if (input.aimMode === "meleeCarry") {
-    const s = MELEE_SPECS[input.ctx.cardinal];
     return input.swingProgress > 0
       ? computeWeaponSwingPose({ ax: input.ctx.ax, ay: input.ctx.ay, scale: input.scale, progress: input.swingProgress, comboStep: input.comboStep, heldItem: input.heldItem })
-      : { x: s.x, y: s.y + input.walkBob, rotation: s.rot + s.rotSign * input.sway, scaleX: s.scaleSign * input.scale, scaleY: input.scale, behindBody: s.behind };
+      : computeMeleeCarryIdle({ cardinal: input.ctx.cardinal, twoHanded: input.twoHanded, blocking: input.blocking, scale: input.scale, walkBob: input.walkBob, sway: input.sway });
   }
   if (input.aimMode === "upright") {
     const s = UPRIGHT_SPECS[input.ctx.cardinal];
@@ -222,7 +232,7 @@ export function computeHeldLayout(input: HeldPlacementInput): HeldLayout {
   return {
     main: computeMainPlacement({
       ctx, twoHanded: input.twoHanded, aimMode: input.aimMode, scale, walkBob, sway,
-      swingProgress: input.swingProgress ?? 0, comboStep: input.comboStep ?? 0, heldItem: input.heldItem,
+      swingProgress: input.swingProgress ?? 0, comboStep: input.comboStep ?? 0, heldItem: input.heldItem, blocking: Boolean(input.blocking),
     }),
     offhand: computeOffhandPlacement({
       ctx, heldItem: input.heldItem, torchLit: input.torchLit, twoHanded: input.twoHanded, hasShield, walkBob, sway,

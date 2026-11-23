@@ -72,6 +72,9 @@ export interface WildlifeEntity {
   staggerTimer: number;
   stunnedTimer: number;
   bleedTimer: number;
+  burnTimer: number;
+  burnTickAcc: number;
+  parried: boolean;
   telegraphTimer: number;
   windupDuration: number;
   attackCooldown: number;
@@ -119,6 +122,9 @@ export interface WildlifeEntity {
   bluffTimer: number;
   bluffCooldown: number;
   pounceUsed: boolean;
+  goblinRetreatTimer: number;
+  goblinRetreated: boolean;
+  webShotCooldown: number;
   inWater: boolean;
   inDeepWater: boolean;
 }
@@ -134,7 +140,7 @@ export function createWildlifeEntity(opts: {
     homeX: opts.x, homeY: opts.y, homeRadius: opts.homeRadius, poiId: opts.poiId,
     packId: opts.packId, packSlot: opts.packSlot, x: opts.x, y: opts.y, elevation: opts.elevation,
     facingX: 0, facingY: 1, hp: spec.hp, maxHp: spec.hp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
-    bleedTimer: 0, telegraphTimer: 0, windupDuration: spec.windupSec, attackCooldown: 0.4,
+    bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, parried: false, telegraphTimer: 0, windupDuration: spec.windupSec, attackCooldown: 0.4,
     aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,
     investigateTimer: 0, suspicion: 0, peekSide: opts.packSlot % 2 === 0 ? 1 : -1, hunger: 0.25, feedTimer: 0,
     chargeVx: 0, chargeVy: 0, chargeTimer: 0, chargeRecoverTimer: 0, chargeHitDealt: false, alertedTimer: 0,
@@ -143,7 +149,7 @@ export function createWildlifeEntity(opts: {
     unreachableTimer: 0, provokedTimer: 0, jumpZ: 0, jumpVz: 0, jumpStepped: false,
     patrolPauseTimer: 1.0 + (opts.packSlot % 3) * 0.9, patrolMoveTimer: 0, patrolGoalX: opts.x, patrolGoalY: opts.y,
     vocalCooldown: 0, howlTimer: 0, howlDone: false, embeddedArrows: 0, spottedPopTimer: 0, peelTimer: 0,
-    bluffTimer: 0, bluffCooldown: 0, pounceUsed: false, inWater: false, inDeepWater: false,
+    bluffTimer: 0, bluffCooldown: 0, pounceUsed: false, goblinRetreatTimer: 0, goblinRetreated: false, webShotCooldown: 0, inWater: false, inDeepWater: false,
   };
 }
 

@@ -64,4 +64,20 @@ describe("worldPrediction", () => {
     expect(attacking.facingX).toBeCloseTo(0, 3);
     expect(attacking.facingY).toBeCloseTo(-1, 3);
   });
+
+  it("clamps bow-draw movement below walk speed, disables sprint, and restores sprint on release", () => {
+    const cache = new WorldChunkCache(1337);
+    cache.getChunk(0, 0);
+    const archer = { ...createDefaultPlayer("p1"), heldItem: "bow" };
+
+    const normalWalk = predictLocalPlayerMove({ cache, player: archer, nx: 0.5, ny: 0, dt: 0.05, bowDraw: false });
+    const bowWalkSprintHeld = predictLocalPlayerMove({ cache, player: archer, nx: 1, ny: 0, dt: 0.05, bowDraw: true });
+    expect(bowWalkSprintHeld.bowCharge).toBeGreaterThan(0);
+    expect(bowWalkSprintHeld.sprinting).toBe(false);
+    expect(bowWalkSprintHeld.x - archer.x).toBeLessThan(normalWalk.x - archer.x);
+
+    const released = predictLocalPlayerMove({ cache, player: bowWalkSprintHeld, nx: 1, ny: 0, dt: 0.05, bowDraw: false });
+    expect(released.bowCharge).toBe(0);
+    expect(released.sprinting).toBe(true);
+  });
 });

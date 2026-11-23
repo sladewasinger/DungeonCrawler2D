@@ -2,7 +2,8 @@
 import { Texture } from "pixi.js";
 import {
   ARC_MASKS, BONE_PILE_MASK, CHUNK_MASKS, DROPLET_MASK, FOOTPRINT_MASKS, GOOP_BLOB_MASKS,
-  GOOP_PUDDLE_MASKS, POOL_MASKS, RUBBLE_PILE_MASK, SPARK_MASK, SPLATTER_MASKS, STREAK_MASKS, WATER_PLUME_MASKS,
+  GOOP_PUDDLE_MASKS, GROUND_CRACK_MASK, POOL_MASKS, RUBBLE_PILE_MASK, SPARK_MASK, SPLATTER_MASKS,
+  STREAK_MASKS, WATER_PLUME_MASKS,
 } from "./goreArtMasks.js";
 
 export type ChunkKind = "soft" | "bone" | "stone" | "straw";
@@ -21,6 +22,7 @@ export interface GoreTextureSet {
   readonly footprints: readonly Texture[];
   readonly droplet: Texture;
   readonly spark: Texture;
+  readonly crack: Texture;
 }
 
 const SUPERSAMPLE = 4;
@@ -160,6 +162,7 @@ export function getGoreTextures(): GoreTextureSet {
     footprints: FOOTPRINT_MASKS.map((m) => rasterizeLiquidMask(m)),
     droplet: rasterizeLiquidMask(DROPLET_MASK),
     spark: rasterizeCrispMask(SPARK_MASK),
+    crack: rasterizeCrispMask(GROUND_CRACK_MASK),
   };
   return cachedSet;
 }

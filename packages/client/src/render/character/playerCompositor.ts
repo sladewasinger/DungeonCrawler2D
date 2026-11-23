@@ -57,6 +57,7 @@ function sliceDirAnim(opts: { readonly source: TextureSource; readonly meta: Pla
   return {
     idle: grab("idle"), walk: grab("walk"), run: grab("run"), jump: grab("jump"), fall: grab("fall"),
     dodge: grab("dodge"), downed: grab("downed"), swim: grab("swim"), bow: grab("bow"),
+    crouchIdle: grab("crouch_idle"), crouchWalk: grab("crouch_walk"), attack: grab("attack"),
   };
 }
 

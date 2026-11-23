@@ -180,6 +180,7 @@ const TOOLBAR_CSS = `
 .ow-atk-btn[data-role="map"] { border-color: rgba(56, 189, 248, 0.65); color: #bae6fd; }
 .ow-roll-btn, .ow-block-btn { width: 50px; height: 50px; font-size: 9px; padding: 0; }
 .ow-sneak-btn[data-active="true"] { background: rgba(6, 95, 70, 0.88); border-color: #34d399; color: #a7f3d0; }
+.ow-torch-btn[data-active="true"] { background: rgba(180, 83, 9, 0.88); border-color: #fbbf24; color: #fef08a; }
 .ow-jump-btn:active, .ow-touch-btn:active, .ow-touch-btn[data-active="true"] {
   background: rgba(180, 83, 9, 0.85);
   border-color: #f59e0b;

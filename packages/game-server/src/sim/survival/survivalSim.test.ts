@@ -64,6 +64,10 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
   it("chops trees with Axe into stumps and drops wood loot", () => {
     const sim = new WorldSim(1337);
     const id = sim.addPlayer("Gatherer");
+    sim.grantPlayerItems(id, [
+      { slot: 11, itemId: "wood", count: 8 },
+      { slot: 12, itemId: "stone", count: 6 },
+    ]);
     expect(sim.craftRecipe(id, "craft-axe")).toBe(true);
     sim.selectHotbar(id, findSlot(sim, id, "axe"));
     const tree = findClosestTree(sim, 0.5, 0.5);
@@ -84,6 +88,11 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
     try {
       const sim = new WorldSim(1337, { persistencePath: savePath });
       const id = sim.addPlayer("Builder");
+      sim.grantPlayerItems(id, [
+        { slot: 11, itemId: "wood", count: 8 },
+        { slot: 14, itemId: "raw-meat", count: 3 },
+        { slot: 15, itemId: "herb", count: 4 },
+      ]);
       expect(sim.craftRecipe(id, "craft-camp-bed")).toBe(true);
       expect(sim.placeStructure(id, { itemId: "camp-bed", x: 1.5, y: 1.2 })).toBe(true);
       sim.queueInput(id, { seq: 1, moveX: 0.2, moveY: 0.2 });

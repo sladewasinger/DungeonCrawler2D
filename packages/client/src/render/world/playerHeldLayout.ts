@@ -111,23 +111,39 @@ function pickLegacyCarryPose(opts: {
   return { x: c.x, y: c.y + opts.bob, rotation: c.rot + c.rotSign * opts.sway, scaleX: c.scaleSign * opts.scale, scaleY: opts.scale, behindBody: c.behind };
 }
 
+function shouldUse3dBowAim(opts: { readonly aimMode: string; readonly activeClip?: string | undefined; readonly bowCharge?: number | undefined }): boolean {
+  return opts.aimMode === "aim360" && (opts.activeClip === "bow" || (opts.bowCharge ?? 0) > 0.001);
+}
+
+function compute3dTwoHandBlock(opts: { readonly yawIdx: number; readonly scale: number; readonly bob: number }): MainHandPlacement {
+  const sign = opts.yawIdx >= 4 && opts.yawIdx <= 7 ? -1 : 1;
+  const p = projectOrbit3d(opts.yawIdx, { lx: 0.08, ly: -0.26, lz: 0.86 });
+  return { x: p.x, y: p.y + opts.bob * 0.4, rotation: -0.58 * sign, scaleX: opts.scale * sign, scaleY: opts.scale, behindBody: p.behind };
+}
+
+const is3dTwoHandBlock = (b: boolean | undefined, twoHanded: boolean, mode: string): boolean => Boolean(b) && twoHanded && mode === "meleeCarry";
+
 function compute3dMainCarry(opts: {
   readonly yawIdx: number; readonly flipX: boolean; readonly body?: string | undefined; readonly aimMode: "aim360" | "meleeCarry" | "upright";
-  readonly scale: number; readonly bob: number; readonly sway: number;
+  readonly twoHanded: boolean; readonly scale: number; readonly bob: number; readonly sway: number;
   readonly rawMain: MainHandPlacement; readonly swinging: boolean; readonly snap: PlayerSnapshot;
-  readonly hands: FrameHandSockets | null;
+  readonly hands: FrameHandSockets | null; readonly activeClip?: string | undefined;
 }): MainHandPlacement {
   if (opts.swinging) return { ...opts.rawMain, y: opts.rawMain.y + HELD_Y_OFFSET_3D, behindBody: opts.yawIdx >= 4 };
-  if (opts.aimMode === "aim360") {
+  if (is3dTwoHandBlock(opts.snap.blocking, opts.twoHanded, opts.aimMode)) {
+    return compute3dTwoHandBlock({ yawIdx: opts.yawIdx, scale: opts.scale, bob: opts.bob });
+  }
+  if (shouldUse3dBowAim({ aimMode: opts.aimMode, activeClip: opts.activeClip, bowCharge: opts.snap.bowCharge })) {
     return compute3dBowAim({
       aimX: opts.snap.aimX ?? opts.snap.facingX, aimY: opts.snap.aimY ?? opts.snap.facingY,
       yawIdx: opts.yawIdx, scale: opts.scale, bob: opts.bob, hands: opts.hands, flipX: opts.flipX,
     });
   }
+  const carryMode = opts.aimMode === "aim360" ? "upright" : opts.aimMode;
   if (opts.hands) {
-    return socketMainCarry({ right: opts.hands.right, yawIdx: opts.yawIdx, body: opts.body, aimMode: opts.aimMode, scale: opts.scale });
+    return socketMainCarry({ right: opts.hands.right, yawIdx: opts.yawIdx, body: opts.body, aimMode: carryMode, scale: opts.scale });
   }
-  return pickLegacyCarryPose({ ...opts, aimMode: opts.aimMode });
+  return pickLegacyCarryPose({ ...opts, aimMode: carryMode });
 }
 
 function compute3dOffhand(opts: {
@@ -192,24 +208,39 @@ function computeWalkRunMotion(opts: {
   return { bob: Math.sin(opts.aimTime * (opts.sprinting ? 14 : 9)) * bobAmp, sway: Math.sin(opts.aimTime * (opts.sprinting ? 11 : 7)) * swayAmp };
 }
 
+const CLIP_SOCKET_ALIAS: Readonly<Record<string, string>> = {
+  crouchIdle: "crouch_idle",
+  crouchWalk: "crouch_walk",
+};
+
 function sampleActiveHands(body: string | undefined, active?: PoseLocator): FrameHandSockets | null {
   if (!active) return null;
   const g = body === "female" ? "female" : "male";
-  return sampleHandSockets({ body: g, clip: active.clip, dir: active.dir, frameIdx: active.frameIdx, flipX: active.flipX });
+  const clip = CLIP_SOCKET_ALIAS[active.clip] ?? active.clip;
+  return sampleHandSockets({ body: g, clip, dir: active.dir, frameIdx: active.frameIdx, flipX: active.flipX });
+}
+
+function resolve3dCarryMotion(opts: {
+  readonly snap: PlayerSnapshot; readonly aimTime: number; readonly active?: PoseLocator | undefined; readonly gaitPhase?: number | undefined;
+}): { readonly bob: number; readonly sway: number } {
+  const { snap, aimTime, active, gaitPhase } = opts;
+  const idleStatic = !snap.moving && (snap.swingProgress ?? 0) === 0;
+  return computeWalkRunMotion({ idleStatic, sprinting: Boolean(snap.sprinting), aimTime, activeBob: active?.pose.bobY ?? 0, gaitPhase });
 }
 
 function build3dHeldLayout(opts: {
-  readonly snap: PlayerSnapshot; readonly v: { readonly aimMode: "aim360" | "meleeCarry" | "upright"; readonly spriteScale: number };
+  readonly snap: PlayerSnapshot; readonly v: { readonly twoHanded: boolean; readonly aimMode: "aim360" | "meleeCarry" | "upright"; readonly spriteScale: number };
   readonly aimTime: number; readonly raw: HeldLayout; readonly active?: PoseLocator | undefined; readonly gaitPhase?: number | undefined;
 }): HeldLayout {
   const { snap, v, aimTime, raw, active, gaitPhase } = opts;
-  const swingProgress = snap.swingProgress ?? 0;
+  const swinging = (snap.swingProgress ?? 0) > 0;
   const yawIdx = resolve3dYawIdx(snap, active);
   const body = snap.appearance?.body;
-  const { bob, sway } = computeWalkRunMotion({ idleStatic: !snap.moving && swingProgress === 0, sprinting: Boolean(snap.sprinting), aimTime, activeBob: active?.pose.bobY ?? 0, gaitPhase });
+  const { bob, sway } = resolve3dCarryMotion({ snap, aimTime, active, gaitPhase });
   const hands = sampleActiveHands(body, active);
+  const flipX = Boolean(active?.flipX);
   return {
-    main: compute3dMainCarry({ yawIdx, flipX: active?.flipX ?? false, body, aimMode: v.aimMode, scale: v.spriteScale, bob, sway, rawMain: raw.main, swinging: swingProgress > 0, snap, hands }),
+    main: compute3dMainCarry({ yawIdx, flipX, body, aimMode: v.aimMode, twoHanded: v.twoHanded, scale: v.spriteScale, bob, sway, rawMain: raw.main, swinging, snap, hands, activeClip: active?.clip }),
     offhand: compute3dOffhand({ yawIdx, body, rawOff: raw.offhand, bob, sway, hands }),
     shield: compute3dShield({ yawIdx, body, rawShield: raw.shield, blocking: Boolean(snap.blocking), bob, hands }),
   };

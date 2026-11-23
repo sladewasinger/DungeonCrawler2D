@@ -65,6 +65,15 @@ function createSandboxChests(): WorldChestSnapshot[] {
       slots[1] = { itemId: "arrow", count: 16 };
       slots[2] = { itemId: "coin", count: 25 };
       slots[3] = { itemId: c.poiKind === POI_RUINS ? "iron-helm" : "cooked-meat", count: 2 };
+      slots[4] = { itemId: "flint-dagger", count: 1 };
+      slots[5] = { itemId: "wooden-spear", count: 1 };
+      slots[6] = { itemId: "iron-greatsword", count: 1 };
+      slots[7] = { itemId: "axe", count: 1 };
+      slots[8] = { itemId: "pickaxe", count: 1 };
+      slots[9] = { itemId: "torch", count: 1 };
+      slots[10] = { itemId: "sword", count: 1 };
+      slots[11] = { itemId: "bow", count: 1 };
+      slots[12] = { itemId: "wooden-shield", count: 1 };
     } else {
       slots[0] = { itemId: "coin", count: 5 };
     }
@@ -90,7 +99,7 @@ export class SandboxSim {
   private aiLive = false;
   private player: PlayerSnapshot;
   private pendingEvents: WorldEvent[] = [];
-  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0, invulnTimer: 0 };
+  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, swingDuration: 0.26, comboResetTimer: 0, bowChargeSec: 0, invulnTimer: 0 };
 
   constructor() {
     this.player = this.initialPlayer();
@@ -113,7 +122,7 @@ export class SandboxSim {
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } {
     return { x: this.player.x, y: this.player.y, elevation: this.player.elevation };
   }
-  isInCombatAim(): boolean { return (this.player.swingProgress ?? 0) > 0 || (this.player.bowCharge ?? 0) > 0.05; }
+  isInCombatAim(): boolean { return (this.player.swingProgress ?? 0) > 0 || (this.player.bowCharge ?? 0) > 0.001; }
   isAiLive(): boolean { return this.aiLive; }
   setPose(pose: SandboxPose): void { this.pose = pose; this.aiLive = false; }
   setFacing(facing: SandboxFacing): void { this.facing = facing; this.aiLive = false; }

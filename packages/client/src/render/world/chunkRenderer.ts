@@ -54,9 +54,12 @@ export class ChunkRenderer {
     readonly cache: WorldChunkCache;
     readonly players: readonly PlayerSnapshot[];
     readonly entities?: readonly WorldEntitySnapshot[];
+    readonly localPlayerId?: string | undefined;
     readonly timeSec: number;
   }): { lights: PointLightSpec[]; campfires: PointLightSpec[]; casters: ShadowCaster[] } {
     this.reconcilePlayerViews(input.cache, input.players, input.timeSec);
+    const localPlayer = input.localPlayerId ? input.players.find((p) => p.id === input.localPlayerId) : input.players[0];
+    this.entities.setLocalPlayer(localPlayer);
     this.entities.sync(this.layers.ysort, input.entities ?? [], input.timeSec);
     const out = { lights: [] as PointLightSpec[], campfires: [] as PointLightSpec[], casters: [] as ShadowCaster[] };
     for (const player of input.players) this.appendPlayerVisuals(player, out);
@@ -98,6 +101,7 @@ export class ChunkRenderer {
     const activeIds = new Set(players.map((p) => p.id));
     for (const [id, view] of this.playerViews) {
       if (activeIds.has(id)) continue;
+      view.root.removeFromParent();
       view.root.destroy({ children: true });
       this.playerViews.delete(id);
     }

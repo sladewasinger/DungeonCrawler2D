@@ -50,23 +50,20 @@ export function applyKnockbackImpulse(
   e.kbVy += (impulse.dirY / mag) * speed;
 }
 
+export function applyEntityMoveResult(
+  e: WildlifeEntity,
+  res: { readonly x: number; readonly y: number; readonly elevation: number; readonly inWater: boolean; readonly inDeepWater: boolean },
+): void {
+  e.x = res.x; e.y = res.y; e.elevation = res.elevation;
+  e.inWater = res.inWater; e.inDeepWater = res.inDeepWater;
+}
+
 export function stepKnockbackVelocity(cache: WorldChunkCache, e: WildlifeEntity, dt: number): boolean {
-  if (Math.hypot(e.kbVx, e.kbVy) < 0.08) {
-    e.kbVx = 0;
-    e.kbVy = 0;
-    return false;
-  }
-  const res = resolveMovement({
-    cache, x: e.x, y: e.y, dx: e.kbVx * dt, dy: e.kbVy * dt, radius: 0.28, elevation: e.elevation, airborne: false,
-  });
-  e.x = res.x;
-  e.y = res.y;
-  e.elevation = res.elevation;
-  e.inWater = res.inWater;
-  e.inDeepWater = res.inDeepWater;
+  if (Math.hypot(e.kbVx, e.kbVy) < 0.08) { e.kbVx = 0; e.kbVy = 0; return false; }
+  const res = resolveMovement({ cache, x: e.x, y: e.y, dx: e.kbVx * dt, dy: e.kbVy * dt, radius: 0.28, elevation: e.elevation, airborne: false });
+  applyEntityMoveResult(e, res);
   const decay = Math.exp(-KB_DECAY_RATE * dt);
-  e.kbVx *= decay;
-  e.kbVy *= decay;
+  e.kbVx *= decay; e.kbVy *= decay;
   return true;
 }
 
@@ -102,10 +99,12 @@ function inReturnReaggroZone<T extends { readonly x: number; readonly y: number;
   return findTilePath({ cache, startX: e.x, startY: e.y, goalX: p.x, goalY: p.y, maxRadiusTiles: 10 }).reachedGoal;
 }
 
-export function matchesReturnReaggro<T extends { readonly x: number; readonly y: number; readonly elevation: number }>(
+export function matchesReturnReaggro<
+  T extends { readonly x: number; readonly y: number; readonly elevation: number; readonly combat?: { readonly cocoonProgress?: number } | undefined },
+>(
   cache: WorldChunkCache, e: WildlifeEntity, p: T,
 ): boolean {
-  if (isInSanctuary(p.x, p.y) || !inReturnReaggroZone(cache, e, p)) return false;
+  if ((e.kind === "spider" && (p.combat?.cocoonProgress ?? 0) >= 1) || isInSanctuary(p.x, p.y) || !inReturnReaggroZone(cache, e, p)) return false;
   return hasElevationLineOfSight({ cache, fromX: e.x, fromY: e.y, fromElev: e.elevation, toX: p.x, toY: p.y, toElev: p.elevation });
 }
 
@@ -135,10 +134,20 @@ export function stepIdleJumpArc(e: WildlifeEntity, dt: number): void {
   e.jumpStepped = false;
 }
 
+export function syncCreatureWaterState(cache: WorldChunkCache, e: WildlifeEntity): void {
+  const ground = cache.tileAt(Math.floor(e.x), Math.floor(e.y)).ground;
+  e.inDeepWater = ground === GroundKind.DeepWater;
+  e.inWater = e.inDeepWater || ground === GroundKind.ShallowWater;
+}
+
+export function creatureWaterSpeedMult(e: Pick<WildlifeEntity, "inWater" | "inDeepWater">): number {
+  if (e.inDeepWater) return COMBAT_TUNING.movementMults.deepWater * 0.82;
+  return e.inWater ? COMBAT_TUNING.movementMults.shallowWater : 1;
+}
+
 export function moveCreatureToward(opts: MoveCreatureOpts): void {
   const { cache, e, tx, ty, dt } = opts;
-  const waterMult = e.inDeepWater ? COMBAT_TUNING.movementMults.deepWater : e.inWater ? COMBAT_TUNING.movementMults.shallowWater : 1;
-  const speed = opts.speed * waterMult;
+  const speed = opts.speed * creatureWaterSpeedMult(e);
   const stopR = opts.stopRadius ?? 0.08;
   const directDist = Math.hypot(tx - e.x, ty - e.y);
   const steer = resolveSteerGoal({ cache, e, tx, ty, stopR, directDist, usePathfinding: opts.usePathfinding !== false });
@@ -164,14 +173,9 @@ function applyResolvedStep(step: {
   const res = resolveMovement({
     cache, x: e.x, y: e.y, dx, dy, radius: 0.28, elevation: e.elevation, airborne: e.jumpZ > 0.02, jumpZ: e.jumpZ,
   });
-  const actualDx = res.x - e.x;
-  const actualDy = res.y - e.y;
+  const actualDx = res.x - e.x; const actualDy = res.y - e.y;
   const actualMag = Math.hypot(actualDx, actualDy);
-  e.x = res.x;
-  e.y = res.y;
-  e.elevation = res.elevation;
-  e.inWater = res.inWater;
-  e.inDeepWater = res.inDeepWater;
+  applyEntityMoveResult(e, res);
   if (res.elevationDrop !== 0) e.jumpZ = Math.max(0, e.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   if (moveDist > 0.002 && actualMag > 0.008) {
     e.facingX = actualDx / actualMag;

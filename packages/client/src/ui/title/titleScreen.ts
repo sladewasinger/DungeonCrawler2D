@@ -189,6 +189,7 @@ export class TitleScreen {
   }
 
   private submitEnter(): void {
+    if (!this.open) return;
     this.name = this.nameInput.value.trim() || "Adventurer";
     this.opts.onEnterWorld({ name: this.name, appearance: this.appearance });
   }

@@ -1,6 +1,6 @@
 # Phase 6 — Full Stealth RPG, Gradual Perception & Ecological AI Overhaul
 
-> **Status**: 🚧 Pass 1 Landed (`e414691a`) — **Pass 2 Spec & Completion Pending**
+> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; Enemy deep-water swim animations explicitly deferred to [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks))
 > **Primary Touchpoints**:
 > `@dc2d/engine` (`src/combat/stealthRules.ts`, `src/combat/aiSensing.ts`, `src/net/protocol.ts`),
 > `@dc2d/game-server` (`src/sim/combatSim.ts`, `src/sim/wildlife/creatureAi.ts`, `src/sim/wildlife/creatureBehaviors.ts`, `src/sim/wildlife/wolfPackAi.ts`, `src/sim/wildlife/worldEcology.ts`),
@@ -44,7 +44,7 @@ Deeper in the wilds, creatures behave like a living ecosystem rather than tether
   - Add a Blender-baked `Hero_Crouch` (`crouch_idle` 2-frame + `crouch_walk` 6-frame hunched stalker loop) or lowered stealth knee-bend posture exported through the 16-layer rig pipeline (`player_actions.py` + `export_player_layers.py` + `bakePlayerAssets.mjs`) so all bare/armored bodies, sleeves, capes, and hairs bend naturally at reduced silhouette height.
   - While `inCover` inside `Bush` or `TallGrass`, render a subtle soft foliage-dappled alpha (`0.62` local, near-invisible to distant monsters) plus tiny fluttering leaf motes when creeping through brush.
 - **Desktop Controls**:
-  - `X` toggles Crouch/Sneak on/off; add optional `C` (Hold-to-Crouch) toggleable preference in Settings (`"Crouch Mode: Toggle [X] / Hold [C]"`), both normalized to boolean `crouch` on wire input.
+  - `C` toggles Crouch/Sneak on/off by default (optional Hold-to-Crouch preference in Settings: `"Crouch Key: Toggle (C) / Hold (C)"`); Crafting opens only through the Inventory (`Tab`) UI rather than a separate keyboard shortcut. Both toggle/hold resolve cleanly to boolean `crouch` on wire input.
   - Attacking, dodging (`Space`/`Shift`-roll), sprinting (`Shift` + move), or jumping clears `crouch` cleanly (`shouldCancelCrouch`).
   - Pressing `F` or clicking the Torch/Stealth lantern quick-toggle button smoothly extinguishes/lights the carried Torch without needing to swap hotbar slots.
 - **Mobile Controls**:
@@ -59,12 +59,10 @@ Deeper in the wilds, creatures behave like a living ecosystem rather than tether
     - Carried `torchLit`: `+0.55` `lightLevel` (impossible to stay hidden right beside guards with a blazing torch).
     - Nearby active `PropKind.Campfire` (`<= 6.5` tiles) or `PropKind.Torch` (`<= 4.2` tiles): radial warm falloff up to `+0.55` / `+0.40`, plus players casting spell/torch swings temporarily flash illumination for `0.6s`.
   - **Concealment (`inCover`)**: `Bush` or `TallGrass` within `1.25` tiles grants `inCover: true`, multiplying detection visibility by `0.42×` while crouched (`0.76×` while upright).
-- **Persistent Diegetic HUD Stealth Eye & Light Gem (`vitalsBar.ts`)**:
-  - Replace the ephemeral disappearing text badge with a crisp **Stealth Eye / Light Gem Widget** docked neatly beside the HP bar whenever the player is **crouched**, **in brush cover**, or **carrying active threat / suspicion (`nearbyAlert > 0`)**:
-    - **Closed Lid + Deep Shadow Blue Gem (`0–35%` Hidden)**: Safely masked.
-    - **Half-Slit Lid + Dim Amber Gem (`36–68%` Shaded)**: Detectable at medium-close range or front cone.
-    - **Wide-Open Eye + Bright Orange/Crimson Gem (`69–100%` Exposed / Detected)**: Clearly visible to nearby creatures.
-  - Include compact icon pips underneath (`Brush` icon when `inCover`, `Flame` icon when lit by fire/torch) instead of verbose strings on mobile.
+- **Always-On Constant-Width Symbol-Only Stealth Eye (`vitalsBar.ts`)**:
+  - Replace the collapsible text/percentage badge with a fixed-width (`56px`) **Skyrim-style Symbol-Only Stealth Eye** anchored next to the HP bar so layout never shifts:
+    - Continuous eyelid openness morphing from a closed lid curve (low exposure) through partial slits to a wide-open eye (`EXPOSED` / `SPOTTED`), color-coded across hidden green, shaded blue, exposed amber, and spotted crimson—with **zero percentage numbers or word labels**.
+    - Fixed flanking status pips (`Leaf` on left when `inCover`, `Flame` on right when lit by fire/torch/attackFlash) that dim instead of collapsing when inactive.
 
 ### 3.3 Noise Propagation & Expandable Sound Ripples
 - **Surface-Aware Noise Radius**:
@@ -76,7 +74,7 @@ Deeper in the wilds, creatures behave like a living ecosystem rather than tether
   - Melee swing / Bow release: `9.5` tiles (`3.2` tiles if crouched Bow Ambush release; silenced slightly by crouch).
 - **Client Footstep Audio & Visual Ripples**:
   - `audioEngine` / `synthSfx` multiplies local & remote player footstep gain by `0.38×` and softens filter cutoff when `player.crouching === true`.
-  - Render faint soft-cyan/ivory concentric floor ripples for loud player noises (`sprint`, `water wade`, `pebble impact`, `howl`) so players have immediate causal feedback on why a guard turned around.
+  - Reserve circular ring ripples cleanly for water wading/swimming and pebble water splashes (no distracting floor ring circles when sprinting on dry land).
 
 ### 3.4 Aimed Pebble / Rock Distraction (`Q` & `stone`)
 - **Clear Rule for Availability**:
@@ -151,10 +149,15 @@ Replace binary detection with a per-entity **`suspicion` scalar (`0.0 .. 1.0`)**
 | **Wolf (`wolf`)** | **Howl & Pack Hive-Mind**: The first wolf to spot a player pauses `0.65s` with head raised/mouth open (`howl` state), emitting an expanding silver-amber sound-ring and directional wolf howl SFX before rallying every living wolf within `18` tiles. Packmates form organic jittered flank rings (`2.0..2.8` tiles), darting in when the player's back is turned (`isBackstabAngle`) and peeling outward immediately after nipping. **Fire Wariness**: Wolves hesitate slightly outside `2.8` tiles of roaring campfires/held torches unless provoked or outnumbering `>= 3:1`. **Morale Break**: If `>= 2` packmates die and the sole survivor drops `< 25%` HP, it whimpers and retreats rapidly away (`flee`). |
 | **Bear (`bear`)** | **Territorial Bluff & Scavenging**: Entering `4.2..8.5` tiles in front of an unprovoked bear triggers a `1.4s` **Territorial Bluff** (rearing scale pulse + dust stomp ring + deep warning roar SFX + distinct amber roar waves). Retreating past `6.8` tiles de-escalates cleanly back to calm patrol without aggro! If dropped `raw-meat` or a fresh non-bear corpse sits within `9` tiles, hungry bears walk up, play a `4.5s` feeding animation with chew particles, **consume** the meat/corpse, and regenerate `25%` HP while lowering baseline aggression. |
 | **Boar (`boar`)** | **Committed Charge & Wall-Stun**: Locks aim direction (`0.65s` pawing windup + dust kicks + snort), then charges along a straight vector (`2.3×` speed). Hitting any `Boulder`, `OakTree`/`PineTree`, `Palisade`, or elevated cliff triggers **Wall-Impact Stun**: heavy thud + impact dust burst + micro camera shake + squeal SFX + orbiting **3 golden dizzy stars** overhead for `1.5s`, taking **`1.35×` bonus stun damage** from the player! |
-| **Spider (`spider`)** | **Shadow Ambush & Horizontal Pounce**: Conceals at `0.34` alpha inside `TallGrass`/`Bush`/forest canopy or darkness; triggers subtle twin-red **eye glint** `0.3s` before leaping toward the target along an actual horizontal parabolic arc (`vx, vy, jumpVz`) covering `~3.2` tiles (`aiStateIndicators` lifts smoothly with `jumpZ`), applying a brief `1.8s` Web-Slow (`0.72×` move speed) on bite. |
+| **Spider (`spider`)** | **Shadow Ambush, Venom Poison & Dynamic Cloth Webs**: Conceals at `0.36` alpha and leaps horizontally (`vx, vy, jumpVz`) onto victims; melee bites inflict **Venom Poison** (`poisonTimer`, timed DoT with no movement slow). At mid-range (`2.0–6.8` tiles), spits **ranged Web Orbs** spawning dynamic tree/rock-anchored spring-cloth cobwebs (`WorldWebNetwork`) that auto-stitch together, stretch when walked through, and build stickiness until **Stuck** (`>= 0.85`). Extended trapping draws spiders to wrap victims into a silk **Cocoon** + deliver locked poison until cut free by a sharp weapon (self or co-op ally) or burned away by fire! |
 | **Slime (`slime`)** | **Cohesive Swarm**: Drifts toward nearby slimes (`computeSlimeCohesion`), splits/recoils squash-and-stretch on hit, and hops cohesively rather than scattering endlessly across chunks. |
 | **Goblin / Orc Sentries** | Patrol bandit camps or warm casually around campfires; coordinate Stage-2 shouts within `8` tiles; injured Goblins `< 25%` HP dash behind stronger Orc allies briefly before re-engaging; Orcs perform telegraphed wide cleaves. |
 | **Skeleton / Golem Ruins** | Guardians at Ancient Ruins (`sentryIdle`): Skeletons lie dormant / rattle awake when player disturbs ruins without stealth; Golems remain immune to poison/fear and trigger telegraphed ground-slam shockwaves. |
+
+### 5.3 Deep-Water Enemy Behavior, Aggro Focus & Polish Action Items
+- **Aggro Target Lock (`isCreatureAggro`)**: Once an enemy or wildlife unit has locked onto a target (`targetPlayerId !== null`, `suspicion >= 1`, winding up, or charging), it will not break aggro to inspect allied corpses, scavenge `raw-meat`, or investigate distraction noises until combat disengages.
+- **Enemy Deep-Water Wade & Submersion**: Enemies track `inWater` / `inDeepWater` continuously (`syncCreatureWaterState`), move at reduced shallow/deep-water speeds (`creatureWaterSpeedMult`, including boar charges), drop into slowed walk playback (`0.65×` FPS), and render with a rounded meniscus waterline + ~80% transparent blue-tinted lower body (`SUBMERGED_BODY_ALPHA`, `SUBMERGED_BODY_TINT`).
+- **Polish Phase Action Item**: Add dedicated deep-water **swim animations** to enemy/wildlife spritesheets (tracked in [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks)).
 
 ---
 
@@ -182,7 +185,7 @@ Replace binary detection with a per-entity **`suspicion` scalar (`0.0 .. 1.0`)**
 5. **Wolf Howl, Bear Bluff & Boar Crash**: Alerting 1 wolf plays `0.65s` howl then rallies wolves `<= 18` tiles; retreating from bluffing bear calms aggression; Boar charging into `Boulder`/`Palisade` sets `staggerTimer >= 1.4` and `stunned: true` + `boarCrash` event.
 
 ### Playtest Sign-Off Checklist (PC & Mobile)
-- [ ] Hero displays genuine crouched stealth posture (no sprite vertical squashing) across all 8 directions and armor sets.
-- [ ] HUD Stealth Eye + Light Gem smoothly reflects sun/shade/bush/campfire/torchlight in real time and never disappears confusingly when sneaking.
-- [ ] Aimed pebbles arc cleanly onto the target spot, ripple on impact, play surface-matched sounds, and cleanly pull guards away from campfires.
-- [ ] Overhead `?` smoothly fills during suspicion, `!` pops cleanly once and disappears after `0.85s`, Boar crashes show dizzy stars, Wolves howl with expanding rings, and Bears rear in bluff before calming if you back away.
+- [x] Hero displays genuine crouched stealth posture (`Hero_CrouchIdle` / `Hero_CrouchWalk` 8-dir 3D sprites, fallback squash guard) across all 8 directions and armor sets.
+- [x] HUD Stealth Eye smoothly reflects exposure & threat with always-on constant-width Skyrim openness and cover/flame symbol pips (no text/percent labels).
+- [x] Aimed pebbles arc cleanly onto the target spot, ripple on impact, play surface-matched sounds, and cleanly pull guards away from campfires.
+- [x] Overhead `?` smoothly fills during suspicion, `!` pops cleanly once and disappears after `0.85s`, Boar crashes show dizzy stars, Wolves howl with expanding rings and retreat cleanly when injured without `?` ↔ `« »` oscillation, Spiders leap cleanly from stealth + spit cloth webs + cocoon stuck victims with venom poison DoT, Goblins retreat toward Orc allies below `25%` HP, and golden Backstab Reticles cue unaware behind strikes.

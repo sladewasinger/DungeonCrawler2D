@@ -1,10 +1,15 @@
 import { DEFAULT_APPEARANCE, type PlayerSnapshot } from "@dc2d/engine";
+import { Container, Graphics, Sprite } from "pixi.js";
 import { describe, expect, it } from "vitest";
 import { IDLE_POSES, resolveFacingDir8, type DirectionAnim } from "../character/characterTypes.js";
 import { computeActorCombatFx } from "../character/heldPlacement.js";
 import { remapSentinelPixel, remapSentinelPixelAt, resolveLayerStack, resolveSentinelPalettes, type SentinelPalettes } from "../character/playerCompositor.js";
 import { getPoseTuning, resetPoseTuning } from "../poseTuning/poseTuningStore.js";
-import { computePoseFrameIdx, gearLayoutFor, resolvePlayerFacing, resolvePoseSnapshot, resolvePoseTrack, syncBowAimGuide, type ActivePose } from "./playerPoseHelpers.js";
+import {
+  PLAYER_WATERLINE, SUBMERGED_BODY_ALPHA, SUBMERGED_BODY_TINT, computePoseFrameIdx, createWaterSubmergeRig, gearLayoutFor,
+  resolvePlayerFacing, resolvePoseSnapshot, resolvePoseTrack, syncBowAimGuide, syncSubmergedSprite, syncWaterSubmergeState,
+  type ActivePose,
+} from "./playerPoseHelpers.js";
 
 function makeTestSnap(overrides?: Partial<PlayerSnapshot>): PlayerSnapshot {
   return {
@@ -82,6 +87,9 @@ describe("3D orbit carry, vertical bow aim, facing & clip tracks", () => {
   const mkActive = (dir: "south" | "se" | "side" | "ne" | "north", facing: "east" | "north" | "south" | "west", flipX: boolean): ActivePose => ({
     facing, dir, flipX, clip: "idle", frameIdx: 0, pose: IDLE_POSES[0]!, airborne: "ground",
   });
+  const mkBowActive = (dir: "south" | "se" | "side" | "ne" | "north", facing: "east" | "north" | "south" | "west", flipX: boolean): ActivePose => ({
+    ...mkActive(dir, facing, flipX), clip: "bow",
+  });
   const mkVis = (aimMode: "meleeCarry" | "aim360") => ({
     texture: null as never, anchorX: 0.23, anchorY: 0.5, aimMode,
     twoHanded: aimMode === "aim360", grips: { primary: { x: 0, y: 0, showHand: true } }, spriteScale: 0.3333,
@@ -109,20 +117,20 @@ describe("3D orbit carry, vertical bow aim, facing & clip tracks", () => {
     expect(nwSword.main.rotation).toBeGreaterThan(0);
   });
 
-  it("holds bow vertically across all 8 dirs, clamps slight aim tilt, and orders north/ne/nw behind", () => {
+  it("holds bow vertically across all 8 dirs while aiming, carries at side when un-aimed, and orders north/ne/nw behind", () => {
     const bowVis = mkVis("aim360");
     const cases: readonly { readonly active: ActivePose; readonly aimX: number; readonly aimY: number; readonly signX: 1 | -1; readonly behind: boolean }[] = [
-      { active: mkActive("south", "south", false), aimX: 0, aimY: 1, signX: 1, behind: false },
-      { active: mkActive("se", "east", false), aimX: 0.7, aimY: 0.7, signX: 1, behind: false },
-      { active: mkActive("side", "east", false), aimX: 1, aimY: 0, signX: 1, behind: false },
-      { active: mkActive("ne", "east", false), aimX: 0.7, aimY: -0.7, signX: 1, behind: true },
-      { active: mkActive("north", "north", false), aimX: 0, aimY: -1, signX: -1, behind: true },
-      { active: mkActive("ne", "west", true), aimX: -0.7, aimY: -0.7, signX: -1, behind: true },
-      { active: mkActive("side", "west", true), aimX: -1, aimY: 0, signX: -1, behind: false },
-      { active: mkActive("se", "west", true), aimX: -0.7, aimY: 0.7, signX: -1, behind: false },
+      { active: mkBowActive("south", "south", false), aimX: 0, aimY: 1, signX: 1, behind: false },
+      { active: mkBowActive("se", "east", false), aimX: 0.7, aimY: 0.7, signX: 1, behind: false },
+      { active: mkBowActive("side", "east", false), aimX: 1, aimY: 0, signX: 1, behind: false },
+      { active: mkBowActive("ne", "east", false), aimX: 0.7, aimY: -0.7, signX: 1, behind: true },
+      { active: mkBowActive("north", "north", false), aimX: 0, aimY: -1, signX: -1, behind: true },
+      { active: mkBowActive("ne", "west", true), aimX: -0.7, aimY: -0.7, signX: -1, behind: true },
+      { active: mkBowActive("side", "west", true), aimX: -1, aimY: 0, signX: -1, behind: false },
+      { active: mkBowActive("se", "west", true), aimX: -0.7, aimY: 0.7, signX: -1, behind: false },
     ];
     for (const c of cases) {
-      const snap = makeTestSnap({ heldItem: "bow", aimX: c.aimX, aimY: c.aimY, facingX: c.aimX, facingY: c.aimY });
+      const snap = makeTestSnap({ heldItem: "bow", bowCharge: 0.4, aimX: c.aimX, aimY: c.aimY, facingX: c.aimX, facingY: c.aimY });
       const laid = gearLayoutFor({ snap, visual: bowVis, timeSec: 0, is3d: true, active: c.active });
       expect(laid.main.scaleY).toBeGreaterThan(0);
       expect(Math.sign(laid.main.scaleX)).toBe(c.signX);
@@ -130,40 +138,61 @@ describe("3D orbit carry, vertical bow aim, facing & clip tracks", () => {
       expect(laid.main.behindBody).toBe(c.behind);
     }
 
-    const eastUp = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", aimX: 0.92, aimY: -0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkActive("side", "east", false) });
-    const eastDown = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", aimX: 0.92, aimY: 0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkActive("side", "east", false) });
+    const eastUp = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.4, aimX: 0.92, aimY: -0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkBowActive("side", "east", false) });
+    const eastDown = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.4, aimX: 0.92, aimY: 0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkBowActive("side", "east", false) });
     expect(eastUp.main.rotation).toBeLessThan(0);
     expect(eastDown.main.rotation).toBeGreaterThan(0);
 
-    const westUp = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", aimX: -0.92, aimY: -0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkActive("side", "west", true) });
-    const westDown = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", aimX: -0.92, aimY: 0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkActive("side", "west", true) });
+    const westUp = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.4, aimX: -0.92, aimY: -0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkBowActive("side", "west", true) });
+    const westDown = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.4, aimX: -0.92, aimY: 0.39 }), visual: bowVis, timeSec: 0, is3d: true, active: mkBowActive("side", "west", true) });
     expect(westUp.main.rotation).toBeGreaterThan(0);
     expect(westDown.main.rotation).toBeLessThan(0);
+
+    const idleCarry = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", bowCharge: 0 }), visual: bowVis, timeSec: 0, is3d: true, active: mkActive("south", "south", false) });
+    const walkCarry = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", moving: true, bowCharge: 0 }), visual: bowVis, timeSec: 0, is3d: true, active: { ...mkActive("side", "east", false), clip: "walk" } });
+    const runCarry = gearLayoutFor({ snap: makeTestSnap({ heldItem: "bow", moving: true, sprinting: true, bowCharge: 0 }), visual: bowVis, timeSec: 0, is3d: true, active: { ...mkActive("side", "east", false), clip: "run" } });
+    expect(idleCarry.main.scaleX).toBeLessThan(0);
+    expect(idleCarry.main.rotation).toBeCloseTo(-0.14, 2);
+    expect(walkCarry.main.x).toBeLessThan(4);
+    expect(runCarry.main.x).toBeLessThan(4);
   });
 
-  it("maps bow clip tracks to bowCharge frames and aims facing while stationary or charging", () => {
+  it("maps bow clip tracks only while drawing, uses idle/walk/run otherwise, and aims facing only when drawing", () => {
     const tex3 = Array.from({ length: 3 }, (_, i) => i as never);
     const tex6 = Array.from({ length: 6 }, (_, i) => i as never);
     const anim = { idle: tex3, walk: tex6, run: tex6, jump: tex3, fall: tex3, bow: tex3 } as unknown as DirectionAnim;
 
-    const stationaryBow = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", bowCharge: 0 }), is3d: true });
+    const stationaryIdle = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", bowCharge: 0 }), is3d: true });
+    expect(stationaryIdle.clip).toBe("idle");
+
+    const movingWalk = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", moving: true, sprinting: false, bowCharge: 0 }), is3d: true });
+    expect(movingWalk.clip).toBe("walk");
+
+    const movingRun = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", moving: true, sprinting: true, bowCharge: 0 }), is3d: true });
+    expect(movingRun.clip).toBe("run");
+
+    const stationaryBow = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.02 }), is3d: true });
     expect(stationaryBow.clip).toBe("bow");
-    expect(computePoseFrameIdx({ track: stationaryBow, timeSec: 0, dodgeStartSec: null, bowCharge: 0 })).toBe(0);
+    expect(computePoseFrameIdx({ track: stationaryBow, timeSec: 0, dodgeStartSec: null, bowCharge: 0.02 })).toBe(0);
     expect(computePoseFrameIdx({ track: stationaryBow, timeSec: 0, dodgeStartSec: null, bowCharge: 0.3 })).toBe(1);
     expect(computePoseFrameIdx({ track: stationaryBow, timeSec: 0, dodgeStartSec: null, bowCharge: 0.85 })).toBe(2);
-
-    const movingNoCharge = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", moving: true, bowCharge: 0 }), is3d: true });
-    expect(movingNoCharge.clip).toBe("walk");
 
     const movingCharging = resolvePoseTrack({ anim, snap: makeTestSnap({ heldItem: "bow", moving: true, bowCharge: 0.4 }), is3d: true });
     expect(movingCharging.clip).toBe("bow");
 
-    const faced = resolvePlayerFacing({
-      snap: makeTestSnap({ heldItem: "bow", facingX: 0, facingY: 1, aimX: 1, aimY: 0 }),
+    const unAimedFacing = resolvePlayerFacing({
+      snap: makeTestSnap({ heldItem: "bow", bowCharge: 0, facingX: 0, facingY: 1, aimX: 1, aimY: 0 }),
       is3d: true,
       prev: { dir: "south", flipX: false },
     });
-    expect(faced).toEqual({ dir: "side", flipX: false });
+    expect(unAimedFacing).toEqual({ dir: "south", flipX: false });
+
+    const aimedFacing = resolvePlayerFacing({
+      snap: makeTestSnap({ heldItem: "bow", bowCharge: 0.25, facingX: 0, facingY: 1, aimX: 1, aimY: 0 }),
+      is3d: true,
+      prev: { dir: "south", flipX: false },
+    });
+    expect(aimedFacing).toEqual({ dir: "side", flipX: false });
   });
 
   it("applies live per-body poseTuning overrides to sword carry layout", () => {
@@ -210,21 +239,37 @@ describe("3D orbit carry, vertical bow aim, facing & clip tracks", () => {
     expect(remapSentinelPixelAt([40, 210, 0], gradPal, 1.0)).toEqual(gradPal.hairTip?.base);
   });
 
-  it("draws the subtle dashed bow aim guide only when holding the bow", () => {
+  it("draws the subtle dashed bow aim guide only when actively aiming/drawing the bow", () => {
     let drawn = false;
+    const ret = () => fakeG;
     const fakeG = {
-      visible: false,
-      clear() { return this; },
-      moveTo() { drawn = true; return this; },
-      lineTo() { return this; },
-      stroke() { return this; },
-      circle() { return this; },
-      fill() { return this; },
+      visible: false, clear: ret, lineTo: ret, stroke: ret, circle: ret, fill: ret,
+      moveTo() { drawn = true; return fakeG; },
     } as never;
     syncBowAimGuide(fakeG, makeTestSnap({ heldItem: "sword", aimX: 1, aimY: 0 }), false);
+    expect((fakeG as { visible: boolean }).visible).toBe(false);
+    syncBowAimGuide(fakeG, makeTestSnap({ heldItem: "bow", aimX: 1, aimY: 0, bowCharge: 0 }), false);
     expect((fakeG as { visible: boolean }).visible).toBe(false);
     syncBowAimGuide(fakeG, makeTestSnap({ heldItem: "bow", aimX: 1, aimY: 0, bowCharge: 0.8 }), false);
     expect((fakeG as { visible: boolean }).visible).toBe(true);
     expect(drawn).toBe(true);
+  });
+
+  it("renders rounded waterline masks and translucent blue submerged lower body while swimming", () => {
+    const rig = createWaterSubmergeRig(PLAYER_WATERLINE, true);
+    const target = new Container(); const shadow = new Graphics(); const src = new Sprite();
+    syncWaterSubmergeState({ rig, target, shadow, swimming: true, showShadow: false });
+    syncSubmergedSprite({ sub: rig.submergedBody, src, swimming: true, x: 0, y: 3.2, rot: 0, scaleX: 0.2, scaleY: 0.2, alpha: 1 });
+    expect([rig.waterMask.visible, rig.submergedMask.visible, rig.waterFrontLip.visible, shadow.visible]).toEqual([true, true, true, false]);
+    expect(target.mask).toBe(rig.waterMask);
+    expect(rig.submergedBody?.visible).toBe(true);
+    expect(rig.submergedBody?.alpha).toBeCloseTo(SUBMERGED_BODY_ALPHA, 3);
+    expect(rig.submergedBody?.tint).toBe(SUBMERGED_BODY_TINT);
+
+    syncWaterSubmergeState({ rig, target, shadow, swimming: false, showShadow: true });
+    syncSubmergedSprite({ sub: rig.submergedBody, src, swimming: false, x: 0, y: 0, rot: 0, scaleX: 0.2, scaleY: 0.2, alpha: 1 });
+    expect([rig.waterMask.visible, rig.submergedMask.visible, rig.waterFrontLip.visible, shadow.visible]).toEqual([false, false, false, true]);
+    expect(target.mask).toBeFalsy();
+    expect(rig.submergedBody?.visible).toBe(false);
   });
 });

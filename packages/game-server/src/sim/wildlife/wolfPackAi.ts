@@ -20,6 +20,7 @@ function rallySingleWolf(w: WildlifeEntity, source: WildlifeEntity, events: Worl
   w.lastKnownX = source.lastKnownX;
   w.lastKnownY = source.lastKnownY;
   w.investigateTimer = 6.0;
+  w.alertedTimer = Math.max(w.alertedTimer, 6.0);
   w.spottedPopTimer = STEALTH_TUNING.spottedPopDurationSec * 0.75;
   if (w.vocalCooldown > 0) return;
   w.vocalCooldown = 4.0;
@@ -87,7 +88,8 @@ function steerAwayOrFlee(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatTarget; readonly peers: readonly WildlifeEntity[];
 }): SteerTarget | null {
   if (opts.peers.length <= 1 && opts.e.hp < opts.e.maxHp * 0.25) {
-    opts.e.aiState = ST_FLANK;
+    opts.e.aiState = ST_RETURN;
+    opts.e.investigateTimer = 0;
     return { x: opts.e.x + (opts.e.x - opts.target.x) * 2.5, y: opts.e.y + (opts.e.y - opts.target.y) * 2.5, speedMult: 1.25 };
   }
   const fireAvoid = steerAwayFromCampfire(opts.cache, opts.e);

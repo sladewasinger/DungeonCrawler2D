@@ -1,5 +1,6 @@
 /** Client boot entry: mounts PixiJS v8 shader scene, Web Audio engine, networking, input, and HUD. */
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
+import { installAdminConsole } from "./admin/adminConsole.js";
 import { AudioEngine } from "./audio/audioEngine.js";
 import {
   EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim,
@@ -20,16 +21,9 @@ import { isLocalDebugOrigin } from "./ui/settings/settingsPrefs.js";
 import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
-  readonly scene: WorldScene;
-  readonly client: WorldClient;
-  readonly input: InputController;
-  readonly toolbar: AtmosphereToolbar;
-  readonly hud: HudRoot;
-  readonly feedback: CombatFeedbackOverlay;
-  readonly audio: AudioEngine;
-  readonly settings: SettingsMenu;
-  readonly velTracker: EntityVelocityTracker;
-  readonly titleScreen: TitleScreen;
+  readonly scene: WorldScene; readonly client: WorldClient; readonly input: InputController;
+  readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot; readonly feedback: CombatFeedbackOverlay;
+  readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly velTracker: EntityVelocityTracker; readonly titleScreen: TitleScreen;
 }
 
 function resolveMouseAim(ctx: AppCtx & { readonly nowMs: number }): { readonly x: number; readonly y: number } | undefined {
@@ -44,11 +38,11 @@ function resolveMouseAim(ctx: AppCtx & { readonly nowMs: number }): { readonly x
 }
 
 function hasPlayerCombatPose(local?: PlayerSnapshot): boolean {
-  return Boolean(local && ((local.swingProgress ?? 0) > 0 || (local.bowCharge ?? 0) > 0.05));
+  return Boolean(local && ((local.swingProgress ?? 0) > 0 || (local.heavyCharge ?? 0) > 0 || (local.bowCharge ?? 0) > 0.001));
 }
 
 function wantsCombatAim(combat: CombatInputsFrame, local?: PlayerSnapshot): boolean {
-  return combat.attack || combat.bowDraw || combat.bowRelease || hasPlayerCombatPose(local);
+  return combat.attack || combat.attackHold || combat.bowDraw || combat.bowRelease || hasPlayerCombatPose(local);
 }
 
 function resolveTouchMeleeSnap(opts: {
@@ -104,17 +98,18 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   ctx.velTracker.update(pre.entities, ctx.nowMs);
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
   ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, hasShield: pre.inventory.armor.offhand === "wooden-shield" });
+  ctx.input.setTorchLit(Boolean(preLocal?.torchLit));
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const aim = resolveAimForTick({ ctx, combat, move, local: preLocal, entities: pre.entities });
   ctx.client.stepInput({
-    move, dt: ctx.dt, aim, jump: ctx.input.consumeJump(), attack: combat.attack, bowDraw: combat.bowDraw,
-    bowRelease: combat.bowRelease, block: combat.block, dodge: combat.dodge, dodgeDir: combat.dodgeDir,
-    crouch: combat.crouch, throwPebble: combat.throwPebble, interact: combat.interact,
+    move, dt: ctx.dt, aim, jump: ctx.input.consumeJump(), attack: combat.attack, attackHold: combat.attackHold,
+    bowDraw: combat.bowDraw, bowRelease: combat.bowRelease, block: combat.block, dodge: combat.dodge,
+    dodgeDir: combat.dodgeDir, crouch: combat.crouch, throwPebble: combat.throwPebble, interact: combat.interact,
   });
   const view = ctx.client.snapshot();
   const frameEvents = [...pre.events, ...view.events];
-  const dists = ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players, localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, events: frameEvents });
+  const dists = ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players, localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, webs: view.webs, events: frameEvents });
   syncUiAndAudio({ ctx, view, events: frameEvents, dt: ctx.dt, dists });
 }
 
@@ -160,9 +155,10 @@ function tryTapWorldInteract(opts: {
 
 function mountSettingsForUi(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
-  readonly audio: AudioEngine; readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot; readonly onReturnToTitle: () => void;
+  readonly audio: AudioEngine; readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot;
+  readonly onReturnToTitle: () => void; readonly onCrouchMode?: (mode: "toggle" | "hold") => void;
 }): SettingsMenu {
-  const { host, scene, client, audio, toolbar, hud, onReturnToTitle } = opts;
+  const { host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode } = opts;
   const settings = new SettingsMenu(host, {
     audio, isLocalDebug: isLocalDebugOrigin(), initialQuality: scene.qualityPreset(), initialZoom: scene.currentZoom(),
     onSetQuality: (q) => scene.setQualityPreset(q), onSetGoreLevel: (lvl) => scene.setGoreLevel(lvl),
@@ -170,10 +166,11 @@ function mountSettingsForUi(opts: {
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onRespawn: () => { client.respawn(); audio.playUi("open"); },
     onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
-    onPrefsChange: (p) => { toolbar.setFpsVisible(p.showFps); scene.setShowHitboxes(p.showHitboxes && isLocalDebugOrigin()); },
+    onPrefsChange: (p) => { toolbar.setFpsVisible(p.showFps); scene.setShowHitboxes(p.showHitboxes && isLocalDebugOrigin()); onCrouchMode?.(p.crouchMode); },
   });
   toolbar.setFpsVisible(settings.currentPrefs().showFps);
   scene.setShowHitboxes(settings.currentPrefs().showHitboxes && isLocalDebugOrigin());
+  onCrouchMode?.(settings.currentPrefs().crouchMode);
   return settings;
 }
 
@@ -188,7 +185,6 @@ function createInputHooks(opts: {
     onZoom: (f) => scene.adjustZoom(f),
     onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); },
-    onToggleCrafting: () => { hud.toggleCrafting(); audio.playUi("open"); },
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); },
     onInteract: () => onInteractWorld(),
@@ -221,15 +217,18 @@ function mountUiControllers(opts: {
   const feedback = new CombatFeedbackOverlay(host);
   const onInteractWorld = (lootId?: string) => handleWorldInteract({ client, hud, audio, lootId });
   const settingsRef: { current: SettingsMenu | null } = { current: null };
+  let inputRef: InputController | null = null;
   const toolbar = new AtmosphereToolbar(host, {
     onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
     onToggleInventory: () => { settingsRef.current?.setOpen(false); hud.toggleInventory(); audio.playUi("open"); },
     onToggleSettings: () => { hud.closePanels(); settingsRef.current?.toggle(); audio.playUi("click"); },
     onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
   });
-  const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle });
+  const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m) });
   settingsRef.current = settings;
   const input = createInputHooks({ host, scene, client, hud, audio, onInteractWorld, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
+  inputRef = input;
+  input.setCrouchMode(settings.currentPrefs().crouchMode);
   return { hud, feedback, input, toolbar, settings, onInteractWorld };
 }
 
@@ -243,10 +242,11 @@ async function bootOverworldClient(): Promise<void> {
   const skipTitle = params.get("skipTitle") === "1";
   const scene = await WorldScene.mount(host);
   const client = new WorldClient(undefined, { autoConnect: skipTitle });
+  if (isLocalDebugOrigin()) installAdminConsole(client);
   const audio = new AudioEngine();
   const velTracker = new EntityVelocityTracker();
   const titleRef: { current: TitleScreen | null } = { current: null };
-  const onReturnToTitle = () => { ui.input.setEnabled(false); titleRef.current?.reopen(client.snapshot().localName, client.snapshot().localAppearance); };
+  const onReturnToTitle = () => { client.disconnect(); ui.input.setEnabled(false); titleRef.current?.reopen(client.snapshot().localName, client.snapshot().localAppearance); };
   const ui = mountUiControllers({ host, scene, client, audio, onReturnToTitle });
   const titleScreen = new TitleScreen(host, {
     initialName: client.snapshot().localName, initialAppearance: client.snapshot().localAppearance,

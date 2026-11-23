@@ -1,12 +1,13 @@
 /** Renders weapon-specific slash arcs, thrusts, slam impacts, arrows, bow gauges, parry bursts, and popups. */
 import {
-  GroundKind, TILE_PX, resolveWeaponArchetype, type AttackMotionKind, type PlayerSnapshot, type ProjectileSnapshot,
+  TILE_PX, resolveWeaponArchetype, type AttackMotionKind, type PlayerSnapshot, type ProjectileSnapshot,
   type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import { Container, Graphics, Text } from "pixi.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { MELEE_SWING_TUNING, type SmearSpec } from "./combatVisualTuning.js";
 import { drawUnifiedArrowGraphic } from "./lootViewHelpers.js";
+import { resolveFeedbackEventCue } from "./weapons/combatFeedbackSpecs.js";
 import { drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
 
 type SlashSpec = SmearSpec;
@@ -34,6 +35,13 @@ function drawPebbleGraphic(g: Graphics, zPx: number): void {
   g.ellipse(0, zPx, 2.6, 1.2).fill({ color: 0x090d14, alpha: 0.35 });
   g.circle(0, 0, 2.3).fill(0x0f172a);
   g.circle(0, 0, 1.6).fill(0x94a3b8);
+}
+
+function drawWebOrbGraphic(g: Graphics): void {
+  g.clear();
+  g.circle(0, 0, 4.2).fill({ color: 0xe2e8f0, alpha: 0.45 });
+  g.circle(0, 0, 2.8).fill({ color: 0xf8fafc, alpha: 0.92 });
+  g.moveTo(-5, 0).lineTo(2, -2).moveTo(-5, 1.5).lineTo(2, 2).stroke({ color: 0xf1f5f9, width: 1.0, alpha: 0.75 });
 }
 
 function drawBurst(opts: { readonly g: Graphics; readonly color: number; readonly radius: number; readonly rays: number }): void {
@@ -71,25 +79,22 @@ export class CombatVfxLayer {
     if (ev.kind === "swing") return this.spawnSlash(ev, players);
     if (ev.kind === "hit") return this.handleHitEvent(ev, localId);
     if (ev.kind === "parry") return this.handleParryEvent(ev, localId);
-    this.handleFeedbackEvent(ev);
+    this.handleFeedbackEvent(ev, localId);
   }
 
-  private handleFeedbackEvent(ev: WorldEvent): void {
-    const bursts: Partial<Record<WorldEvent["kind"], () => void>> = {
-      block: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0x93c5fd, radius: 9, text: "BLOCK" }),
-      heal: () => this.spawnPopup({ x: ev.x, y: ev.y - 0.9, label: `+${Math.round(ev.value ?? 20)}`, color: 0x4ade80 }),
-      dodge: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xcbd5e1, radius: 7, text: "" }),
-      arrowRicochet: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" }),
-      distract: () => this.spawnNoiseRipple(ev),
-      pebbleLand: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: ev.value === GroundKind.ShallowWater || ev.value === GroundKind.DeepWater ? 0x38bdf8 : 0xd6d3d1, radius: 11, text: "" }),
-      wolfHowl: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: 0x7dd3fc, radius: 18, text: "" }),
-      bearBluff: () => this.spawnRingPulse({ x: ev.x, y: ev.y, color: 0xf97316, radius: 17, text: "ROAR!" }),
-      boarCrash: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 14, text: "CRASH!" }),
-      ambushShot: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 13, text: "AMBUSH!" }),
-      backstab: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "BACKSTAB!" }),
-      bedSet: () => this.spawnPopup({ x: ev.x, y: ev.y - 1.1, label: "RESPAWN SET!", color: 0x4ade80 }),
-    };
-    bursts[ev.kind]?.();
+  private applyEventHitstop(ev: WorldEvent, localId: string, sec: number | undefined): void {
+    if (!sec) return;
+    if (ev.actorId === localId || ev.targetId === localId) this.hitstopTimer = Math.max(this.hitstopTimer, sec);
+  }
+
+  private handleFeedbackEvent(ev: WorldEvent, localId: string): void {
+    if (ev.kind === "distract") { this.spawnNoiseRipple(ev); return; }
+    const cue = resolveFeedbackEventCue(ev);
+    if (!cue) return;
+    this.applyEventHitstop(ev, localId, cue.hitstopSec);
+    if (cue.style === "popup") return this.spawnPopup({ x: ev.x, y: ev.y + (cue.textOffsetY ?? -1), label: cue.text, color: cue.color });
+    if (cue.style === "ring") return this.spawnRingPulse({ x: ev.x, y: ev.y, color: cue.color, radius: cue.radius ?? 12, text: cue.text });
+    this.spawnBurst({ x: ev.x, y: ev.y, color: cue.color, radius: cue.radius ?? 10, text: cue.text, textOffsetY: cue.textOffsetY });
   }
 
   private spawnRingPulse(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string }): void {
@@ -129,12 +134,12 @@ export class CombatVfxLayer {
     if (val > 0) {
       this.spawnPopup({ x: ev.x, y: ev.y - 0.85, label: ev.fatal ? `-${val}!` : `-${val}`, color: hitPopupColor(ev.fatal, hurtLocal) });
     }
-    if (ev.actorId === localId || hurtLocal) this.hitstopTimer = MELEE_SWING_TUNING.hitstopHitSec;
+    this.applyEventHitstop(ev, localId, ev.hitstopSec ?? MELEE_SWING_TUNING.hitstopHitSec);
   }
 
   private handleParryEvent(ev: WorldEvent, localId: string): void {
     this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "PARRY!" });
-    if (ev.actorId === localId || ev.targetId === localId) this.hitstopTimer = MELEE_SWING_TUNING.hitstopParrySec;
+    this.applyEventHitstop(ev, localId, ev.hitstopSec ?? MELEE_SWING_TUNING.hitstopParrySec);
   }
 
   private spawnSlash(ev: WorldEvent, players: readonly PlayerSnapshot[]): void {
@@ -142,7 +147,7 @@ export class CombatVfxLayer {
     const baseAngle = Math.atan2(ev.dirY ?? 1, ev.dirX ?? 0);
     const actor = ev.actorId ? players.find((p) => p.id === ev.actorId) : undefined;
     const archetype = ev.weaponArchetype ?? resolveWeaponArchetype(actor?.heldItem);
-    const { smear, motion, ttl } = resolveWeaponSmearSpec(archetype, ev.comboStep ?? 1);
+    const { smear, motion, ttl } = resolveWeaponSmearSpec(archetype, ev.comboStep ?? 1, ev.heavy);
     g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 10);
     this.container.addChild(g);
     const effect: SlashEffect = { g, age: 0, ttl, baseAngle, spec: smear, actorId: ev.actorId, motion, archetype };
@@ -150,21 +155,21 @@ export class CombatVfxLayer {
     this.slashes.push(effect);
   }
 
-  private spawnBurst(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string }): void {
+  private spawnBurst(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string; readonly textOffsetY?: number | undefined }): void {
     const g = new Graphics();
     drawBurst({ g, color: opts.color, radius: opts.radius, rays: 8 });
     g.position.set(opts.x * TILE_PX, opts.y * TILE_PX - 10);
     this.container.addChild(g);
     this.slashes.push({ g, age: 0, ttl: 0.22, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
-    if (opts.text) this.spawnPopup({ x: opts.x, y: opts.y - 1.1, label: opts.text, color: opts.color });
+    if (opts.text) this.spawnPopup({ x: opts.x, y: opts.y + (opts.textOffsetY ?? -1.1), label: opts.text, color: opts.color });
   }
 
   private spawnPopup(opts: { readonly x: number; readonly y: number; readonly label: string; readonly color: number }): void {
     const text = new Text({
-      text: opts.label, resolution: 2,
+      text: opts.label, resolution: 2, roundPixels: false, textureStyle: { scaleMode: "linear" },
       style: {
         fontSize: 28, fontWeight: "800", fill: opts.color,
-        fontFamily: "system-ui, -apple-system, sans-serif",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
         stroke: { color: 0x090d14, width: 6, join: "round" },
       },
     });
@@ -200,12 +205,13 @@ export class CombatVfxLayer {
     let g = this.arrows.get(p.id);
     if (!g) {
       g = new Graphics();
-      if (p.kind !== "pebble") drawUnifiedArrowGraphic(g, { charge: p.charge });
+      if (p.kind === "arrow") drawUnifiedArrowGraphic(g, { charge: p.charge });
       this.arrows.set(p.id, g);
       this.container.addChild(g);
     }
     const zPx = (p.z ?? 0) * TILE_PX;
     if (p.kind === "pebble") drawPebbleGraphic(g, zPx);
+    else if (p.kind === "web") drawWebOrbGraphic(g);
     g.position.set(p.x * TILE_PX, p.y * TILE_PX - (p.elevation * ELEVATION_LIFT_PX + 10 + zPx));
     g.rotation = p.kind === "pebble" ? 0 : Math.atan2(p.vy, p.vx);
   }

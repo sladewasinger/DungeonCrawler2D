@@ -129,6 +129,7 @@ export function resolveAnimState(input: {
   if (input.dead) return STATE_CORPSE;
   if (input.snap.telegraphProgress > 0 || input.snap.aiState === "charge") return STATE_ATTACK;
   if (!input.moving) return STATE_IDLE;
+  if (input.snap.inDeepWater) return STATE_WALK;
   return input.snap.aiState === "chase" || input.snap.aiState === "flank" ? STATE_RUN : STATE_WALK;
 }
 
@@ -155,6 +156,10 @@ function resolveLoopSpan(clip: LoadedSpriteClip, len: number): { readonly start:
   return { start, count: end - start };
 }
 
+function resolvePlaybackFps(clip: LoadedSpriteClip, state: SpriteAnimState, deepWater: boolean | undefined): number {
+  return deepWater && state === STATE_WALK ? clip.fps * 0.65 : clip.fps;
+}
+
 function resolveFrameIndex(input: {
   readonly state: SpriteAnimState;
   readonly snap: WorldEntitySnapshot;
@@ -169,7 +174,8 @@ function resolveFrameIndex(input: {
   }
   const { start, count } = resolveLoopSpan(input.clip, len);
   const phase = hashIdPhase(input.snap.id);
-  return start + (Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % count);
+  const fps = resolvePlaybackFps(input.clip, input.state, input.snap.inDeepWater);
+  return start + (Math.floor(Math.max(0, input.timeSec) * fps + phase) % count);
 }
 
 function resolveOutroDuration(count: number, wasCharge: boolean, fps: number): number {

@@ -1,7 +1,7 @@
 /** Public exports for @dc2d/content. */
-export { ITEM_CATALOG, STARTER_ARMOR, STARTER_LOADOUT, getItemDef, maxStackForItem } from "./items/catalog.js";
+export { ITEM_CATALOG, STARTER_ARMOR, STARTER_LOADOUT, getItemDef, isMeleeItem, maxStackForItem, resolveBlockMode } from "./items/catalog.js";
 export type {
-  ArmorSlot, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemDef, ItemVisualLayerSpec, ItemWeaponArchetype,
+  ArmorSlot, BlockMode, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemDef, ItemVisualLayerSpec, ItemWeaponArchetype,
   PlaceableStructureKind, StarterArmorLoadout, StarterLoadoutEntry,
 } from "./items/catalog.js";
 export { RECIPE_CATALOG, getRecipeDef } from "./recipes/recipes.js";

@@ -215,7 +215,7 @@ function createSandboxControls(opts: {
   const input = new InputController(host, {
     onToggleTorch: () => sim.toggleTorch(), onZoom: setZoom,
     onSelectHotbar: (s) => sim.selectHotbar(s), onToggleInventory: () => hud.toggleInventory(),
-    onToggleCrafting: () => hud.toggleCrafting(), onToggleCharacter: () => hud.toggleCharacter(),
+    onToggleCharacter: () => hud.toggleCharacter(),
     onInteract, onClosePanels: () => hud.closePanels(),
   });
   const toolbar = new SandboxToolbar(host, {

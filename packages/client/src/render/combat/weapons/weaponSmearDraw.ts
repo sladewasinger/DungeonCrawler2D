@@ -17,19 +17,35 @@ const MOTION_GEOMETRY: Partial<Record<AttackMotionKind, { readonly radius: numbe
   cleave: { radius: 26, span: 2.8 },
 };
 
-export function resolveWeaponSmearSpec(archetype: WeaponArchetype, comboStep: number): {
+function buildSmearSpec(opts: {
+  readonly base: SmearSpec; readonly fill: number; readonly edge: number;
+  readonly radius: number; readonly span: number; readonly dir: 1 | -1; readonly heavy: boolean;
+}): SmearSpec {
+  const boost = opts.heavy ? 0.12 : 0;
+  return {
+    ...opts.base, radius: opts.radius + (opts.heavy ? 3 : 0), span: opts.span, dir: opts.dir,
+    fill: opts.fill, edge: opts.heavy ? 0xfef08a : opts.edge,
+    fillAlpha: Math.min(1, opts.base.fillAlpha + boost), edgeAlpha: Math.min(1, opts.base.edgeAlpha + boost),
+  };
+}
+
+export function resolveWeaponSmearSpec(archetype: WeaponArchetype, comboStep: number, heavy?: boolean): {
   readonly smear: SmearSpec;
   readonly motion: AttackMotionKind;
   readonly ttl: number;
 } {
   const stepSpec = getWeaponStepSpec(archetype, comboStep);
   const base = MELEE_SWING_TUNING.smears[comboStep] ?? MELEE_SWING_TUNING.smears[1]!;
-  const pal = archetype === "sword" && comboStep === 3 ? { fill: base.fill, edge: base.edge } : MELEE_SWING_TUNING.palettes[archetype];
+  const isSwordFinisher = archetype === "sword" && comboStep === 3;
+  const pal = isSwordFinisher ? base : MELEE_SWING_TUNING.palettes[archetype];
   const geom = MOTION_GEOMETRY[stepSpec.motion];
   return {
     motion: stepSpec.motion,
     ttl: Math.max(base.ttl, stepSpec.swingDurationSec * 1.12),
-    smear: { ...base, radius: geom?.radius ?? base.radius, span: geom?.span ?? base.span, dir: stepSpec.sweepDir, fill: pal.fill, edge: pal.edge },
+    smear: buildSmearSpec({
+      base, fill: pal.fill, edge: pal.edge,
+      radius: geom?.radius ?? base.radius, span: geom?.span ?? base.span, dir: stepSpec.sweepDir, heavy: Boolean(heavy),
+    }),
   };
 }
 
@@ -117,9 +133,35 @@ function drawOverheadSlam(opts: WeaponSmearDrawOpts & { readonly spec: SmearSpec
   g.stroke({ color: spec.fill, width: 1.4, alpha: 0.8 * fade });
 }
 
+function drawPunchImpact(opts: WeaponSmearDrawOpts & { readonly spec: SmearSpec }): void {
+  const { g, u, baseAngle, spec } = opts;
+  g.clear();
+  const ext = Math.sin(Math.min(1, u / 0.72) * Math.PI);
+  if (ext <= 0.04) return;
+  const cx = Math.cos(baseAngle);
+  const cy = Math.sin(baseAngle);
+  const px = -cy * spec.dir;
+  const py = cx * spec.dir;
+  const lat = 3.2;
+  const reach = 6 + ext * 11;
+  const fx = cx * reach + px * lat;
+  const fy = cy * reach + py * lat;
+  const fade = Math.max(0, 1 - Math.max(0, (u - 0.45) / 0.55));
+  g.moveTo(cx * 4 + px * lat, cy * 4 + py * lat).lineTo(fx, fy)
+    .stroke({ color: spec.edge, width: 2.0, alpha: 0.88 * fade });
+  g.moveTo(cx * 5 + px * (lat + 2.2), cy * 5 + py * (lat + 2.2))
+    .lineTo(fx - cx * 2 + px * 2.2, fy - cy * 2 + py * 2.2)
+    .stroke({ color: spec.fill, width: 1.3, alpha: 0.7 * fade });
+  g.moveTo(fx + Math.cos(baseAngle - 0.65) * 4.5, fy + Math.sin(baseAngle - 0.65) * 4.5)
+    .arc(fx, fy, 4.5, baseAngle - 0.65, baseAngle + 0.65)
+    .stroke({ color: spec.edge, width: 2.0, alpha: 0.92 * fade });
+  if (ext > 0.35) g.circle(fx, fy, 2.2 * ext).fill({ color: spec.edge, alpha: 0.85 * fade });
+}
+
 export function drawWeaponSmear(opts: WeaponSmearDrawOpts): void {
   if (!opts.spec) { opts.g.alpha = 1 - opts.u * opts.u; return; }
   const withSpec = { ...opts, spec: opts.spec };
+  if (opts.motion === "punch") { drawPunchImpact(withSpec); return; }
   if (opts.motion === "overheadSlam") { drawOverheadSlam(withSpec); return; }
   if (opts.motion === "lunge" || opts.motion === "thrust") { drawThrustLance(withSpec); return; }
   drawCrescentSmear(withSpec);

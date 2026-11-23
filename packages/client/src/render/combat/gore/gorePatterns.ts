@@ -2,7 +2,7 @@
 import type { GoreStyle, GoreSubstance } from "@dc2d/engine";
 
 export type PlannedParticleKind = "arc" | "splat" | "streak" | "goop" | "chunk" | "spark";
-export type StaticFeatureKind = "bloodPool" | "goopPuddle" | "bonePile" | "rubblePile";
+export type StaticFeatureKind = "bloodPool" | "goopPuddle" | "bonePile" | "rubblePile" | "groundCrack";
 
 export interface PlannedParticle {
   readonly kind: PlannedParticleKind; readonly ang: number; readonly rot?: number | undefined;

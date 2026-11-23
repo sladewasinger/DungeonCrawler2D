@@ -1,30 +1,62 @@
 /** Pure overworld ecology combat math, POI placement helpers, and entity snapshot serialization. */
 import {
-  BLEED_DURATION_SEC, STEALTH_TUNING, WorldChunkCache, findTilePath, isBackstabAngle,
-  type ChunkPoi, type GoreStyle, type GoreSubstance, type WorldEntitySnapshot, type WorldEvent,
+  BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, findTilePath, isArmorCrushTarget, isBackstabAngle, isWithinSector,
+  type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
+import { igniteBurnable } from "../combat/statusEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
-import type { CombatPlayerCandidate, EcologyFoodSource } from "./creatureBehaviors.js";
+import type { CombatPlayerCandidate, EcologyFoodSource, SteerTarget } from "./creatureBehaviors.js";
 import { applyKnockbackImpulse, clearNavPath, isClearSpot } from "./creatureNavigation.js";
 import {
-  CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_FEED, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN,
+  CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_FEED, ST_FLANK, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN,
   type CreatureArchetypeSpec, type WildlifeEntity, type WildlifeKind,
 } from "./creatureSpecs.js";
-import { wakeEntityFromHit } from "./factionTargeting.js";
+import { wakeEntityFromHit, type CombatTarget } from "./factionTargeting.js";
 
 const KIND_SLIME: WildlifeKind = "slime";
 const BLEED_SUBSTANCES = new Set<GoreSubstance>(["blood", "slime", "ichor"]);
 export const UNAWARE_STATES = new Set([ST_IDLE, ST_PATROL, ST_INVESTIGATE, ST_FEED, ST_AMBUSH]);
 
+export const isCocoonedFromSpider = (
+  e: WildlifeEntity, p: { readonly combat?: { readonly cocoonProgress?: number } | undefined },
+): boolean => e.kind === "spider" && (p.combat?.cocoonProgress ?? 0) >= 1;
+
 export function computeSectorStrike(
   attacker: CombatPlayerRef,
   e: WildlifeEntity,
-  opts: { readonly baseDmg: number; readonly backstabMult?: number | undefined },
+  opts: { readonly baseDmg: number; readonly backstabMult?: number | undefined; readonly armorCrushMult?: number | undefined },
 ): { readonly damage: number; readonly sneakHit: boolean } {
   const unaware = e.targetPlayerId === null || UNAWARE_STATES.has(e.aiState);
   const sneakHit = unaware && (Boolean(attacker.crouching) || isBackstabAngle({ attacker, target: e, targetFacing: { x: e.facingX, y: e.facingY } }));
-  const mult = opts.backstabMult ?? STEALTH_TUNING.backstabDamageMult;
-  return { sneakHit, damage: sneakHit ? Math.round(opts.baseDmg * mult) : opts.baseDmg };
+  const bsMult = sneakHit ? (opts.backstabMult ?? STEALTH_TUNING.backstabDamageMult) : 1;
+  const armorMult = opts.armorCrushMult && isArmorCrushTarget(e.kind) ? opts.armorCrushMult : 1;
+  return { sneakHit, damage: Math.round(opts.baseDmg * bsMult * armorMult) };
+}
+
+export function steerGoblinAllyRetreat(e: WildlifeEntity, target: CombatTarget, entities: readonly WildlifeEntity[]): SteerTarget | null {
+  if (e.kind !== "goblin") return null;
+  if (!e.goblinRetreated && e.hp < e.maxHp * 0.25) {
+    const orc = entities.find((o) => !o.corpse && o.hp > 0 && o.kind === "orc" && Math.hypot(o.x - e.x, o.y - e.y) <= 12);
+    if (orc) { e.goblinRetreated = true; e.goblinRetreatTimer = 2.4; }
+  }
+  if (e.goblinRetreatTimer <= 0) return null;
+  const orc = entities.find((o) => !o.corpse && o.hp > 0 && o.kind === "orc" && Math.hypot(o.x - e.x, o.y - e.y) <= 14);
+  if (!orc) { e.goblinRetreatTimer = 0; return null; }
+  const dx = orc.x - target.x; const dy = orc.y - target.y;
+  const mag = Math.max(0.01, Math.hypot(dx, dy));
+  e.aiState = ST_FLANK;
+  return { x: orc.x + (dx / mag) * 1.8, y: orc.y + (dy / mag) * 1.8, speedMult: 1.22 };
+}
+
+export function applyBackstabEvent(opts: {
+  readonly e: WildlifeEntity; readonly attackerId: string; readonly damage: number; readonly sneakHit: boolean; readonly events: WorldEvent[];
+}): void {
+  if (!opts.sneakHit) return;
+  opts.e.staggerTimer = Math.max(opts.e.staggerTimer, 0.85);
+  opts.events.push({
+    kind: "backstab", x: opts.e.x, y: opts.e.y, value: opts.damage, actorId: opts.attackerId,
+    targetId: opts.e.id, hitstopSec: MELEE_FEEL_TUNING.backstabHitstopSec, shakePx: MELEE_FEEL_TUNING.backstabShakePx,
+  });
 }
 
 export function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
@@ -72,34 +104,88 @@ export function collectScavengeFoods(
   ];
 }
 
+function applyCreatureRiposteAndWake(opts: {
+  readonly list: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
+  readonly entity: WildlifeEntity; readonly baseDamage: number; readonly dirX: number; readonly dirY: number;
+  readonly actorId: string; readonly events: WorldEvent[];
+}): number {
+  const { entity: e, actorId, events } = opts;
+  let dmg = e.stunnedTimer > 0 ? Math.round(opts.baseDamage * 1.35) : opts.baseDamage;
+  if (e.parried && e.staggerTimer > 0) {
+    dmg = Math.round(dmg * MELEE_FEEL_TUNING.riposteDamageMult);
+    e.parried = false;
+    events.push({ kind: "riposte", x: e.x, y: e.y, value: dmg, actorId, targetId: e.id, hitstopSec: MELEE_FEEL_TUNING.parryHitstopSec, shakePx: 3.0 });
+  }
+  e.hp = Math.max(0, e.hp - dmg);
+  e.hitTimer = 0.24; e.alertedTimer = 6.0; e.provokedTimer = 5.0;
+  if (e.aiState === ST_RETURN) { e.aiState = ST_ALERT; clearNavPath(e); }
+  return dmg;
+}
+
+function applyNonFatalStatuses(opts: {
+  readonly entity: WildlifeEntity; readonly dmg: number; readonly dirX: number; readonly dirY: number;
+  readonly goreStyle: GoreStyle; readonly ignites?: boolean | undefined; readonly knockbackMult?: number | undefined; readonly events: WorldEvent[];
+}): void {
+  const { entity: e, dmg, dirX, dirY, goreStyle, events } = opts;
+  const spec = CREATURE_SPECS[e.kind];
+  applyKnockbackImpulse(e, { dirX, dirY, force: (dmg >= 22 ? 8.0 : 6.4) * (opts.knockbackMult ?? 1) });
+  e.staggerTimer = Math.max(e.staggerTimer, Math.max(0.03, 0.13 * (1 - spec.knockbackResist * 0.75)));
+  applyWildlifeBleed(e, spec.substance, goreStyle);
+  if (opts.ignites) igniteBurnable({ target: e, x: e.x, y: e.y, targetId: e.id, events });
+}
+
+export function isSectorTargetHit(opts: {
+  readonly e: WildlifeEntity; readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
+  readonly range: number; readonly halfArcRad: number; readonly hitTargetIds?: Set<string> | undefined;
+  readonly impactCenter?: { readonly x: number; readonly y: number } | undefined; readonly slamAoeRadius?: number | undefined;
+}): boolean {
+  const { e, attacker, dir, range, halfArcRad, hitTargetIds, impactCenter, slamAoeRadius } = opts;
+  if (e.corpse || e.hp <= 0 || hitTargetIds?.has(e.id)) return false;
+  if (isWithinSector({ origin: attacker, dir, target: e, range, halfArcRad })) return true;
+  return Boolean(impactCenter && slamAoeRadius && Math.hypot(e.x - impactCenter.x, e.y - impactCenter.y) <= slamAoeRadius);
+}
+
+function finalizeCreatureDamageStatus(opts: {
+  readonly entity: WildlifeEntity; readonly dmg: number; readonly fatal: boolean; readonly dirX: number; readonly dirY: number;
+  readonly goreStyle: GoreStyle; readonly ignites?: boolean | undefined; readonly knockbackMult?: number | undefined; readonly events: WorldEvent[];
+}): void {
+  const { entity: e, fatal } = opts;
+  if (!fatal) { applyNonFatalStatuses(opts); return; }
+  e.burnTimer = 0; e.burnTickAcc = 0; e.parried = false;
+}
+
 export function applyDamageToCreature(opts: {
   readonly list: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
   readonly entity: WildlifeEntity; readonly damage: number; readonly dirX: number; readonly dirY: number;
   readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
   readonly actorId: string; readonly events: WorldEvent[]; readonly silentKill?: boolean;
+  readonly ignites?: boolean | undefined; readonly heavy?: boolean | undefined; readonly weaponArchetype?: WeaponArchetype | undefined;
+  readonly hitstopSec?: number | undefined; readonly shakePx?: number | undefined; readonly knockbackMult?: number | undefined;
 }): { readonly dmg: number; readonly fatal: boolean } {
   const e = opts.entity;
   const spec = CREATURE_SPECS[e.kind];
-  const dmg = e.stunnedTimer > 0 ? Math.round(opts.damage * 1.35) : opts.damage;
-  e.hp = Math.max(0, e.hp - dmg);
-  e.hitTimer = 0.24; e.alertedTimer = 6.0; e.provokedTimer = 5.0;
-  if (e.aiState === ST_RETURN) { e.aiState = ST_ALERT; clearNavPath(e); }
+  const dmg = applyCreatureRiposteAndWake({ ...opts, baseDamage: opts.damage });
   const fatal = e.hp <= 0;
   if (!(fatal && opts.silentKill)) {
     wakeEntityFromHit({ entity: e, dirX: opts.dirX, dirY: opts.dirY, actorId: opts.actorId, allEntities: opts.list, players: opts.players });
   }
-  if (!fatal) {
-    applyKnockbackImpulse(e, { dirX: opts.dirX, dirY: opts.dirY, force: dmg >= 22 ? 8.0 : 6.4 });
-    e.staggerTimer = Math.max(e.staggerTimer, Math.max(0.03, 0.13 * (1 - spec.knockbackResist * 0.75)));
-    applyWildlifeBleed(e, spec.substance, opts.goreStyle);
-  }
+  finalizeCreatureDamageStatus({ entity: e, dmg, fatal, dirX: opts.dirX, dirY: opts.dirY, goreStyle: opts.goreStyle, ignites: opts.ignites, knockbackMult: opts.knockbackMult, events: opts.events });
   const goreStyle = resolveWildlifeGore({ e, spec, fatal, goreStyle: opts.goreStyle, comboStep: opts.comboStep });
   opts.events.push({
     kind: "hit", x: e.x, y: e.y, dirX: opts.dirX, dirY: opts.dirY, value: dmg,
     actorId: opts.actorId, targetId: e.id, comboStep: opts.comboStep, sweepDir: opts.sweepDir,
     goreStyle, substance: spec.substance, fatal, entityKind: e.kind,
+    ...(opts.heavy ? { heavy: true } : {}), ...(opts.weaponArchetype ? { weaponArchetype: opts.weaponArchetype } : {}),
+    ...(opts.hitstopSec !== undefined ? { hitstopSec: opts.hitstopSec } : {}), ...(opts.shakePx !== undefined ? { shakePx: opts.shakePx } : {}),
   });
   return { dmg, fatal };
+}
+
+export function sweepInvestigateFacing(e: WildlifeEntity, dt: number): void {
+  const delta = Math.sin(e.investigateTimer * 3.1) * 0.78 * dt * 2.4;
+  const baseAng = Math.atan2(e.facingY, e.facingX);
+  e.facingX = Math.cos(baseAng + delta);
+  e.facingY = Math.sin(baseAng + delta);
 }
 
 export function serializeEntitySnapshot(e: WildlifeEntity): WorldEntitySnapshot {
@@ -113,5 +199,7 @@ export function serializeEntitySnapshot(e: WildlifeEntity): WorldEntitySnapshot 
     ...(e.stunnedTimer > 0 ? { stunned: true } : {}),
     ...(e.howlTimer > 0 ? { howling: true } : {}),
     ...(e.bluffTimer > 0 ? { bluffing: true } : {}),
+    ...(e.burnTimer > 0 ? { burning: true } : {}),
+    ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
   };
 }

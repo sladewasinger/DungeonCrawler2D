@@ -6188,6 +6188,36 @@
       "scale": 0.3333,
       "anchorX": 0.5,
       "anchorY": 0.5
+    },
+    "gear-flint-dagger": {
+      "path": "/assets/gear/flint-dagger.png",
+      "width": 34,
+      "height": 14,
+      "contentWidth": 30,
+      "contentHeight": 10,
+      "scale": 0.3333,
+      "anchorX": 0.24,
+      "anchorY": 0.5
+    },
+    "gear-wooden-spear": {
+      "path": "/assets/gear/wooden-spear.png",
+      "width": 66,
+      "height": 12,
+      "contentWidth": 62,
+      "contentHeight": 8,
+      "scale": 0.3333,
+      "anchorX": 0.34,
+      "anchorY": 0.5
+    },
+    "gear-iron-greatsword": {
+      "path": "/assets/gear/iron-greatsword.png",
+      "width": 67,
+      "height": 22,
+      "contentWidth": 63,
+      "contentHeight": 18,
+      "scale": 0.3333,
+      "anchorX": 0.26,
+      "anchorY": 0.5
     }
   }
 }

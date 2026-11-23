@@ -88,6 +88,7 @@ export type {
 } from "./character/appearance.js";
 export {
   ArmorSlotKeySchema,
+  ClientAdminSchema,
   ClientMessageSchema,
   GoreStyleSchema,
   GoreSubstanceSchema,
@@ -99,6 +100,7 @@ export {
   WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema,
   WorldEventSchema,
+  WorldWebSnapshotSchema,
 } from "./net/protocol.js";
 export type {
   ClientMessage,
@@ -108,9 +110,12 @@ export type {
   PlayerSnapshot,
   ProjectileSnapshot,
   ServerMessage,
+  WebNodeSnapshot,
+  WebStrandSnapshot,
   WorldChestSnapshot,
   WorldEntitySnapshot,
   WorldEvent,
+  WorldWebSnapshot,
 } from "./net/protocol.js";
 export {
   BLEED_DURATION_SEC,
@@ -160,6 +165,10 @@ export { findTilePath } from "./combat/pathfinding.js";
 export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";
 export { STEALTH_TUNING, isBackstabAngle, sampleStealthExposure } from "./combat/stealthRules.js";
 export type { StealthExposure, StealthQuery } from "./combat/stealthRules.js";
+export {
+  MELEE_FEEL_TUNING, WEIGHT_FEEL_PRESETS, isArmorCrushTarget, isBurnVulnerable, isSharpWeapon,
+} from "./combat/weapons/weaponFeelTuning.js";
+export type { WeaponWeightTier, WeightFeelSpec } from "./combat/weapons/weaponFeelTuning.js";
 export {
   WEAPON_ARCHETYPES, WEAPON_MOVESETS, getWeaponMoveset, getWeaponStepSpec, resolveWeaponArchetype, resolveWeaponAttackStep,
 } from "./combat/weapons/weaponMovesets.js";

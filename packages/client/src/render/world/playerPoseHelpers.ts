@@ -1,5 +1,5 @@
 /** Pose-track selection, combat FX, swim bob, Pixi slot builders, and legacy arm rig helpers. */
-import { gaitFrameIndex, type PlayerSnapshot } from "@dc2d/engine";
+import { gaitFrameIndex, getWeaponStepSpec, resolveWeaponArchetype, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { ARM_PIVOT_ANCHOR, computeArmRig, type AirborneState, type ArmRigPose } from "../character/armRig.js";
 import { resolveFacingDir, resolveFacingDir8, type CharacterSpriteSet, type DirectionAnim } from "../character/characterSprites.js";
@@ -8,6 +8,11 @@ import { computeActorCombatFx, resolveAimCardinal, type CardinalFacing, type Hel
 import { getGrippingHandTexture, getShieldTexture, type HeldWeaponVisual } from "../character/heldWeapons.js";
 
 export { gearLayoutFor, resolveDir8Idx, skinTint } from "./playerHeldLayout.js";
+export {
+  PLAYER_WATERLINE, SUBMERGED_BODY_ALPHA, SUBMERGED_BODY_TINT, createWaterSubmergeRig, makeUnderwaterMask,
+  makeWaterFrontLip, makeWaterMask, makeWaterRing, syncSubmergedSprite, syncWaterSubmergeState,
+  type WaterSubmergeRig, type WaterlineMetrics,
+} from "../character/water/waterSubmergeRig.js";
 
 export interface PoseTrack {
   readonly clip: string; readonly textures: readonly Texture[];
@@ -31,26 +36,17 @@ export function makeGroundShadow(): Graphics {
   g.ellipse(0, 0, 5, 1.3).fill({ color: 0x0c1018, alpha: 0.2 });
   return g;
 }
-export function makeWaterRing(): Graphics {
-  const g = new Graphics();
-  g.ellipse(0, -4, 7.5, 2.8).stroke({ color: 0xbae6fd, width: 1.1, alpha: 0.65 });
-  g.visible = false;
-  return g;
-}
-export function makeWaterMask(): Graphics {
-  const g = new Graphics();
-  g.rect(-48, -96, 96, 90).fill(0xffffff);
-  g.visible = false;
-  return g;
-}
 
 export function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing {
   return dir === "north" || dir === "south" ? dir : flipX ? "west" : "east";
 }
 
+export function isBowActivelyAiming(snap: PlayerSnapshot): boolean {
+  return snap.heldItem === "bow" && (snap.bowCharge ?? 0) > 0.001;
+}
+
 function pickFacingVector(snap: PlayerSnapshot): { readonly dx: number; readonly dy: number } {
-  const bowAim = snap.heldItem === "bow" && (!snap.moving || (snap.bowCharge ?? 0) > 0.02);
-  if (!bowAim) return { dx: snap.facingX, dy: snap.facingY };
+  if (!isBowActivelyAiming(snap) && (snap.heavyCharge ?? 0) <= 0) return { dx: snap.facingX, dy: snap.facingY };
   return { dx: snap.aimX ?? snap.facingX, dy: snap.aimY ?? snap.facingY };
 }
 
@@ -75,7 +71,14 @@ export function resolveHeroAnimTrack(sprites: CharacterSpriteSet, dir: FacingDir
 }
 
 export const computeSwimDip = (swimming: boolean, timeSec: number): number =>
-  (swimming ? 2.5 + Math.sin(timeSec * 5.2) * 0.7 : 0);
+  (swimming ? 3.2 + Math.sin(timeSec * 5.2) * 0.65 : 0);
+
+export function resolveWeaponChargeTint(heavyCharge: number | undefined, timeSec: number, baseTint: number): number {
+  if (baseTint !== 0xffffff) return baseTint;
+  const charge = heavyCharge ?? 0;
+  if (charge >= 0.43) return Math.floor(timeSec * 14) % 2 === 0 ? 0xfef08a : 0xfacc15;
+  return charge > 0 ? 0xfef3c7 : 0xffffff;
+}
 
 function resolveMovingTrack(anim: DirectionAnim, sprinting: boolean): PoseTrack {
   if (!sprinting && anim.walk?.length) return { clip: "walk", textures: anim.walk, poses: WALK_POSES, fps: 7, airborne: "ground" };
@@ -89,11 +92,27 @@ function resolveJumpTrack(anim: DirectionAnim, jumpVz: number | undefined): Pose
 }
 
 function isBowAiming(snap: PlayerSnapshot, anim: DirectionAnim): boolean {
-  return snap.heldItem === "bow" && Boolean(anim.bow?.length) && (!snap.moving || (snap.bowCharge ?? 0) > 0.02);
+  return isBowActivelyAiming(snap) && Boolean(anim.bow?.length);
+}
+
+function isMeleeAttacking(snap: PlayerSnapshot, anim: DirectionAnim): boolean {
+  if (snap.heldItem === "bow" || !anim.attack?.length) return false;
+  return (snap.swingProgress ?? 0) > 0 || (snap.heavyCharge ?? 0) > 0;
+}
+
+function resolveCrouchTrack(anim: DirectionAnim, moving: boolean): PoseTrack | null {
+  if (moving && anim.crouchWalk?.length) return { clip: "crouchWalk", textures: anim.crouchWalk, poses: WALK_POSES, fps: 5, airborne: "ground" };
+  if (anim.crouchIdle?.length) return { clip: "crouchIdle", textures: anim.crouchIdle, poses: IDLE_POSES, fps: 4, airborne: "ground" };
+  return null;
 }
 
 function resolveGroundTrack(anim: DirectionAnim, snap: PlayerSnapshot, is3d: boolean): PoseTrack {
   if (isBowAiming(snap, anim)) return { clip: "bow", textures: anim.bow!, poses: IDLE_POSES, fps: 8, airborne: "ground" };
+  if (isMeleeAttacking(snap, anim)) return { clip: "attack", textures: anim.attack!, poses: IDLE_POSES, fps: 10, airborne: "ground" };
+  if (snap.crouching) {
+    const crouch = resolveCrouchTrack(anim, snap.moving);
+    if (crouch) return crouch;
+  }
   if (snap.moving) return resolveMovingTrack(anim, Boolean(snap.sprinting));
   return { clip: "idle", textures: anim.idle, poses: IDLE_POSES, fps: is3d ? 6 : 5, airborne: "ground" };
 }
@@ -116,16 +135,33 @@ function computeBowFrameIdx(count: number, bowCharge: number | undefined): numbe
   return Math.min(count - 1, 1 + Math.floor(Math.min(0.999, bowCharge!) * (count - 1)));
 }
 
+const STRIDE_CLIPS = new Set(["walk", "run", "crouchWalk"]);
+
+function computeAttackFrameIdx(opts: {
+  readonly count: number; readonly swingProgress?: number | undefined;
+  readonly heavyCharge?: number | undefined; readonly heldItem?: string | null | undefined; readonly comboStep?: number | undefined;
+}): number {
+  if (opts.count <= 1) return 0;
+  const spec = getWeaponStepSpec(resolveWeaponArchetype(opts.heldItem), opts.comboStep ?? 1);
+  const windupIdx = spec.motion === "overheadSlam" ? Math.min(opts.count - 1, 2) : 0;
+  const p = opts.swingProgress ?? 0;
+  if (p <= 0) return windupIdx;
+  return p < spec.windupEnd ? windupIdx : Math.min(opts.count - 1, 1);
+}
+
 export function computePoseFrameIdx(opts: {
   readonly track: PoseTrack; readonly timeSec: number; readonly dodgeStartSec: number | null;
   readonly gaitPhase?: number | undefined; readonly bowCharge?: number | undefined;
+  readonly swingProgress?: number | undefined; readonly heavyCharge?: number | undefined;
+  readonly heldItem?: string | null | undefined; readonly comboStep?: number | undefined;
 }): number {
   const { track, timeSec, dodgeStartSec, gaitPhase, bowCharge } = opts;
   if (track.clip === "bow") return computeBowFrameIdx(track.textures.length, bowCharge);
+  if (track.clip === "attack") return computeAttackFrameIdx({ ...opts, count: track.textures.length });
   if (track.clip === "dodge" && dodgeStartSec !== null) {
     return Math.min(track.textures.length - 1, Math.max(0, Math.floor((timeSec - dodgeStartSec) * track.fps)));
   }
-  if ((track.clip === "walk" || track.clip === "run") && gaitPhase !== undefined) return gaitFrameIndex(gaitPhase, track.textures.length);
+  if (gaitPhase !== undefined && STRIDE_CLIPS.has(track.clip)) return gaitFrameIndex(gaitPhase, track.textures.length);
   return Math.floor(timeSec * track.fps) % track.textures.length;
 }
 
@@ -136,7 +172,9 @@ export function resolvePoseSnapshot(opts: {
 }): { readonly active: ActivePose; readonly texture: Texture | undefined } {
   const track = resolvePoseTrack(opts);
   const frameIdx = computePoseFrameIdx({
-    track, timeSec: opts.timeSec, dodgeStartSec: opts.dodgeStartSec, gaitPhase: opts.gaitPhase, bowCharge: opts.snap.bowCharge,
+    track, timeSec: opts.timeSec, dodgeStartSec: opts.dodgeStartSec, gaitPhase: opts.gaitPhase,
+    bowCharge: opts.snap.bowCharge, swingProgress: opts.snap.swingProgress,
+    heavyCharge: opts.snap.heavyCharge, heldItem: opts.snap.heldItem, comboStep: opts.snap.comboStep,
   });
   return {
     texture: track.textures[frameIdx],
@@ -164,7 +202,7 @@ function drawDashedBowRay(g: Graphics, opts: { readonly nx: number; readonly ny:
 }
 
 export function syncBowAimGuide(g: Graphics, snap: PlayerSnapshot, hidden: boolean): void {
-  if (hidden || snap.heldItem !== "bow") { g.visible = false; return; }
+  if (hidden || !isBowActivelyAiming(snap)) { g.visible = false; return; }
   const ax = snap.aimX ?? snap.facingX;
   const ay = snap.aimY ?? snap.facingY;
   const mag = Math.hypot(ax, ay);

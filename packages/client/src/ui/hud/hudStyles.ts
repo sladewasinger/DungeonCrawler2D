@@ -53,19 +53,26 @@ const HUD_CSS = `
   padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
   color: #86efac; background: rgba(20, 83, 45, 0.6); border: 1px solid rgba(74, 222, 128, 0.35);
 }
-.ow-sanctuary-pill[hidden], .ow-stealth-pill[hidden], .ow-buff-pill[hidden] { display: none; }
+.ow-sanctuary-pill[hidden], .ow-buff-pill[hidden] { display: none; }
 .ow-buff-pill {
   padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.02em;
 }
 .ow-buff-fed { color: #fde68a; background: rgba(120, 53, 15, 0.78); border: 1px solid rgba(251, 191, 36, 0.45); }
 .ow-buff-rested { color: #bae6fd; background: rgba(12, 74, 110, 0.78); border: 1px solid rgba(56, 189, 248, 0.45); }
+.ow-buff-web { color: #e2e8f0; background: rgba(51, 65, 85, 0.85); border: 1px solid rgba(148, 163, 184, 0.55); }
+.ow-buff-poison { color: #bbf7d0; background: rgba(20, 83, 45, 0.88); border: 1px solid rgba(74, 222, 128, 0.65); }
+.ow-buff-burn { color: #ffedd5; background: rgba(154, 52, 18, 0.88); border: 1px solid rgba(251, 146, 60, 0.65); }
+.ow-buff-god { color: #fef08a; background: rgba(161, 98, 7, 0.85); border: 1px solid rgba(250, 204, 21, 0.75); }
 .ow-stealth-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.03em;
+  display: inline-flex; align-items: center; justify-content: space-between;
+  width: 56px; height: 18px; padding: 0 5px; box-sizing: border-box; flex: 0 0 auto;
+  border-radius: 999px;
   color: #6ee7b7; background: rgba(6, 78, 59, 0.78); border: 1px solid rgba(52, 211, 153, 0.45);
 }
-.ow-stealth-eye { width: 12px; height: 10px; flex: 0 0 auto; }
-.ow-stealth-gem { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.ow-stealth-eye { width: 20px; height: 14px; flex: 0 0 auto; }
+.ow-stealth-pip { width: 10px; height: 10px; flex: 0 0 auto; transition: opacity 120ms ease; }
+.ow-stealth-pip[data-on="false"] { opacity: 0.14; filter: grayscale(1); }
+.ow-stealth-pip[data-on="true"] { opacity: 1; }
 .ow-stealth-pill[data-tier="shaded"] { color: #bae6fd; background: rgba(12, 74, 110, 0.78); border-color: rgba(56, 189, 248, 0.45); }
 .ow-stealth-pill[data-tier="exposed"] { color: #fde68a; background: rgba(120, 53, 15, 0.78); border-color: rgba(251, 191, 36, 0.55); }
 .ow-stealth-pill[data-tier="spotted"] { color: #fecaca; background: rgba(127, 29, 29, 0.85); border-color: rgba(248, 113, 113, 0.7); }

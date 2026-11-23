@@ -16,13 +16,20 @@ import {
 
 export const CAMPFIRE_CRAFT_RADIUS = 4.0;
 
-export function createStarterInventory(): PlayerInventoryState {
-  const state: PlayerInventoryState = { ...createEmptyInventoryState(), armor: { ...STARTER_ARMOR } };
-  for (const entry of STARTER_LOADOUT) {
+export function applyLoadoutEntries(
+  state: PlayerInventoryState,
+  entries: readonly { readonly slot: number; readonly itemId: string; readonly count: number }[],
+): void {
+  for (const entry of entries) {
     if (entry.slot >= 0 && entry.slot < state.slots.length) {
-      state.slots[entry.slot] = { itemId: entry.itemId, count: entry.count };
+      state.slots[entry.slot] = entry.count > 0 ? { itemId: entry.itemId, count: entry.count } : null;
     }
   }
+}
+
+export function createStarterInventory(): PlayerInventoryState {
+  const state: PlayerInventoryState = { ...createEmptyInventoryState(), armor: { ...STARTER_ARMOR } };
+  applyLoadoutEntries(state, STARTER_LOADOUT);
   return state;
 }
 

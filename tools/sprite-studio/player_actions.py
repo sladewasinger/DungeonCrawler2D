@@ -363,8 +363,115 @@ def build_bow_action(arm_obj, prefix="Hero"):
     return action
 
 
+def build_crouch_idle_action(arm_obj, prefix="Hero"):
+    """Build 4-frame low stealth crouch breathing idle keeping knees bent and head alert."""
+    action = prepare_clean_action(f"{prefix}_CrouchIdle", fps=5)
+    bind_action_for_edit(arm_obj, action)
+    reset_pose_bones(arm_obj)
+    pb = arm_obj.pose.bones
+
+    for f in range(1, 5):
+        phase = (2.0 * math.pi * (f - 1)) / 4.0
+        heave = 0.5 * (1.0 - math.cos(phase))
+        set_world_loc(pb["Pelvis"], 0.0, 0.03, -0.22 - 0.015 * heave)
+        set_world_rot(pb["Pelvis"], 10.0, 0.0, 0.0)
+        set_world_rot(pb["Torso"], 24.0 + 2.5 * heave, 0.0, 0.0)
+        set_world_rot(pb["Head"], -20.0 - 2.0 * heave, 0.0, 0.0)
+        for sign, side in ((1.0, "L"), (-1.0, "R")):
+            set_world_rot(pb[f"UpperArm_{side}"], -22.0 - 2.0 * heave, -sign * 9.0, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -52.0, 0.0, 0.0)
+            set_world_rot(pb[f"Thigh_{side}"], -48.0 - 2.0 * heave, -sign * 5.0, 0.0)
+            set_world_rot(pb[f"Shin_{side}"], 78.0 + 3.0 * heave, 0.0, 0.0)
+            set_world_rot(pb[f"Foot_{side}"], -30.0, 0.0, 0.0)
+        key_pose_bones(arm_obj, f)
+    return action
+
+
+def build_crouch_walk_action(arm_obj, prefix="Hero"):
+    """Build 6-frame hunched stealth prowl stride with damped bob and tucked arms."""
+    action = prepare_clean_action(f"{prefix}_CrouchWalk", fps=7)
+    bind_action_for_edit(arm_obj, action)
+    reset_pose_bones(arm_obj)
+    pb = arm_obj.pose.bones
+
+    for f in range(1, 7):
+        phase = (2.0 * math.pi * (f - 0.5)) / 6.0
+        s = math.sin(phase)
+        c = math.cos(phase)
+        bounce = -0.22 + abs(c) * 0.016 - 0.008
+        set_world_loc(pb["Pelvis"], 0.0, 0.03, bounce)
+        set_world_rot(pb["Pelvis"], 12.0, 1.5 * s, -3.5 * s)
+        set_world_rot(pb["Torso"], 26.0, -1.5 * s, 4.5 * s)
+        set_world_rot(pb["Head"], -22.0, 0.0, -2.5 * s)
+        for sign, side, ls in ((1.0, "L", s), (-1.0, "R", -s)):
+            set_world_rot(pb[f"UpperArm_{side}"], 12.0 * ls - 24.0, -sign * 9.0, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -50.0, 0.0, 0.0)
+            lift = max(0.0, -c if side == "L" else c)
+            set_world_rot(pb[f"Thigh_{side}"], -46.0 - 16.0 * ls - 5.0 * lift, -sign * 5.0, 0.0)
+            set_world_rot(pb[f"Shin_{side}"], 74.0 + 18.0 * lift + 4.0 * max(0.0, -ls), 0.0, 0.0)
+            set_world_rot(pb[f"Foot_{side}"], -24.0 - 6.0 * ls, 0.0, 0.0)
+        key_pose_bones(arm_obj, f)
+    return action
+
+
+def build_attack_action(arm_obj, prefix="Hero"):
+    """Build 3-frame melee commitment poses: F1 windup pullback, F2 strike follow-through, F3 overhead raise."""
+    action = prepare_clean_action(f"{prefix}_Attack", fps=10)
+    bind_action_for_edit(arm_obj, action)
+    reset_pose_bones(arm_obj)
+    pb = arm_obj.pose.bones
+
+    # Frame 1: shoulder-pull windup coiled right
+    set_world_loc(pb["Pelvis"], 0.0, 0.02, -0.02)
+    set_world_rot(pb["Pelvis"], 4.0, 0.0, -14.0)
+    set_world_rot(pb["Torso"], 6.0, 0.0, -28.0)
+    set_world_rot(pb["Head"], -4.0, 0.0, 24.0)
+    set_world_rot(pb["UpperArm_R"], -42.0, 22.0, -26.0)
+    set_world_rot(pb["Forearm_R"], -58.0, 0.0, 0.0)
+    set_world_rot(pb["UpperArm_L"], -22.0, -16.0, 12.0)
+    set_world_rot(pb["Forearm_L"], -46.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_L"], -16.0, -4.0, 0.0)
+    set_world_rot(pb["Shin_L"], 20.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_R"], 14.0, 4.0, 0.0)
+    set_world_rot(pb["Shin_R"], 12.0, 0.0, 0.0)
+    key_pose_bones(arm_obj, 1)
+
+    # Frame 2: extended strike follow-through twisted forward/left
+    reset_pose_bones(arm_obj)
+    set_world_loc(pb["Pelvis"], 0.0, -0.05, -0.03)
+    set_world_rot(pb["Pelvis"], 8.0, 0.0, 18.0)
+    set_world_rot(pb["Torso"], 16.0, 0.0, 34.0)
+    set_world_rot(pb["Head"], -12.0, 0.0, -26.0)
+    set_world_rot(pb["UpperArm_R"], -66.0, -18.0, 28.0)
+    set_world_rot(pb["Forearm_R"], -22.0, 0.0, 0.0)
+    set_world_rot(pb["UpperArm_L"], 22.0, -14.0, -10.0)
+    set_world_rot(pb["Forearm_L"], -40.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_L"], -24.0, -4.0, 0.0)
+    set_world_rot(pb["Shin_L"], 28.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_R"], 18.0, 4.0, 0.0)
+    set_world_rot(pb["Shin_R"], 16.0, 0.0, 0.0)
+    key_pose_bones(arm_obj, 2)
+
+    # Frame 3: high overhead slam / heavy raise apex
+    reset_pose_bones(arm_obj)
+    set_world_loc(pb["Pelvis"], 0.0, 0.02, -0.01)
+    set_world_rot(pb["Pelvis"], 0.0, 0.0, -6.0)
+    set_world_rot(pb["Torso"], -10.0, 0.0, -10.0)
+    set_world_rot(pb["Head"], 8.0, 0.0, 8.0)
+    set_world_rot(pb["UpperArm_R"], -128.0, 12.0, 8.0)
+    set_world_rot(pb["Forearm_R"], -36.0, 0.0, 0.0)
+    set_world_rot(pb["UpperArm_L"], -112.0, -12.0, -8.0)
+    set_world_rot(pb["Forearm_L"], -42.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_L"], -12.0, -4.0, 0.0)
+    set_world_rot(pb["Shin_L"], 16.0, 0.0, 0.0)
+    set_world_rot(pb["Thigh_R"], 10.0, 4.0, 0.0)
+    set_world_rot(pb["Shin_R"], 12.0, 0.0, 0.0)
+    key_pose_bones(arm_obj, 3)
+    return action
+
+
 def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
-    """Attach Idle, Walk, Run, Jump, Fall, Dodge, Downed, Swim, and Bow Actions onto Rig_Hero."""
+    """Attach all Hero Actions including Crouch and Attack onto Rig_Hero."""
     arm_obj = bpy.data.objects.get(arm_name)
     if not arm_obj or arm_obj.type != "ARMATURE":
         raise ValueError(f"Missing hero armature: {arm_name}")
@@ -382,10 +489,13 @@ def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
     downed = build_downed_action(arm_obj, prefix)
     swim = build_swim_action(arm_obj, prefix)
     bow = build_bow_action(arm_obj, prefix)
+    crouch_idle = build_crouch_idle_action(arm_obj, prefix)
+    crouch_walk = build_crouch_walk_action(arm_obj, prefix)
+    attack = build_attack_action(arm_obj, prefix)
 
     reset_pose_bones(arm_obj)
     bind_action_for_edit(arm_obj, idle)
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 6
     bpy.context.scene.frame_set(1)
-    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed, swim, bow)]
+    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed, swim, bow, crouch_idle, crouch_walk, attack)]

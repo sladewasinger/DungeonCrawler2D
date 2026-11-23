@@ -29,6 +29,9 @@ CLIPS = (
     ("Hero_Downed", "downed", 2, 4, True),
     ("Hero_Swim", "swim", 4, 6, False),
     ("Hero_Bow", "bow", 3, 8, False),
+    ("Hero_CrouchIdle", "crouch_idle", 4, 5, False),
+    ("Hero_CrouchWalk", "crouch_walk", 6, 7, False),
+    ("Hero_Attack", "attack", 3, 10, False),
 )
 
 ALL_LAYER_COLLECTIONS = (
@@ -374,10 +377,17 @@ def export_bow_overlay_frames(out_dir, holdout_mat):
 
 
 def ensure_required_actions(arm_obj):
-    """Synthesize Hero_Bow in memory when exporting a .blend saved before Hero_Bow existed."""
-    if "Hero_Bow" not in bpy.data.actions:
-        player_actions.build_bow_action(arm_obj, "Hero")
-        player_actions.reset_pose_bones(arm_obj)
+    """Synthesize Hero_Bow, Crouch, and Attack actions in memory when exporting an older .blend."""
+    required = (
+        ("Hero_Bow", player_actions.build_bow_action),
+        ("Hero_CrouchIdle", player_actions.build_crouch_idle_action),
+        ("Hero_CrouchWalk", player_actions.build_crouch_walk_action),
+        ("Hero_Attack", player_actions.build_attack_action),
+    )
+    for name, builder in required:
+        if name not in bpy.data.actions:
+            builder(arm_obj, "Hero")
+            player_actions.reset_pose_bones(arm_obj)
 
 
 def main():

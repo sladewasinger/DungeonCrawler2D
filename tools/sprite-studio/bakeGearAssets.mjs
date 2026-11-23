@@ -12,6 +12,9 @@ const SCALE = 0.3333;
 
 const GEAR_SPECS = [
   { id: "gear-sword", file: "sword", anchorX: 0.23, anchorY: 0.5 },
+  { id: "gear-flint-dagger", file: "flint-dagger", anchorX: 0.24, anchorY: 0.5 },
+  { id: "gear-wooden-spear", file: "wooden-spear", anchorX: 0.34, anchorY: 0.5 },
+  { id: "gear-iron-greatsword", file: "iron-greatsword", anchorX: 0.26, anchorY: 0.5 },
   { id: "gear-axe", file: "axe", anchorX: 0.23, anchorY: 0.42 },
   { id: "gear-pickaxe", file: "pickaxe", anchorX: 0.23, anchorY: 0.5 },
   { id: "gear-bow", file: "bow", anchorX: 0.45, anchorY: 0.5 },

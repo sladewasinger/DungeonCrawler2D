@@ -48,6 +48,7 @@ describe("combatSim", () => {
   it("runs 3-hit combos on straw dummy, bursts slime target with explode-away gore, and drains stamina", () => {
     const sim = new WorldSim(1337);
     const id = sim.addPlayer("Fighter");
+    sim.grantPlayerItems(id, [{ slot: 0, itemId: "sword", count: 1 }]);
     let seq = advanceMove({ sim, id, moveX: 1, moveY: 0, steps: 30, seqStart: 1 });
     seq = swingLoop({ sim, id, count: 3, seqStart: seq });
 
@@ -66,6 +67,15 @@ describe("combatSim", () => {
     const sim = new WorldSim(1337);
     const a = sim.addPlayer("Archer");
     const b = sim.addPlayer("Sparrer");
+    sim.grantPlayerItems(a, [
+      { slot: 0, itemId: "sword", count: 1 },
+      { slot: 1, itemId: "bow", count: 1 },
+      { slot: 2, itemId: "arrow", count: 16 },
+    ]);
+    sim.grantPlayerItems(b, [
+      { slot: 4, itemId: "bandage", count: 3 },
+      { slot: 18, itemId: "wooden-shield", count: 1 },
+    ]);
     sim.equipArmor(b, { slotIndex: 18, targetArmor: "offhand" });
     expect(must(sim.inventorySnapshot(b)).armor.offhand).toBe("wooden-shield");
 
@@ -111,6 +121,7 @@ describe("combatSim", () => {
     const sim = new WorldSim(1337);
     const a = sim.addPlayer("Attacker");
     const b = sim.addPlayer("Victim");
+    sim.grantPlayerItems(a, [{ slot: 0, itemId: "sword", count: 1 }]);
     let seqA = advanceMove({ sim, id: a, moveX: 1, moveY: 0, steps: 32, seqStart: 1 });
     sim.queueInput(a, { seq: seqA++, moveX: 0, moveY: 0 });
     let seqB = advanceMove({ sim, id: b, moveX: 1, moveY: 0, steps: 33, seqStart: 1 });
@@ -138,5 +149,32 @@ describe("combatSim", () => {
     expect(revived.respawnTimer).toBe(0);
     expect(revived.hp).toBe(revived.maxHp);
     expect(revived.x).toBeCloseTo(SANCTUARY_CENTER.x, 2);
+  });
+
+  it("clamps bow-draw movement below walk speed and prevents sprinting even at full move magnitude", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("BowWalker");
+    sim.grantPlayerItems(id, [{ slot: 1, itemId: "bow", count: 1 }]);
+    sim.selectHotbar(id, 1);
+
+    const startX = must(sim.snapshots().find((p) => p.id === id)).x;
+    sim.queueInput(id, { seq: 1, moveX: 0.5, moveY: 0 });
+    sim.step();
+    const walkDelta = must(sim.snapshots().find((p) => p.id === id)).x - startX;
+
+    const beforeDrawX = must(sim.snapshots().find((p) => p.id === id)).x;
+    sim.queueInput(id, { seq: 2, moveX: 1, moveY: 0, aimX: 1, aimY: 0, bowDraw: true });
+    sim.step();
+    const afterFullDraw = must(sim.snapshots().find((p) => p.id === id));
+    const fullDrawDelta = afterFullDraw.x - beforeDrawX;
+    expect(afterFullDraw.sprinting).toBe(false);
+    expect(afterFullDraw.bowCharge).toBeGreaterThan(0);
+    expect(fullDrawDelta).toBeLessThan(walkDelta);
+
+    const beforeWalkDrawX = afterFullDraw.x;
+    sim.queueInput(id, { seq: 3, moveX: 0.5, moveY: 0, aimX: 1, aimY: 0, bowDraw: true });
+    sim.step();
+    const walkDrawDelta = must(sim.snapshots().find((p) => p.id === id)).x - beforeWalkDrawX;
+    expect(fullDrawDelta).toBeCloseTo(walkDrawDelta, 4);
   });
 });

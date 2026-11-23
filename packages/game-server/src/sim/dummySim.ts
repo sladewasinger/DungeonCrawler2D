@@ -1,8 +1,9 @@
 /** Authoritative interactive training targets (straw dummy, burst slime target, sparring dummy). */
 import {
-  BLEED_DURATION_SEC, WorldChunkCache, isWithinSector,
-  type GoreStyle, type GoreSubstance, type WorldEntitySnapshot, type WorldEvent,
+  BLEED_DURATION_SEC, MELEE_FEEL_TUNING, WorldChunkCache, isWithinSector,
+  type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
+import { igniteBurnable, stepBurnTarget } from "./combat/statusEffects.js";
 
 export interface SimEntity {
   readonly id: string;
@@ -20,6 +21,10 @@ export interface SimEntity {
   hitTimer: number;
   staggerTimer: number;
   bleedTimer: number;
+  burnTimer: number;
+  burnTickAcc: number;
+  parried: boolean;
+  blocking: boolean;
   idleResetTimer: number;
   telegraphTimer: number;
   attackCooldown: number;
@@ -58,7 +63,7 @@ function makeTarget(cache: WorldChunkCache, opts: {
     id: opts.id, kind: opts.kind, substance: opts.substance, originX: opts.x, originY: opts.y,
     x: opts.x, y: opts.y, elevation: cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation,
     facingX: -1, facingY: 0, hp: opts.hp, maxHp: opts.hp,
-    hitTimer: 0, staggerTimer: 0, bleedTimer: 0, idleResetTimer: 0,
+    hitTimer: 0, staggerTimer: 0, bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, parried: false, blocking: false, idleResetTimer: 0,
     telegraphTimer: 0, attackCooldown: 0.8, respawnTimer: 0,
   };
 }
@@ -75,9 +80,13 @@ function finalizeDummyKill(e: SimEntity): void {
   e.respawnTimer = e.kind === KIND_SLIME ? TRAINING_DUMMY_TUNING.slimeRespawnSec : TRAINING_DUMMY_TUNING.defaultRespawnSec;
   e.telegraphTimer = 0;
   e.bleedTimer = 0;
+  e.burnTimer = 0;
+  e.burnTickAcc = 0;
+  e.parried = false;
+  e.blocking = false;
 }
 
-export function damageDummy(input: {
+export interface DamageDummyInput {
   readonly entity: SimEntity;
   readonly damage: number;
   readonly dirX: number;
@@ -87,20 +96,58 @@ export function damageDummy(input: {
   readonly sweepDir?: number | undefined;
   readonly actorId: string;
   readonly events: WorldEvent[];
-}): boolean {
+  readonly ignites?: boolean | undefined;
+  readonly heavy?: boolean | undefined;
+  readonly weaponArchetype?: WeaponArchetype | undefined;
+  readonly hitstopSec?: number | undefined;
+  readonly shakePx?: number | undefined;
+}
+
+function resolveDummyDamageAndRiposte(e: SimEntity, input: DamageDummyInput): number {
+  let dmg = input.damage;
+  if (e.blocking && !input.heavy) {
+    dmg = Math.max(1, Math.round(dmg * 0.25));
+    input.events.push({ kind: "block", x: e.x, y: e.y, value: dmg, targetId: e.id, actorId: input.actorId });
+    return dmg;
+  }
+  if (e.blocking && input.heavy) {
+    e.blocking = false;
+    e.staggerTimer = Math.max(e.staggerTimer, MELEE_FEEL_TUNING.guardBreakStaggerSec);
+    input.events.push({ kind: "guardBreak", x: e.x, y: e.y, targetId: e.id, actorId: input.actorId, hitstopSec: MELEE_FEEL_TUNING.guardBreakHitstopSec, shakePx: MELEE_FEEL_TUNING.guardBreakShakePx });
+  }
+  if (e.parried && e.staggerTimer > 0) {
+    dmg = Math.round(dmg * MELEE_FEEL_TUNING.riposteDamageMult);
+    e.parried = false;
+    input.events.push({ kind: "riposte", x: e.x, y: e.y, value: dmg, actorId: input.actorId, targetId: e.id, hitstopSec: MELEE_FEEL_TUNING.parryHitstopSec, shakePx: 3.0 });
+  }
+  return dmg;
+}
+
+function buildDummyHitEvent(input: DamageDummyInput, dmg: number, fatal: boolean): WorldEvent {
+  const e = input.entity;
+  const style: GoreStyle = fatal && e.kind === KIND_SLIME ? "explode-away" : input.goreStyle;
+  return {
+    kind: "hit", x: e.x, y: e.y, dirX: input.dirX, dirY: input.dirY, value: dmg,
+    actorId: input.actorId, targetId: e.id, comboStep: input.comboStep, sweepDir: input.sweepDir,
+    goreStyle: style, substance: e.substance, fatal,
+    ...(input.heavy ? { heavy: true } : {}),
+    ...(input.weaponArchetype ? { weaponArchetype: input.weaponArchetype } : {}),
+    ...(input.hitstopSec !== undefined ? { hitstopSec: input.hitstopSec } : {}),
+    ...(input.shakePx !== undefined ? { shakePx: input.shakePx } : {}),
+  };
+}
+
+export function damageDummy(input: DamageDummyInput): boolean {
   const e = input.entity;
   if (e.respawnTimer > 0) return false;
-  e.hp = Math.max(0, e.hp - input.damage);
+  const dmg = resolveDummyDamageAndRiposte(e, input);
+  e.hp = Math.max(0, e.hp - dmg);
   e.hitTimer = 0.24;
   e.idleResetTimer = TRAINING_DUMMY_TUNING.idleResetSec;
   if (input.goreStyle === "drip" && e.substance !== "straw") e.bleedTimer = BLEED_DURATION_SEC;
+  if (input.ignites) igniteBurnable({ target: e, x: e.x, y: e.y, targetId: e.id, events: input.events });
   const fatal = e.hp <= 0;
-  const style: GoreStyle = fatal && e.kind === KIND_SLIME ? "explode-away" : input.goreStyle;
-  input.events.push({
-    kind: "hit", x: e.x, y: e.y, dirX: input.dirX, dirY: input.dirY, value: input.damage,
-    actorId: input.actorId, targetId: e.id, comboStep: input.comboStep, sweepDir: input.sweepDir,
-    goreStyle: style, substance: e.substance, fatal,
-  });
+  input.events.push(buildDummyHitEvent(input, dmg, fatal));
   if (fatal) finalizeDummyKill(e);
   return true;
 }
@@ -167,7 +214,12 @@ function tickSingleDummy(e: SimEntity, input: {
   }
   e.hitTimer = Math.max(0, e.hitTimer - dt);
   e.staggerTimer = Math.max(0, e.staggerTimer - dt);
+  if (e.staggerTimer === 0) e.parried = false;
   e.bleedTimer = Math.max(0, e.bleedTimer - dt);
+  stepBurnTarget({
+    target: e, dt, kind: e.kind, x: e.x, y: e.y, targetId: e.id, events: input.events,
+    onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) finalizeDummyKill(e); },
+  });
   e.attackCooldown = Math.max(0, e.attackCooldown - dt);
   e.idleResetTimer = Math.max(0, e.idleResetTimer - dt);
   if (e.idleResetTimer === 0 && e.hp < e.maxHp) e.hp = e.maxHp;
@@ -191,6 +243,8 @@ export function serializeDummies(dummies: readonly SimEntity[]): WorldEntitySnap
       id: e.id, kind: e.kind, substance: e.substance, x: e.x, y: e.y, elevation: e.elevation,
       facingX: e.facingX, facingY: e.facingY, hp: e.hp, maxHp: e.maxHp,
       hitTimer: e.hitTimer, staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer,
+      ...(e.burnTimer > 0 ? { burning: true } : {}),
+      ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
       telegraphProgress: e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / TRAINING_DUMMY_TUNING.sparWindupSec) : 0,
     }));
 }

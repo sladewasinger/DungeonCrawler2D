@@ -31,6 +31,12 @@ const WEAPON_SYNTH_MAP: Partial<Record<WeaponArchetype, (ctx: AudioContext, dst:
     playSweptNoise({ ctx, dst, duration: 0.16, f0: 920, f1: step === 2 ? 2150 : 1700, filterType: "bandpass", gain: g * 1.05, q: 1.4, attackSec: 0.015 });
     playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2800, filterType: "highpass", gain: g * 0.42, delay: 0.04 });
   },
+  unarmed: (ctx, dst, step) => {
+    const g = AUDIO_TUNING.combat.swingGain;
+    const pitch = step === 2 ? 1.12 : 1.0;
+    playSweptNoise({ ctx, dst, duration: 0.08, f0: 480 * pitch, f1: 240, filterType: "bandpass", gain: g * 0.78, q: 1.3, attackSec: 0.008 });
+    playTone({ ctx, dst, wave: "triangle", f0: 150 * pitch, f1: 68, duration: 0.075, gain: g * 0.58 });
+  },
   dagger: (ctx, dst) => {
     const g = AUDIO_TUNING.combat.swingGain;
     playSweptNoise({ ctx, dst, duration: 0.09, f0: 2200, f1: 1300, filterType: "bandpass", gain: g * 0.88, q: 2.2, attackSec: 0.008 });

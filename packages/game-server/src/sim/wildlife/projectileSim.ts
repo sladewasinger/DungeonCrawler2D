@@ -6,14 +6,18 @@ import {
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, type CombatPlayerRef } from "../combatActions.js";
 import { damageDummy, type SimEntity } from "../dummySim.js";
+import { createWebProjectile, stepWebProjectile } from "../webs/webCocoon.js";
+import type { WorldWebNetwork } from "../webs/webNetwork.js";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 import { UNAWARE_STATES } from "./ecologyHelpers.js";
 import type { WorldEcology } from "./worldEcology.js";
 
+export { createWebProjectile };
+
 export interface SimProjectile {
   readonly id: string;
   readonly ownerId: string;
-  readonly kind: "arrow" | "pebble";
+  readonly kind: "arrow" | "pebble" | "web";
   readonly originX: number;
   readonly originY: number;
   x: number;
@@ -211,14 +215,17 @@ function stepArrowProjectile(opts: {
 
 function stepSingleProjectile(opts: {
   readonly pr: SimProjectile; readonly cache: WorldChunkCache; readonly dummies: readonly SimEntity[];
-  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[]; readonly dt: number;
+  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[];
+  readonly webs?: WorldWebNetwork | undefined; readonly dt: number;
 }): boolean {
+  if (opts.pr.kind === "web") return stepWebProjectile(opts);
   return opts.pr.kind === "pebble" ? stepPebbleProjectile(opts) : stepArrowProjectile(opts);
 }
 
 export function stepProjectileList(opts: {
   readonly cache: WorldChunkCache; readonly projectiles: SimProjectile[]; readonly dummies: readonly SimEntity[];
-  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[]; readonly dt: number;
+  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[];
+  readonly webs?: WorldWebNetwork | undefined; readonly dt: number;
 }): void {
   for (let i = opts.projectiles.length - 1; i >= 0; i--) {
     if (!stepSingleProjectile({ ...opts, pr: opts.projectiles[i]! })) opts.projectiles.splice(i, 1);

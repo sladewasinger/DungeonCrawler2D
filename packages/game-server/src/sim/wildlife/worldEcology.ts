@@ -1,16 +1,17 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, GroundKind, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, isWithinSector, worldToChunkCoord,
-  type ChunkPoi, type GoreStyle, type GroundLootSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, worldToChunkCoord,
+  type ChunkPoi, type GoreStyle, type GroundLootSnapshot, type WeaponArchetype, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { stepWildlifeEntity } from "./creatureAi.js";
 import { hasSpiderCover, isScavengeLootId, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn } from "./creatureBehaviors.js";
 import { CREATURE_SPECS, ST_DEAD, ST_INVESTIGATE, createWildlifeEntity, type WildlifeEntity, type WildlifeKind } from "./creatureSpecs.js";
 import {
-  UNAWARE_STATES, applyDamageToCreature, collectScavengeFoods, computeSectorStrike, findClearGuardSpot, serializeEntitySnapshot,
+  UNAWARE_STATES, applyBackstabEvent, applyDamageToCreature, collectScavengeFoods, computeSectorStrike,
+  findClearGuardSpot, isSectorTargetHit, serializeEntitySnapshot,
 } from "./ecologyHelpers.js";
-import { factionOfKind, type CombatTarget } from "./factionTargeting.js";
+import { factionOfKind, isCreatureAggro, type CombatTarget } from "./factionTargeting.js";
 import { LootManager } from "./lootManager.js";
 import { ScentTrail } from "./scentTrail.js";
 import { rallyWolfPack } from "./wolfPackAi.js";
@@ -110,6 +111,8 @@ export class WorldEcology {
     readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
     readonly actorId: string; readonly events: WorldEvent[]; readonly silentKill?: boolean;
     readonly players?: readonly CombatPlayerCandidate[] | undefined;
+    readonly ignites?: boolean | undefined; readonly heavy?: boolean | undefined; readonly weaponArchetype?: WeaponArchetype | undefined;
+    readonly hitstopSec?: number | undefined; readonly shakePx?: number | undefined; readonly knockbackMult?: number | undefined;
   }): boolean {
     const e = opts.entity;
     if (e.corpse || e.hp <= 0) return false;
@@ -119,10 +122,14 @@ export class WorldEcology {
     return true;
   }
 
+  private shouldIgnoreNoise(e: WildlifeEntity, sourceId: string | undefined): boolean {
+    return e.corpse || e.hp <= 0 || e.id === sourceId || isCreatureAggro(e) || e.provokedTimer > 0;
+  }
+
   emitNoise(opts: { readonly x: number; readonly y: number; readonly radius: number; readonly sourceId?: string }): void {
     for (const e of this.list) {
-      if (e.corpse || e.hp <= 0 || e.id === opts.sourceId || e.targetPlayerId !== null) continue;
-      if (!UNAWARE_STATES.has(e.aiState) || Math.hypot(e.x - opts.x, e.y - opts.y) > opts.radius) continue;
+      if (this.shouldIgnoreNoise(e, opts.sourceId) || !UNAWARE_STATES.has(e.aiState)) continue;
+      if (Math.hypot(e.x - opts.x, e.y - opts.y) > opts.radius) continue;
       e.lastKnownX = opts.x; e.lastKnownY = opts.y; e.investigateTimer = 5.5; e.aiState = ST_INVESTIGATE;
     }
   }
@@ -172,7 +179,7 @@ export class WorldEcology {
     const mag = Math.max(0.01, Math.hypot(player.facingX, player.facingY));
     const nx = player.facingX / mag; const ny = player.facingY / mag;
     const packId = count > 1 ? `dbg-${this.nextId}` : null;
-    for (let i = 0; i < Math.min(5, Math.max(1, count)); i++) {
+    for (let i = 0; i < Math.min(10, Math.max(1, count)); i++) {
       const s = this.spawnEntity({ kind, x: player.x + nx * 4 + (i - (count - 1) * 0.5) * 1.1, y: player.y + ny * 4 + (i % 2) * 0.6, homeRadius: 16, poiId: null, packId, packSlot: i });
       s.facingX = -nx; s.facingY = -ny;
     }
@@ -182,14 +189,18 @@ export class WorldEcology {
     readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
     readonly damage: number; readonly range: number; readonly halfArcRad: number;
     readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
-    readonly backstabMult?: number | undefined; readonly events: WorldEvent[];
+    readonly backstabMult?: number | undefined; readonly armorCrushMult?: number | undefined;
+    readonly ignites?: boolean | undefined; readonly heavy?: boolean | undefined; readonly weaponArchetype?: WeaponArchetype | undefined;
+    readonly hitstopSec?: number | undefined; readonly shakePx?: number | undefined; readonly knockbackMult?: number | undefined;
+    readonly hitTargetIds?: Set<string> | undefined; readonly impactCenter?: { readonly x: number; readonly y: number } | undefined;
+    readonly slamAoeRadius?: number | undefined; readonly events: WorldEvent[];
   }): void {
     for (const e of this.list) {
-      if (e.corpse || e.hp <= 0) continue;
-      if (!isWithinSector({ origin: opts.attacker, dir: opts.dir, target: e, range: opts.range, halfArcRad: opts.halfArcRad })) continue;
-      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: opts.backstabMult });
-      if (sneakHit) { e.staggerTimer = Math.max(e.staggerTimer, 0.85); opts.events.push({ kind: "backstab", x: e.x, y: e.y, value: damage, actorId: opts.attacker.id, targetId: e.id }); }
-      this.damageEntity({ entity: e, damage, dirX: opts.dir.x, dirY: opts.dir.y, goreStyle: opts.goreStyle, comboStep: opts.comboStep, sweepDir: opts.sweepDir, actorId: opts.attacker.id, events: opts.events, silentKill: sneakHit });
+      if (!isSectorTargetHit({ e, ...opts })) continue;
+      opts.hitTargetIds?.add(e.id);
+      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: opts.backstabMult, armorCrushMult: opts.armorCrushMult });
+      applyBackstabEvent({ e, attackerId: opts.attacker.id, damage, sneakHit, events: opts.events });
+      this.damageEntity({ ...opts, entity: e, damage, dirX: opts.dir.x, dirY: opts.dir.y, actorId: opts.attacker.id, silentKill: sneakHit, hitstopSec: sneakHit ? MELEE_FEEL_TUNING.backstabHitstopSec : opts.hitstopSec, shakePx: sneakHit ? MELEE_FEEL_TUNING.backstabShakePx : opts.shakePx });
     }
   }
 
@@ -233,6 +244,7 @@ export class WorldEcology {
     readonly dt: number; readonly timeSec: number; readonly dayPhase: number;
     readonly players: readonly (CombatPlayerRef & { readonly moving: boolean })[];
     readonly events: WorldEvent[]; readonly onStrike: StrikePlayerFn;
+    readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
   }): void {
     this.activePlayers = opts.players;
     this.pruneDistantEntities(opts.players);
@@ -246,6 +258,7 @@ export class WorldEcology {
         cache: this.cache, e: this.list[i]!, allEntities: this.list, players: opts.players, foods,
         onConsumeFood, scent: this.scent, events: opts.events, timeSec: opts.timeSec, dayPhase: opts.dayPhase, dt: opts.dt,
         onStrike: (att, target) => this.resolveEntityHit({ att, target, events: opts.events, onPlayerStrike: opts.onStrike }),
+        onBurnKill: (ent) => this.finalizeDeath(ent), spawnWeb: opts.spawnWeb,
       });
       if (!keep) this.list.splice(i, 1);
     }

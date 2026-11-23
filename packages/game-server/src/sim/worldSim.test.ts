@@ -69,7 +69,16 @@ describe("WorldSim", () => {
       offhand: null,
     });
     expect(computeArmorDefense(initial.armor, getItemDef)).toBe(9);
-    expect(must(sim.snapshots()[0]).heldItem).toBe("sword");
+    expect(initial.slots[0]).toEqual({ itemId: "wooden-spear", count: 1 });
+    expect(initial.slots.slice(1).every((s) => s === null)).toBe(true);
+    expect(must(sim.snapshots()[0]).heldItem).toBe("wooden-spear");
+
+    const HOOD_ID = "leather-hood";
+    sim.grantPlayerItems(id, [
+      { slot: 1, itemId: "bow", count: 1 },
+      { slot: 9, itemId: HOOD_ID, count: 1 },
+      { slot: 11, itemId: "wood", count: 8 },
+    ]);
 
     sim.selectHotbar(id, 1);
     sim.ackActionSeq(id, 4);
@@ -86,9 +95,9 @@ describe("WorldSim", () => {
 
     sim.equipArmor(id, { slotIndex: 9, targetArmor: "head" });
     const afterArmor = must(sim.inventorySnapshot(id));
-    expect(afterArmor.armor.head).toBe("leather-hood");
+    expect(afterArmor.armor.head).toBe(HOOD_ID);
     expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(11);
-    expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
+    expect(must(sim.snapshots()[0]).armor?.head).toBe(HOOD_ID);
 
     const customLook = { body: "female", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;
     sim.setAppearance(id, { name: "Slade", appearance: customLook });
@@ -99,6 +108,11 @@ describe("WorldSim", () => {
   it("enforces campfire proximity for campfire crafting recipes", () => {
     const sim = new WorldSim(1337);
     const id = sim.addPlayer("Crafter");
+    sim.grantPlayerItems(id, [
+      { slot: 11, itemId: "wood", count: 8 },
+      { slot: 12, itemId: "stone", count: 6 },
+      { slot: 14, itemId: "raw-meat", count: 3 },
+    ]);
     expect(must(sim.inventorySnapshot(id)).nearCampfire).toBe(true);
     expect(sim.craftRecipe(id, "craft-axe")).toBe(true);
     expect(sim.craftRecipe(id, "craft-cooked-meat")).toBe(true);
@@ -155,5 +169,32 @@ describe("WorldSim", () => {
     const sprintSnap = must(sim.snapshots()[0]);
     expect(sprintSnap.moving).toBe(true);
     expect(sprintSnap.sprinting).toBe(true);
+  });
+
+  it("supports admin godMode (unlimited HP & stamina), heal, give, and clearWebs actions", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("AdminHero");
+    sim.handleAdminAction(id, { action: "godMode", enabled: true });
+    expect(must(sim.snapshots()[0]).godMode).toBe(true);
+
+    sim.queueInput(id, { seq: 1, moveX: 1, moveY: 0, dodge: true, attack: true });
+    for (let i = 0; i < 12; i++) sim.step();
+    const godSnap = must(sim.snapshots()[0]);
+    expect(godSnap.hp).toBe(100);
+    expect(godSnap.stamina).toBe(100);
+
+    sim.handleAdminAction(id, { action: "give", itemId: "torch", count: 2 });
+    const hasTorch = must(sim.inventorySnapshot(id)).slots.some((s) => s?.itemId === "torch" && s.count === 2);
+    expect(hasTorch).toBe(true);
+
+    sim.handleAdminAction(id, { action: "godMode", enabled: false });
+    expect(must(sim.snapshots()[0]).godMode).toBeUndefined();
+    sim.queueInput(id, { seq: 2, moveX: 1, moveY: 0, dodge: true });
+    sim.step();
+    expect(must(sim.snapshots()[0]).stamina).toBeLessThan(100);
+
+    sim.handleAdminAction(id, { action: "heal" });
+    expect(must(sim.snapshots()[0]).stamina).toBe(100);
+    sim.handleAdminAction(id, { action: "clearWebs" });
   });
 });

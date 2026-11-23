@@ -44,6 +44,7 @@ export interface ItemDef {
   readonly healHp?: number;
   readonly wellFedSec?: number;
   readonly goreStyle?: GoreStyle;
+  readonly twoHanded?: boolean;
   readonly visualLayer?: ItemVisualLayerSpec;
 }
 
@@ -74,12 +75,18 @@ const CAT_TOOL: ItemCategory = "tool";
 const CAT_ARMOR: ItemCategory = "armor";
 const CAT_CONSUMABLE: ItemCategory = "consumable";
 const CAT_MATERIAL: ItemCategory = "material";
+const GORE_THIN_STREAK: GoreStyle = "thin-streak";
+const GORE_CHUNK_SPRAY: GoreStyle = "chunk-spray";
+const GORE_DRIP: GoreStyle = "drip";
 
 export const ITEM_CATALOG: readonly ItemDef[] = [
-  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, weaponArchetype: "sword", damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "thin-streak" },
-  { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, damage: 22, staminaCost: 14, range: 11, goreStyle: "drip" },
-  { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, weaponArchetype: "axe", damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, goreStyle: "chunk-spray" },
-  { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, weaponArchetype: "pickaxe", damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: "chunk-spray" },
+  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, weaponArchetype: "sword", damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: GORE_THIN_STREAK },
+  { id: "flint-dagger", name: "Flint Dagger", category: CAT_WEAPON, maxStack: 1, weaponArchetype: "dagger", damage: 11, staminaCost: 7, range: 1.45, arcRad: 1.25, goreStyle: GORE_THIN_STREAK },
+  { id: "wooden-spear", name: "Wooden Spear", category: CAT_WEAPON, maxStack: 1, weaponArchetype: "spear", damage: 16, staminaCost: 13, range: 2.35, arcRad: 0.95, goreStyle: GORE_DRIP },
+  { id: "iron-greatsword", name: "Iron Greatsword", category: CAT_WEAPON, maxStack: 1, weaponArchetype: "greatsword", damage: 30, staminaCost: 22, range: 2.2, arcRad: 2.2, goreStyle: GORE_CHUNK_SPRAY, twoHanded: true },
+  { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, damage: 22, staminaCost: 14, range: 11, goreStyle: GORE_DRIP, twoHanded: true },
+  { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, weaponArchetype: "axe", damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, goreStyle: GORE_CHUNK_SPRAY },
+  { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, weaponArchetype: "pickaxe", damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: GORE_CHUNK_SPRAY },
   { id: "map", name: "Overworld Map", category: CAT_TOOL, maxStack: 1 },
   { id: "wooden-shield", name: "Wooden Shield", category: CAT_ARMOR, maxStack: 1, armorSlot: "offhand", defense: 2, blockMitigation: 0.75 },
   {
@@ -124,20 +131,10 @@ export const ITEM_CATALOG: readonly ItemDef[] = [
 ];
 
 export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [
-  { slot: 0, itemId: "sword", count: 1 },
-  { slot: 1, itemId: "bow", count: 1 },
-  { slot: 2, itemId: "arrow", count: 16 },
-  { slot: 3, itemId: "torch", count: 4 },
-  { slot: 4, itemId: "bandage", count: 3 },
-  { slot: 8, itemId: "map", count: 1 },
-  { slot: 9, itemId: "leather-hood", count: 1 },
-  { slot: 11, itemId: "wood", count: 8 },
-  { slot: 12, itemId: "stone", count: 6 },
-  { slot: 13, itemId: "flint", count: 4 },
-  { slot: 14, itemId: "raw-meat", count: 3 },
-  { slot: 15, itemId: "herb", count: 4 },
-  { slot: 18, itemId: "wooden-shield", count: 1 },
+  { slot: 0, itemId: "wooden-spear", count: 1 },
 ];
+
+export type BlockMode = "none" | "shield" | "twoHanded";
 
 const ITEM_MAP = new Map<string, ItemDef>(ITEM_CATALOG.map((item) => [item.id, item]));
 
@@ -147,4 +144,14 @@ export function getItemDef(itemId: string): ItemDef | undefined {
 
 export function maxStackForItem(itemId: string): number {
   return ITEM_MAP.get(itemId)?.maxStack ?? 64;
+}
+
+export function isMeleeItem(itemId: string | null | undefined): boolean {
+  return !itemId || Boolean(ITEM_MAP.get(itemId)?.weaponArchetype);
+}
+
+export function resolveBlockMode(heldItem: string | null | undefined, offhand: string | null | undefined): BlockMode {
+  const def = heldItem ? ITEM_MAP.get(heldItem) : undefined;
+  if (def?.twoHanded) return def.weaponArchetype ? "twoHanded" : "none";
+  return offhand ? "shield" : "none";
 }

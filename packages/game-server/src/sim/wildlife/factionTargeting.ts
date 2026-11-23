@@ -4,6 +4,7 @@ import {
 } from "@dc2d/engine";
 import { clearNavPath } from "./creatureNavigation.js";
 import type { CombatPlayerCandidate } from "./creatureBehaviors.js";
+import { isCocoonedFromSpider } from "./ecologyHelpers.js";
 import {
   CREATURE_SPECS, ST_INVESTIGATE, ST_RETURN,
   type WildlifeEntity, type WildlifeKind,
@@ -63,9 +64,10 @@ function findBestPlayerTarget(opts: {
   let target: CombatTarget | null = null;
   let dist = Infinity;
   for (const p of opts.players) {
+    if (isCocoonedFromSpider(opts.e, p) || isInSanctuary(p.x, p.y)) continue;
     const d = Math.hypot(p.x - opts.e.x, p.y - opts.e.y);
     const cand: CombatTarget = { ...p, targetKind: "player" };
-    if (d < dist && !isInSanctuary(p.x, p.y) && canSeeCandidate({ cache: opts.cache, e: opts.e, cand, dist: d, rangeMult: 1 })) {
+    if (d < dist && canSeeCandidate({ cache: opts.cache, e: opts.e, cand, dist: d, rangeMult: 1 })) {
       dist = d; target = cand;
     }
   }
@@ -175,25 +177,30 @@ function noticeBuddy(ctx: PeerNoticeCtx): boolean {
   return true;
 }
 
-function noticeCorpseOrBuddy(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly o: WildlifeEntity;
-  readonly allEntities: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
+export function isCreatureAggro(e: WildlifeEntity): boolean {
+  return e.targetPlayerId !== null || e.suspicion >= 1 || e.telegraphTimer > 0 || e.chargeTimer > 0;
+}
+
+function scanFactionPeers(opts: {
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly allEntities: readonly WildlifeEntity[];
+  readonly myFaction: CreatureFaction; readonly check: (ctx: PeerNoticeCtx) => boolean;
 }): boolean {
-  const ctx: PeerNoticeCtx = { cache: opts.cache, e: opts.e, o: opts.o, dist: Math.hypot(opts.o.x - opts.e.x, opts.o.y - opts.e.y) };
-  return noticeCorpse(ctx) || noticeBuddy(ctx);
+  for (const o of opts.allEntities) {
+    if (o.id === opts.e.id || factionOfKind(o.kind) !== opts.myFaction) continue;
+    if (opts.check({ cache: opts.cache, e: opts.e, o, dist: Math.hypot(o.x - opts.e.x, o.y - opts.e.y) })) return true;
+  }
+  return false;
 }
 
 export function scanAlliesAndCorpses(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
   readonly allEntities: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
 }): void {
-  const { e, allEntities } = opts;
-  if (e.targetPlayerId !== null || e.aiState === ST_RETURN) return;
+  const { cache, e, allEntities } = opts;
+  if (isCreatureAggro(e) || e.aiState === ST_RETURN || e.provokedTimer > 0) return;
   const myFaction = factionOfKind(e.kind);
-  for (const o of allEntities) {
-    if (o.id === e.id || factionOfKind(o.kind) !== myFaction) continue;
-    if (noticeCorpseOrBuddy({ ...opts, o })) return;
-  }
+  if (scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeBuddy })) return;
+  scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeCorpse });
 }
 
 export function wakeEntityFromHit(opts: {

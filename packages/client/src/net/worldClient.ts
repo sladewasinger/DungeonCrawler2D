@@ -1,8 +1,10 @@
 /** Multiplayer WebSocket client with holistic action-ack gating, chest ops, and offline preview fallback. */
 import {
-  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, ServerMessageSchema, WorldChunkCache, isInSanctuary, sampleStealthExposure, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type EntityKind, type GroundLootSnapshot, type InventorySnapshot,
-  type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, STEALTH_TUNING,
+  ServerMessageSchema, WorldChunkCache, wrapDayPhase,
+  type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type EntityKind, type GroundLootSnapshot,
+  type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage,
+  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { IDLE_GATE, resolvePendingGate, type PendingGate } from "./actionGate.js";
 import { loadCharacterPrefs, sanitizeCharacterName, saveCharacterPrefs } from "./characterPrefs.js";
@@ -12,35 +14,15 @@ import {
 } from "./clientInventory.js";
 import { LocalSwingTracker } from "./localSwingTracker.js";
 import { RemotePlayerSmoother } from "./remoteInterp.js";
+import {
+  applyLocalAtmosphere, applyOfflineAdminPreview, bindPageDisconnect, buildInputMessage,
+  mergeStreamEvents, resetDisconnectedPlayer, type ConnectionMode, type StepInputFrame, type WorldViewState,
+} from "./worldClientHelpers.js";
 import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
-const INITIAL_DAY_PHASE = 0.62;
-const ACTION_FLAG_KEYS = ["jump", "attack", "bowDraw", "bowRelease", "block", "dodge", "crouch", "throwPebble", "interact"] as const;
-export type ConnectionMode = "connecting" | "server" | "local";
-export interface StepInputFrame {
-  readonly move: { readonly x: number; readonly y: number }; readonly dt: number; readonly aim?: { readonly x: number; readonly y: number } | undefined;
-  readonly jump?: boolean | undefined; readonly attack?: boolean | undefined; readonly bowDraw?: boolean | undefined;
-  readonly bowRelease?: boolean | undefined; readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
-  readonly dodgeDir?: { readonly x: number; readonly y: number } | undefined; readonly crouch?: boolean | undefined;
-  readonly throwPebble?: boolean | undefined; readonly interact?: boolean | undefined;
-}
-export interface WorldViewState {
-  readonly mode: ConnectionMode; readonly dayPhase: number; readonly dayPaused: boolean; readonly cache: WorldChunkCache;
-  readonly players: readonly PlayerSnapshot[]; readonly localPlayerId: string; readonly inventory: InventorySnapshot;
-  readonly localName: string; readonly localAppearance: CharacterAppearance; readonly projectiles: readonly ProjectileSnapshot[];
-  readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
-  readonly groundLoot: readonly GroundLootSnapshot[]; readonly events: readonly WorldEvent[];
-}
+export type { ConnectionMode, StepInputFrame, WorldViewState } from "./worldClientHelpers.js";
 
-function buildInputMessage(opts: {
-  readonly seq: number; readonly moveDir: { readonly x: number; readonly y: number };
-  readonly normAim: { readonly x: number; readonly y: number } | undefined; readonly input: StepInputFrame;
-}): ClientMessage {
-  const extras: Record<string, boolean> = {};
-  for (const key of ACTION_FLAG_KEYS) if (opts.input[key]) extras[key] = true;
-  const dodgeDir = normalizeDirection(opts.input.dodgeDir, false);
-  return { t: "input", seq: opts.seq, moveX: opts.moveDir.x, moveY: opts.moveDir.y, ...(opts.normAim ? { aimX: opts.normAim.x, aimY: opts.normAim.y } : {}), ...(dodgeDir ? { dodgeDirX: dodgeDir.x, dodgeDirY: dodgeDir.y } : {}), ...extras } as ClientMessage;
-}
+const INITIAL_DAY_PHASE = 0.62;
 
 export class WorldClient {
   private readonly wsUrl: string;
@@ -63,11 +45,15 @@ export class WorldClient {
   private entities: readonly WorldEntitySnapshot[] = [];
   private chests: readonly WorldChestSnapshot[] = [];
   private groundLoot: readonly GroundLootSnapshot[] = [];
+  private webs: WorldWebSnapshot | undefined;
   private queuedEvents: WorldEvent[] = [];
   private readonly remoteSmoother = new RemotePlayerSmoother();
   private readonly swing = new LocalSwingTracker();
+  private localBowDrawing = false;
+  private attackFlashTimer = 0;
   private inventory: InventorySnapshot = createStarterInventorySnapshot();
   private readonly autoReconnect: boolean;
+  private manualDisconnect = false;
   private connectTimer: number | null = null;
   private reconnectTimer: number | null = null;
 
@@ -75,24 +61,37 @@ export class WorldClient {
     this.wsUrl = wsUrl;
     this.autoReconnect = opts?.autoConnect !== false;
     this.localPlayer = createDefaultPlayer("local", loadCharacterPrefs());
+    bindPageDisconnect(() => this.disconnect());
     if (this.autoReconnect) this.connect();
   }
 
   connect(): void {
     if (this.ws || this.mode === "connecting") return;
+    this.manualDisconnect = false;
     if (this.reconnectTimer !== null) { window.clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     this.mode = "connecting"; this.openSocket(this.wsUrl);
+  }
+
+  disconnect(): void {
+    this.manualDisconnect = true;
+    this.clearSocketTimers();
+    const prev = this.ws;
+    this.ws = null;
+    if (prev) { try { prev.close(1000, "client disconnect"); } catch { /* closing */ } }
+    this.localPlayerId = "local"; this.remotePlayers = [];
+    this.remoteSmoother.setTargets([], "local");
+    this.resetStreamState(true);
   }
 
   private openSocket(url: string): void {
     try {
       const ws = new WebSocket(url);
       this.ws = ws;
-      this.connectTimer = window.setTimeout(() => { if (this.mode === "connecting") this.mode = "local"; }, 800);
-      ws.addEventListener("open", () => this.sendHello());
-      ws.addEventListener("message", (ev) => this.handleMessage(String(ev.data)));
-      ws.addEventListener("close", () => this.switchToLocal());
-      ws.addEventListener("error", () => this.switchToLocal());
+      this.connectTimer = window.setTimeout(() => { if (this.ws === ws && this.mode === "connecting") this.mode = "local"; }, 800);
+      ws.addEventListener("open", () => { if (this.ws === ws) this.sendHello(); });
+      ws.addEventListener("message", (ev) => { if (this.ws === ws) this.handleMessage(String(ev.data)); });
+      ws.addEventListener("close", () => { if (this.ws === ws) this.switchToLocal(); });
+      ws.addEventListener("error", () => { if (this.ws === ws) this.switchToLocal(); });
     } catch { this.switchToLocal(); }
   }
 
@@ -101,17 +100,22 @@ export class WorldClient {
     this.send({ t: "hello", version: PROTOCOL_VERSION, name: this.localPlayer.name, appearance });
   }
 
-  private switchToLocal(): void {
+  private clearSocketTimers(): void {
     if (this.connectTimer !== null) { window.clearTimeout(this.connectTimer); this.connectTimer = null; }
-    this.mode = "local";
+    if (this.reconnectTimer !== null) { window.clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+  }
+
+  private resetStreamState(resetId: boolean): void {
+    this.mode = "local"; this.entities = []; this.projectiles = [];
+    this.webs = undefined; this.localBowDrawing = false;
+    this.localPlayer = resetDisconnectedPlayer(this.localPlayer, resetId);
+  }
+
+  private switchToLocal(): void {
+    this.clearSocketTimers();
     this.ws = null;
-    this.entities = [];
-    this.projectiles = [];
-    this.localPlayer = {
-      ...this.localPlayer,
-      dodging: false, blocking: false, staggerTimer: 0, hitTimer: 0, respawnTimer: 0, bowCharge: 0, swingProgress: 0,
-    };
-    if (this.autoReconnect && this.reconnectTimer === null) {
+    this.resetStreamState(false);
+    if (!this.manualDisconnect && this.autoReconnect && this.reconnectTimer === null) {
       this.reconnectTimer = window.setTimeout(() => { this.reconnectTimer = null; this.connect(); }, 2500);
     }
   }
@@ -127,17 +131,13 @@ export class WorldClient {
 
   private applyWelcome(msg: Extract<ServerMessage, { t: "welcome" }>): void {
     if (this.connectTimer !== null) window.clearTimeout(this.connectTimer);
-    this.mode = "server";
-    this.localPlayerId = msg.playerId;
+    this.mode = "server"; this.localPlayerId = msg.playerId;
     this.localPlayer = { ...this.localPlayer, id: msg.playerId };
-    this.cache = new WorldChunkCache(msg.worldSeed);
-    this.dayPhase = msg.dayPhase;
-    this.dayPaused = msg.dayPaused;
+    this.cache = new WorldChunkCache(msg.worldSeed); this.dayPhase = msg.dayPhase; this.dayPaused = msg.dayPaused;
   }
 
   private applyServerSnapshot(msg: Extract<ServerMessage, { t: "snapshot" }>): void {
-    const nowMs = performance.now();
-    const serverAck = msg.actionAckSeq ?? msg.selfInventory?.ackSeq ?? 0;
+    const nowMs = performance.now(); const serverAck = msg.actionAckSeq ?? msg.selfInventory?.ackSeq ?? 0;
     const dayRes = resolvePendingGate(this.dayGate, { serverAck, nowMs });
     this.dayGate = dayRes.nextGate;
     if (dayRes.accept) { this.dayPhase = msg.dayPhase; this.dayPaused = msg.dayPaused; }
@@ -147,26 +147,16 @@ export class WorldClient {
   }
 
   private applyWorldStream(msg: Extract<ServerMessage, { t: "snapshot" }>, nowMs: number, serverAck: number): void {
-    this.projectiles = msg.projectiles ?? [];
-    this.entities = msg.entities ?? [];
-    this.groundLoot = msg.groundLoot ?? [];
+    this.projectiles = msg.projectiles ?? []; this.entities = msg.entities ?? [];
+    this.groundLoot = msg.groundLoot ?? []; this.webs = msg.webs;
     const chestRes = resolvePendingGate(this.chestGate, { serverAck, nowMs });
     this.chestGate = chestRes.nextGate;
     if (chestRes.accept && msg.chests) this.chests = msg.chests;
     if (msg.worldDeltas) this.cache.applyWorldDeltaSnapshot(msg.worldDeltas);
-    this.appendServerEvents(msg.events);
-  }
-
-  private appendServerEvents(rawEvents: Extract<ServerMessage, { t: "snapshot" }>["events"]): void {
-    if (!rawEvents?.length) return;
-    const filtered = this.filterServerEvents(rawEvents);
-    if (filtered.length > 0) this.queuedEvents = [...this.queuedEvents.slice(-48), ...filtered];
-  }
-
-  private filterServerEvents(events: readonly WorldEvent[]): readonly WorldEvent[] {
-    if (!this.swing.hasPendingServerSwing()) return events;
-    if (events.some((e) => e.kind === "swing" && e.actorId === this.localPlayerId)) this.swing.clearPendingServerSwing();
-    return events.filter((e) => !(e.kind === "swing" && e.actorId === this.localPlayerId));
+    this.queuedEvents = mergeStreamEvents({
+      current: this.queuedEvents, incoming: msg.events,
+      stripLocalSwing: this.swing.hasPendingServerSwing(), localId: this.localPlayerId, clearPending: () => this.swing.clearPendingServerSwing(),
+    });
   }
 
   private reconcileServerPlayers(opts: { readonly players: readonly PlayerSnapshot[]; readonly serverAck: number; readonly nowMs: number }): void {
@@ -177,7 +167,7 @@ export class WorldClient {
     this.torchGate = torchRes.nextGate;
     this.appearanceGate = appRes.nextGate;
     const me = opts.players.find((p) => p.id === this.localPlayerId);
-    if (me) this.localPlayer = reconcilePredictedPlayer(this.localPlayer, me, { preserveTorch: !torchRes.accept, preserveAppearance: !appRes.accept });
+    if (me) this.localPlayer = reconcilePredictedPlayer(this.localPlayer, me, { preserveTorch: !torchRes.accept, preserveAppearance: !appRes.accept, localBowDrawing: this.localBowDrawing });
   }
 
   private reconcileServerInventory(incoming: InventorySnapshot, serverAck: number, nowMs: number): void {
@@ -189,21 +179,29 @@ export class WorldClient {
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } { return this.localPlayer; }
 
   private stepLocalAtmosphere(dt: number): void {
-    const exp = sampleStealthExposure({ cache: this.cache, x: this.localPlayer.x, y: this.localPlayer.y, dayPhase: this.dayPhase, torchLit: this.localPlayer.torchLit, crouching: Boolean(this.localPlayer.crouching), moving: this.localPlayer.moving, sprinting: Boolean(this.localPlayer.sprinting) });
-    if (this.mode === "server") { this.localPlayer = { ...this.localPlayer, stealthVis: exp.visibility, inCover: exp.inCover }; return; }
-    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dt / DAY_DURATION_SECONDS);
-    this.localPlayer = { ...this.localPlayer, inSanctuary: isInSanctuary(this.localPlayer.x, this.localPlayer.y), stealthVis: exp.visibility, inCover: exp.inCover };
-    this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
+    this.attackFlashTimer = Math.max(0, this.attackFlashTimer - dt);
+    const attackFlash = Boolean(this.localPlayer.attackFlash) || this.attackFlashTimer > 0;
+    const isServer = this.mode === "server";
+    if (!isServer && !this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dt / DAY_DURATION_SECONDS);
+    this.localPlayer = applyLocalAtmosphere({ cache: this.cache, player: this.localPlayer, dayPhase: this.dayPhase, attackFlash, isServer });
+    if (!isServer) this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
   }
 
   stepInput(input: StepInputFrame): void {
     const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
     const normAim = normalizeDirection(input.aim, false);
+    const heldId = heldItemForInventory(this.inventory);
+    this.localBowDrawing = Boolean(input.bowDraw) && heldId === "bow";
     this.remoteSmoother.step(input.dt);
-    this.swing.step({ dt: input.dt, attack: Boolean(input.attack), heldId: heldItemForInventory(this.inventory), player: this.localPlayer, normAim, isServer: this.mode === "server", events: this.queuedEvents });
+    const preEvCount = this.queuedEvents.length;
+    this.swing.step({
+      dt: input.dt, attack: Boolean(input.attack), attackHold: Boolean(input.attackHold), dodge: Boolean(input.dodge),
+      heldId, player: this.localPlayer, normAim, isServer: this.mode === "server", events: this.queuedEvents,
+    });
+    if (this.queuedEvents.length > preEvCount || input.bowRelease) this.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
     const swingProgress = this.swing.activeProgress(this.localPlayer.swingProgress);
     if (this.mode === "server") this.send(buildInputMessage({ seq: ++this.seq, moveDir, normAim, input }));
-    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: { ...this.localPlayer, swingProgress }, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump, crouch: input.crouch });
+    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: { ...this.localPlayer, heldItem: heldId, swingProgress }, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump, crouch: input.crouch, bowDraw: this.localBowDrawing });
     this.stepLocalAtmosphere(input.dt);
   }
 
@@ -247,6 +245,11 @@ export class WorldClient {
     this.send({ t: "chestTakeAll", chestId, seq: this.armChestSeq() });
   }
   debugSpawn(kind: EntityKind, count = 1): void { this.send({ t: "debugSpawn", kind, count, seq: this.nextSeq() }); }
+  sendAdmin(req: { readonly action: "godMode" | "heal" | "give" | "clearWebs"; readonly enabled?: boolean | undefined; readonly itemId?: string | undefined; readonly count?: number | undefined }): void {
+    const enabled = req.action === "godMode" ? (req.enabled ?? !this.localPlayer.godMode) : req.enabled;
+    if (this.mode !== "server" || req.action === "godMode") this.localPlayer = applyOfflineAdminPreview(this.localPlayer, { action: req.action, ...(enabled !== undefined ? { enabled } : {}) });
+    this.send({ t: "admin", ...req, ...(enabled !== undefined ? { enabled } : {}), seq: this.nextSeq() });
+  }
   placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number }): void { this.send({ t: "placeStructure", ...req, seq: this.armInvSeq() }); }
   setRespawnBed(structureId: string): void { this.send({ t: "setRespawnBed", structureId, seq: this.nextSeq() }); }
   pickupLoot(lootId?: string): void { this.send({ t: "pickupLoot", ...(lootId ? { lootId } : {}), seq: this.armInvSeq() }); }
@@ -256,7 +259,7 @@ export class WorldClient {
     const players = this.mode === "server" ? this.remotePlayers.map((p) => (p.id === this.localPlayerId ? localWithGear : this.remoteSmoother.resolve(p))) : [localWithGear];
     const events = this.queuedEvents;
     this.queuedEvents = [];
-    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, events };
+    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events };
   }
 
   private nextSeq(): number { return this.mode === "server" ? ++this.actionSeq : 0; }
