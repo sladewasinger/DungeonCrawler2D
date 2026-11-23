@@ -68,9 +68,21 @@ flowchart LR
 - **Shield & Bow**: Dedicated 5th **Shield / Off-Hand** slot (`wooden-shield` auto-clipping Lantern to the hip), directional block & timed parry stagger; hold-to-draw bow with charge gauge and rotated charge-scaled arrows *(elemental hooks deferred to Phase 12)*.
 - **Baseline Wildlife, POIs & Initial Indicators**: 3D-baked spritesheets for all 9 wildlife and POI guard archetypes (`wolf`, `bear`, `spider`, `boar`, `slime`, `goblin`, `orc`, `skeleton`, `golem`), initial perception/scent/chase behaviors, stamped `7×7` Bandit Camps & Ancient Ruins with `[E]` chests and magnetic loot, and an initial pass of overhead AI state icons *(full AI & stealth overhaul promoted to Phase 6)*.
 
-### Phase 5 — Zero-Mixel HD-Pixel World Art Pass 🚧 *(Next Up)*
+### Phase 5A — Zero-Mixel HD-Pixel World Art Pass 🚧 *(Next Up)*
 - Eliminate mixel mismatches between the `32px`-grid Cairo/3D-baked hero & creatures and older procedural world art.
 - Re-author crisp, palette-coherent **Oak & Pine trees** (trunks + layered canopies), **bushes**, **tall grass tufts**, **wildflowers**, **boulders & stumps**, **campfires/torches**, **Bandit Camp tents & wooden palisades**, **Ancient Ruin pillars**, **chests**, and matching item/HUD icons with unified pixel size and tuned relief normal maps.
+
+### Phase 5B — World Feel, Deep-Water Swimming, Lever Sway & Scalable Customization
+- **Player Disconnect Smoke Poof**: Authoritative `playerLeave` event bursting a configurable-duration (`4s` default) dissipating HD-pixel smoke cloud at the player's last tile + spatial *POOF* sound effect.
+- **Browser Shortcut Guard**: Intercept and suppress browser shortcuts (`Ctrl+S`, `Ctrl+O`, `Ctrl+P`, `Ctrl+F`, `Ctrl+D`, `Ctrl+G`, etc.) during active gameplay so `Ctrl` dodging never triggers Save/Open dialogs (while preserving DevTools).
+- **Large Centered Real Map**: Activating the `Map` item (or `[M]`) opens a large centered parchment map overlay (not a tiny corner minimap) showing explored terrain, rivers, cliffs, and landmarks.
+- **Torch Fire Particles & Metallic Golem Sparks**: Continuous rising flame/ember particles on held and placed torches, plus boosted iron-on-stone clash sparks & metallic clink cues when swords strike golems.
+- **Deep-Water Swimming (Players & Wildlife)**: Remove the hard `DeepWater` walk barrier — allow players and swimming wildlife to swim across rivers with waterline submersion clipping, concentric water ripples, slower swim speed + gentle stamina drain (no sudden cheap drownings), and natural shallow fords.
+- **Base-Anchored Lever-Arc Foliage Sway**: Upgrade grass and wildflower wind sway from rigid horizontal screen-space shifting (`foliageWindGlsl.ts`) to rooted base-anchored lever bending/arcing (`dx ∝ (1 - localY)^1.5`, slight tip dip) for natural wind physics.
+- **Scalable Hero Customization & Hundreds-of-Items Gear Architecture**:
+  - Switch `playerAssets.ts` from eager boot-time preloading to **on-demand lazy layer loading** with an LRU cache so dozens of hairstyles and hundreds of gear items never bloat startup.
+  - Replace hardcoded item checks in `playerCompositor.ts` with data-driven `ItemDef` layer metadata (`layerAssetId`, `layerSlot`, `zOrder`, `hidesHair`, 2-channel recolorable material/trim sentinels) + expanded slots (`head`, `face`/bandana, `chest`, `gloves`, `legs`, `feet`, `cape`, `offhand`).
+  - Expand hair color palettes and add **two-tone vertical/tip gradient hair colors** (e.g., pink->purple, black->red, midnight->cyan) computed in `playerCompositor.ts` at zero extra art cost.
 
 ### Phase 6 — Full Stealth RPG, Hearing/Vision & Ecological AI Overhaul
 - **Full Stealth Mechanics**: Dedicated crouch/sneak mode (lower speed & near-zero footstep noise), bush/tall-grass & shadow concealment, dynamic **light-level visibility meter** (driven by Day/Night lightmap + carried torch state + nearby campfires/torches), thrown distractions (pebbles/rocks creating investigate noise points), and **silent takedowns / backstab criticals** on unaware targets.
