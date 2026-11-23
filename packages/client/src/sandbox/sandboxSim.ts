@@ -1,5 +1,5 @@
 /** Self-contained local client-side sandbox world simulation (chests, combat, player, lineup). */
-import { STARTER_LOADOUT, getItemDef, maxStackForItem } from "@dc2d/content";
+import { STARTER_ARMOR, STARTER_LOADOUT, getItemDef, maxStackForItem } from "@dc2d/content";
 import {
   CHEST_SLOT_COUNT, DEFAULT_APPEARANCE, MAX_PLAYER_HP, MAX_PLAYER_STAMINA,
   createEmptyChestSlots, createEmptyInventoryState, equipArmorFromSlot,
@@ -54,7 +54,7 @@ const SANDBOX_CHEST_SPECS: readonly { readonly id: string; readonly poiKind: "ba
 function createStarterInv(): PlayerInventoryState {
   const base = createEmptyInventoryState();
   for (const item of STARTER_LOADOUT) base.slots[item.slot] = { itemId: item.itemId, count: item.count };
-  return { slots: base.slots, armor: { ...base.armor, offhand: "wooden-shield" } };
+  return { slots: base.slots, armor: { ...STARTER_ARMOR, offhand: "wooden-shield" } };
 }
 
 function createSandboxChests(): WorldChestSnapshot[] {

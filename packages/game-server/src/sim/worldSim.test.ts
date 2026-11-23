@@ -61,6 +61,14 @@ describe("WorldSim", () => {
     const id = sim.addPlayer("Scout");
     const initial = must(sim.inventorySnapshot(id));
     expect(initial.slots.length).toBe(36);
+    expect(initial.armor).toEqual({
+      head: null,
+      chest: "leather-tunic",
+      legs: "leather-leggings",
+      feet: "leather-boots",
+      offhand: null,
+    });
+    expect(computeArmorDefense(initial.armor, getItemDef)).toBe(9);
     expect(must(sim.snapshots()[0]).heldItem).toBe("sword");
 
     sim.selectHotbar(id, 1);
@@ -79,7 +87,7 @@ describe("WorldSim", () => {
     sim.equipArmor(id, { slotIndex: 9, targetArmor: "head" });
     const afterArmor = must(sim.inventorySnapshot(id));
     expect(afterArmor.armor.head).toBe("leather-hood");
-    expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(2);
+    expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(11);
     expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
 
     const customLook = { body: "female", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;

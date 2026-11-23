@@ -1,12 +1,12 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
+import { STARTER_ARMOR } from "@dc2d/content";
 import {
   COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
-  type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot,
+  type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
 const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
 const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles;
-const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 
 export function createDefaultPlayer(
   id: string,
@@ -15,7 +15,7 @@ export function createDefaultPlayer(
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
     facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false,
-    lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...EMPTY_ARMOR },
+    lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...STARTER_ARMOR },
   };
 }
 

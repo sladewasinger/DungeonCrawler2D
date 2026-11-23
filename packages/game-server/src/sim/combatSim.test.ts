@@ -116,7 +116,7 @@ describe("combatSim", () => {
     let seqB = advanceMove({ sim, id: b, moveX: 1, moveY: 0, steps: 33, seqStart: 1 });
     sim.queueInput(b, { seq: seqB++, moveX: 0, moveY: 0 });
     sim.selectHotbar(a, 0);
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 24; i++) {
       sim.queueInput(a, { seq: seqA++, moveX: 0, moveY: 0, aimX: 1, aimY: 0, attack: true });
       for (let s = 0; s < 6; s++) sim.step();
       if ((must(sim.snapshots().find((p) => p.id === b)).hp ?? 100) <= 0) break;

@@ -26,6 +26,22 @@ export interface StarterLoadoutEntry {
   readonly count: number;
 }
 
+export interface StarterArmorLoadout {
+  readonly head: string | null;
+  readonly chest: string | null;
+  readonly legs: string | null;
+  readonly feet: string | null;
+  readonly offhand: string | null;
+}
+
+export const STARTER_ARMOR: StarterArmorLoadout = {
+  head: null,
+  chest: "leather-tunic",
+  legs: "leather-leggings",
+  feet: "leather-boots",
+  offhand: null,
+};
+
 const CAT_WEAPON: ItemCategory = "weapon";
 const CAT_TOOL: ItemCategory = "tool";
 const CAT_ARMOR: ItemCategory = "armor";
@@ -62,14 +78,11 @@ export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [
   { slot: 4, itemId: "bandage", count: 3 },
   { slot: 8, itemId: "map", count: 1 },
   { slot: 9, itemId: "leather-hood", count: 1 },
-  { slot: 10, itemId: "leather-tunic", count: 1 },
   { slot: 11, itemId: "wood", count: 8 },
   { slot: 12, itemId: "stone", count: 6 },
   { slot: 13, itemId: "flint", count: 4 },
   { slot: 14, itemId: "raw-meat", count: 3 },
   { slot: 15, itemId: "herb", count: 4 },
-  { slot: 16, itemId: "leather-boots", count: 1 },
-  { slot: 17, itemId: "leather-leggings", count: 1 },
   { slot: 18, itemId: "wooden-shield", count: 1 },
 ];
 
