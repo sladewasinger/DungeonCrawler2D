@@ -73,17 +73,13 @@ const UPRIGHT_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; reado
 };
 
 const HAND_LANTERN_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly y: number; readonly rot: number; readonly behind: boolean }>> = {
-  south: { x: 4.8, y: -7.2, rot: 0.08, behind: false },
-  north: { x: -4.8, y: -7.2, rot: -0.08, behind: true },
-  east: { x: 4.8, y: -7.4, rot: 0.14, behind: true },
-  west: { x: -3.4, y: -7.0, rot: -0.14, behind: false },
+  south: { x: 4.8, y: -7.2, rot: 0.08, behind: false }, north: { x: -4.8, y: -7.2, rot: -0.08, behind: true },
+  east: { x: 4.8, y: -7.4, rot: 0.14, behind: true }, west: { x: -3.4, y: -7.0, rot: -0.14, behind: false },
 };
 
 const LANTERN_SPECS: Readonly<Record<CardinalFacing, { readonly x: number; readonly behind: boolean }>> = {
-  south: { x: 4.2, behind: false },
-  north: { x: -4.2, behind: true },
-  east: { x: 1.4, behind: true },
-  west: { x: -1.4, behind: false },
+  south: { x: 4.2, behind: false }, north: { x: -4.2, behind: true },
+  east: { x: 1.4, behind: true }, west: { x: -1.4, behind: false },
 };
 
 type PoseSpec = { readonly x: number; readonly y: number; readonly rot: number; readonly scaleSign: number; readonly behind: boolean };
@@ -134,20 +130,37 @@ export function resolveAimCardinal(ax: number, ay: number, fallback: CardinalFac
   return dir === "side" ? (flipX ? "west" : "east") : dir;
 }
 
+function resolveActorTint(hit: number, staggered: boolean): number {
+  if (staggered) return 0xfef08a;
+  if (hit > 0.16) return 0xffa8a8;
+  return hit > 0 ? 0xfca5a5 : 0xffffff;
+}
+
+function resolveDodgeRot(dodging: boolean, facingX: number, is3d?: boolean): number {
+  return dodging && !is3d ? Math.sign(facingX || 1) * 0.16 : 0;
+}
+
+function resolveActorAlpha(dodging: boolean, invulnTimer: number | undefined, timeSec: number | undefined): number {
+  if (dodging) return 0.62;
+  if ((invulnTimer ?? 0) > 0) return Math.floor((timeSec ?? 0) * 20) % 2 === 0 ? 0.48 : 0.96;
+  return 1;
+}
+
 export function computeActorCombatFx(opts: {
   readonly aimX: number; readonly aimY: number; readonly facingX: number;
   readonly swingProgress: number; readonly comboStep: number;
   readonly dodging: boolean; readonly staggered: boolean;
+  readonly invulnTimer?: number | undefined;
+  readonly hitTimer?: number | undefined; readonly downed?: boolean | undefined; readonly timeSec?: number | undefined;
+  readonly is3d?: boolean | undefined;
 }): { readonly x: number; readonly y: number; readonly rot: number; readonly alpha: number; readonly tint: number } {
+  if (opts.downed) {
+    return opts.is3d ? { x: 0, y: 0, rot: 0, alpha: 0.9, tint: 0x94a3b8 } : { x: 0, y: 4, rot: Math.PI * 0.48, alpha: 0.78, tint: 0x94a3b8 };
+  }
   const lunge = computeSwingLunge(opts);
-  const dodgeRot = opts.dodging ? Math.sign(opts.facingX || 1) * 0.16 : 0;
-  return {
-    x: lunge.x,
-    y: lunge.y,
-    rot: lunge.rot + dodgeRot,
-    alpha: opts.dodging ? 0.58 : 1,
-    tint: opts.staggered ? 0xfef08a : 0xffffff,
-  };
+  const hit = opts.hitTimer ?? 0;
+  const w = hit > 0 ? Math.sin((opts.timeSec ?? 0) * 58) * 1.4 : 0;
+  return { x: lunge.x + w, y: lunge.y, rot: lunge.rot + resolveDodgeRot(opts.dodging, opts.facingX, opts.is3d), alpha: resolveActorAlpha(opts.dodging, opts.invulnTimer, opts.timeSec), tint: resolveActorTint(hit, opts.staggered) };
 }
 
 function swingMeleePose(opts: {

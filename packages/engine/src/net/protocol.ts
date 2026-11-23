@@ -121,6 +121,7 @@ export const PlayerSnapshotSchema = z.object({
   jumpZ: z.number().optional(),
   jumpVz: z.number().optional(),
   moving: z.boolean(),
+  sprinting: z.boolean().optional(),
   torchLit: z.boolean(),
   inWater: z.boolean(),
   lastAckSeq: z.number().int(),
@@ -136,8 +137,11 @@ export const PlayerSnapshotSchema = z.object({
   bowCharge: z.number().optional(),
   blocking: z.boolean().optional(),
   dodging: z.boolean().optional(),
+  invulnTimer: z.number().optional(),
   staggerTimer: z.number().optional(),
   bleedTimer: z.number().optional(),
+  hitTimer: z.number().optional(),
+  respawnTimer: z.number().optional(),
   inSanctuary: z.boolean().optional(),
 });
 
@@ -165,6 +169,7 @@ export const WorldEntitySnapshotSchema = z.object({
   x: z.number(),
   y: z.number(),
   elevation: z.number(),
+  jumpZ: z.number().optional(),
   facingX: z.number(),
   facingY: z.number(),
   hp: z.number(),
@@ -204,7 +209,7 @@ export const GroundLootSnapshotSchema = z.object({
 export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 
 export const WorldEventSchema = z.object({
-  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot"]),
+  kind: z.enum(["swing", "hit", "block", "parry", "arrowFire", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal"]),
   x: z.number(),
   y: z.number(),
   dirX: z.number().optional(),
@@ -213,12 +218,16 @@ export const WorldEventSchema = z.object({
   actorId: z.string().optional(),
   targetId: z.string().optional(),
   comboStep: z.number().int().optional(),
+  sweepDir: z.number().optional(),
   goreStyle: GoreStyleSchema.optional(),
   substance: GoreSubstanceSchema.optional(),
   fatal: z.boolean().optional(),
+  entityKind: z.enum(ENTITY_KINDS).optional(),
+  vocalKind: z.enum(["alert", "attack", "charge", "hurt", "death"]).optional(),
 });
 
 export type WorldEvent = z.infer<typeof WorldEventSchema>;
+export type CreatureVocalKind = NonNullable<WorldEvent["vocalKind"]>;
 
 export const ServerWelcomeSchema = z.object({
   t: z.literal("welcome"),

@@ -1,6 +1,7 @@
 /** Procedural surface footsteps, layered water splash/plunge, and heavy dirt landing SFX. */
 import { GroundKind } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
+import { playSavedStudioPreset } from "./studioOverrides.js";
 import { playNoiseBurst, playSweptNoise, playTone } from "./synthSfx.js";
 
 const FILTER_LP: BiquadFilterType = "lowpass";
@@ -15,35 +16,41 @@ const STEP_SPECS: Readonly<Record<number, { readonly freq: number; readonly q: n
   [GroundKind.Sand]: { freq: 1100, q: 0.9, dur: 0.08, gain: 0.09 },
 };
 
-function synthWaterSplash(ctx: AudioContext, dst: AudioNode): void {
+function synthWaterSplash(ctx: AudioContext, dst: AudioNode, sprinting: boolean): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "water-step", gainScale: sprinting ? 1.0 : 0.76, pitchJitter: 0.06 })) return;
   const ft = AUDIO_TUNING.footsteps;
+  const g = sprinting ? 1.0 : 0.76;
   playSweptNoise({
     ctx, dst, duration: 0.19, f0: 300 + Math.random() * 80, f1: ft.waterSplashFreqHz * 1.3,
-    filterType: FILTER_BP, gain: ft.waterSplashGain, q: 1.35, attackSec: 0.045,
+    filterType: FILTER_BP, gain: ft.waterSplashGain * g, q: 1.35, attackSec: 0.045,
   });
   playSweptNoise({
     ctx, dst, duration: 0.24, f0: 1250 + Math.random() * 250, f1: 340,
-    filterType: FILTER_LP, gain: ft.waterSplashGain * 0.72, q: 0.9, attackSec: 0.04, delay: 0.05,
+    filterType: FILTER_LP, gain: ft.waterSplashGain * 0.72 * g, q: 0.9, attackSec: 0.04, delay: 0.05,
   });
   playTone({
     ctx, dst, wave: WAVE_SINE, f0: 360 + Math.random() * 80, f1: 680 + Math.random() * 120,
-    duration: 0.042, gain: ft.waterDropletGain * 0.34, delay: 0.075,
+    duration: 0.042, gain: ft.waterDropletGain * 0.34 * g, delay: 0.075,
   });
   playTone({
     ctx, dst, wave: WAVE_SINE, f0: 520 + Math.random() * 120, f1: 920 + Math.random() * 200,
-    duration: 0.038, gain: ft.waterDropletGain * 0.26, delay: 0.145,
+    duration: 0.038, gain: ft.waterDropletGain * 0.26 * g, delay: 0.145,
   });
 }
 
-export function synthFootstep(ctx: AudioContext, dst: AudioNode, ground: GroundKind): void {
+export function synthFootstep(opts: {
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly ground: GroundKind; readonly sprinting?: boolean | undefined;
+}): void {
+  const { ctx, dst, ground } = opts;
+  const sprinting = Boolean(opts.sprinting);
   if (ground === GroundKind.ShallowWater || ground === GroundKind.DeepWater) {
-    synthWaterSplash(ctx, dst);
+    synthWaterSplash(ctx, dst, sprinting);
     return;
   }
   const ft = AUDIO_TUNING.footsteps;
   const spec = STEP_SPECS[ground] ?? { freq: 620, q: 0.85, dur: 0.07, gain: 0.085 };
-  const bodyGain = spec.gain * ft.masterGain;
-  const freq = spec.freq * ft.pitchScale * (0.9 + Math.random() * 0.2);
+  const bodyGain = spec.gain * ft.masterGain * (sprinting ? 1.0 : 0.72);
+  const freq = spec.freq * ft.pitchScale * (sprinting ? 1.06 : 0.92) * (0.9 + Math.random() * 0.2);
   playNoiseBurst({ ctx, dst, duration: spec.dur * 1.1, freq, filterType: FILTER_LP, gain: bodyGain, q: 0.65 });
   playNoiseBurst({
     ctx, dst, duration: 0.032,
@@ -62,6 +69,7 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
     });
     return;
   }
+  if (landing && playSavedStudioPreset({ ctx, dst, presetId: "water-plunge", pitchJitter: 0.05 })) return;
   const big = ft.waterSplashGain * AUDIO_TUNING.landing.waterSplashMult;
   playTone({ ctx, dst, wave: WAVE_SINE, f0: 115, f1: 45, duration: 0.15, gain: 0.18 });
   playSweptNoise({
@@ -78,6 +86,7 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
 }
 
 function synthLandCrunch(ctx: AudioContext, dst: AudioNode): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "dirt-land", pitchJitter: 0.06 })) return;
   const ld = AUDIO_TUNING.landing;
   playSweptNoise({ ctx, dst, duration: ld.thudDurationSec, f0: ld.thudStartHz, f1: ld.thudEndHz, filterType: FILTER_LP, gain: ld.thudGain * 1.35, q: ld.thudQ, attackSec: 0.012 });
   playSweptNoise({ ctx, dst, delay: ld.dirtDelaySec, duration: ld.dirtDurationSec, f0: ld.dirtStartHz, f1: ld.dirtEndHz, filterType: FILTER_LP, gain: ld.dirtGain * 1.15, q: ld.dirtQ, attackSec: 0.028 });

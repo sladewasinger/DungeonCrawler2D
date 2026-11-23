@@ -1,12 +1,12 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
+import { STARTER_ARMOR } from "@dc2d/content";
 import {
   COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
-  type ArmorEquipment, type CharacterAppearance, type PlayerSnapshot,
+  type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
 const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
 const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles;
-const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 
 export function createDefaultPlayer(
   id: string,
@@ -14,8 +14,8 @@ export function createDefaultPlayer(
 ): PlayerSnapshot {
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, torchLit: true, inWater: false,
-    lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...EMPTY_ARMOR },
+    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false,
+    lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...STARTER_ARMOR },
   };
 }
 
@@ -64,8 +64,9 @@ function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
   return {
     hp: serverMe.hp, maxHp: serverMe.maxHp, stamina: serverMe.stamina, maxStamina: serverMe.maxStamina,
     comboStep: serverMe.comboStep, swingProgress: serverMe.swingProgress, bowCharge: serverMe.bowCharge,
-    blocking: serverMe.blocking, dodging: serverMe.dodging,
-    staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer, inSanctuary: serverMe.inSanctuary,
+    blocking: serverMe.blocking, dodging: serverMe.dodging, invulnTimer: serverMe.invulnTimer,
+    staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
+    hitTimer: serverMe.hitTimer, respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary,
   };
 }
 
@@ -103,25 +104,35 @@ export function predictLocalPlayerMove(input: {
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly jump?: boolean | undefined;
 }): PlayerSnapshot {
+  if ((input.player.respawnTimer ?? 0) > 0 || (input.player.staggerTimer ?? 0) > 0) {
+    return { ...input.player, moving: false, sprinting: false };
+  }
   const arc = stepJumpArc(
     { jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 },
     Boolean(input.jump),
     input.dt,
   );
-  const moving = Math.hypot(input.nx, input.ny) > 0.05;
+  const mag = Math.hypot(input.nx, input.ny);
+  const moving = mag > 0.05;
   const aimVec = resolveAim(input);
-  if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false };
-  const step = PLAYER_SPEED * movementMultiplier(input.player) * input.dt;
+  if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  const mult = movementMultiplier(input.player);
+  const step = PLAYER_SPEED * mult * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: input.player.x, y: input.player.y,
     dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS,
-    elevation: input.player.elevation, airborne: arc.jumpZ > 0.02,
+    elevation: input.player.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
-  const nextJumpZ = arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z;
+  const nextJumpZ = Math.max(0, arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
+  const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(input.player.dodging) });
   return {
     ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz, moving: true, inWater: moved.inWater,
+    ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz, moving: true, sprinting, inWater: moved.inWater,
   };
+}
+
+function isSprintingPrediction(opts: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean {
+  return opts.mag > 0.82 && opts.mult >= 0.99 && !opts.inWater && !opts.dodging;
 }
 
 function resolveAim(input: {

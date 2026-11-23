@@ -32,14 +32,25 @@ export const enum PropKind {
 
 export type BiomeKind = "verdant-glade" | "deep-forest" | "riverbank" | "highland-ridge";
 export type PoiKind = "bandit-camp" | "ancient-ruins";
+export type PoiLayoutKind =
+  | "camp-outpost"
+  | "camp-l-shape"
+  | "camp-courtyard"
+  | "camp-warband"
+  | "ruins-shrine"
+  | "ruins-colonnade"
+  | "ruins-sanctum";
 
 export interface ChunkPoi {
   readonly id: string;
   readonly kind: PoiKind;
+  readonly layout: PoiLayoutKind;
   readonly cx: number;
   readonly cy: number;
   readonly centerX: number;
   readonly centerY: number;
+  readonly radiusX: number;
+  readonly radiusY: number;
   readonly elevation: number;
   readonly chestX: number;
   readonly chestY: number;

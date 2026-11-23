@@ -96,11 +96,29 @@ export function applyInternalDepthCreases(img, depthImg, threshold = 16) {
   return { width, height, rgba: out };
 }
 
+const DISK_2PX_OFFSETS = [
+  [-1, 0], [1, 0], [0, -1], [0, 1],
+  [-1, -1], [1, -1], [-1, 1], [1, 1],
+  [-2, 0], [2, 0], [0, -2], [0, 2],
+];
+
+function neighborIndicesInDisk(idx, width, height) {
+  const x = idx % width;
+  const y = (idx - x) / width;
+  const out = [];
+  for (const [dx, dy] of DISK_2PX_OFFSETS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx >= 0 && nx < width && ny >= 0 && ny < height) out.push(ny * width + nx);
+  }
+  return out;
+}
+
 function findDarkestOpaqueNeighbor(img, idx) {
   const { width, height, rgba } = img;
   let bestRgb = null;
   let bestLuma = Infinity;
-  for (const ni of cardinals(idx, width, height)) {
+  for (const ni of neighborIndicesInDisk(idx, width, height)) {
     const p = ni * 4;
     if (rgba[p + 3] === 0) continue;
     const lum = luma(rgba[p], rgba[p + 1], rgba[p + 2]);
@@ -169,12 +187,47 @@ export function shiftSpriteFrame(img, dx, dy) {
   return { width, height, rgba: out };
 }
 
+function resolveTranslucentPixelAlpha(opts) {
+  const { r, g, b, isInterior, bodyAlpha } = opts;
+  if (!isInterior) return Math.round(255 * Math.min(1, bodyAlpha + 0.14));
+  const isWarmEye = r > g + 12;
+  const isDarkPupil = Math.max(r, g, b) < 38;
+  const isBrightSheen = luma(r, g, b) > 215;
+  if (isWarmEye || isDarkPupil || isBrightSheen) return 245;
+  return Math.round(255 * bodyAlpha);
+}
+
+export function applyTranslucentBodyAlpha(outlined, interiorMask, bodyAlpha = 1.0) {
+  if (bodyAlpha >= 0.999) return outlined;
+  const { width, height } = outlined;
+  const out = new Uint8Array(outlined.rgba);
+  const n = width * height;
+  for (let i = 0; i < n; i++) {
+    const p = i * 4;
+    if (out[p + 3] === 0) continue;
+    out[p + 3] = resolveTranslucentPixelAlpha({
+      r: out[p], g: out[p + 1], b: out[p + 2],
+      isInterior: interiorMask[i] > 0, bodyAlpha,
+    });
+  }
+  return { width, height, rgba: out };
+}
+
+function captureOpaqueMask(img) {
+  const n = img.width * img.height;
+  const mask = new Uint8Array(n);
+  for (let i = 0; i < n; i++) mask[i] = img.rgba[i * 4 + 3] > 0 ? 1 : 0;
+  return mask;
+}
+
 export function postProcessFrame(opts) {
-  const clean = binarizeAndClean(opts.colorImg);
+  const clean = binarizeAndClean(opts.colorImg, opts.minIslandArea ?? 4);
   const creased = opts.depthImg ? applyInternalDepthCreases(clean, opts.depthImg) : clean;
+  const interiorMask = captureOpaqueMask(creased);
   const outlined = applyOuterSelOut(creased);
-  const bounds = measureSpriteBounds(outlined);
-  const dx = opts.dx ?? (Math.floor(outlined.width / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5));
+  const translucent = applyTranslucentBodyAlpha(outlined, interiorMask, opts.bodyAlpha ?? 1.0);
+  const bounds = measureSpriteBounds(translucent);
+  const dx = opts.dx ?? (Math.floor(translucent.width / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5));
   const dy = opts.dy ?? (opts.groundY - bounds.maxY);
-  return { frame: shiftSpriteFrame(outlined, dx, dy), bounds, dx, dy };
+  return { frame: shiftSpriteFrame(translucent, dx, dy), bounds, dx, dy };
 }

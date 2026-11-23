@@ -1,4 +1,6 @@
 /** Editable multi-track presets mirroring DungeonCrawler 2D's procedural Web Audio layers. */
+import { CREATURE_VOCAL_KINDS, CREATURE_VOICE_KINDS, getCreatureVoiceSpec } from "../audio/creatures/synthCreatureSfx.js";
+import type { VoiceLayer } from "../audio/creatures/creatureVoiceTypes.js";
 import type { NoiseColor, SoundPreset, SoundTrackSpec } from "./studioTypes.js";
 
 const WAVE_SINE: OscillatorType = "sine";
@@ -20,6 +22,58 @@ type PresetTrackInit = Omit<SoundTrackSpec, "enabled" | "solo" | "noiseColor" | 
 
 function trk(base: PresetTrackInit): SoundTrackSpec {
   return { noiseColor: N_WHITE, holdSec: 0, pan: 0, ...base, enabled: true, solo: false };
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function layerToStudioTrack(layer: VoiceLayer, id: string, idx: number): SoundTrackSpec {
+  const holdSec = layer.hold ?? Math.min(layer.dur * 0.42, Math.max(0, layer.dur - 0.02));
+  const delaySec = layer.delay ?? 0;
+  const n = idx + 1;
+  if (layer.kind === "vocal") {
+    return trk({
+      id, name: `Vocal ${n}`, kind: "vocal", wave: layer.wave, filterType: layer.filter, noiseColor: layer.color,
+      f0: layer.f0, f1: layer.f1, q: layer.q, delaySec, durationSec: layer.dur,
+      attackSec: layer.atk, holdSec, gain: layer.gain,
+    });
+  }
+  if (layer.kind === "tone") {
+    return trk({
+      id, name: `Formant ${n}`, kind: T_TONE, wave: layer.wave, filterType: F_LP,
+      f0: layer.f0, f1: layer.f1, q: 1, delaySec, durationSec: layer.dur,
+      attackSec: Math.min(0.012, layer.dur * 0.25), holdSec, gain: layer.gain,
+    });
+  }
+  if (layer.kind === "sweep") {
+    return trk({
+      id, name: `Sweep ${n}`, kind: T_SWEPT, wave: WAVE_SINE, filterType: layer.filter, noiseColor: layer.color,
+      f0: layer.f0, f1: layer.f1, q: layer.q, delaySec, durationSec: layer.dur,
+      attackSec: layer.atk, holdSec, gain: layer.gain,
+    });
+  }
+  return trk({
+    id, name: `Burst ${n}`, kind: T_NOISE, wave: WAVE_SINE, filterType: layer.filter, noiseColor: layer.color,
+    f0: layer.freq, f1: layer.freq, q: layer.q, delaySec, durationSec: layer.dur,
+    attackSec: Math.min(0.014, layer.dur * 0.2), holdSec, gain: layer.gain,
+  });
+}
+
+function buildCreaturePresets(): SoundPreset[] {
+  const out: SoundPreset[] = [];
+  for (const kind of CREATURE_VOICE_KINDS) {
+    for (const vocal of CREATURE_VOCAL_KINDS) {
+      const tracks = getCreatureVoiceSpec(kind, vocal).map((l, i) => layerToStudioTrack(l, `${kind}-${vocal}-${i + 1}`, i));
+      out.push({
+        id: `creature-${kind}-${vocal}`,
+        name: `Creature: ${capitalize(kind)} — ${capitalize(vocal)}`,
+        description: `Procedural ${kind} ${vocal} vocalization from live creature audio.`,
+        tracks,
+      });
+    }
+  }
+  return out;
 }
 
 export const STUDIO_PRESETS: readonly SoundPreset[] = [
@@ -115,4 +169,5 @@ export const STUDIO_PRESETS: readonly SoundPreset[] = [
       trk({ id: "swd3", name: "Right Breeze Shimmer", kind: T_SWEPT, wave: WAVE_SINE, filterType: F_BP, noiseColor: N_PINK, f0: 940, f1: 420, q: 1.4, delaySec: 0.25, durationSec: 0.72, attackSec: 0.15, holdSec: 0.18, gain: 0.18, pan: 0.65 }),
     ],
   },
+  ...buildCreaturePresets(),
 ];

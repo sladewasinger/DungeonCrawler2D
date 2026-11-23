@@ -9,6 +9,7 @@ import {
   paintStairFaceTile32,
   type TilePalette,
 } from "./terrainTileDetails.js";
+import { paintSoftBlob } from "./terrainTileMotifs.js";
 
 export { TERRAIN_TEX_PX } from "./terrainTileDetails.js";
 
@@ -25,15 +26,15 @@ export interface TerrainTileAtlas {
 }
 
 const GROUND_PALETTES: Readonly<Record<GroundKind, TilePalette>> = {
-  [GroundKind.DeepWater]: { base: "#174870", mid: "#1b5888", dark: "#123858", highlight: "#2974a8" },
-  [GroundKind.ShallowWater]: { base: "#2a7da6", mid: "#3594bd", dark: "#22658a", highlight: "#58b5d6" },
-  [GroundKind.Sand]: { base: "#dcc088", mid: "#cfb177", dark: "#b6945d", highlight: "#ead4a4", accent: "#a88754" },
-  [GroundKind.Grass]: { base: "#3e8b43", mid: "#367d3b", dark: "#2c6932", highlight: "#52a34f", accent: "#6bc25e" },
-  [GroundKind.MeadowGrass]: { base: "#52a246", mid: "#47923d", dark: "#3a7b33", highlight: "#6dbe54", accent: "#f6df75" },
-  [GroundKind.ForestFloor]: { base: "#2b6335", mid: "#24542d", dark: "#1c4324", highlight: "#3b7a42", accent: "#7c5838" },
-  [GroundKind.DirtPath]: { base: "#9c7349", mid: "#8b633d", dark: "#735030", highlight: "#b5895b", accent: "#c7ad8a" },
-  [GroundKind.CliffStone]: { base: "#6c7684", mid: "#5c6573", dark: "#49515e", highlight: "#8b96a6", accent: "#4e7c44" },
-  [GroundKind.MossStone]: { base: "#5d7c54", mid: "#4e6d47", dark: "#3d5838", highlight: "#769a67", accent: "#8896a3" },
+  [GroundKind.DeepWater]: { base: "#205982", mid: "#1a4b70", dark: "#143b5c", highlight: "#357aa8" },
+  [GroundKind.ShallowWater]: { base: "#3d96b8", mid: "#3385a8", dark: "#287094", highlight: "#78c7de" },
+  [GroundKind.Sand]: { base: "#e3c992", mid: "#d3b780", dark: "#ba9b66", highlight: "#f0dbab", accent: "#f6ebd0" },
+  [GroundKind.Grass]: { base: "#5c9948", mid: "#518b40", dark: "#437836", highlight: "#78b454", accent: "#8ec85e" },
+  [GroundKind.MeadowGrass]: { base: "#6daa4b", mid: "#5f9a42", dark: "#4e8338", highlight: "#88c459", accent: "#f6e37a" },
+  [GroundKind.ForestFloor]: { base: "#38693c", mid: "#2f5a34", dark: "#24472b", highlight: "#4b8048", accent: "#8b623f" },
+  [GroundKind.DirtPath]: { base: "#b0865c", mid: "#9e744e", dark: "#7c583a", highlight: "#c79d70", accent: "#d8be98" },
+  [GroundKind.CliffStone]: { base: "#7d838c", mid: "#6a7079", dark: "#4c515c", highlight: "#9ba2ac", accent: "#678b54" },
+  [GroundKind.MossStone]: { base: "#6e7774", mid: "#5d6664", dark: "#434b4b", highlight: "#8c9690", accent: "#578b42" },
 };
 
 const GROUND_KINDS: readonly GroundKind[] = [
@@ -41,26 +42,27 @@ const GROUND_KINDS: readonly GroundKind[] = [
   GroundKind.MeadowGrass, GroundKind.ForestFloor, GroundKind.DirtPath, GroundKind.CliffStone, GroundKind.MossStone,
 ];
 
-function pickScatterColor(r: number, palette: TilePalette): string | null {
-  if (r < 0.22) return palette.mid;
-  if (r > 0.96 && palette.accent) return palette.accent;
-  if (r > 0.86) return palette.dark;
-  if (r > 0.72 && r < 0.8) return palette.highlight;
+function pickGrainColor(r: number, palette: TilePalette): string | null {
+  if (r < 0.25) return palette.mid;
+  if (r > 0.965 && palette.accent) return palette.accent;
+  if (r > 0.87) return palette.dark;
+  if (r > 0.74 && r < 0.82) return palette.highlight;
   return null;
 }
 
-function paintClusterCell(
+function paintGrainCell(
   ctx: CanvasRenderingContext2D,
   cell: { readonly x: number; readonly y: number; readonly seed: number },
   palette: TilePalette,
 ): void {
-  const color = pickScatterColor(seededPixelNoise(cell.seed, cell.x, cell.y), palette);
+  const color = pickGrainColor(seededPixelNoise(cell.seed, cell.x, cell.y), palette);
   if (!color) return;
   ctx.fillStyle = color;
-  ctx.fillRect(cell.x, cell.y, 2, (cell.x + cell.y) % 4 === 0 ? 2 : 1);
+  const tall = (cell.x + cell.y) % 4 === 0 ? 2 : 1;
+  ctx.fillRect(cell.x, cell.y, 2, tall);
 }
 
-function scatterTileClusters(input: {
+function scatterSurfaceGrain(input: {
   readonly ctx: CanvasRenderingContext2D;
   readonly kind: GroundKind;
   readonly variant: number;
@@ -69,7 +71,25 @@ function scatterTileClusters(input: {
   const { ctx, kind, variant, palette } = input;
   const seed = Number(kind) * 193 + variant * 41;
   for (let y = 0; y < TERRAIN_TEX_PX; y += 2) {
-    for (let x = 0; x < TERRAIN_TEX_PX; x += 2) paintClusterCell(ctx, { x, y, seed }, palette);
+    for (let x = 0; x < TERRAIN_TEX_PX; x += 2) paintGrainCell(ctx, { x, y, seed }, palette);
+  }
+}
+
+function paintSoftTonalPatches(input: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly kind: GroundKind;
+  readonly variant: number;
+  readonly palette: TilePalette;
+}): void {
+  const { ctx, kind, variant, palette } = input;
+  const count = kind === GroundKind.CliffStone || kind === GroundKind.MossStone ? 3 : 6;
+  const seed = Number(kind) * 233 + variant * 53;
+  for (let i = 0; i < count; i++) {
+    const x = Math.floor(seededPixelNoise(seed, i, 1) * TERRAIN_TEX_PX);
+    const y = Math.floor(seededPixelNoise(seed, i, 2) * TERRAIN_TEX_PX);
+    const w = 4 + Math.floor(seededPixelNoise(seed, i, 3) * 4);
+    const h = 3 + (i & 1);
+    paintSoftBlob(ctx, { x, y }, { w, h, color: palette.mid });
   }
 }
 
@@ -78,7 +98,8 @@ function paintTerrainTile32(kind: GroundKind, variant: number): HTMLCanvasElemen
   const palette = GROUND_PALETTES[kind];
   ctx.fillStyle = palette.base;
   ctx.fillRect(0, 0, TERRAIN_TEX_PX, TERRAIN_TEX_PX);
-  scatterTileClusters({ ctx, kind, variant, palette });
+  paintSoftTonalPatches({ ctx, kind, variant, palette });
+  scatterSurfaceGrain({ ctx, kind, variant, palette });
   paintOrganicDetails({ ctx, kind, variant, palette });
   return canvas;
 }

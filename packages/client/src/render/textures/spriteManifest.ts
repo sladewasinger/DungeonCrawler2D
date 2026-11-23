@@ -1,7 +1,8 @@
 /** Preloads pixel-art PNG sprites and sliced spritesheet animations from sprite-manifest.json. */
 import { Assets, Rectangle, Texture } from "pixi.js";
+import { preloadPlayerAssets } from "../character/playerAssets.js";
 
-export type SpriteDirection = "south" | "side" | "north";
+export type SpriteDirection = "south" | "se" | "side" | "ne" | "north";
 export type SpriteAnimState = "idle" | "walk" | "run" | "attack" | "corpse";
 
 export interface SpriteAnimClipSpec {
@@ -104,7 +105,10 @@ async function fetchAndLoadManifest(): Promise<void> {
     if (!res.ok) return;
     const data = (await res.json()) as ManifestFile;
     const entries = Object.entries(data.assets ?? {});
-    await Promise.all(entries.map(([id, entry]) => loadManifestEntry(id, entry)));
+    await Promise.all([
+      ...entries.map(([id, entry]) => loadManifestEntry(id, entry)),
+      preloadPlayerAssets(),
+    ]);
     loadedOnce = registry.size > 0;
   } catch (err) {
     console.warn("Sprite manifest preload skipped:", err);

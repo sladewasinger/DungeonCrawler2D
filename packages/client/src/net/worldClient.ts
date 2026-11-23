@@ -123,7 +123,10 @@ export class WorldClient {
     this.ws = null;
     this.entities = [];
     this.projectiles = [];
-    this.localPlayer = { ...this.localPlayer, dodging: false, blocking: false, staggerTimer: 0, bowCharge: 0, swingProgress: 0 };
+    this.localPlayer = {
+      ...this.localPlayer,
+      dodging: false, blocking: false, staggerTimer: 0, hitTimer: 0, respawnTimer: 0, bowCharge: 0, swingProgress: 0,
+    };
     if (this.autoReconnect && this.reconnectTimer === null) {
       this.reconnectTimer = window.setTimeout(() => { this.reconnectTimer = null; this.connect(); }, 2500);
     }

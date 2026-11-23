@@ -83,6 +83,8 @@ export function damageDummy(input: {
   readonly dirX: number;
   readonly dirY: number;
   readonly goreStyle: GoreStyle;
+  readonly comboStep?: number | undefined;
+  readonly sweepDir?: number | undefined;
   readonly actorId: string;
   readonly events: WorldEvent[];
 }): boolean {
@@ -96,7 +98,8 @@ export function damageDummy(input: {
   const style: GoreStyle = fatal && e.kind === KIND_SLIME ? "explode-away" : input.goreStyle;
   input.events.push({
     kind: "hit", x: e.x, y: e.y, dirX: input.dirX, dirY: input.dirY, value: input.damage,
-    actorId: input.actorId, targetId: e.id, goreStyle: style, substance: e.substance, fatal,
+    actorId: input.actorId, targetId: e.id, comboStep: input.comboStep, sweepDir: input.sweepDir,
+    goreStyle: style, substance: e.substance, fatal,
   });
   if (fatal) finalizeDummyKill(e);
   return true;

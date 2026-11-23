@@ -43,7 +43,7 @@ function loadClipsMetadata(args) {
 }
 
 function processDirectionClip(opts) {
-  const { rawDir, dir, state, frameCount, groundY, baseAnchor } = opts;
+  const { rawDir, dir, state, frameCount, groundY, baseAnchor, minIslandArea, bodyAlpha } = opts;
   const rawFrames = [];
   const processed = [];
   let anchorShift = baseAnchor ?? null;
@@ -52,7 +52,10 @@ function processDirectionClip(opts) {
     const depthFile = path.join(rawDir, `${dir}_${state}_f${f}_depth.png`);
     const depthImg = fs.existsSync(depthFile) ? decodePng(fs.readFileSync(depthFile)) : null;
     rawFrames.push(colorImg);
-    const res = postProcessFrame({ colorImg, depthImg, groundY, dx: anchorShift?.dx, dy: anchorShift?.dy });
+    const res = postProcessFrame({
+      colorImg, depthImg, groundY, minIslandArea, bodyAlpha,
+      dx: anchorShift?.dx, dy: anchorShift?.dy,
+    });
     anchorShift ??= { dx: res.dx, dy: res.dy };
     processed.push(res.frame);
   }
@@ -96,17 +99,19 @@ function paintReviewPixel(opts) {
   const sy = Math.floor(y / zoom);
   const sp = (sy * combined.width + sx) * 4;
   const dp = (y * rw + x) * 4;
-  const rgb = combined.rgba[sp + 3] > 0
-    ? [combined.rgba[sp], combined.rgba[sp + 1], combined.rgba[sp + 2]]
-    : resolveBackdropRgb({ sx, sy, cellW, cellH, groundY });
-  out[dp] = rgb[0]; out[dp + 1] = rgb[1]; out[dp + 2] = rgb[2]; out[dp + 3] = 255;
+  const bg = resolveBackdropRgb({ sx, sy, cellW, cellH, groundY });
+  const a = combined.rgba[sp + 3] / 255;
+  out[dp] = Math.round(bg[0] * (1 - a) + combined.rgba[sp] * a);
+  out[dp + 1] = Math.round(bg[1] * (1 - a) + combined.rgba[sp + 1] * a);
+  out[dp + 2] = Math.round(bg[2] * (1 - a) + combined.rgba[sp + 2] * a);
+  out[dp + 3] = 255;
 }
 
 function writeReviewContactSheet(opts) {
   const { rows, cellW, cellH, groundY, reviewPath } = opts;
   if (!reviewPath) return;
   const combined = packRows(rows, cellW, cellH);
-  const zoom = 4;
+  const zoom = cellW >= 120 ? 2 : cellW >= 96 ? 3 : 4;
   const rw = combined.width * zoom;
   const rh = combined.height * zoom;
   const out = new Uint8Array(rw * rh * 4);
@@ -122,7 +127,10 @@ function bakeDirectionRow(opts) {
   const { args, state, frameCount, dir, anchorsByDir } = opts;
   const isCorpse = state === "corpse";
   const baseAnchor = isCorpse ? null : anchorsByDir.get(dir);
-  const res = processDirectionClip({ rawDir: args.rawDir, dir, state, frameCount, groundY: args.groundY, baseAnchor });
+  const res = processDirectionClip({
+    rawDir: args.rawDir, dir, state, frameCount,
+    groundY: args.groundY, minIslandArea: args.minIslandArea, bodyAlpha: args.bodyAlpha, baseAnchor,
+  });
   if (!isCorpse && !anchorsByDir.has(dir)) anchorsByDir.set(dir, res.anchorShift);
   return res.processed;
 }
@@ -146,8 +154,12 @@ function bakeAllClips(args, meta) {
 function run() {
   const args = parseCliArgs(process.argv.slice(2));
   const meta = loadClipsMetadata(args);
+  const pxPerMeter = Number(meta.pxPerMeter ?? 32);
+  const scale = Number((16 / pxPerMeter).toFixed(4));
+  const minIslandArea = Math.max(4, Math.round(4 * (pxPerMeter / 32)));
+  const bodyAlpha = Number(meta.bodyAlpha ?? 1.0);
   const resolvedGroundY = args.groundY ?? meta.groundY ?? Math.round((meta.cellPx ?? 64) * 0.8125);
-  const effectiveArgs = { ...args, groundY: resolvedGroundY };
+  const effectiveArgs = { ...args, groundY: resolvedGroundY, minIslandArea, bodyAlpha };
   const { postRows, clipEntries } = bakeAllClips(effectiveArgs, meta);
   const cellW = postRows[0][0].width;
   const cellH = postRows[0][0].height;
@@ -157,8 +169,11 @@ function run() {
   fs.writeFileSync(path.join(args.outCreatures, `${args.creature}.png`), encodePng(cellW, cellH, postRows[0][0].rgba));
   writeReviewContactSheet({ rows: postRows, cellW, cellH, groundY: resolvedGroundY, reviewPath: args.reviewPath });
   const idleBounds = measureSpriteBounds(postRows[0][0]);
-  updateCreatureManifest({ manifestPath: args.manifestPath, creature: args.creature, cellW, cellH, idleBounds, groundY: resolvedGroundY, clipEntries });
-  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, groundY: resolvedGroundY, sheet: `${sheet.width}x${sheet.height}`, rows: postRows.length, bounds: idleBounds });
+  updateCreatureManifest({
+    manifestPath: args.manifestPath, creature: args.creature, cellW, cellH, idleBounds,
+    groundY: resolvedGroundY, scale, clipEntries, directions: meta.directions,
+  });
+  console.log({ creature: args.creature, cell: `${cellW}x${cellH}`, groundY: resolvedGroundY, pxPerMeter, scale, sheet: `${sheet.width}x${sheet.height}`, rows: postRows.length, bounds: idleBounds });
 }
 
 run();

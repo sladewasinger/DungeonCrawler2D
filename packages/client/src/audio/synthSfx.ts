@@ -1,6 +1,7 @@
 /** Procedural Web Audio API SFX synthesis with shared noise/tone envelope builders. */
 import type { GoreSubstance } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
+import { playSavedStudioPreset } from "./studioOverrides.js";
 import {
   applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
   type NoiseColor, type ProceduralTrackSpec,
@@ -119,21 +120,34 @@ export function playTone(opts: ToneOpts): void {
 }
 
 export function synthSwing(ctx: AudioContext, dst: AudioNode, comboStep: number): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
   const pitch = 1 + (comboStep - 1) * 0.14;
   playNoiseBurst({ ctx, dst, duration: 0.14, freq: 1350 * pitch, filterType: FILTER_BP, gain: AUDIO_TUNING.combat.swingGain, q: 1.8 });
   playTone({ ctx, dst, wave: WAVE_TRI, f0: 290 * pitch, f1: 120, duration: 0.1, gain: AUDIO_TUNING.combat.swingGain * 0.55 });
 }
+
+const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: AudioNode, opts: { readonly baseGain: number; readonly fatal: boolean }) => void>> = {
+  straw: (ctx, dst, { baseGain }) => {
+    playNoiseBurst({ ctx, dst, duration: 0.11, freq: 680, filterType: "lowpass", gain: baseGain });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 155, f1: 75, duration: 0.09, gain: baseGain * 0.7 });
+  },
+  stone: (ctx, dst, { baseGain, fatal }) => {
+    playNoiseBurst({ ctx, dst, duration: fatal ? 0.2 : 0.12, freq: 1450, filterType: FILTER_BP, gain: baseGain * (fatal ? 1.25 : 0.95), q: 1.4 });
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 140, f1: 52, duration: 0.12, gain: baseGain * 0.85 });
+  },
+  bone: (ctx, dst, { baseGain, fatal }) => {
+    playNoiseBurst({ ctx, dst, duration: fatal ? 0.18 : 0.1, freq: 2150, filterType: FILTER_BP, gain: baseGain * 0.95, q: 2.6 });
+    playTone({ ctx, dst, wave: "square", f0: 360, f1: 120, duration: 0.07, gain: baseGain * 0.55 });
+  },
+};
 
 export function synthImpact(opts: {
   readonly ctx: AudioContext; readonly dst: AudioNode; readonly substance: GoreSubstance; readonly fatal: boolean;
 }): void {
   const { ctx, dst, substance, fatal } = opts;
   const baseGain = AUDIO_TUNING.combat.impactGain;
-  if (substance === "straw") {
-    playNoiseBurst({ ctx, dst, duration: 0.11, freq: 680, filterType: "lowpass", gain: baseGain });
-    playTone({ ctx, dst, wave: WAVE_TRI, f0: 155, f1: 75, duration: 0.09, gain: baseGain * 0.7 });
-    return;
-  }
+  const dry = DRY_IMPACT_SPECS[substance];
+  if (dry) { dry(ctx, dst, { baseGain, fatal }); return; }
   const wetFreq = substance === "slime" ? 960 : 540;
   playTone({ ctx, dst, wave: WAVE_SINE, f0: substance === "slime" ? 260 : 185, f1: 65, duration: fatal ? 0.22 : 0.13, gain: fatal ? baseGain * 1.3 : baseGain * 0.9 });
   playNoiseBurst({ ctx, dst, duration: fatal ? 0.24 : 0.14, freq: wetFreq, filterType: FILTER_BP, gain: fatal ? baseGain * 1.3 : baseGain * 0.8, q: 2.2 });
@@ -164,7 +178,14 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
   loot: (ctx, dst) => playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1320, duration: 0.09, gain: 0.1 }),
 };
 
+const STUDIO_CUE_OVERRIDES: Partial<Record<CombatCueKind, string>> = {
+  parry: "shield-parry",
+  chestOpen: "chest-open",
+};
+
 export function synthCombatCue(ctx: AudioContext, dst: AudioNode, kind: CombatCueKind): void {
+  const overrideId = STUDIO_CUE_OVERRIDES[kind];
+  if (overrideId && playSavedStudioPreset({ ctx, dst, presetId: overrideId })) return;
   const fn = SIMPLE_CUES[kind];
   if (fn) { fn(ctx, dst); return; }
   if (kind === "heal" || kind === "respawn") {

@@ -61,6 +61,14 @@ describe("WorldSim", () => {
     const id = sim.addPlayer("Scout");
     const initial = must(sim.inventorySnapshot(id));
     expect(initial.slots.length).toBe(36);
+    expect(initial.armor).toEqual({
+      head: null,
+      chest: "leather-tunic",
+      legs: "leather-leggings",
+      feet: "leather-boots",
+      offhand: null,
+    });
+    expect(computeArmorDefense(initial.armor, getItemDef)).toBe(9);
     expect(must(sim.snapshots()[0]).heldItem).toBe("sword");
 
     sim.selectHotbar(id, 1);
@@ -79,7 +87,7 @@ describe("WorldSim", () => {
     sim.equipArmor(id, { slotIndex: 9, targetArmor: "head" });
     const afterArmor = must(sim.inventorySnapshot(id));
     expect(afterArmor.armor.head).toBe("leather-hood");
-    expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(2);
+    expect(computeArmorDefense(afterArmor.armor, getItemDef)).toBe(11);
     expect(must(sim.snapshots()[0]).armor?.head).toBe("leather-hood");
 
     const customLook = { body: "female", skin: "tan", eyeColor: "violet", hairStyle: "ponytail", hairColor: "red" } as const;
@@ -130,5 +138,22 @@ describe("WorldSim", () => {
     expect(landed.elevation).toBe(0);
     expect(landed.jumpZ).toBe(0);
     expect(landed.y).toBeGreaterThan(blockedAtRim.y);
+  });
+
+  it("distinguishes normal walking speed from shift sprinting in player snapshots", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("Walker");
+    sim.queueInput(id, { seq: 1, moveX: 0.64, moveY: 0 });
+    sim.step();
+    const walkSnap = must(sim.snapshots()[0]);
+    expect(walkSnap.moving).toBe(true);
+    expect(walkSnap.sprinting).toBe(false);
+    expect(walkSnap.facingX).toBeCloseTo(1, 3);
+
+    sim.queueInput(id, { seq: 2, moveX: 1, moveY: 0 });
+    sim.step();
+    const sprintSnap = must(sim.snapshots()[0]);
+    expect(sprintSnap.moving).toBe(true);
+    expect(sprintSnap.sprinting).toBe(true);
   });
 });

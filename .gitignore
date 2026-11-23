@@ -37,3 +37,8 @@ infra/.terraform/
 infra/*.tfplan
 infra/tfplan
 .scratch/
+
+# Python & Blender backups
+__pycache__/
+*.pyc
+*.blend1

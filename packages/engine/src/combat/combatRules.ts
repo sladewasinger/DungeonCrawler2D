@@ -1,6 +1,6 @@
 /** Pure combat math, sanctuary protection, bow ballistics, and composable gore definitions. */
 
-export const GORE_SUBSTANCES = ["blood", "slime", "ichor", "straw", "bone"] as const;
+export const GORE_SUBSTANCES = ["blood", "slime", "ichor", "straw", "bone", "stone"] as const;
 export type GoreSubstance = (typeof GORE_SUBSTANCES)[number];
 
 export const GORE_STYLES = ["splatter", "thin-streak", "drip", "chunk-spray", "explode-away"] as const;
@@ -9,11 +9,11 @@ export type GoreStyle = (typeof GORE_STYLES)[number];
 export const COMBAT_TUNING = {
   sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 7.5 },
   vitals: { maxHp: 100, maxStamina: 100, staminaRegenPerSec: 24, blockStaminaRegenMult: 0.45 },
-  movement: { runSpeedTilesPerSec: 5.6, walkSpeedRatio: 0.64, joystickDeadzone: 0.14, collisionRadiusTiles: 0.28 },
+  movement: { runSpeedTilesPerSec: 5.6, walkSpeedRatio: 0.5, joystickDeadzone: 0.14, collisionRadiusTiles: 0.28 },
   movementMults: { dodge: 1.9, swing: 0.55, block: 0.6, bowDraw: 0.78 },
   dodge: { staminaCost: 22, durationSec: 0.30, iframeSec: 0.24, cooldownSec: 0.55 },
   melee: { comboWindowSec: 0.65, swingSec: 0.26, comboDamageMult: [1.0, 1.1, 1.45] as const },
-  defense: { parryWindowSec: 0.22, parryStaggerSec: 1.25, blockStaminaDrain: 10 },
+  defense: { parryWindowSec: 0.22, parryStaggerSec: 1.25, blockStaminaDrain: 10, hitIframeSec: 0.42 },
   bow: { maxChargeSec: 0.85, minSpeedTilesPerSec: 11, extraSpeedTilesPerSec: 9, minDamageMult: 0.55, extraDamageMult: 0.8, staminaCost: 10 },
   bleed: { durationSec: 3.5 },
 } as const;
@@ -37,6 +37,7 @@ export const COMBO_DAMAGE_MULT = COMBAT_TUNING.melee.comboDamageMult;
 
 export const PARRY_WINDOW_SEC = COMBAT_TUNING.defense.parryWindowSec;
 export const PARRY_STAGGER_SEC = COMBAT_TUNING.defense.parryStaggerSec;
+export const HIT_IFRAME_SEC = COMBAT_TUNING.defense.hitIframeSec;
 export const BLEED_DURATION_SEC = COMBAT_TUNING.bleed.durationSec;
 export const BOW_MAX_CHARGE_SEC = COMBAT_TUNING.bow.maxChargeSec;
 

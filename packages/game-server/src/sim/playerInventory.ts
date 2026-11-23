@@ -1,5 +1,5 @@
 /** Authoritative player inventory, armor equip/unequip, and crafting state mutations. */
-import { getItemDef, getRecipeDef, maxStackForItem, STARTER_LOADOUT } from "@dc2d/content";
+import { getItemDef, getRecipeDef, maxStackForItem, STARTER_ARMOR, STARTER_LOADOUT } from "@dc2d/content";
 import {
   PropKind,
   cloneInventoryState,
@@ -17,7 +17,7 @@ import {
 export const CAMPFIRE_CRAFT_RADIUS = 4.0;
 
 export function createStarterInventory(): PlayerInventoryState {
-  const state = createEmptyInventoryState();
+  const state: PlayerInventoryState = { ...createEmptyInventoryState(), armor: { ...STARTER_ARMOR } };
   for (const entry of STARTER_LOADOUT) {
     if (entry.slot >= 0 && entry.slot < state.slots.length) {
       state.slots[entry.slot] = { itemId: entry.itemId, count: entry.count };

@@ -10,7 +10,7 @@ export const ENTITY_KINDS = [
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 export const AI_STATES = [
-  "idle", "patrol", "alert", "investigate", "chase", "flank", "charge", "ambush", "feed", "dead",
+  "idle", "patrol", "alert", "investigate", "chase", "flank", "charge", "ambush", "feed", "return", "dead",
 ] as const;
 export type AiState = (typeof AI_STATES)[number];
 

@@ -11,6 +11,8 @@ export interface QualityPresetSpec {
   readonly windShader: boolean;
   readonly godRays: boolean;
   readonly maxParticles: number;
+  readonly maxGoreDecals: number;
+  readonly maxGoreParticles: number;
   readonly chunkRadius: number;
 }
 
@@ -24,6 +26,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityPresetId, QualityPresetSpec
     windShader: true,
     godRays: true,
     maxParticles: 64,
+    maxGoreDecals: 800,
+    maxGoreParticles: 240,
     chunkRadius: 2,
   },
   balanced: {
@@ -35,6 +39,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityPresetId, QualityPresetSpec
     windShader: true,
     godRays: true,
     maxParticles: 36,
+    maxGoreDecals: 450,
+    maxGoreParticles: 150,
     chunkRadius: 1,
   },
   performance: {
@@ -46,6 +52,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityPresetId, QualityPresetSpec
     windShader: false,
     godRays: false,
     maxParticles: 16,
+    maxGoreDecals: 200,
+    maxGoreParticles: 80,
     chunkRadius: 1,
   },
 };
