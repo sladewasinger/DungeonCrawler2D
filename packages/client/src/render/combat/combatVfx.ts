@@ -125,13 +125,11 @@ export class CombatVfxLayer {
 
   private handleHitEvent(ev: WorldEvent, localId: string): void {
     const val = Math.round(ev.value ?? 0);
+    const hurtLocal = ev.targetId === localId;
     if (val > 0) {
-      this.spawnPopup({
-        x: ev.x, y: ev.y - 0.85, label: ev.fatal ? `-${val}!` : `-${val}`,
-        color: ev.fatal ? 0xfacc15 : 0xf87171,
-      });
+      this.spawnPopup({ x: ev.x, y: ev.y - 0.85, label: ev.fatal ? `-${val}!` : `-${val}`, color: hitPopupColor(ev.fatal, hurtLocal) });
     }
-    if (ev.actorId === localId || ev.targetId === localId) this.hitstopTimer = MELEE_SWING_TUNING.hitstopHitSec;
+    if (ev.actorId === localId || hurtLocal) this.hitstopTimer = MELEE_SWING_TUNING.hitstopHitSec;
   }
 
   private handleParryEvent(ev: WorldEvent, localId: string): void {
@@ -231,4 +229,9 @@ export class CombatVfxLayer {
     this.chargeBar.position.set(local.x * TILE_PX, local.y * TILE_PX - lift - 41);
     this.chargeBar.visible = true;
   }
+}
+
+function hitPopupColor(fatal: boolean | undefined, hurtLocal: boolean): number {
+  if (hurtLocal) return fatal ? 0xff1f1f : 0xff3b3b;
+  return fatal ? 0xfacc15 : 0xf87171;
 }

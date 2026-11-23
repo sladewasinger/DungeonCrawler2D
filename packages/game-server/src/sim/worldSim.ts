@@ -35,6 +35,7 @@ interface SimPlayer {
   moveX: number;
   moveY: number;
   moving: boolean;
+  sprinting: boolean;
   torchLit: boolean;
   inWater: boolean;
   lastAckSeq: number;
@@ -72,7 +73,7 @@ export class WorldSim {
       id, name, appearance: sanitizeCharacterAppearance(appearance),
       x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, aimX: 0, aimY: 1, hasExplicitAim: false,
       jumpZ: 0, jumpVz: 0, jumpQueued: false,
-      moveX: 0, moveY: 0, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
+      moveX: 0, moveY: 0, moving: false, sprinting: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
       attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, interactQueued: false,
       combat: createCombatState(),
@@ -186,26 +187,20 @@ export class WorldSim {
   }
 
   private movePlayer(p: SimPlayer, dtSeconds: number): void {
-    if (p.combat.staggerTimer > 0) { p.moving = false; return; }
-    const dodging = p.combat.dodgeTimer > 0;
-    const rawX = dodging ? p.combat.dodgeDirX : p.moveX;
-    const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
-    const mag = Math.hypot(rawX, rawY);
-    if (mag < 0.05) { p.moving = false; return; }
-    const nx = rawX / Math.max(1, mag);
-    const ny = rawY / Math.max(1, mag);
-    if (!p.hasExplicitAim && !dodging) setPlayerAim(p, rawX / mag, rawY / mag);
-    p.moving = true;
-    const step = PLAYER_SPEED_TILES_PER_SEC * this.combat.moveMultiplier(p) * dtSeconds;
+    const dir = desiredPlayerDir(p);
+    if (!dir) { p.moving = false; p.sprinting = false; return; }
+    const { nx, ny, mag } = dir;
+    if (!p.hasExplicitAim && p.combat.dodgeTimer <= 0) setPlayerAim(p, dir.rawX / mag, dir.rawY / mag);
+    const mult = this.combat.moveMultiplier(p);
+    const step = PLAYER_SPEED_TILES_PER_SEC * mult * dtSeconds;
     const res = resolveMovement({
       cache: this.cache, x: p.x, y: p.y, dx: nx * step, dy: ny * step,
-      radius: PLAYER_RADIUS, elevation: p.elevation, airborne: p.jumpZ > 0.02,
+      radius: PLAYER_RADIUS, elevation: p.elevation, airborne: p.jumpZ > 0.02, jumpZ: p.jumpZ,
     });
-    p.x = res.x;
-    p.y = res.y;
-    p.elevation = res.elevation;
-    if (res.elevationDrop > 0) p.jumpZ += res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z;
-    p.inWater = res.inWater;
+    p.x = res.x; p.y = res.y; p.elevation = res.elevation;
+    p.inWater = res.inWater; p.moving = true;
+    p.sprinting = isSprintingMove({ mag, mult, inWater: res.inWater, dodging: p.combat.dodgeTimer > 0 });
+    if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   }
 
   combatSnapshots(): {
@@ -224,12 +219,27 @@ export class WorldSim {
       id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
       facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
       jumpZ: p.jumpZ, jumpVz: p.jumpVz,
-      moving: p.moving, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
+      moving: p.moving, sprinting: p.sprinting, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
       heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
       appearance: p.appearance, armor: { ...p.inventory.armor },
       ...playerCombatExtras(p),
     }));
   }
+}
+
+function isSprintingMove(opts: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean {
+  return opts.mag > 0.82 && opts.mult >= 0.99 && !opts.inWater && !opts.dodging;
+}
+
+function desiredPlayerDir(p: SimPlayer): { readonly rawX: number; readonly rawY: number; readonly nx: number; readonly ny: number; readonly mag: number } | null {
+  if (p.combat.staggerTimer > 0 || p.combat.respawnTimer > 0) return null;
+  const dodging = p.combat.dodgeTimer > 0;
+  const rawX = dodging ? p.combat.dodgeDirX : p.moveX;
+  const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
+  const mag = Math.hypot(rawX, rawY);
+  if (mag < 0.05) return null;
+  const denom = Math.max(1, mag);
+  return { rawX, rawY, nx: rawX / denom, ny: rawY / denom, mag };
 }
 
 function setPlayerAim(p: SimPlayer, ax: number, ay: number): void {

@@ -40,7 +40,7 @@ export interface SceneFrameInput {
 }
 
 export const CAMERA_TUNING = {
-  defaultZoom: 3.8,
+  defaultZoom: 4.0,
   minZoom: 1.6,
   maxZoom: 5.0,
   followLerpRate: 9,
@@ -67,6 +67,8 @@ export class WorldScene {
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
+  private shakeMag = 0;
+  private shakeTime = 0;
   private zoom: number = CAMERA_TUNING.defaultZoom;
 
   private constructor(private readonly app: Application, host: HTMLElement) {
@@ -178,14 +180,21 @@ export class WorldScene {
     const events = input.events ?? [];
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
-    for (const ev of events) {
-      if (ev.kind === "hit" && ev.goreStyle && ev.substance) {
-        this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local)));
-      }
+    for (const ev of events) this.applyWorldHitFx(ev, input, local);
+  }
+
+  private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+    if (ev.kind !== "hit") return;
+    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
+    if (ev.goreStyle && ev.substance) {
+      this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local)));
     }
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {
+    this.shakeTime += dt;
+    this.shakeMag *= Math.exp(-16 * dt);
+    if (this.shakeMag < 0.08) this.shakeMag = 0;
     if (!local) return;
     const follow = Math.min(1, dt * CAMERA_TUNING.followLerpRate);
     this.camX += (local.x - this.camX) * follow;
@@ -195,9 +204,11 @@ export class WorldScene {
   private syncCameraContainers(): void {
     const sw = this.app.screen.width;
     const sh = this.app.screen.height;
+    const sx = this.shakeMag > 0 ? Math.sin(this.shakeTime * 71) * this.shakeMag : 0;
+    const sy = this.shakeMag > 0 ? Math.cos(this.shakeTime * 59) * this.shakeMag : 0;
     for (const host of this.filterHosts) host.filterArea = this.app.screen;
     for (const cam of this.cameras) {
-      cam.position.set(sw * 0.5, sh * 0.5);
+      cam.position.set(sw * 0.5 + sx, sh * 0.5 + sy);
       cam.pivot.set(this.camX * TILE_PX, this.camY * TILE_PX);
       cam.scale.set(this.zoom);
     }

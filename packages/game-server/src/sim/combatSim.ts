@@ -8,7 +8,7 @@ import {
 } from "@dc2d/engine";
 import {
   applyIncomingPlayerHit, comboMultFor, finisherGore, resolveDummyStrikeOnPlayer,
-  resolveMeleeHits, stepCombatTimers, tryHealConsumable, type CombatPlayerRef,
+  resolveMeleeHits, stepCombatTimers, stepPlayerRespawn, tryHealConsumable, type CombatPlayerRef,
 } from "./combatActions.js";
 import {
   createTrainingDummies, serializeDummies, stepTrainingDummies, type SimEntity,
@@ -49,6 +49,7 @@ export class CombatWorld {
 
   stepPlayerAction(req: CombatStepRequest): void {
     const { player: p, players, input, dt } = req;
+    if (stepPlayerRespawn(p, this.events, dt)) return;
     stepCombatTimers(p, input.blockHeld, dt);
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
     if (input.interactQueued) this.ecology.openChest(p, undefined, this.events);
@@ -80,7 +81,7 @@ export class CombatWorld {
     });
     this.ecology.step({
       dt, timeSec, dayPhase,
-      players: targets.map((p) => Object.assign(p, { moving: Boolean(p.moving) })),
+      players: targets.filter((p) => p.combat.respawnTimer <= 0).map((p) => Object.assign(p, { moving: Boolean(p.moving) })),
       events: this.events,
       onStrike: (entity, target) => {
         const hitPlayer = players.get(target.id);
@@ -216,7 +217,7 @@ export function playerCombatExtras(p: CombatPlayerRef) {
     swingProgress: c.swingTimer > 0 ? Math.min(1, 1 - c.swingTimer / c.swingDuration) : 0,
     bowCharge: Math.min(1, c.bowCharge / BOW_MAX_CHARGE_SEC),
     blocking: c.blocking, dodging: c.dodgeTimer > 0, staggerTimer: c.staggerTimer,
-    bleedTimer: c.bleedTimer, inSanctuary: isInSanctuary(p.x, p.y),
+    bleedTimer: c.bleedTimer, hitTimer: c.hitTimer, respawnTimer: c.respawnTimer, inSanctuary: isInSanctuary(p.x, p.y),
   };
 }
 

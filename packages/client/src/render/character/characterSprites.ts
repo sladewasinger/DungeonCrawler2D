@@ -7,12 +7,14 @@ import { buildArmorRects } from "./characterArmorLayers.js";
 import { buildBodyRects } from "./characterBodyLayers.js";
 import { buildHairRects } from "./characterHairLayers.js";
 import {
-  FALL_POSES, FRAME_SIZE, IDLE_POSES, JUMP_POSES, OUTLINE_RGB, RUN_POSES,
+  FALL_POSES, FRAME_SIZE, IDLE_POSES, JUMP_POSES, OUTLINE_RGB, RUN_POSES, WALK_POSES,
   type CharacterPose, type CharacterSpriteSet, type DirectionAnim, type FacingDir,
 } from "./characterTypes.js";
+import { isPlayer3dReady } from "./playerAssets.js";
+import { build3dCharacterSpriteSet } from "./playerCompositor.js";
 
 export type { CharacterAnimState, CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
-export { CHARACTER_WORLD_SCALE, resolveFacingDir } from "./characterTypes.js";
+export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./characterTypes.js";
 
 const MAX_CACHED_SETS = 64;
 const spriteCache = new Map<string, CharacterSpriteSet>();
@@ -58,21 +60,34 @@ function buildDirectionAnim(input: {
 }): DirectionAnim {
   return {
     idle: IDLE_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
+    walk: WALK_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
     run: RUN_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
     jump: JUMP_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
     fall: FALL_POSES.map((pose) => renderPoseFrame({ ...input, pose }).texture),
   };
 }
 
+function collectDirTextures(dirAnim: DirectionAnim | undefined, unique: Set<Texture>): void {
+  if (!dirAnim) return;
+  for (const track of [dirAnim.idle, dirAnim.walk ?? [], dirAnim.run, dirAnim.jump, dirAnim.fall, dirAnim.dodge ?? [], dirAnim.downed ?? []]) {
+    for (const tex of track) unique.add(tex);
+  }
+}
+
 function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
   if (!set) return;
-  for (const dirAnim of [set.south, set.north, set.side]) {
-    for (const tex of [...dirAnim.idle, ...dirAnim.run, ...dirAnim.jump, ...dirAnim.fall]) {
-      tex.destroy(true);
-    }
+  const unique = new Set<Texture>([set.frontArm, set.backArm]);
+  for (const dirAnim of [set.south, set.se, set.north, set.ne, set.side]) collectDirTextures(dirAnim, unique);
+  const seg = set.armSegments;
+  if (seg) {
+    const segTextures = [
+      seg.upperFront, seg.upperBack, seg.upperOutline,
+      seg.forearmFront, seg.forearmBack, seg.forearmOutline,
+      seg.handFront, seg.handBack, seg.handOutline, seg.handFillFront, seg.handFillBack,
+    ];
+    for (const tex of segTextures) unique.add(tex);
   }
-  set.frontArm.destroy(true);
-  set.backArm.destroy(true);
+  for (const tex of unique) tex.destroy(true);
 }
 
 function evictOldestIfFull(): void {
@@ -84,15 +99,7 @@ function evictOldestIfFull(): void {
   destroySpriteSet(evicted);
 }
 
-export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
-  const key = characterCacheKey(appearance, armor);
-  const existing = spriteCache.get(key);
-  if (existing) {
-    spriteCache.delete(key);
-    spriteCache.set(key, existing);
-    return existing;
-  }
-  evictOldestIfFull();
+function buildFallbackSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
   const previewFrame = renderPoseFrame({ appearance, armor, dir: "south", pose: IDLE_POSES[0]!, includeArms: true });
   const created: CharacterSpriteSet = {
     south: buildDirectionAnim({ appearance, armor, dir: "south" }),
@@ -103,6 +110,19 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     previewUrl: previewFrame.canvas.toDataURL(),
   };
   previewFrame.texture.destroy(true);
+  return created;
+}
+
+export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
+  const key = characterCacheKey(appearance, armor);
+  const existing = spriteCache.get(key);
+  if (existing) {
+    spriteCache.delete(key);
+    spriteCache.set(key, existing);
+    return existing;
+  }
+  evictOldestIfFull();
+  const created = (isPlayer3dReady() ? build3dCharacterSpriteSet(appearance, armor) : null) ?? buildFallbackSpriteSet(appearance, armor);
   spriteCache.set(key, created);
   return created;
 }

@@ -1,5 +1,6 @@
+import { WorldChunkCache } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { createDefaultPlayer, reconcilePredictedPlayer } from "./worldPrediction.js";
+import { createDefaultPlayer, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 describe("worldPrediction", () => {
   it("updates local player id and name to server assignment even within reconciliation threshold", () => {
@@ -42,5 +43,25 @@ describe("worldPrediction", () => {
     expect(reconciled.elevation).toBe(0);
     expect(reconciled.jumpZ).toBeCloseTo(0.72, 3);
     expect(reconciled.jumpVz).toBeCloseTo(-1.5, 3);
+  });
+
+  it("faces movement direction when walking/sprinting without aim, and snaps on explicit aim", () => {
+    const cache = new WorldChunkCache(1337);
+    cache.getChunk(0, 0);
+    const start = createDefaultPlayer("p1");
+
+    const walking = predictLocalPlayerMove({ cache, player: start, nx: 0.64, ny: 0, dt: 0.05 });
+    expect(walking.moving).toBe(true);
+    expect(walking.sprinting).toBe(false);
+    expect(walking.facingX).toBeCloseTo(1, 3);
+    expect(walking.facingY).toBeCloseTo(0, 3);
+
+    const sprinting = predictLocalPlayerMove({ cache, player: walking, nx: 1, ny: 0, dt: 0.05 });
+    expect(sprinting.moving).toBe(true);
+    expect(sprinting.sprinting).toBe(true);
+
+    const attacking = predictLocalPlayerMove({ cache, player: sprinting, nx: 0.64, ny: 0, dt: 0.05, aim: { x: 0, y: -1 } });
+    expect(attacking.facingX).toBeCloseTo(0, 3);
+    expect(attacking.facingY).toBeCloseTo(-1, 3);
   });
 });

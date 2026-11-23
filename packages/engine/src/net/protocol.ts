@@ -121,6 +121,7 @@ export const PlayerSnapshotSchema = z.object({
   jumpZ: z.number().optional(),
   jumpVz: z.number().optional(),
   moving: z.boolean(),
+  sprinting: z.boolean().optional(),
   torchLit: z.boolean(),
   inWater: z.boolean(),
   lastAckSeq: z.number().int(),
@@ -138,6 +139,8 @@ export const PlayerSnapshotSchema = z.object({
   dodging: z.boolean().optional(),
   staggerTimer: z.number().optional(),
   bleedTimer: z.number().optional(),
+  hitTimer: z.number().optional(),
+  respawnTimer: z.number().optional(),
   inSanctuary: z.boolean().optional(),
 });
 
@@ -165,6 +168,7 @@ export const WorldEntitySnapshotSchema = z.object({
   x: z.number(),
   y: z.number(),
   elevation: z.number(),
+  jumpZ: z.number().optional(),
   facingX: z.number(),
   facingY: z.number(),
   hp: z.number(),

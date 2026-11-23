@@ -14,4 +14,4 @@ Localhost-only interactive `96×32` asset gallery, terrain biome diorama, and co
 
 ## Controls & Modes
 - Walk with `WASD` / Arrows (swim barrier, shallow wade, walk behind trees, climb stairs), attack (`LMB`), block (`RMB`), dodge (`Space`), select hotbar (`1–9`, `9` shows live minimap), open chests (`E`).
-- Live top-right `FpsCounter` + `CompassBadge`, quick **Gallery** / **Terrain** jump buttons, and AI/Pose/Direction/Time controls (`AI: Frozen / Live`, `Wake Nearest`, `Spawn Wolf Pack`, `Pose: Idle / Walk / Run / Windup / Corpse` via `sandboxPoses.ts`, `Dir: Auto / S / E / W / N`, `Time`, zoom, `Reset Arena`).
+- Live top-right `FpsCounter` + `CompassBadge`, quick **Gallery** / **Terrain** jump buttons, interactive **Pose Tuner** drawer (`poseTuner/`, also auto-opened via `?sandbox=1&tuner=1`) for tuning 8-dir Empty/Sword/Lantern/Bow poses & saving directly to `playerPoseTuning.json`, and AI/Pose/Direction/Time controls (`AI: Frozen / Live`, `Wake Nearest`, `Spawn Wolf Pack`, `Pose: Idle / Walk / Run / Windup / Corpse` via `sandboxPoses.ts`, `Dir: Auto / S / E / W / N`, `Time`, zoom, `Reset Arena`).

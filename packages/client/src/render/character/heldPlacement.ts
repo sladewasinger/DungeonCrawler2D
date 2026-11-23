@@ -134,19 +134,36 @@ export function resolveAimCardinal(ax: number, ay: number, fallback: CardinalFac
   return dir === "side" ? (flipX ? "west" : "east") : dir;
 }
 
+function resolveActorTint(hit: number, staggered: boolean): number {
+  if (staggered) return 0xfef08a;
+  if (hit > 0.16) return 0xffa8a8;
+  return hit > 0 ? 0xfca5a5 : 0xffffff;
+}
+
+function resolveDodgeRot(dodging: boolean, facingX: number, is3d?: boolean): number {
+  return dodging && !is3d ? Math.sign(facingX || 1) * 0.16 : 0;
+}
+
 export function computeActorCombatFx(opts: {
   readonly aimX: number; readonly aimY: number; readonly facingX: number;
   readonly swingProgress: number; readonly comboStep: number;
   readonly dodging: boolean; readonly staggered: boolean;
+  readonly hitTimer?: number | undefined; readonly downed?: boolean | undefined; readonly timeSec?: number | undefined;
+  readonly is3d?: boolean | undefined;
 }): { readonly x: number; readonly y: number; readonly rot: number; readonly alpha: number; readonly tint: number } {
+  if (opts.downed) {
+    return opts.is3d ? { x: 0, y: 0, rot: 0, alpha: 0.9, tint: 0x94a3b8 } : { x: 0, y: 4, rot: Math.PI * 0.48, alpha: 0.78, tint: 0x94a3b8 };
+  }
   const lunge = computeSwingLunge(opts);
-  const dodgeRot = opts.dodging ? Math.sign(opts.facingX || 1) * 0.16 : 0;
+  const hit = opts.hitTimer ?? 0;
+  const wobble = hit > 0 ? Math.sin((opts.timeSec ?? 0) * 58) * 1.4 : 0;
+  const dodgeAlpha = opts.is3d ? 0.92 : 0.58;
   return {
-    x: lunge.x,
+    x: lunge.x + wobble,
     y: lunge.y,
-    rot: lunge.rot + dodgeRot,
-    alpha: opts.dodging ? 0.58 : 1,
-    tint: opts.staggered ? 0xfef08a : 0xffffff,
+    rot: lunge.rot + resolveDodgeRot(opts.dodging, opts.facingX, opts.is3d),
+    alpha: opts.dodging ? dodgeAlpha : 1,
+    tint: resolveActorTint(hit, opts.staggered),
   };
 }
 

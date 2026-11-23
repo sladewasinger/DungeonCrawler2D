@@ -2,7 +2,8 @@
 import type { Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../textures/pixelCanvas.js";
-import { OUTLINE_RGB } from "./characterTypes.js";
+import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
+import { CHARACTER_WORLD_SCALE, OUTLINE_RGB } from "./characterTypes.js";
 
 export type HeldAimMode = "aim360" | "meleeCarry" | "upright";
 
@@ -90,7 +91,13 @@ export function getGrippingHandTexture(female = false): Texture {
   return bake("hand:male", { w: 5, h: 5 }, [[1, 1, 3, 3, "#ffffff"], [1, 3, 3, 1, "#d4d4d8"]]);
 }
 
+export function getGearScale(key: string): number {
+  return getLoadedSpriteAsset(key)?.scale ?? CHARACTER_WORLD_SCALE;
+}
+
 export function getShieldTexture(): Texture {
+  const loaded = getLoadedSpriteAsset("gear-shield");
+  if (loaded) return loaded.texture;
   return bake("shield", { w: 10, h: 12 }, [
     [2, 0, 6, 1, "#18181b"], [1, 1, 8, 1, "#18181b"], [0, 2, 10, 7, "#18181b"],
     [1, 9, 8, 1, "#18181b"], [2, 10, 6, 1, "#18181b"], [3, 11, 4, 1, "#18181b"],
@@ -102,7 +109,19 @@ export function getShieldTexture(): Texture {
   ]);
 }
 
+function loadAnimatedGearFrames(prefix: string, count: number): Texture[] | null {
+  const loaded: Texture[] = [];
+  for (let i = 0; i < count; i++) {
+    const asset = getLoadedSpriteAsset(`${prefix}-${i}`);
+    if (!asset) return null;
+    loaded.push(asset.texture);
+  }
+  return loaded;
+}
+
 export function getInHandTorchFrames(): readonly Texture[] {
+  const loaded = loadAnimatedGearFrames("gear-torch", 4);
+  if (loaded) return loaded;
   if (torchAnim.length > 0) return torchAnim;
   for (let f = 0; f < 4; f++) {
     const sway = f % 2;
@@ -115,6 +134,8 @@ export function getInHandTorchFrames(): readonly Texture[] {
 }
 
 export function getWaistLanternFrames(): readonly Texture[] {
+  const loaded = loadAnimatedGearFrames("gear-lantern", 2);
+  if (loaded) return loaded;
   if (lanternAnim.length > 0) return lanternAnim;
   for (let f = 0; f < 2; f++) {
     lanternAnim.push(bake(`lantern:${f}`, { w: 10, h: 13 }, [
@@ -150,20 +171,49 @@ const WEAPON_SPECS: Readonly<Record<string, WeaponSpec>> = {
   pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
 };
 
-export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: number): HeldWeaponVisual | null {
-  if (!itemId) return null;
-  const spec = WEAPON_SPECS[itemId];
-  if (spec) {
+function scaleGripSocket(g: GripSocket, ratio: number): GripSocket {
+  return { x: g.x * ratio, y: g.y * ratio, showHand: g.showHand, overWeapon: g.overWeapon };
+}
+
+function scaleGrips(grips: WeaponGripSockets, spriteScale: number): WeaponGripSockets {
+  const ratio = CHARACTER_WORLD_SCALE / spriteScale;
+  return {
+    primary: scaleGripSocket(grips.primary, ratio),
+    secondary: grips.secondary ? scaleGripSocket(grips.secondary, ratio) : undefined,
+    twoHandStyle: grips.twoHandStyle,
+  };
+}
+
+function buildSpecVisual(spec: WeaponSpec, itemId: string, bowCharge: number): HeldWeaponVisual {
+  const manifestKey = itemId === "bow" && bowCharge > 0.15 ? "gear-bow-drawn" : `gear-${itemId}`;
+  const loaded = getLoadedSpriteAsset(manifestKey);
+  if (loaded) {
     return {
-      texture: spec.buildTex(), anchorX: spec.anchorX, anchorY: spec.anchorY,
-      aimMode: spec.aimMode, twoHanded: spec.twoHanded, grips: spec.grips, spriteScale: 0.75,
+      texture: loaded.texture, anchorX: loaded.anchorX, anchorY: loaded.anchorY,
+      aimMode: spec.aimMode, twoHanded: spec.twoHanded, grips: scaleGrips(spec.grips, loaded.scale), spriteScale: loaded.scale,
     };
   }
-  if (itemId === "torch") {
-    const frames = getInHandTorchFrames();
-    const tex = frames[Math.floor(timeSec * 10) % frames.length] ?? frames[0]!;
-    return { texture: tex, anchorX: 0.5, anchorY: 0.72, aimMode: "upright", twoHanded: false, grips: SINGLE_HAND_GRIP, spriteScale: 0.75 };
-  }
+  return {
+    texture: spec.buildTex(), anchorX: spec.anchorX, anchorY: spec.anchorY,
+    aimMode: spec.aimMode, twoHanded: spec.twoHanded, grips: spec.grips, spriteScale: CHARACTER_WORLD_SCALE,
+  };
+}
+
+function buildTorchVisual(timeSec: number): HeldWeaponVisual {
+  const frames = getInHandTorchFrames();
+  const loaded0 = getLoadedSpriteAsset("gear-torch-0");
+  const tex = frames[Math.floor(timeSec * 10) % frames.length] ?? frames[0]!;
+  return {
+    texture: tex, anchorX: loaded0?.anchorX ?? 0.5, anchorY: loaded0?.anchorY ?? 0.72,
+    aimMode: "upright", twoHanded: false, grips: SINGLE_HAND_GRIP, spriteScale: loaded0?.scale ?? CHARACTER_WORLD_SCALE,
+  };
+}
+
+export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: number, bowCharge = 0): HeldWeaponVisual | null {
+  if (!itemId) return null;
+  const spec = WEAPON_SPECS[itemId];
+  if (spec) return buildSpecVisual(spec, itemId, bowCharge);
+  if (itemId === "torch") return buildTorchVisual(timeSec);
   const fallback = getItemHeldTexture(itemId);
   if (!fallback) return null;
   return { texture: fallback, anchorX: 0.5, anchorY: 0.65, aimMode: "upright", twoHanded: false, grips: NO_HAND_GRIP, spriteScale: 0.58 };

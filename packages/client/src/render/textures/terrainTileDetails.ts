@@ -1,40 +1,25 @@
-/** 32x32 pixel-art organic detail painters (grass tufts, pebbles, ripples, rock strata) and cliff/stair faces. */
+/** 32x32 Cainos-style pixel-art terrain overlays and cliff/stair preview tiles. */
 import { GroundKind } from "@dc2d/engine";
 import { createPixelCanvas, seededPixelNoise } from "./pixelCanvas.js";
+import {
+  paintCloverCluster,
+  paintDuneRipple,
+  paintForestMossAndLeaves,
+  paintGrassTuft3,
+  paintMossCushion,
+  paintNaturalStoneFractures,
+  paintSmallPebble,
+  paintWaterShimmer,
+  paintWildflower,
+  px,
+  TERRAIN_TEX_PX,
+  wrapPx,
+  type TilePalette,
+} from "./terrainTileMotifs.js";
 
-export const TERRAIN_TEX_PX = 32;
-
-export interface TilePalette {
-  readonly base: string;
-  readonly mid: string;
-  readonly dark: string;
-  readonly highlight: string;
-  readonly accent?: string;
-}
+export { TERRAIN_TEX_PX, type TilePalette } from "./terrainTileMotifs.js";
 
 const GRASS_SET = new Set<GroundKind>([GroundKind.Grass, GroundKind.MeadowGrass, GroundKind.ForestFloor]);
-
-function px(ctx: CanvasRenderingContext2D, c: string, rect: readonly [number, number, number, number]): void {
-  ctx.fillStyle = c;
-  ctx.fillRect(rect[0], rect[1], rect[2], rect[3]);
-}
-
-function paintTuft(ctx: CanvasRenderingContext2D, pos: { readonly bx: number; readonly by: number }, p: TilePalette): void {
-  const { bx, by } = pos;
-  px(ctx, p.dark, [bx - 1, by, 3, 1]);
-  px(ctx, p.mid, [bx - 1, by - 1, 1, 1]);
-  px(ctx, p.highlight, [bx, by - 2, 1, 2]);
-  px(ctx, p.highlight, [bx + 1, by - 1, 1, 1]);
-}
-
-function paintFlowerCluster(ctx: CanvasRenderingContext2D, pos: { readonly fx: number; readonly fy: number }, p: TilePalette): void {
-  const { fx, fy } = pos;
-  px(ctx, p.dark, [fx, fy + 1, 1, 2]);
-  px(ctx, p.accent ?? p.highlight, [fx - 1, fy, 1, 1]);
-  px(ctx, p.accent ?? p.highlight, [fx + 1, fy, 1, 1]);
-  px(ctx, p.highlight, [fx, fy - 1, 1, 1]);
-  px(ctx, "#f8fafc", [fx, fy, 1, 1]);
-}
 
 export interface DetailPaintInput {
   readonly ctx: CanvasRenderingContext2D;
@@ -50,103 +35,104 @@ export function paintOrganicDetails(input: DetailPaintInput): void {
   else paintWaterRipples(input.ctx, input.variant, input.palette);
 }
 
-function paintFoliageOverlay(input: DetailPaintInput): void {
-  const { ctx, kind, variant, palette: p } = input;
-  const tufts = 4 + (variant % 3);
-  for (let i = 0; i < tufts; i++) {
-    const bx = 4 + Math.floor(seededPixelNoise(901 + variant, i, 1) * 24);
-    const by = 5 + Math.floor(seededPixelNoise(907 + variant, i, 2) * 24);
-    paintTuft(ctx, { bx, by }, p);
+function paintClovers(ctx: CanvasRenderingContext2D, variant: number, p: TilePalette): void {
+  for (let c = 0; c < 2; c++) {
+    const cx = Math.floor(seededPixelNoise(929 + c * 17, variant, 7) * TERRAIN_TEX_PX);
+    const cy = Math.floor(seededPixelNoise(937 + c * 19, variant, 8) * TERRAIN_TEX_PX);
+    paintCloverCluster(ctx, { x: cx, y: cy }, p);
   }
-  if (kind === GroundKind.MeadowGrass && variant % 2 === 0) {
-    const fx = 6 + Math.floor(seededPixelNoise(951, variant, 3) * 20);
-    const fy = 6 + Math.floor(seededPixelNoise(953, variant, 4) * 20);
-    paintFlowerCluster(ctx, { fx, fy }, p);
-  }
-  if (kind === GroundKind.ForestFloor) paintForestLeaves(ctx, variant, p);
 }
 
-function paintForestLeaves(ctx: CanvasRenderingContext2D, variant: number, p: TilePalette): void {
-  for (let i = 0; i < 3; i++) {
-    const lx = 4 + Math.floor(seededPixelNoise(971 + variant, i, 5) * 23);
-    const ly = 4 + Math.floor(seededPixelNoise(977 + variant, i, 6) * 23);
-    px(ctx, p.accent ?? p.dark, [lx, ly, 2, 1]);
+function paintFoliageOverlay(input: DetailPaintInput): void {
+  const { ctx, kind, variant, palette: p } = input;
+  const tufts = kind === GroundKind.ForestFloor ? 5 : 6 + (variant % 2);
+  for (let i = 0; i < tufts; i++) {
+    const qx = ((i & 1) * 16 + Math.floor(seededPixelNoise(901 + variant, i, 1) * 16)) % TERRAIN_TEX_PX;
+    const qy = (((i >> 1) & 1) * 16 + Math.floor(seededPixelNoise(907 + variant, i, 2) * 16)) % TERRAIN_TEX_PX;
+    paintGrassTuft3(ctx, { x: qx, y: qy }, p);
   }
+  if (kind !== GroundKind.ForestFloor) paintClovers(ctx, variant, p);
+  if (kind === GroundKind.MeadowGrass && variant === 0) {
+    const x = Math.floor(seededPixelNoise(951, variant, 3) * TERRAIN_TEX_PX);
+    const y = Math.floor(seededPixelNoise(953, variant, 4) * TERRAIN_TEX_PX);
+    paintWildflower(ctx, { x, y }, { p, white: false });
+  }
+  if (kind === GroundKind.ForestFloor) paintForestMossAndLeaves(ctx, variant, p);
 }
 
 function paintEarthOverlay(input: DetailPaintInput): void {
   const { ctx, kind, variant, palette: p } = input;
-  const pebbles = kind === GroundKind.DirtPath ? 5 : 3;
-  for (let i = 0; i < pebbles; i++) {
-    const sx = 3 + Math.floor(seededPixelNoise(611 + variant, i, 1) * 24);
-    const sy = 3 + Math.floor(seededPixelNoise(613 + variant, i, 2) * 24);
-    px(ctx, p.dark, [sx, sy + 1, 3, 1]);
-    px(ctx, p.highlight, [sx, sy, 2, 1]);
+  if (kind === GroundKind.DirtPath) {
+    const pebbles = 8 + (variant % 3);
+    for (let i = 0; i < pebbles; i++) {
+      const x = ((i & 1) * 16 + Math.floor(seededPixelNoise(611 + variant, i, 1) * 16)) % TERRAIN_TEX_PX;
+      const y = (((i >> 1) & 1) * 16 + Math.floor(seededPixelNoise(613 + variant, i, 2) * 16)) % TERRAIN_TEX_PX;
+      paintSmallPebble(ctx, { x, y }, { p, wide: i % 3 === 0 });
+    }
+    return;
   }
-  if (kind === GroundKind.Sand) paintSandRipples(ctx, variant, p);
-}
-
-function paintSandRipples(ctx: CanvasRenderingContext2D, variant: number, p: TilePalette): void {
-  for (let i = 0; i < 3; i++) {
-    const rx = 2 + Math.floor(seededPixelNoise(641 + variant, i, 3) * 18);
-    const ry = 5 + i * 9 + (variant % 3);
-    px(ctx, p.highlight, [rx, ry, 7, 1]);
-    px(ctx, p.mid, [rx + 1, ry + 1, 6, 1]);
+  for (let i = 0; i < 4; i++) {
+    const x = Math.floor(seededPixelNoise(641 + variant, i, 3) * TERRAIN_TEX_PX);
+    const y = (4 + i * 8 + variant * 3) % TERRAIN_TEX_PX;
+    paintDuneRipple(ctx, { x, y }, p);
+  }
+  for (let g = 0; g < 3; g++) {
+    const gx = Math.floor(seededPixelNoise(673 + variant, g, 4) * TERRAIN_TEX_PX);
+    const gy = Math.floor(seededPixelNoise(677 + variant, g, 5) * TERRAIN_TEX_PX);
+    wrapPx(ctx, p.accent ?? p.highlight, [gx, gy, 2, 1]);
   }
 }
 
 function paintStoneOverlay(input: DetailPaintInput): void {
   const { ctx, kind, variant, palette: p } = input;
-  const sy = 10 + (variant % 3) * 4;
-  px(ctx, p.dark, [2, sy, 27, 1]);
-  px(ctx, p.highlight, [3, sy + 1, 14, 1]);
-  px(ctx, p.dark, [14 + (variant % 5), 2, 1, sy - 2]);
-  px(ctx, p.dark, [8 + (variant % 4), sy + 1, 1, 14]);
-  if (kind === GroundKind.MossStone) paintMossPatches(ctx, variant, p);
-}
-
-function paintMossPatches(ctx: CanvasRenderingContext2D, variant: number, p: TilePalette): void {
+  paintNaturalStoneFractures(ctx, variant, p);
+  if (kind !== GroundKind.MossStone) return;
   for (let i = 0; i < 4; i++) {
-    const mx = 4 + Math.floor(seededPixelNoise(731 + variant, i, 1) * 22);
-    const my = 4 + Math.floor(seededPixelNoise(739 + variant, i, 2) * 22);
-    px(ctx, p.accent ?? p.highlight, [mx, my, 3, 2]);
+    const x = ((i & 1) * 16 + Math.floor(seededPixelNoise(731 + variant, i, 1) * 16)) % TERRAIN_TEX_PX;
+    const y = (((i >> 1) & 1) * 16 + Math.floor(seededPixelNoise(739 + variant, i, 2) * 16)) % TERRAIN_TEX_PX;
+    paintMossCushion(ctx, { x, y }, p);
   }
 }
 
 function paintWaterRipples(ctx: CanvasRenderingContext2D, variant: number, p: TilePalette): void {
-  for (let i = 0; i < 3; i++) {
-    const wx = 3 + Math.floor(seededPixelNoise(811 + variant, i, 1) * 19);
-    const wy = 4 + i * 9 + (variant % 3);
-    px(ctx, p.highlight, [wx, wy, 5 + (i % 2) * 2, 1]);
-    px(ctx, p.dark, [wx + 1, wy + 1, 4, 1]);
+  for (let i = 0; i < 4; i++) {
+    const x = ((i & 1) * 16 + Math.floor(seededPixelNoise(811 + variant, i, 1) * 16)) % TERRAIN_TEX_PX;
+    const y = (3 + i * 8 + variant * 3) % TERRAIN_TEX_PX;
+    paintWaterShimmer(ctx, { x, y }, p);
   }
 }
 
 export function paintCliffFaceTile32(): HTMLCanvasElement {
   const { canvas, ctx } = createPixelCanvas(TERRAIN_TEX_PX, TERRAIN_TEX_PX);
-  px(ctx, "#4f4956", [0, 0, 32, 32]);
-  px(ctx, "#6b6374", [0, 4, 32, 10]);
-  px(ctx, "#3d3845", [0, 17, 32, 13]);
-  px(ctx, "#3c7c38", [0, 0, 32, 3]);
-  px(ctx, "#58a24f", [0, 3, 32, 1]);
-  px(ctx, "#231e29", [0, 30, 32, 2]);
+  px(ctx, "#474c57", [0, 0, 32, 32]);
+  px(ctx, "#7a808a", [0, 6, 32, 10]);
+  px(ctx, "#606670", [0, 14, 32, 10]);
+  px(ctx, "#242832", [0, 5, 32, 2]);
+  px(ctx, "#6ea84b", [0, 0, 32, 3]);
+  px(ctx, "#4f843a", [0, 3, 32, 2]);
   for (let x = 2; x < 30; x += 6) {
-    px(ctx, "#3d3845", [x, 8, 2, 4]);
-    px(ctx, "#6b6374", [(x + 3) % 30, 20, 3, 3]);
+    px(ctx, "#589340", [x, 4, 3, 2]);
+    px(ctx, "#2f3440", [x + 2, 9, 1, 7]);
+    px(ctx, "#8c939e", [x, 8, 4, 1]);
+    px(ctx, "#2f3440", [(x + 4) % 28, 18, 1, 8]);
   }
+  px(ctx, "#1b202a", [0, 30, 32, 2]);
   return canvas;
 }
 
 export function paintStairFaceTile32(): HTMLCanvasElement {
   const { canvas, ctx } = createPixelCanvas(TERRAIN_TEX_PX, TERRAIN_TEX_PX);
-  px(ctx, "#687080", [0, 0, 32, 32]);
+  px(ctx, "#6b717c", [0, 0, 32, 32]);
   for (let step = 0; step < 6; step++) {
     const y = 1 + step * 5;
-    px(ctx, "#9aa4b4", [2, y, 28, 3]);
-    px(ctx, "#bcc5d4", [3, y, 26, 1]);
-    px(ctx, "#434a58", [2, y + 3, 28, 2]);
+    px(ctx, "#b4bcc8", [2, y, 28, 1]);
+    px(ctx, "#8c94a0", [2, y + 1, 28, 2]);
+    px(ctx, "#525864", [2, y + 3, 28, 1]);
+    px(ctx, "#242832", [2, y + 4, 28, 1]);
   }
-  px(ctx, "#222731", [0, 0, 2, 32]);
-  px(ctx, "#222731", [30, 0, 2, 32]);
+  px(ctx, "#4f843a", [1, 3, 2, 3]);
+  px(ctx, "#4f843a", [29, 14, 2, 3]);
+  px(ctx, "#1b202a", [0, 0, 2, 32]);
+  px(ctx, "#1b202a", [30, 0, 2, 32]);
   return canvas;
 }

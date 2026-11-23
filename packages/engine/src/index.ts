@@ -11,13 +11,14 @@ export {
   worldToChunkCoord,
   worldToLocalCoord,
 } from "./world/types.js";
-export type { BiomeKind, ChunkPoi, ChunkProp, PoiKind, PointLightSpec, WorldChunk } from "./world/types.js";
+export type { BiomeKind, ChunkPoi, ChunkProp, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
 export { sampleWorldTile } from "./world/biomeSampler.js";
 export type { TileSample } from "./world/biomeSampler.js";
 export { generateChunk } from "./world/chunkGenerator.js";
 export { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights } from "./world/poiStamper.js";
+export { getPoiGuardRoster } from "./world/poiLayouts.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
-export type { MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
+export type { BlockingObstacle, MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
 export {
   ELEVATION_DROP_TO_JUMP_Z,
   JUMP_GRAVITY_TILES_PER_SEC2,
@@ -138,6 +139,8 @@ export {
   isWithinSector,
 } from "./combat/combatRules.js";
 export type { GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export { WALK_CYCLE_TILES, RUN_CYCLE_TILES, createGaitClock, advanceGaitClock, gaitFrameIndex } from "./combat/gaitClock.js";
+export type { GaitClock, GaitStepInput, GaitStepResult } from "./combat/gaitClock.js";
 export {
   AI_STATES,
   AI_TUNING,
@@ -147,3 +150,5 @@ export {
   hasElevationLineOfSight,
 } from "./combat/aiSensing.js";
 export type { AiState, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";
+export { findTilePath } from "./combat/pathfinding.js";
+export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";

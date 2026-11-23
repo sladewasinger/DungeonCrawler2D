@@ -1,8 +1,7 @@
 /** Mobile-unlocked Hybrid Web Audio Engine with sample-first overrides, panning, and footsteps. */
-import { GroundKind, clamp, type PlayerSnapshot, type WorldChunkCache, type WorldEvent } from "@dc2d/engine";
+import { GroundKind, advanceGaitClock, clamp, createGaitClock, type PlayerSnapshot, type WorldChunkCache, type WorldEvent } from "@dc2d/engine";
 import { AmbienceBed } from "./ambienceBed.js";
 import { loadAudioPrefs, saveAudioPrefs, type AudioPrefs } from "./audioPrefs.js";
-import { AUDIO_TUNING } from "./audioTuning.js";
 import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
 import { synthCombatCue, synthImpact, synthSwing, synthUi } from "./synthSfx.js";
 
@@ -14,7 +13,7 @@ export class AudioEngine {
   private readonly bed = new AmbienceBed();
   private prefs: AudioPrefs = loadAudioPrefs();
   private tension = 0;
-  private stepAccum = 0;
+  private readonly gaitClock = createGaitClock();
   private prevAirborne = false;
 
   constructor() {
@@ -73,7 +72,7 @@ export class AudioEngine {
       ctx: this.ctx, musicDst: this.musicGain, sfxDst: this.sfxGain, dt: input.dt,
       dayPhase: input.dayPhase, campfireDist: input.campfireDist, waterDist: input.waterDist, tension: this.tension,
     });
-    if (input.local) this.stepLocalMovementAudio(input.local, input.cache, input.dt);
+    if (input.local) this.stepLocalMovementAudio(input.local, input.cache);
   }
 
   private dispatchWorldEvent(ev: WorldEvent, dst: AudioNode): void {
@@ -108,16 +107,14 @@ export class AudioEngine {
     this.prevAirborne = opts.airborne;
   }
 
-  private stepLocalMovementAudio(local: PlayerSnapshot, cache: WorldChunkCache, dt: number): void {
+  private stepLocalMovementAudio(local: PlayerSnapshot, cache: WorldChunkCache): void {
     if (!this.ctx || !this.sfxGain) return;
     const ground = this.resolveGroundForStep(local, cache);
     const airborne = (local.jumpZ ?? 0) > 0.03;
     this.syncAirborneAudio({ ground, airborne });
-    if (!local.moving || airborne) { this.stepAccum = 0.18; return; }
-    this.stepAccum += dt;
-    if (this.stepAccum < AUDIO_TUNING.footsteps.stepIntervalSec) return;
-    this.stepAccum = 0;
-    synthFootstep(this.ctx, this.sfxGain, ground);
+    const sprinting = Boolean(local.sprinting);
+    const gait = advanceGaitClock(this.gaitClock, { x: local.x, y: local.y, moving: local.moving, sprinting, airborne });
+    if (gait.stepTriggered) synthFootstep({ ctx: this.ctx, dst: this.sfxGain, ground, sprinting });
   }
 
   private createPanner(pan: number): AudioNode {

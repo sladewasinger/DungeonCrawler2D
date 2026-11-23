@@ -131,4 +131,21 @@ describe("WorldSim", () => {
     expect(landed.jumpZ).toBe(0);
     expect(landed.y).toBeGreaterThan(blockedAtRim.y);
   });
+
+  it("distinguishes normal walking speed from shift sprinting in player snapshots", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("Walker");
+    sim.queueInput(id, { seq: 1, moveX: 0.64, moveY: 0 });
+    sim.step();
+    const walkSnap = must(sim.snapshots()[0]);
+    expect(walkSnap.moving).toBe(true);
+    expect(walkSnap.sprinting).toBe(false);
+    expect(walkSnap.facingX).toBeCloseTo(1, 3);
+
+    sim.queueInput(id, { seq: 2, moveX: 1, moveY: 0 });
+    sim.step();
+    const sprintSnap = must(sim.snapshots()[0]);
+    expect(sprintSnap.moving).toBe(true);
+    expect(sprintSnap.sprinting).toBe(true);
+  });
 });

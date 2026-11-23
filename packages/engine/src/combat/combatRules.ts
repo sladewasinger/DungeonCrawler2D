@@ -9,7 +9,7 @@ export type GoreStyle = (typeof GORE_STYLES)[number];
 export const COMBAT_TUNING = {
   sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 7.5 },
   vitals: { maxHp: 100, maxStamina: 100, staminaRegenPerSec: 24, blockStaminaRegenMult: 0.45 },
-  movement: { runSpeedTilesPerSec: 5.6, walkSpeedRatio: 0.64, joystickDeadzone: 0.14, collisionRadiusTiles: 0.28 },
+  movement: { runSpeedTilesPerSec: 5.6, walkSpeedRatio: 0.5, joystickDeadzone: 0.14, collisionRadiusTiles: 0.28 },
   movementMults: { dodge: 1.9, swing: 0.55, block: 0.6, bowDraw: 0.78 },
   dodge: { staminaCost: 22, durationSec: 0.30, iframeSec: 0.24, cooldownSec: 0.55 },
   melee: { comboWindowSec: 0.65, swingSec: 0.26, comboDamageMult: [1.0, 1.1, 1.45] as const },

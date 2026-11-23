@@ -1,8 +1,12 @@
 /** Shared wildlife perception, sanctuary leash, investigation, and attack loop. */
-import { AI_TUNING, WorldChunkCache, canPerceiveTarget, isInSanctuary, type WorldEvent } from "@dc2d/engine";
-import { CREATURE_SPECS, ST_ALERT, ST_CHASE, ST_DEAD, ST_INVESTIGATE, type WildlifeEntity } from "./creatureSpecs.js";
+import { AI_TUNING, WorldChunkCache, canPerceiveTarget, hasElevationLineOfSight, isInSanctuary, type WorldEvent } from "@dc2d/engine";
 import {
-  computeSeparation, moveCreatureToward, stepBearScavenge, stepBoarBehavior, stepHomePatrol,
+  CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN,
+  type WildlifeEntity,
+} from "./creatureSpecs.js";
+import { clearNavPath, faceTarget, findReturnReaggroPlayer, stepIdleJumpArc, stepKnockbackVelocity } from "./creatureNavigation.js";
+import {
+  computeSeparation, isSpiderConcealed, moveCreatureToward, stepBearScavenge, stepBoarBehavior, stepHomePatrol,
   stepSpiderAmbushCheck, stepWolfPack, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn,
 } from "./creatureBehaviors.js";
 import type { ScentTrail } from "./scentTrail.js";
@@ -27,11 +31,20 @@ function decayTimers(e: WildlifeEntity, dt: number): void {
   e.bleedTimer = Math.max(0, e.bleedTimer - dt);
   e.attackCooldown = Math.max(0, e.attackCooldown - dt);
   e.alertedTimer = Math.max(0, e.alertedTimer - dt);
+  e.navTimer = Math.max(0, e.navTimer - dt);
+  e.provokedTimer = Math.max(0, e.provokedTimer - dt);
 }
 
 function canNoticePlayer(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly p: CombatPlayerCandidate; readonly dist: number }): boolean {
   const spec = CREATURE_SPECS[opts.e.kind];
   if (opts.e.alertedTimer > 0 && opts.dist <= spec.visionRange * 1.25) return true;
+  if (opts.e.targetPlayerId === opts.p.id && opts.dist <= spec.visionRange * 1.55) {
+    return hasElevationLineOfSight({
+      cache: opts.cache,
+      fromX: opts.e.x, fromY: opts.e.y, fromElev: opts.e.elevation,
+      toX: opts.p.x, toY: opts.p.y, toElev: opts.p.elevation,
+    });
+  }
   return canPerceiveTarget({
     cache: opts.cache, observer: opts.e, target: opts.p,
     visionRange: spec.visionRange, halfConeRad: AI_TUNING.halfConeRad, hearRange: spec.hearRange,
@@ -69,9 +82,14 @@ function stepMeleeAttack(opts: {
   readonly dt: number; readonly onStrike: StrikePlayerFn;
 }): boolean {
   const { e, target, events, dt, onStrike } = opts;
-  if (e.telegraphTimer > 0) { finishWindupStrike({ e, target, events, dt, onStrike }); return true; }
+  if (e.telegraphTimer > 0) {
+    faceTarget(e, target);
+    finishWindupStrike({ e, target, events, dt, onStrike });
+    return true;
+  }
   const spec = CREATURE_SPECS[e.kind];
   if (e.attackCooldown <= 0 && Math.hypot(target.x - e.x, target.y - e.y) <= spec.range) {
+    faceTarget(e, target);
     e.aiState = ST_CHASE;
     e.telegraphTimer = spec.windupSec;
     e.windupDuration = spec.windupSec;
@@ -82,9 +100,17 @@ function stepMeleeAttack(opts: {
 }
 
 function stepInvestigateOrPatrol(input: StepCreatureInput): void {
-  const { cache, e, scent, timeSec, dt } = input;
+  const { cache, e, scent, timeSec, dayPhase, dt } = input;
   const spec = CREATURE_SPECS[e.kind];
-  if (e.investigateTimer <= 0) { stepHomePatrol({ cache, e, timeSec, dt }); return; }
+  if (e.investigateTimer <= 0) {
+    e.targetPlayerId = null;
+    stepHomePatrol({ cache, e, timeSec, dt, dayPhase });
+    return;
+  }
+  if (spec.territorialGuard && Math.hypot(e.lastKnownX - e.homeX, e.lastKnownY - e.homeY) > e.homeRadius * 1.45) {
+    enterReturnState(e);
+    return;
+  }
   e.investigateTimer = Math.max(0, e.investigateTimer - dt);
   e.aiState = ST_INVESTIGATE;
   const dist = Math.hypot(e.lastKnownX - e.x, e.lastKnownY - e.y);
@@ -131,17 +157,78 @@ function steerOrChargeTarget(input: StepCreatureInput, target: CombatPlayerCandi
   moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult, dt, stopRadius, sep: computeSeparation(e, allEntities) });
 }
 
+function enterReturnState(e: WildlifeEntity): void {
+  e.aiState = ST_RETURN;
+  e.investigateTimer = 0;
+  e.telegraphTimer = 0;
+  e.chargeTimer = 0;
+  e.unreachableTimer = 0;
+  e.provokedTimer = 0;
+  e.targetPlayerId = null;
+  clearNavPath(e);
+}
+
+function finishHomeArrival(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly dayPhase: number }): void {
+  const { cache, e, dayPhase } = opts;
+  const ambush = e.kind === "spider" && isSpiderConcealed({ cache, x: e.x, y: e.y, dayPhase });
+  e.aiState = CREATURE_SPECS[e.kind].sentryIdle ? ST_IDLE : (ambush ? ST_AMBUSH : ST_PATROL);
+  e.unreachableTimer = 0;
+  clearNavPath(e);
+}
+
+function stepCommittedReturn(input: StepCreatureInput): void {
+  const { cache, e, players, dayPhase, dt } = input;
+  const reTarget = findReturnReaggroPlayer({ cache, e, players });
+  if (reTarget) {
+    e.aiState = ST_ALERT;
+    e.targetPlayerId = reTarget.id;
+    e.provokedTimer = 4.0;
+    clearNavPath(e);
+    pursueKnownTarget(input, reTarget);
+    return;
+  }
+  e.aiState = ST_RETURN;
+  if (Math.hypot(e.homeX - e.x, e.homeY - e.y) <= 1.25) {
+    finishHomeArrival({ cache, e, dayPhase });
+    return;
+  }
+  moveCreatureToward({ cache, e, tx: e.homeX, ty: e.homeY, speed: CREATURE_SPECS[e.kind].speed * 0.72, dt, stopRadius: 0.4 });
+}
+
+function isOutsideLeash(e: WildlifeEntity, target: CombatPlayerCandidate): boolean {
+  const spec = CREATURE_SPECS[e.kind];
+  if (!spec.territorialGuard) return Math.hypot(target.x - e.x, target.y - e.y) > spec.visionRange * 1.55;
+  const mult = e.provokedTimer > 0 ? 2.15 : 1.45;
+  const targetOut = Math.hypot(target.x - e.homeX, target.y - e.homeY) > e.homeRadius * mult;
+  const selfOut = Math.hypot(e.x - e.homeX, e.y - e.homeY) > e.homeRadius * (mult + 0.15);
+  return targetOut || selfOut;
+}
+
+function checkUnreachableGlare(e: WildlifeEntity, dt: number): boolean {
+  if (e.navReachedGoal) {
+    e.unreachableTimer = 0;
+    return false;
+  }
+  const wp = e.navPath[0];
+  const atLedge = !wp || Math.hypot(wp.x - e.x, wp.y - e.y) <= 0.75;
+  e.unreachableTimer += atLedge ? dt : dt * 0.35;
+  if (e.unreachableTimer >= 2.5) {
+    enterReturnState(e);
+    return true;
+  }
+  return false;
+}
+
 function pursueKnownTarget(input: StepCreatureInput, target: CombatPlayerCandidate): void {
-  const { cache, e, timeSec, dayPhase, dt } = input;
+  const { cache, e, dayPhase, dt } = input;
+  if (isOutsideLeash(e, target)) { enterReturnState(e); return; }
+  e.targetPlayerId = target.id;
   e.lastKnownX = target.x;
   e.lastKnownY = target.y;
   e.investigateTimer = AI_TUNING.investigateDurationSec;
-  if (Math.hypot(target.x - e.homeX, target.y - e.homeY) > e.homeRadius * 1.45) {
-    stepHomePatrol({ cache, e, timeSec, dt });
-    return;
-  }
-  if (e.kind === "spider" && !stepSpiderAmbushCheck({ e, target, dayPhase })) return;
+  if (e.kind === "spider" && !stepSpiderAmbushCheck({ cache, e, target, dayPhase })) return;
   steerOrChargeTarget(input, target);
+  checkUnreachableGlare(e, dt);
 }
 
 function tryScavengeTurn(input: StepCreatureInput): boolean {
@@ -156,6 +243,7 @@ function tryScavengeTurn(input: StepCreatureInput): boolean {
 
 export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   const { cache, e, players, dt } = input;
+  e.jumpStepped = false;
   if (e.hp <= 0 || e.corpse) {
     e.aiState = ST_DEAD;
     e.telegraphTimer = 0;
@@ -163,10 +251,13 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
     return e.corpseTimer > 0;
   }
   decayTimers(e, dt);
-  if (e.staggerTimer > 0) { e.telegraphTimer = 0; return true; }
-  if (tryScavengeTurn(input)) return true;
+  stepKnockbackVelocity(cache, e, dt);
+  if (e.staggerTimer > 0) { e.telegraphTimer = 0; stepIdleJumpArc(e, dt); return true; }
+  if (e.aiState === ST_RETURN) { stepCommittedReturn(input); stepIdleJumpArc(e, dt); return true; }
+  if (tryScavengeTurn(input)) { stepIdleJumpArc(e, dt); return true; }
   const target = findPerceivedTarget(cache, e, players);
   if (target) pursueKnownTarget(input, target);
   else stepInvestigateOrPatrol(input);
+  stepIdleJumpArc(e, dt);
   return true;
 }

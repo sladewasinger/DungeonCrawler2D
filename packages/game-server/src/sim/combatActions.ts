@@ -27,6 +27,8 @@ export interface PlayerCombatState {
   invulnTimer: number;
   staggerTimer: number;
   bleedTimer: number;
+  hitTimer: number;
+  respawnTimer: number;
   actionCooldown: number;
 }
 
@@ -50,7 +52,7 @@ export function createCombatState(): PlayerCombatState {
     hp: MAX_PLAYER_HP, maxHp: MAX_PLAYER_HP, stamina: MAX_PLAYER_STAMINA, maxStamina: MAX_PLAYER_STAMINA,
     comboStep: 0, comboResetTimer: 0, swingTimer: 0, swingDuration: 0.26, bowCharge: 0,
     blocking: false, blockElapsed: 0, dodgeTimer: 0, dodgeCooldown: 0, dodgeDirX: 0, dodgeDirY: 1,
-    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, actionCooldown: 0,
+    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, hitTimer: 0, respawnTimer: 0, actionCooldown: 0,
   };
 }
 
@@ -63,6 +65,7 @@ function decayCombatTimers(c: PlayerCombatState, dt: number): void {
   c.invulnTimer = Math.max(0, c.invulnTimer - dt);
   c.staggerTimer = Math.max(0, c.staggerTimer - dt);
   c.bleedTimer = Math.max(0, c.bleedTimer - dt);
+  c.hitTimer = Math.max(0, c.hitTimer - dt);
   c.actionCooldown = Math.max(0, c.actionCooldown - dt);
 }
 
@@ -82,11 +85,18 @@ export function stepCombatTimers(p: CombatPlayerRef, blockHeld: boolean, dt: num
 
 export function tryHealConsumable(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): boolean {
   const heal = getItemDef(itemId)?.healHp;
-  if (!heal || p.combat.hp >= p.combat.maxHp || p.combat.actionCooldown > 0) return false;
+  if (!heal || p.combat.hp >= p.combat.maxHp || p.combat.actionCooldown > 0 || p.combat.respawnTimer > 0) return false;
   if (!consumeItemFromSlots(p.inventory.slots, itemId, 1)) return false;
   p.combat.hp = Math.min(p.combat.maxHp, p.combat.hp + heal);
   p.combat.actionCooldown = 0.45;
   events.push({ kind: "heal", x: p.x, y: p.y, value: heal, actorId: p.id });
+  return true;
+}
+
+export function stepPlayerRespawn(target: CombatPlayerRef, events: WorldEvent[], dt: number): boolean {
+  if (target.combat.respawnTimer <= 0) return false;
+  target.combat.respawnTimer = Math.max(0, target.combat.respawnTimer - dt);
+  if (target.combat.respawnTimer === 0) respawnAtSanctuary(target, events);
   return true;
 }
 
@@ -105,6 +115,9 @@ function respawnAtSanctuary(target: CombatPlayerRef, events: WorldEvent[]): void
   target.combat.stamina = target.combat.maxStamina;
   target.combat.bleedTimer = 0;
   target.combat.staggerTimer = 0;
+  target.combat.hitTimer = 0;
+  target.combat.respawnTimer = 0;
+  target.combat.invulnTimer = 2.0;
   target.combat.bowCharge = 0;
   target.combat.blocking = false;
   events.push({ kind: "respawn", x: target.x, y: target.y, actorId: target.id });
@@ -138,7 +151,7 @@ function resolveBlockedHit(hit: IncomingHit): void {
 }
 
 function shouldIgnoreIncomingHit(hit: IncomingHit): boolean {
-  if (hit.target.combat.invulnTimer > 0) return true;
+  if (hit.target.combat.invulnTimer > 0 || hit.target.combat.respawnTimer > 0) return true;
   if (!hit.attackerIsPlayer) return false;
   return isInSanctuary(hit.attackerOrigin.x, hit.attackerOrigin.y) || isInSanctuary(hit.target.x, hit.target.y);
 }
@@ -150,6 +163,7 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
 
   const dmg = computeMitigatedDamage(hit.rawDamage, computeArmorDefense(target.inventory.armor, getItemDef));
   target.combat.hp = Math.max(0, target.combat.hp - dmg);
+  target.combat.hitTimer = 0.28;
   if (hit.goreStyle === "drip") target.combat.bleedTimer = BLEED_DURATION_SEC;
   const fatal = target.combat.hp <= 0;
   const dx = target.x - attackerOrigin.x;
@@ -159,7 +173,13 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
     kind: "hit", x: target.x, y: target.y, dirX: dx / mag, dirY: dy / mag, value: dmg,
     actorId: hit.attackerId, targetId: target.id, goreStyle: fatal ? "explode-away" : hit.goreStyle, substance: "blood", fatal,
   });
-  if (fatal) respawnAtSanctuary(target, events);
+  if (fatal) {
+    target.combat.respawnTimer = 1.65;
+    target.combat.blocking = false;
+    target.combat.bowCharge = 0;
+    target.combat.swingTimer = 0;
+    target.combat.dodgeTimer = 0;
+  }
 }
 
 interface MeleePassInput {

@@ -22,7 +22,7 @@ export interface SandboxStepInput {
   readonly dt: number;
   readonly timeSec: number;
   readonly move: { readonly x: number; readonly y: number };
-  readonly aim: { readonly x: number; readonly y: number };
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly attack: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
@@ -112,6 +112,7 @@ export class SandboxSim {
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } {
     return { x: this.player.x, y: this.player.y, elevation: this.player.elevation };
   }
+  isInCombatAim(): boolean { return (this.player.swingProgress ?? 0) > 0 || (this.player.bowCharge ?? 0) > 0.05; }
   isAiLive(): boolean { return this.aiLive; }
   setPose(pose: SandboxPose): void { this.pose = pose; this.aiLive = false; }
   setFacing(facing: SandboxFacing): void { this.facing = facing; this.aiLive = false; }

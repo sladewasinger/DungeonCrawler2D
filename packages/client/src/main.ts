@@ -1,7 +1,7 @@
 /** Client boot entry: mounts PixiJS v8 shader scene, Web Audio engine, networking, input, and HUD. */
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
 import { AudioEngine } from "./audio/audioEngine.js";
-import { InputController } from "./input/controller.js";
+import { InputController, type CombatInputsFrame } from "./input/controller.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { preloadSpriteManifest } from "./render/textures/spriteManifest.js";
 import { WorldScene } from "./render/world/worldScene.js";
@@ -11,6 +11,7 @@ import { AudioPopover } from "./ui/audioPopover.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import type { HudActions } from "./ui/hud/slotRenderer.js";
+import { CombatFeedbackOverlay } from "./ui/overlays/combatFeedbackOverlay.js";
 import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
@@ -19,20 +20,27 @@ interface AppCtx {
   readonly input: InputController;
   readonly toolbar: AtmosphereToolbar;
   readonly hud: HudRoot;
+  readonly feedback: CombatFeedbackOverlay;
   readonly audio: AudioEngine;
   readonly audioPopover: AudioPopover;
   readonly titleScreen: TitleScreen | null;
 }
 
-function resolveAimVector(ctx: AppCtx & { readonly nowMs: number }, forceMouse: boolean): { readonly x: number; readonly y: number } | undefined {
+function resolveAimVector(ctx: AppCtx & { readonly nowMs: number }): { readonly x: number; readonly y: number } | undefined {
   const mouse = ctx.input.mouseAim(ctx.nowMs);
-  if (!mouse || (!forceMouse && !mouse.recent)) return undefined;
+  if (!mouse) return undefined;
   const me = ctx.client.localPose();
   const target = ctx.scene.screenToWorldTile(mouse.x, mouse.y);
   const dx = target.x - me.x;
   const dy = target.y - (me.y - me.elevation * 0.625 - 0.6);
   const mag = Math.hypot(dx, dy);
   return mag > 0.05 ? { x: dx / mag, y: dy / mag } : undefined;
+}
+
+function hasCombatAim(combat: CombatInputsFrame, local: PlayerSnapshot | undefined): boolean {
+  if (combat.attack || combat.bowDraw || combat.bowRelease) return true;
+  if (!local) return false;
+  return (local.swingProgress ?? 0) > 0 || (local.bowCharge ?? 0) > 0.05;
 }
 
 function scoreSoftLockTarget(opts: {
@@ -95,6 +103,12 @@ function syncUiAndAudio(opts: {
     inventory: view.inventory, name: view.localName, appearance: view.localAppearance,
     localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests,
   });
+  ctx.feedback.sync({
+    local,
+    events: [...opts.preEvents, ...view.events],
+    localId: view.localPlayerId,
+    dt: opts.dt,
+  });
   ctx.toolbar.sync({
     mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused,
     quality: ctx.scene.qualityPreset(), activePanel: ctx.hud.activePanel(),
@@ -122,8 +136,9 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   });
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
+  const standingStill = Math.hypot(move.x, move.y) <= 0.05;
   const aim = assistMobileAim(combat.mobileAim, preLocal, pre.entities)
-    ?? resolveAimVector(ctx, Math.hypot(move.x, move.y) <= 0.05 || combat.bowDraw);
+    ?? (standingStill || hasCombatAim(combat, preLocal) ? resolveAimVector(ctx) : undefined);
   ctx.client.stepInput({
     move, dt: ctx.dt, aim, jump: ctx.input.consumeJump(),
     attack: combat.attack, bowDraw: combat.bowDraw, bowRelease: combat.bowRelease,
@@ -165,10 +180,14 @@ function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: (
 
 function mountHudAndControls(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly audio: AudioEngine;
-}): { readonly hud: HudRoot; readonly input: InputController; readonly toolbar: AtmosphereToolbar; readonly audioPopover: AudioPopover; readonly onInteractChest: () => void } {
+}): {
+  readonly hud: HudRoot; readonly feedback: CombatFeedbackOverlay; readonly input: InputController;
+  readonly toolbar: AtmosphereToolbar; readonly audioPopover: AudioPopover; readonly onInteractChest: () => void;
+} {
   const { host, scene, client, audio } = opts;
   const toggleTorch = () => { client.toggleTorch(); audio.playUi("click"); };
   const hud = new HudRoot(host, buildHudActions(client, audio, toggleTorch));
+  const feedback = new CombatFeedbackOverlay(host);
   const onInteractChest = () => {
     if (hud.activePanel() === "chest") { hud.closePanels(); return; }
     const near = client.nearestChest();
@@ -187,15 +206,12 @@ function mountHudAndControls(opts: {
   });
   const audioPopover = new AudioPopover(host, audio);
   const toolbar = new AtmosphereToolbar(host, {
-    onSetDayPhase: (phase, paused) => client.setDayPhase(phase, paused),
-    onSetQuality: (preset) => scene.setQualityPreset(preset),
-    onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); },
-    onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onToggleAudio: () => { audioPopover.toggle(); audio.playUi("click"); },
-    onZoom: (factor) => scene.adjustZoom(factor),
+    onSetDayPhase: (phase, paused) => client.setDayPhase(phase, paused), onSetQuality: (preset) => scene.setQualityPreset(preset),
+    onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
+    onToggleAudio: () => { audioPopover.toggle(); audio.playUi("click"); }, onZoom: (factor) => scene.adjustZoom(factor),
     onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
   });
-  return { hud, input, toolbar, audioPopover, onInteractChest };
+  return { hud, feedback, input, toolbar, audioPopover, onInteractChest };
 }
 
 async function bootOverworldClient(): Promise<void> {

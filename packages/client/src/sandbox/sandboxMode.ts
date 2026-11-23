@@ -22,6 +22,7 @@ import { HudRoot } from "../ui/hud/hudRoot.js";
 import type { HudActions } from "../ui/hud/slotRenderer.js";
 import { CompassBadge } from "../ui/map/compassBadge.js";
 import { ensureToolbarStyles } from "../ui/toolbarStyles.js";
+import { PoseTunerPanel } from "./poseTuner/poseTunerPanel.js";
 import { buildSandboxGallery, type SandboxGallery } from "./sandboxGallery.js";
 import { SandboxSim } from "./sandboxSim.js";
 import { mountSandboxTerrainDiorama, type SandboxDioramaView } from "./sandboxTerrain.js";
@@ -30,24 +31,12 @@ import { SandboxToolbar } from "./sandboxToolbar.js";
 type SandboxRig = Awaited<ReturnType<typeof initPixiSandboxRig>>;
 
 interface SandboxState {
-  readonly rig: SandboxRig;
-  readonly sim: SandboxSim;
-  readonly gallery: SandboxGallery;
-  readonly diorama: SandboxDioramaView;
-  readonly entities: EntityRenderer;
-  readonly pickups: WorldPickupsRenderer;
-  readonly gore: GoreSystem;
-  readonly vfx: CombatVfxLayer;
-  readonly hud: HudRoot;
-  readonly input: InputController;
-  readonly compass: CompassBadge;
-  readonly fps: FpsCounter;
-  readonly toolbar: SandboxToolbar;
-  playerView: PlayerView | null;
-  zoom: number;
-  dayPhase: number;
-  camX: number;
-  camY: number;
+  readonly rig: SandboxRig; readonly sim: SandboxSim; readonly gallery: SandboxGallery;
+  readonly diorama: SandboxDioramaView; readonly entities: EntityRenderer; readonly pickups: WorldPickupsRenderer;
+  readonly gore: GoreSystem; readonly vfx: CombatVfxLayer; readonly hud: HudRoot;
+  readonly input: InputController; readonly compass: CompassBadge; readonly fps: FpsCounter;
+  readonly toolbar: SandboxToolbar; readonly poseTuner: PoseTunerPanel;
+  playerView: PlayerView | null; zoom: number; dayPhase: number; camX: number; camY: number;
 }
 
 function buildSandboxHudActions(sim: SandboxSim, audio: AudioEngine): HudActions {
@@ -113,15 +102,28 @@ function renderSandboxAtmosphere(st: SandboxState, opts: { readonly timeSec: num
   });
 }
 
+function resolveSandboxAim(opts: {
+  readonly st: SandboxState; readonly nowMs: number;
+  readonly move: { readonly x: number; readonly y: number };
+  readonly combat: { readonly attack: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean };
+}): { readonly x: number; readonly y: number } | undefined {
+  const { st, nowMs, move, combat } = opts;
+  if (Math.hypot(move.x, move.y) <= 0.05 || combat.attack || combat.bowDraw || combat.bowRelease) {
+    return computeAimTarget(st, nowMs);
+  }
+  return st.sim.isInCombatAim() || st.poseTuner.isOpen() ? computeAimTarget(st, nowMs) : undefined;
+}
+
 function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
   st.fps.tick(nowMs);
+  const move = st.input.movement();
   const combat = st.input.consumeCombat();
   const cur = st.sim.step({
-    dt, timeSec: nowMs / 1000, move: st.input.movement(), aim: computeAimTarget(st, nowMs),
+    dt, timeSec: nowMs / 1000, move, aim: resolveSandboxAim({ st, nowMs, move, combat }),
     attack: combat.attack, block: combat.block, dodge: combat.dodge,
     jump: st.input.consumeJump(), bowDraw: combat.bowDraw, bowRelease: combat.bowRelease,
   });
-  const pl = cur.player;
+  const pl = st.poseTuner.applyPreview(cur.player);
   st.input.setGearState({ isBowHeld: pl.heldItem === "bow", hasShield: cur.inventory.armor.offhand === "wooden-shield" });
   st.camX += (pl.x - st.camX) * Math.min(1, dt * 8);
   st.camY += (pl.y - pl.elevation * 0.625 - 2.2 - st.camY) * Math.min(1, dt * 8);
@@ -144,7 +146,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
   renderSandboxAtmosphere(st, { timeSec, pl });
   st.hud.sync({ inventory: cur.inventory, name: pl.name, appearance: pl.appearance ?? DEFAULT_APPEARANCE, localPlayer: pl, cache: st.sim.cache, players: [pl], entities: cur.entities, chests: cur.chests });
   st.compass.sync(pl.x, pl.y);
-  st.toolbar.sync({ aiLive: st.sim.isAiLive(), pose: st.sim.getPose(), facing: st.sim.getFacing(), dayPhase: st.dayPhase });
+  st.toolbar.sync({ aiLive: st.sim.isAiLive(), pose: st.sim.getPose(), facing: st.sim.getFacing(), dayPhase: st.dayPhase, poseTunerOpen: st.poseTuner.isOpen() });
   st.rig.app.render();
 }
 
@@ -191,11 +193,12 @@ function mountSandboxHud(host: HTMLElement, sim: SandboxSim, audio: AudioEngine)
 
 function createSandboxControls(opts: {
   readonly host: HTMLElement; readonly sim: SandboxSim; readonly hud: HudRoot;
-  readonly getState: () => SandboxState; readonly onInteract: () => void;
+  readonly poseTuner: PoseTunerPanel; readonly getState: () => SandboxState; readonly onInteract: () => void;
 }) {
-  const { host, sim, hud, getState, onInteract } = opts;
+  const { host, sim, hud, poseTuner, getState, onInteract } = opts;
   const jumpTo = (x: number, y: number): void => {
-    sim.teleportTo(x, y); const st = getState(); st.camX = x; st.camY = y - 2.2;
+    sim.teleportTo(x, y); const st = getState();
+    st.camX = x; st.camY = y - 2.2;
   };
   const setZoom = (f: number): void => { const st = getState(); st.zoom = clamp(st.zoom * f, 1.3, 5.0); };
   const input = new InputController(host, {
@@ -209,7 +212,7 @@ function createSandboxControls(opts: {
     onSpawnPack: () => sim.spawnWolfPack(), onSetPose: (pose) => sim.setPose(pose),
     onSetFacing: (facing) => sim.setFacing(facing), onSetDayPhase: (phase) => { getState().dayPhase = phase; },
     onZoom: setZoom, onJumpGallery: () => jumpTo(21, 26.2), onJumpTerrain: () => jumpTo(68, 16.5),
-    onReset: () => { sim.resetArena(); hud.closePanels(); jumpTo(21, 26.2); },
+    onTogglePoseTuner: () => poseTuner.toggle(), onReset: () => { sim.resetArena(); hud.closePanels(); jumpTo(21, 26.2); },
   }, getLoadedSpriteIds().length);
   return { input, toolbar };
 }
@@ -231,9 +234,10 @@ function createSandboxState(host: HTMLElement, rig: SandboxRig): SandboxState {
   rig.ysortCam.addChild(pickups.container);
   const { compass, fps } = mountRightBadges(host);
   const ref: { st?: SandboxState } = {};
-  const { input, toolbar } = createSandboxControls({ host, sim, hud, getState: () => ref.st!, onInteract });
+  const poseTuner = new PoseTunerPanel(host, { onZoomClose: () => { if (ref.st) ref.st.zoom = 4.2; } });
+  const { input, toolbar } = createSandboxControls({ host, sim, hud, poseTuner, getState: () => ref.st!, onInteract });
   ref.st = {
-    rig, sim, gallery, diorama, entities: new EntityRenderer(), pickups, gore, vfx, hud, compass, fps, input, toolbar,
+    rig, sim, gallery, diorama, entities: new EntityRenderer(), pickups, gore, vfx, hud, compass, fps, input, toolbar, poseTuner,
     playerView: null, zoom: 2.6, dayPhase: 0.42, camX: 21, camY: 23.6,
   };
   return ref.st;

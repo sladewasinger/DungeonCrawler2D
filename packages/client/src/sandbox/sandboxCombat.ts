@@ -22,7 +22,7 @@ export interface PlayerMoveTimers {
 export interface SandboxPlayerInput {
   readonly dt: number;
   readonly move: { readonly x: number; readonly y: number };
-  readonly aim: { readonly x: number; readonly y: number };
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly attack: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
@@ -40,9 +40,18 @@ function advanceJump(opts: { readonly z: number; readonly vz: number; readonly p
   return { jumpZ: nextZ, jumpVz: nextVz };
 }
 
-function resolveFacingAxis(opts: { readonly aim: number; readonly move: number; readonly moving: boolean; readonly prev: number }): number {
-  if (Math.abs(opts.aim) > 0.05) return opts.aim;
-  return opts.moving ? opts.move : opts.prev;
+function resolveSandboxFacing(opts: {
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  readonly nx: number; readonly ny: number; readonly moving: boolean; readonly player: PlayerSnapshot;
+}): { readonly facingX: number; readonly facingY: number; readonly aimX: number; readonly aimY: number } {
+  if (opts.aim && Math.hypot(opts.aim.x, opts.aim.y) > 0.05) {
+    return { facingX: opts.aim.x, facingY: opts.aim.y, aimX: opts.aim.x, aimY: opts.aim.y };
+  }
+  if (opts.moving) return { facingX: opts.nx, facingY: opts.ny, aimX: opts.nx, aimY: opts.ny };
+  return {
+    facingX: opts.player.facingX, facingY: opts.player.facingY,
+    aimX: opts.player.aimX ?? opts.player.facingX, aimY: opts.player.aimY ?? opts.player.facingY,
+  };
 }
 
 function tickPlayerTimers(timers: PlayerMoveTimers, dodge: boolean, dt: number): void {
@@ -52,9 +61,20 @@ function tickPlayerTimers(timers: PlayerMoveTimers, dodge: boolean, dt: number):
   timers.comboResetTimer = Math.max(0, timers.comboResetTimer - dt);
 }
 
-function normalizedMove(move: { readonly x: number; readonly y: number }): { readonly nx: number; readonly ny: number; readonly moving: boolean } {
-  const len = Math.hypot(move.x, move.y);
-  return len > 0.05 ? { nx: move.x / len, ny: move.y / len, moving: true } : { nx: 0, ny: 0, moving: false };
+function normalizedMove(move: { readonly x: number; readonly y: number }): {
+  readonly nx: number; readonly ny: number; readonly mag: number; readonly moving: boolean;
+} {
+  const rawMag = Math.hypot(move.x, move.y);
+  if (rawMag <= 0.05) return { nx: 0, ny: 0, mag: 0, moving: false };
+  return { nx: move.x / rawMag, ny: move.y / rawMag, mag: Math.min(1, rawMag), moving: true };
+}
+
+function isSandboxSprinting(opts: {
+  readonly moving: boolean; readonly mag: number; readonly inWater: boolean;
+  readonly block: boolean; readonly timers: PlayerMoveTimers; readonly bowCharge: number;
+}): boolean {
+  return opts.moving && opts.mag > 0.82 && !opts.inWater && !opts.block
+    && opts.timers.dodgeTimer <= 0 && opts.timers.swingTimer <= 0 && opts.bowCharge <= 0.05;
 }
 
 export function advanceSandboxPlayer(opts: {
@@ -62,25 +82,25 @@ export function advanceSandboxPlayer(opts: {
 }): PlayerSnapshot {
   const { player, cache, timers, input } = opts;
   tickPlayerTimers(timers, input.dodge, input.dt);
-  const { nx, ny, moving } = normalizedMove(input.move);
-  const speed = 5.8 * (timers.dodgeTimer > 0 ? DODGE_SPEED_MULT : 1);
+  const { nx, ny, mag, moving } = normalizedMove(input.move);
+  const baseSpeed = 5.8 * (timers.dodgeTimer > 0 ? DODGE_SPEED_MULT : mag);
   const jump = advanceJump({ z: player.jumpZ ?? 0, vz: player.jumpVz ?? 0, pressed: input.jump, dt: input.dt });
   const moved = resolveMovement({
-    cache, x: player.x, y: player.y, dx: nx * speed * input.dt, dy: ny * speed * input.dt,
+    cache, x: player.x, y: player.y, dx: nx * baseSpeed * input.dt, dy: ny * baseSpeed * input.dt,
     radius: 0.28, elevation: player.elevation, airborne: jump.jumpZ > 0.05,
   });
   const swingProgress = timers.swingTimer > 0 ? 1 - timers.swingTimer / COMBO_SWING_SEC : 0;
+  const facing = resolveSandboxFacing({ aim: input.aim, nx, ny, moving, player });
+  const sprinting = isSandboxSprinting({ moving, mag, inWater: moved.inWater, block: input.block, timers, bowCharge: player.bowCharge ?? 0 });
   return {
     ...player,
     x: clamp(moved.x, 2, 94),
     y: clamp(moved.y, 2, 30),
     elevation: moved.elevation,
     inWater: moved.inWater,
-    jumpZ: jump.jumpZ, jumpVz: jump.jumpVz, moving,
+    jumpZ: jump.jumpZ, jumpVz: jump.jumpVz, moving, sprinting,
     blocking: input.block, dodging: timers.dodgeTimer > 0,
-    facingX: resolveFacingAxis({ aim: input.aim.x, move: nx, moving, prev: player.facingX }),
-    facingY: resolveFacingAxis({ aim: input.aim.y, move: ny, moving, prev: player.facingY }),
-    aimX: input.aim.x, aimY: input.aim.y, swingProgress,
+    ...facing, swingProgress,
     comboStep: timers.comboResetTimer > 0 ? player.comboStep : 0,
     stamina: clamp((player.stamina ?? MAX_PLAYER_STAMINA) + STAMINA_REGEN_PER_SEC * input.dt, 0, MAX_PLAYER_STAMINA),
   };
@@ -100,10 +120,11 @@ export function advanceSandboxBow(opts: {
     return { ...player, bowCharge: timers.bowChargeSec / 0.85 };
   }
   if (input.bowRelease && timers.bowChargeSec > 0.05) {
+    const aim = input.aim ?? { x: player.facingX, y: player.facingY };
     const shot = evaluateBowShot(timers.bowChargeSec);
     projectiles.push({
       ttlSec: 1.5,
-      snap: { id: nextProjId(), ownerId: player.id, kind: "arrow", x: player.x, y: player.y, elevation: 0, vx: input.aim.x * shot.speedTilesPerSec, vy: input.aim.y * shot.speedTilesPerSec, charge: shot.ratio },
+      snap: { id: nextProjId(), ownerId: player.id, kind: "arrow", x: player.x, y: player.y, elevation: 0, vx: aim.x * shot.speedTilesPerSec, vy: aim.y * shot.speedTilesPerSec, charge: shot.ratio },
     });
     events.push({ kind: "arrowFire", actorId: player.id, x: player.x, y: player.y });
   }
@@ -145,11 +166,12 @@ export function advanceSandboxMelee(opts: {
 }): PlayerSnapshot {
   const { player, timers, input, actors, events } = opts;
   if (!input.attack || player.heldItem === "bow" || timers.swingTimer > 0) return player;
+  const aim = input.aim ?? { x: player.facingX, y: player.facingY };
   const step = ((player.comboStep ?? 0) % 3) + 1;
   timers.swingTimer = COMBO_SWING_SEC;
   timers.comboResetTimer = COMBO_WINDOW_SEC;
-  events.push({ kind: "swing", actorId: player.id, x: player.x, y: player.y, dirX: input.aim.x, dirY: input.aim.y, comboStep: step });
-  cleaveActors({ player, aim: input.aim, actors, dmg: Math.round(24 * (COMBO_DAMAGE_MULT[step - 1] ?? 1)), events });
+  events.push({ kind: "swing", actorId: player.id, x: player.x, y: player.y, dirX: aim.x, dirY: aim.y, comboStep: step });
+  cleaveActors({ player, aim, actors, dmg: Math.round(24 * (COMBO_DAMAGE_MULT[step - 1] ?? 1)), events });
   return { ...player, comboStep: step, swingProgress: 0.02 };
 }
 

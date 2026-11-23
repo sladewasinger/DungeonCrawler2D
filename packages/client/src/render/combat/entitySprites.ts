@@ -1,5 +1,5 @@
 /** Renders interactive combat training targets, wildlife, POI guards, and fallen bodies. */
-import { TILE_PX, type WorldEntitySnapshot } from "@dc2d/engine";
+import { JUMP_VISUAL_PX_PER_TILE, TILE_PX, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite } from "pixi.js";
 import { getLoadedSpriteAsset, type LoadedSpriteAnimations } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
@@ -10,8 +10,6 @@ type WorldEntityKind = WorldEntitySnapshot["kind"];
 
 const KIND_SLIME_DUMMY: WorldEntityKind = "slime-dummy";
 const KIND_SLIME: WorldEntityKind = "slime";
-const KIND_SPIDER: WorldEntityKind = "spider";
-const MOVE_STATES = new Set(["patrol", "investigate", "chase", "flank", "charge"]);
 
 function isCorpseState(snap: WorldEntitySnapshot): boolean {
   return Boolean(snap.corpse) || snap.hp <= 0;
@@ -26,6 +24,13 @@ function resolveBodyTint(snap: WorldEntitySnapshot): number {
 
 function resolveStrideBounce(moving: boolean, phaseX: number, timeSec: number): number {
   return moving ? -Math.abs(Math.sin(timeSec * 12 + phaseX)) * 1.4 : 0;
+}
+
+function resolveFallbackBodyY(opts: {
+  readonly snap: WorldEntitySnapshot; readonly moving: boolean; readonly timeSec: number; readonly dead: boolean;
+}): number {
+  if (opts.dead) return 0;
+  return resolveStrideBounce(opts.moving, opts.snap.x, opts.timeSec) - (opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
 }
 
 function resolveVerticalScale(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): number {
@@ -73,6 +78,7 @@ class EntityView {
   private readonly kind: WorldEntityKind;
   private lastX = Number.NaN;
   private lastY = Number.NaN;
+  private moveHoldUntilSec = 0;
 
   constructor(kind: WorldEntityKind) {
     this.kind = kind;
@@ -89,13 +95,17 @@ class EntityView {
   }
 
   sync(snap: WorldEntitySnapshot, timeSec: number): void {
-    const moved = Number.isFinite(this.lastX) && Math.hypot(snap.x - this.lastX, snap.y - this.lastY) > 0.002;
+    const moved = Number.isFinite(this.lastX) && Math.hypot(snap.x - this.lastX, snap.y - this.lastY) > 0.004;
+    if (moved) this.moveHoldUntilSec = timeSec + 0.14;
     this.lastX = snap.x;
     this.lastY = snap.y;
+    const jumpZ = snap.jumpZ ?? 0;
     const lift = snap.elevation * ELEVATION_LIFT_PX;
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - lift);
     this.root.zIndex = Math.round(snap.y * TILE_PX) + snap.elevation * 2;
-    this.syncBodyState({ snap, timeSec, moving: moved || MOVE_STATES.has(snap.aiState ?? "") });
+    this.shadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.6));
+    this.shadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
+    this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge" });
     this.syncHpBar(snap);
   }
 
@@ -109,9 +119,9 @@ class EntityView {
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
     if (!frame) return false;
     this.body.texture = frame.texture;
-    this.body.alpha = opts.dead ? 0.82 : this.resolveBodyAlpha(opts.snap, false);
+    this.body.alpha = opts.dead ? 0.82 : 1;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
-    this.body.position.y = 0;
+    this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
     this.body.tint = resolveBodyTint(opts.snap);
     this.body.scale.set(frame.flipX * this.baseScale, this.baseScale);
     return true;
@@ -130,16 +140,11 @@ class EntityView {
       this.body.tint = 0x86efac;
       return;
     }
-    this.body.alpha = this.resolveBodyAlpha(snap, dead);
+    this.body.alpha = dead ? 0.72 : 1;
     this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
-    this.body.position.y = dead ? 0 : resolveStrideBounce(moving, snap.x, timeSec);
+    this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead });
     this.body.tint = resolveBodyTint(snap);
     this.applyBodyScale(snap, timeSec, dead);
-  }
-
-  private resolveBodyAlpha(snap: WorldEntitySnapshot, dead: boolean): number {
-    if (dead) return 0.72;
-    return this.kind === KIND_SPIDER && snap.aiState === "ambush" ? 0.45 : 1;
   }
 
   private liveShakeAngle(snap: WorldEntitySnapshot, timeSec: number): number {

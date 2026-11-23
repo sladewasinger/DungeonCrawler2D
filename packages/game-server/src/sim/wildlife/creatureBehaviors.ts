@@ -1,9 +1,14 @@
 /** Specialized archetype steering, separation, and combat helpers for wildlife & POI guards. */
-import { AI_TUNING, WorldChunkCache, computeFlankRingSlot, isInSanctuary, resolveMovement } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, computeFlankRingSlot, hashUnit2d, isInSanctuary, resolveMovement, type AiState } from "@dc2d/engine";
 import {
   CREATURE_SPECS, ITEM_RAW_MEAT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_FEED, ST_FLANK, ST_IDLE, ST_PATROL,
   type WildlifeEntity,
 } from "./creatureSpecs.js";
+import { faceTarget, isClearSpot, moveCreatureToward } from "./creatureNavigation.js";
+
+const SPIDER_COVER_PROPS = new Set<PropKind>([PropKind.TallGrass, PropKind.Bush, PropKind.OakTree, PropKind.PineTree]);
+
+export { moveCreatureToward };
 
 export interface SteerTarget { readonly x: number; readonly y: number; readonly speedMult: number }
 export interface CombatPlayerCandidate {
@@ -31,29 +36,6 @@ export function computeSeparation(e: WildlifeEntity, entities: readonly Wildlife
     }
   }
   return { x: sx, y: sy };
-}
-
-export function moveCreatureToward(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
-  readonly tx: number; readonly ty: number; readonly speed: number; readonly dt: number;
-  readonly stopRadius?: number; readonly sep?: { readonly x: number; readonly y: number };
-}): void {
-  const { cache, e, tx, ty, speed, dt } = opts;
-  const dist = Math.hypot(tx - e.x, ty - e.y);
-  const stopR = opts.stopRadius ?? 0.08;
-  if (dist > 0.22) {
-    e.facingX = (tx - e.x) / dist;
-    e.facingY = (ty - e.y) / dist;
-  }
-  const sep = opts.sep ?? { x: 0, y: 0 };
-  const moveDist = dist > stopR ? Math.min(dist - stopR, speed * dt) : 0;
-  const dx = (moveDist > 0 ? ((tx - e.x) / dist) * moveDist : 0) + sep.x * dt * 2.1;
-  const dy = (moveDist > 0 ? ((ty - e.y) / dist) * moveDist : 0) + sep.y * dt * 2.1;
-  if (Math.hypot(dx, dy) < 0.002) return;
-  const res = resolveMovement({ cache, x: e.x, y: e.y, dx, dy, radius: 0.28, elevation: e.elevation, airborne: false });
-  e.x = res.x;
-  e.y = res.y;
-  e.elevation = res.elevation;
 }
 
 export function stepWolfPack(opts: {
@@ -190,6 +172,7 @@ export function stepBoarBehavior(opts: {
   if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return { mode: "done" }; }
   if (e.chargeRecoverTimer > 0) { advanceBoarRecovery(e, cache, dt); return { mode: "done" }; }
   if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) {
+    faceTarget(e, target);
     e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
     if (e.telegraphTimer === 0) beginBoarCharge(e, target);
     return { mode: "done" };
@@ -197,28 +180,88 @@ export function stepBoarBehavior(opts: {
   return resolveBoarMoveOrCharge(e, target);
 }
 
-export function stepSpiderAmbushCheck(opts: {
-  readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly dayPhase: number;
+function isNightPhase(dayPhase: number): boolean {
+  return dayPhase < 0.24 || dayPhase > 0.76;
+}
+
+export function hasSpiderCover(cache: WorldChunkCache, x: number, y: number): boolean {
+  if (cache.tileAt(x, y).ground === GroundKind.ForestFloor) return true;
+  return cache.propsNear(x, y).some((p) => SPIDER_COVER_PROPS.has(p.kind) && Math.hypot(p.x - x, p.y - y) <= 1.8);
+}
+
+export function isSpiderConcealed(opts: {
+  readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly dayPhase: number;
 }): boolean {
-  if (!opts.target) { opts.e.aiState = ST_AMBUSH; return false; }
-  const isNight = opts.dayPhase < 0.24 || opts.dayPhase > 0.76;
-  const triggerDist = isNight ? AI_TUNING.spiderAmbushNightTiles : AI_TUNING.spiderAmbushDayTiles;
-  const dist = Math.hypot(opts.target.x - opts.e.x, opts.target.y - opts.e.y);
-  const alerted = opts.e.hitTimer > 0 || opts.e.alertedTimer > 0;
-  if (dist <= triggerDist || alerted) return true;
+  return isNightPhase(opts.dayPhase) || hasSpiderCover(opts.cache, opts.x, opts.y);
+}
+
+export function stepSpiderAmbushCheck(opts: {
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly dayPhase: number;
+}): boolean {
+  if (opts.e.hitTimer > 0 || opts.e.alertedTimer > 0) return true;
+  const concealed = isSpiderConcealed({ cache: opts.cache, x: opts.e.x, y: opts.e.y, dayPhase: opts.dayPhase });
+  if (!opts.target) { opts.e.aiState = concealed ? ST_AMBUSH : ST_PATROL; return false; }
+  if (!concealed) return true;
+  const triggerDist = isNightPhase(opts.dayPhase) ? AI_TUNING.spiderAmbushNightTiles : AI_TUNING.spiderAmbushDayTiles;
+  if (Math.hypot(opts.target.x - opts.e.x, opts.target.y - opts.e.y) <= triggerDist) return true;
   opts.e.aiState = ST_AMBUSH;
   return false;
 }
 
+function pickPatrolWaypoint(cache: WorldChunkCache, e: WildlifeEntity, timeSec: number): void {
+  const seed = Math.floor(timeSec * 10) + e.packSlot * 31;
+  const span = Math.min(3.2, e.homeRadius * 0.55);
+  let gx = e.homeX;
+  let gy = e.homeY;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const s = seed + attempt * 19;
+    const ang = hashUnit2d(s, Math.floor(e.homeX), Math.floor(e.homeY)) * Math.PI * 2;
+    const r = (0.35 + hashUnit2d(s + 17, Math.floor(e.homeY), Math.floor(e.homeX)) * 0.65) * span;
+    const cand = { x: e.homeX + Math.cos(ang) * r, y: e.homeY + Math.sin(ang) * r };
+    if (isClearSpot(cache, { ...cand, pad: 0.4 })) {
+      gx = cand.x;
+      gy = cand.y;
+      break;
+    }
+  }
+  e.patrolGoalX = gx;
+  e.patrolGoalY = gy;
+  e.patrolMoveTimer = 2.6 + hashUnit2d(seed + 41, e.packSlot, Math.floor(timeSec)) * 1.4;
+}
+
+function beginIdlePause(e: WildlifeEntity, timeSec: number): void {
+  const r = hashUnit2d(Math.floor(timeSec * 10), e.packSlot + 17, Math.floor(e.homeX + e.homeY));
+  e.patrolPauseTimer = 2.2 + r * 2.8;
+  e.aiState = ST_IDLE;
+}
+
+function isStaticIdleEntity(cache: WorldChunkCache, e: WildlifeEntity, dayPhase: number | undefined): AiState | null {
+  if (CREATURE_SPECS[e.kind].sentryIdle) return ST_IDLE;
+  if (e.kind === "spider" && dayPhase !== undefined && isSpiderConcealed({ cache, x: e.x, y: e.y, dayPhase })) {
+    return ST_AMBUSH;
+  }
+  return null;
+}
+
 export function stepHomePatrol(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly timeSec: number; readonly dt: number;
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly timeSec: number; readonly dt: number; readonly dayPhase?: number;
 }): void {
-  const { cache, e, timeSec, dt } = opts;
-  e.aiState = e.kind === "spider" ? ST_AMBUSH : ST_PATROL;
-  if (e.kind === "spider") return;
-  const angle = timeSec * 0.42 + e.patrolPhase;
-  const r = Math.min(2.2, e.homeRadius * 0.5);
-  moveCreatureToward({ cache, e, tx: e.homeX + Math.cos(angle) * r, ty: e.homeY + Math.sin(angle) * r, speed: CREATURE_SPECS[e.kind].speed * 0.45, dt });
+  const { cache, e, timeSec, dt, dayPhase } = opts;
+  const hold = isStaticIdleEntity(cache, e, dayPhase);
+  if (hold) { e.aiState = hold; return; }
+  if (e.patrolPauseTimer > 0) {
+    e.patrolPauseTimer = Math.max(0, e.patrolPauseTimer - dt);
+    e.aiState = ST_IDLE;
+    if (e.patrolPauseTimer === 0) pickPatrolWaypoint(cache, e, timeSec);
+    return;
+  }
+  e.patrolMoveTimer = Math.max(0, e.patrolMoveTimer - dt);
+  if (Math.hypot(e.patrolGoalX - e.x, e.patrolGoalY - e.y) <= 0.35 || e.patrolMoveTimer === 0) {
+    beginIdlePause(e, timeSec);
+    return;
+  }
+  e.aiState = ST_PATROL;
+  moveCreatureToward({ cache, e, tx: e.patrolGoalX, ty: e.patrolGoalY, speed: CREATURE_SPECS[e.kind].speed * 0.42, dt });
 }
 
 export function isScavengeLootId(itemId: string): boolean {
