@@ -48,7 +48,7 @@ class SoundStudioApp {
     this.timelinePanel = this.createTimelinePanel();
     this.presetBar = new StudioPresetBar({
       onSelect: (id) => { const hit = this.library.find((p) => p.id === id); if (hit) this.applyActivePreset(hit, true); },
-      onSave: () => this.saveCurrentPreset(this.presetId, this.presetName, `Saved changes to "${this.presetName}" cleanly.`),
+      onSave: () => this.saveCurrentPreset(this.presetId, this.presetName, `Saved "${this.presetName}" — live in game & Sandbox.`),
       onSaveAs: (name) => this.saveCurrentPreset(`custom-${Date.now().toString(36)}`, name.trim() || `${this.presetName} Custom`, "Saved custom preset."),
       onResetOrDelete: () => this.resetOrDeletePreset(),
     });

@@ -1,10 +1,12 @@
 /** Plays per-species procedural creature voices with optional Sound Studio sample overrides. */
 import type { CreatureVocalKind } from "@dc2d/engine";
+import { playSavedStudioPreset } from "../studioOverrides.js";
 import { playNoiseBurst, playSweptNoise, playTone } from "../synthSfx.js";
+import { scheduleVocalTrack } from "./vocalSynth.js";
 import { BEAST_VOICE_SPECS } from "./creatureVoiceSpecs.js";
 import { POI_VOICE_SPECS } from "./creaturePoiVoiceSpecs.js";
 import {
-  CREATURE_VOICE_KINDS, type CreatureVoiceKind, type CreatureVoiceSet, type VoiceLayer,
+  CREATURE_VOICE_KINDS, type CreatureVoiceKind, type CreatureVoiceSet, type VocalVoiceLayer, type VoiceLayer,
 } from "./creatureVoiceTypes.js";
 
 export { CREATURE_VOICE_KINDS, CREATURE_VOCAL_KINDS, type CreatureVoiceKind } from "./creatureVoiceTypes.js";
@@ -46,6 +48,26 @@ function playSampleOverride(opts: {
   src.start();
 }
 
+function playVocalLayer(opts: {
+  readonly ctx: AudioContext; readonly dst: AudioNode; readonly layer: VocalVoiceLayer;
+  readonly pitch: number; readonly gain: number; readonly holdSec: number; readonly delay: number;
+}): void {
+  const { ctx, dst, layer, pitch, gain, holdSec, delay } = opts;
+  const f0 = layer.f0 * pitch;
+  const f1 = layer.f1 * pitch;
+  scheduleVocalTrack({
+    ctx,
+    dst,
+    baseTime: ctx.currentTime + 0.005,
+    win: { startDelaySec: delay, durationSec: layer.dur, f0, f1, attackSec: layer.atk, holdSec },
+    track: {
+      id: "v", name: "Vocal", kind: layer.kind, wave: layer.wave, filterType: layer.filter,
+      noiseColor: layer.color, f0, f1, q: layer.q, delaySec: delay, durationSec: layer.dur,
+      attackSec: layer.atk, holdSec, gain, pan: 0, enabled: true, solo: false,
+    },
+  });
+}
+
 function playVoiceLayer(opts: {
   readonly ctx: AudioContext; readonly dst: AudioNode; readonly layer: VoiceLayer;
   readonly pitch: number; readonly gainScale: number; readonly baseDelay: number;
@@ -54,6 +76,7 @@ function playVoiceLayer(opts: {
   const gain = layer.gain * gainScale;
   const holdSec = layer.hold ?? Math.min(layer.dur * 0.42, Math.max(0, layer.dur - 0.02));
   const delay = baseDelay + (layer.delay ?? 0);
+  if (layer.kind === "vocal") { playVocalLayer({ ctx, dst, layer, pitch, gain, holdSec, delay }); return; }
   if (layer.kind === "tone") {
     playTone({
       ctx, dst, wave: layer.wave, f0: layer.f0 * pitch, f1: layer.f1 * pitch,
@@ -81,6 +104,10 @@ export function synthCreatureVocal(opts: CreatureVocalPlayOpts): void {
     playSampleOverride({ ctx: opts.ctx, dst: opts.dst, buffer: opts.sampleOverride, gainScale });
     return;
   }
+  if (playSavedStudioPreset({
+    ctx: opts.ctx, dst: opts.dst, presetId: `creature-${opts.kind}-${opts.vocal}`,
+    gainScale, delaySec: opts.delaySec, pitchJitter: 0.06,
+  })) return;
   const layers = getCreatureVoiceSpec(opts.kind, opts.vocal);
   const pitch = 0.93 + Math.random() * 0.14;
   const amp = gainScale * (0.94 + Math.random() * 0.1);

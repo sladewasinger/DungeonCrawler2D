@@ -1,8 +1,9 @@
 /** LocalStorage preset persistence, override merging, normalization, and dirty fingerprinting. */
 import { normalizeTrackSpec } from "../audio/proceduralSynth.js";
+import { STUDIO_PRESETS_STORAGE_KEY } from "../audio/studioOverrides.js";
 import type { SoundPreset, SoundTrackSpec } from "./studioTypes.js";
 
-const STORAGE_KEY = "dc2d-sound-studio-presets-v1";
+const STORAGE_KEY = STUDIO_PRESETS_STORAGE_KEY;
 
 export interface LibraryPreset extends SoundPreset {
   readonly isCustom: boolean;

@@ -49,7 +49,22 @@ export interface BurstVoiceLayer {
   readonly hold?: number;
 }
 
-export type VoiceLayer = ToneVoiceLayer | SweepVoiceLayer | BurstVoiceLayer;
+export interface VocalVoiceLayer {
+  readonly kind: "vocal";
+  readonly wave: OscillatorType;
+  readonly f0: number;
+  readonly f1: number;
+  readonly filter: BiquadFilterType;
+  readonly color: NoiseColor;
+  readonly q: number;
+  readonly atk: number;
+  readonly dur: number;
+  readonly gain: number;
+  readonly delay?: number;
+  readonly hold?: number;
+}
+
+export type VoiceLayer = ToneVoiceLayer | SweepVoiceLayer | BurstVoiceLayer | VocalVoiceLayer;
 export type CreatureVocalSpec = readonly VoiceLayer[];
 export type CreatureVoiceSet = Record<CreatureVocalKind, CreatureVocalSpec>;
 
@@ -66,6 +81,7 @@ export const C_WH: NoiseColor = "white";
 const KIND_TONE: ToneVoiceLayer["kind"] = "tone";
 const KIND_SWEEP: SweepVoiceLayer["kind"] = "sweep";
 const KIND_BURST: BurstVoiceLayer["kind"] = "burst";
+const KIND_VOCAL: VocalVoiceLayer["kind"] = "vocal";
 
 export function tone(opts: Omit<ToneVoiceLayer, "kind">): ToneVoiceLayer {
   return { kind: KIND_TONE, ...opts };
@@ -77,4 +93,8 @@ export function sweep(opts: Omit<SweepVoiceLayer, "kind">): SweepVoiceLayer {
 
 export function burst(opts: Omit<BurstVoiceLayer, "kind">): BurstVoiceLayer {
   return { kind: KIND_BURST, ...opts };
+}
+
+export function vocal(opts: Omit<VocalVoiceLayer, "kind">): VocalVoiceLayer {
+  return { kind: KIND_VOCAL, ...opts };
 }

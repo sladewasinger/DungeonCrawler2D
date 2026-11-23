@@ -1,6 +1,7 @@
 /** Procedural Web Audio API SFX synthesis with shared noise/tone envelope builders. */
 import type { GoreSubstance } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
+import { playSavedStudioPreset } from "./studioOverrides.js";
 import {
   applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
   type NoiseColor, type ProceduralTrackSpec,
@@ -119,6 +120,7 @@ export function playTone(opts: ToneOpts): void {
 }
 
 export function synthSwing(ctx: AudioContext, dst: AudioNode, comboStep: number): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "sword-slash", pitchJitter: 0.08 })) return;
   const pitch = 1 + (comboStep - 1) * 0.14;
   playNoiseBurst({ ctx, dst, duration: 0.14, freq: 1350 * pitch, filterType: FILTER_BP, gain: AUDIO_TUNING.combat.swingGain, q: 1.8 });
   playTone({ ctx, dst, wave: WAVE_TRI, f0: 290 * pitch, f1: 120, duration: 0.1, gain: AUDIO_TUNING.combat.swingGain * 0.55 });
@@ -176,7 +178,14 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
   loot: (ctx, dst) => playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1320, duration: 0.09, gain: 0.1 }),
 };
 
+const STUDIO_CUE_OVERRIDES: Partial<Record<CombatCueKind, string>> = {
+  parry: "shield-parry",
+  chestOpen: "chest-open",
+};
+
 export function synthCombatCue(ctx: AudioContext, dst: AudioNode, kind: CombatCueKind): void {
+  const overrideId = STUDIO_CUE_OVERRIDES[kind];
+  if (overrideId && playSavedStudioPreset({ ctx, dst, presetId: overrideId })) return;
   const fn = SIMPLE_CUES[kind];
   if (fn) { fn(ctx, dst); return; }
   if (kind === "heal" || kind === "respawn") {

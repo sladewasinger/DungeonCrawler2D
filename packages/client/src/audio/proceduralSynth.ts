@@ -1,7 +1,8 @@
 /** Shared Web Audio synthesis core (White/Pink/Brown noise, Attack/Hold/Decay, stereo pan, track slicing). */
+import { scheduleVocalTrack } from "./creatures/vocalSynth.js";
 
 export type NoiseColor = "white" | "pink" | "brown";
-export type ProceduralTrackKind = "noise" | "sweptNoise" | "tone";
+export type ProceduralTrackKind = "noise" | "sweptNoise" | "tone" | "vocal";
 
 export interface ProceduralTrackSpec {
   readonly id: string;
@@ -36,7 +37,7 @@ export interface ActiveTrackVoice {
   stop(atTime: number): void;
 }
 
-const KINDS: readonly ProceduralTrackKind[] = ["noise", "sweptNoise", "tone"];
+const KINDS: readonly ProceduralTrackKind[] = ["noise", "sweptNoise", "tone", "vocal"];
 const WAVES: readonly OscillatorType[] = ["sine", "triangle", "square", "sawtooth"];
 const FILTERS: readonly BiquadFilterType[] = ["lowpass", "bandpass", "highpass"];
 const COLORS: readonly NoiseColor[] = ["white", "pink", "brown"];
@@ -212,6 +213,7 @@ export function scheduleProceduralTrack(opts: {
   readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: ProceduralTrackSpec;
   readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number | undefined;
 }): ActiveTrackVoice {
+  if (opts.track.kind === "vocal") return scheduleVocalTrack(opts);
   const { ctx, dst, track, win, baseTime } = opts;
   const now = baseTime + win.startDelaySec;
   const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);

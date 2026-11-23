@@ -1,56 +1,56 @@
-/** Procedural voice profiles for POI enemies: goblin, orc, skeleton, and golem. */
+/** Organic procedural voice profiles for POI enemies: goblin, orc, skeleton, and golem. */
 import {
   C_BR, C_PK, C_WH, F_BP, F_HP, F_LP, W_SAW, W_SIN, W_TRI,
-  burst, sweep, tone, type CreatureVoiceSet,
+  burst, sweep, tone, vocal, type CreatureVoiceSet,
 } from "./creatureVoiceTypes.js";
 
 export type PoiVoiceKind = "goblin" | "orc" | "skeleton" | "golem";
 
 const GOBLIN_VOICES: CreatureVoiceSet = {
   alert: [
-    tone({ wave: W_SAW, f0: 460, f1: 680, dur: 0.13, gain: 0.28 }),
-    tone({ wave: W_SAW, f0: 530, f1: 370, dur: 0.16, gain: 0.28, delay: 0.11 }),
+    vocal({ wave: W_SAW, f0: 360, f1: 560, filter: F_HP, color: C_PK, q: 5.5, atk: 0.012, dur: 0.14, gain: 0.30 }),
+    vocal({ wave: W_SAW, f0: 440, f1: 295, filter: F_BP, color: C_PK, q: 6.2, atk: 0.012, dur: 0.18, gain: 0.30, delay: 0.11 }),
     burst({ freq: 1320, filter: F_BP, color: C_PK, q: 2.1, dur: 0.14, gain: 0.18, delay: 0.04 }),
   ],
   attack: [
-    tone({ wave: W_SAW, f0: 580, f1: 350, dur: 0.17, gain: 0.30 }),
-    sweep({ f0: 1480, f1: 820, filter: F_BP, color: C_PK, q: 1.8, atk: 0.01, dur: 0.16, gain: 0.24 }),
+    vocal({ wave: W_SAW, f0: 480, f1: 280, filter: F_HP, color: C_PK, q: 6.4, atk: 0.01, dur: 0.18, gain: 0.34 }),
+    sweep({ f0: 1480, f1: 780, filter: F_BP, color: C_PK, q: 1.8, atk: 0.01, dur: 0.16, gain: 0.24 }),
   ],
   charge: [
-    tone({ wave: W_SAW, f0: 510, f1: 790, dur: 0.26, gain: 0.30 }),
+    vocal({ wave: W_SAW, f0: 420, f1: 690, filter: F_HP, color: C_PK, q: 6.0, atk: 0.015, dur: 0.28, gain: 0.32 }),
     burst({ freq: 1420, filter: F_BP, color: C_PK, q: 2.0, dur: 0.20, gain: 0.20 }),
   ],
   hurt: [
-    tone({ wave: W_SAW, f0: 680, f1: 320, dur: 0.18, gain: 0.32 }),
+    vocal({ wave: W_SAW, f0: 560, f1: 260, filter: F_HP, color: C_PK, q: 5.2, atk: 0.01, dur: 0.19, gain: 0.34 }),
     burst({ freq: 1140, filter: F_BP, color: C_PK, q: 2.0, dur: 0.11, gain: 0.20 }),
   ],
   death: [
-    tone({ wave: W_SAW, f0: 540, f1: 140, dur: 0.46, gain: 0.34, hold: 0.10 }),
-    sweep({ f0: 1020, f1: 320, filter: F_BP, color: C_PK, q: 1.5, atk: 0.02, dur: 0.38, gain: 0.22 }),
+    vocal({ wave: W_SAW, f0: 460, f1: 120, filter: F_BP, color: C_PK, q: 4.5, atk: 0.018, dur: 0.48, gain: 0.36, hold: 0.10 }),
+    sweep({ f0: 1020, f1: 310, filter: F_BP, color: C_PK, q: 1.5, atk: 0.02, dur: 0.38, gain: 0.22 }),
   ],
 };
 
 const ORC_VOICES: CreatureVoiceSet = {
   alert: [
-    tone({ wave: W_SAW, f0: 142, f1: 98, dur: 0.14, gain: 0.30 }),
-    tone({ wave: W_SAW, f0: 168, f1: 110, dur: 0.20, gain: 0.32, delay: 0.13 }),
-    sweep({ f0: 560, f1: 310, filter: F_BP, color: C_PK, q: 1.5, atk: 0.02, dur: 0.24, gain: 0.30, delay: 0.11 }),
+    vocal({ wave: W_SAW, f0: 118, f1: 84, filter: F_LP, color: C_BR, q: 4.2, atk: 0.018, dur: 0.16, gain: 0.34 }),
+    vocal({ wave: W_SAW, f0: 142, f1: 92, filter: F_BP, color: C_PK, q: 4.8, atk: 0.018, dur: 0.22, gain: 0.36, delay: 0.13 }),
+    sweep({ f0: 560, f1: 310, filter: F_BP, color: C_PK, q: 1.5, atk: 0.02, dur: 0.24, gain: 0.24, delay: 0.11 }),
   ],
   attack: [
-    tone({ wave: W_SAW, f0: 188, f1: 92, dur: 0.24, gain: 0.34, hold: 0.08 }),
-    sweep({ f0: 720, f1: 290, filter: F_BP, color: C_PK, q: 1.4, atk: 0.015, dur: 0.22, gain: 0.32 }),
+    vocal({ wave: W_SAW, f0: 162, f1: 82, filter: F_LP, color: C_BR, q: 5.2, atk: 0.015, dur: 0.26, gain: 0.38, hold: 0.08 }),
+    sweep({ f0: 820, f1: 260, filter: F_BP, color: C_PK, q: 1.4, atk: 0.015, dur: 0.22, gain: 0.30 }),
   ],
   charge: [
-    tone({ wave: W_SAW, f0: 128, f1: 225, dur: 0.34, gain: 0.34, hold: 0.10 }),
-    sweep({ f0: 640, f1: 360, filter: F_BP, color: C_PK, q: 1.4, atk: 0.03, dur: 0.36, gain: 0.32 }),
+    vocal({ wave: W_SAW, f0: 110, f1: 198, filter: F_BP, color: C_PK, q: 5.0, atk: 0.025, dur: 0.36, gain: 0.38, hold: 0.10 }),
+    sweep({ f0: 640, f1: 360, filter: F_BP, color: C_PK, q: 1.4, atk: 0.03, dur: 0.36, gain: 0.28 }),
   ],
   hurt: [
-    tone({ wave: W_SAW, f0: 195, f1: 98, dur: 0.18, gain: 0.32 }),
-    burst({ freq: 480, filter: F_BP, color: C_PK, q: 1.4, dur: 0.14, gain: 0.26 }),
+    vocal({ wave: W_SAW, f0: 168, f1: 86, filter: F_LP, color: C_BR, q: 4.4, atk: 0.012, dur: 0.20, gain: 0.36 }),
+    burst({ freq: 480, filter: F_BP, color: C_PK, q: 1.4, dur: 0.14, gain: 0.24 }),
   ],
   death: [
-    tone({ wave: W_SAW, f0: 150, f1: 52, dur: 0.58, gain: 0.38, hold: 0.16 }),
-    sweep({ f0: 460, f1: 160, filter: F_BP, color: C_PK, q: 1.2, atk: 0.03, dur: 0.52, gain: 0.30 }),
+    vocal({ wave: W_SAW, f0: 134, f1: 48, filter: F_LP, color: C_BR, q: 3.6, atk: 0.03, dur: 0.60, gain: 0.42, hold: 0.16 }),
+    sweep({ f0: 460, f1: 160, filter: F_BP, color: C_PK, q: 1.2, atk: 0.03, dur: 0.52, gain: 0.28 }),
   ],
 };
 

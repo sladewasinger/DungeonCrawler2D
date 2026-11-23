@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { computeSpatialMix, SPATIAL_AUDIO_DEFAULTS } from "./spatialMix.js";
+import {
+  getSavedStudioPresetTracks, refreshStudioOverrides, STUDIO_PRESETS_STORAGE_KEY,
+} from "./studioOverrides.js";
 import {
   CREATURE_VOCAL_KINDS, CREATURE_VOICE_KINDS, getCreatureVoiceSpec, isWildlifeVoiceKind,
 } from "./creatures/synthCreatureSfx.js";
@@ -42,5 +45,39 @@ describe("creature voice specs", () => {
       }
     }
     expect(isWildlifeVoiceKind("dummy")).toBe(false);
+    for (const kind of ["bear", "boar"] as const) {
+      for (const vocal of CREATURE_VOCAL_KINDS) {
+        expect(getCreatureVoiceSpec(kind, vocal).some((l) => l.kind === "vocal")).toBe(true);
+      }
+    }
+  });
+});
+
+const BOAR_CHARGE_ID = "creature-boar-charge";
+
+describe("Sound Studio live overrides", () => {
+  const origStorage = (globalThis as { localStorage?: Storage }).localStorage;
+
+  afterEach(() => {
+    if (origStorage === undefined) delete (globalThis as { localStorage?: Storage }).localStorage;
+    else (globalThis as { localStorage?: Storage }).localStorage = origStorage;
+    refreshStudioOverrides();
+  });
+
+  it("loads saved creature-boar-charge overrides from localStorage and clears cleanly", () => {
+    const store = new Map<string, string>([
+      [
+        STUDIO_PRESETS_STORAGE_KEY,
+        JSON.stringify([{ id: BOAR_CHARGE_ID, name: "Boar", tracks: [{ id: "v1", kind: "vocal", f0: 190, f1: 110, q: 6.5, durationSec: 0.3, gain: 0.4 }] }]),
+      ],
+    ]);
+    (globalThis as { localStorage?: Pick<Storage, "getItem"> }).localStorage = { getItem: (k) => store.get(k) ?? null };
+    refreshStudioOverrides();
+    const tracks = getSavedStudioPresetTracks(BOAR_CHARGE_ID);
+    expect(tracks).toHaveLength(1);
+    expect(tracks?.[0]).toMatchObject({ kind: "vocal", f0: 190, gain: 0.4 });
+    store.delete(STUDIO_PRESETS_STORAGE_KEY);
+    refreshStudioOverrides();
+    expect(getSavedStudioPresetTracks(BOAR_CHARGE_ID)).toBeUndefined();
   });
 });

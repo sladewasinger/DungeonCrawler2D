@@ -32,6 +32,13 @@ function layerToStudioTrack(layer: VoiceLayer, id: string, idx: number): SoundTr
   const holdSec = layer.hold ?? Math.min(layer.dur * 0.42, Math.max(0, layer.dur - 0.02));
   const delaySec = layer.delay ?? 0;
   const n = idx + 1;
+  if (layer.kind === "vocal") {
+    return trk({
+      id, name: `Vocal ${n}`, kind: "vocal", wave: layer.wave, filterType: layer.filter, noiseColor: layer.color,
+      f0: layer.f0, f1: layer.f1, q: layer.q, delaySec, durationSec: layer.dur,
+      attackSec: layer.atk, holdSec, gain: layer.gain,
+    });
+  }
   if (layer.kind === "tone") {
     return trk({
       id, name: `Formant ${n}`, kind: T_TONE, wave: layer.wave, filterType: F_LP,

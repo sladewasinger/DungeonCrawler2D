@@ -3,6 +3,7 @@ import { JUMP_VISUAL_PX_PER_TILE, TILE_PX, type WorldEntitySnapshot } from "@dc2
 import { Container, Graphics, Sprite } from "pixi.js";
 import { getLoadedSpriteAsset, type LoadedSpriteAnimations } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
+import { AiIndicatorView, resolveAiVisualEffects } from "./aiStateIndicators.js";
 import { drawCreatureBody } from "./creatureDrawers.js";
 import { createAnimatorTrackState, sampleAnimatedFrame } from "./entityAnimator.js";
 
@@ -41,12 +42,6 @@ function resolveFallbackBodyY(opts: {
   return resolveStrideBounce(opts.moving, opts.snap.x, opts.timeSec) - (opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
 }
 
-function resolveVerticalScale(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): number {
-  if (dead) return 1;
-  if (snap.telegraphProgress > 0) return 1 + snap.telegraphProgress * 0.12;
-  return snap.aiState === "feed" ? 1 - Math.abs(Math.sin(timeSec * 6)) * 0.12 : 1;
-}
-
 function createEntityBody(kind: WorldEntityKind): {
   readonly body: Sprite | Graphics;
   readonly baseScale: number;
@@ -83,6 +78,7 @@ class EntityView {
   private readonly animTrack = createAnimatorTrackState();
   private readonly hpBg = new Graphics();
   private readonly hpFill = new Graphics();
+  private readonly indicator: AiIndicatorView;
   private readonly kind: WorldEntityKind;
   private lastX = Number.NaN;
   private lastY = Number.NaN;
@@ -94,12 +90,13 @@ class EntityView {
     this.body = built.body;
     this.baseScale = built.baseScale;
     this.animations = built.animations;
+    this.indicator = new AiIndicatorView(built.hpTopY);
     this.shadow.ellipse(0, 0, built.shadowRx, Math.max(2.2, built.shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
     this.hpBg.rect(-9, built.hpTopY, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow, this.body, this.hpBg, this.hpFill);
+    this.root.addChild(this.shadow, this.body, this.hpBg, this.hpFill, this.indicator.container);
   }
 
   sync(snap: WorldEntitySnapshot, timeSec: number): void {
@@ -119,7 +116,8 @@ class EntityView {
     this.shadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.6));
     this.shadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
     this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge" });
-    this.syncHpBar(snap);
+    const hpVisible = this.syncHpBar(snap, dead);
+    this.indicator.sync({ snap, timeSec, dead, hpVisible });
   }
 
   private syncAnimatedSprite(opts: {
@@ -131,12 +129,13 @@ class EntityView {
     if (!this.animations || !(this.body instanceof Sprite)) return false;
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
     if (!frame) return false;
+    const fx = resolveAiVisualEffects(opts.snap, opts.timeSec, opts.dead);
     this.body.texture = frame.texture;
-    this.body.alpha = 1;
+    this.body.alpha = fx.alpha;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
     this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
     this.body.tint = resolveBodyTint(opts.snap);
-    this.body.scale.set(frame.flipX * this.baseScale, this.baseScale);
+    this.body.scale.set(frame.flipX * this.baseScale, this.baseScale * fx.scaleYMult);
     return true;
   }
 
@@ -153,7 +152,7 @@ class EntityView {
       this.body.tint = 0x86efac;
       return;
     }
-    this.body.alpha = 1;
+    this.body.alpha = resolveAiVisualEffects(snap, timeSec, dead).alpha;
     this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
     this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead });
     this.body.tint = resolveBodyTint(snap);
@@ -173,18 +172,19 @@ class EntityView {
       this.body.scale.set((flipX / sy) * this.baseScale, sy * this.baseScale);
       return;
     }
-    const vScale = resolveVerticalScale(snap, timeSec, dead);
+    const vScale = resolveAiVisualEffects(snap, timeSec, dead).scaleYMult;
     this.body.scale.set(flipX * this.baseScale, vScale * this.baseScale);
   }
 
-  private syncHpBar(snap: WorldEntitySnapshot): void {
-    const show = !isCorpseState(snap) && snap.hp > 0 && snap.hp < snap.maxHp;
+  private syncHpBar(snap: WorldEntitySnapshot, dead: boolean): boolean {
+    const show = !dead && snap.hp > 0 && snap.hp < snap.maxHp;
     this.hpBg.visible = show;
     this.hpFill.visible = show;
-    if (!show) return;
+    if (!show) return false;
     const ratio = Math.max(0.05, Math.min(1, snap.hp / snap.maxHp));
     this.hpFill.scale.x = ratio;
     this.hpFill.position.x = -8 * (1 - ratio);
+    return true;
   }
 }
 

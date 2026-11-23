@@ -1,6 +1,7 @@
 /** Procedural surface footsteps, layered water splash/plunge, and heavy dirt landing SFX. */
 import { GroundKind } from "@dc2d/engine";
 import { AUDIO_TUNING } from "./audioTuning.js";
+import { playSavedStudioPreset } from "./studioOverrides.js";
 import { playNoiseBurst, playSweptNoise, playTone } from "./synthSfx.js";
 
 const FILTER_LP: BiquadFilterType = "lowpass";
@@ -16,6 +17,7 @@ const STEP_SPECS: Readonly<Record<number, { readonly freq: number; readonly q: n
 };
 
 function synthWaterSplash(ctx: AudioContext, dst: AudioNode, sprinting: boolean): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "water-step", gainScale: sprinting ? 1.0 : 0.76, pitchJitter: 0.06 })) return;
   const ft = AUDIO_TUNING.footsteps;
   const g = sprinting ? 1.0 : 0.76;
   playSweptNoise({
@@ -67,6 +69,7 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
     });
     return;
   }
+  if (landing && playSavedStudioPreset({ ctx, dst, presetId: "water-plunge", pitchJitter: 0.05 })) return;
   const big = ft.waterSplashGain * AUDIO_TUNING.landing.waterSplashMult;
   playTone({ ctx, dst, wave: WAVE_SINE, f0: 115, f1: 45, duration: 0.15, gain: 0.18 });
   playSweptNoise({
@@ -83,6 +86,7 @@ function synthWaterJumpLand(ctx: AudioContext, dst: AudioNode, landing: boolean)
 }
 
 function synthLandCrunch(ctx: AudioContext, dst: AudioNode): void {
+  if (playSavedStudioPreset({ ctx, dst, presetId: "dirt-land", pitchJitter: 0.06 })) return;
   const ld = AUDIO_TUNING.landing;
   playSweptNoise({ ctx, dst, duration: ld.thudDurationSec, f0: ld.thudStartHz, f1: ld.thudEndHz, filterType: FILTER_LP, gain: ld.thudGain * 1.35, q: ld.thudQ, attackSec: 0.012 });
   playSweptNoise({ ctx, dst, delay: ld.dirtDelaySec, duration: ld.dirtDurationSec, f0: ld.dirtStartHz, f1: ld.dirtEndHz, filterType: FILTER_LP, gain: ld.dirtGain * 1.15, q: ld.dirtQ, attackSec: 0.028 });

@@ -18,7 +18,7 @@ interface RangeDescriptor {
   readonly decimals: number;
 }
 
-const KINDS: readonly TrackKind[] = ["noise", "sweptNoise", "tone"];
+const KINDS: readonly TrackKind[] = ["noise", "sweptNoise", "tone", "vocal"];
 const WAVES: readonly OscillatorType[] = ["sine", "triangle", "square", "sawtooth"];
 const FILTERS: readonly BiquadFilterType[] = ["lowpass", "bandpass", "highpass"];
 const NOISE_COLORS: readonly NoiseColor[] = ["white", "pink", "brown"];
@@ -135,9 +135,10 @@ function buildParameterGrid(t: SoundTrackSpec, onPatch: TrackRowCallbacks["onPat
   const grid = document.createElement("div");
   grid.className = "st-grid";
   grid.append(makeSelectField({ label: "Engine", options: KINDS, value: t.kind, onChange: (v) => onPatch(t.id, { kind: v as TrackKind }) }));
-  if (t.kind === "tone") {
+  if (t.kind === "tone" || t.kind === "vocal") {
     grid.append(makeSelectField({ label: "Wave", options: WAVES, value: t.wave, onChange: (v) => onPatch(t.id, { wave: v as OscillatorType }) }));
-  } else {
+  }
+  if (t.kind !== "tone") {
     grid.append(
       makeSelectField({ label: "Filter", options: FILTERS, value: t.filterType, onChange: (v) => onPatch(t.id, { filterType: v as BiquadFilterType }) }),
       makeSelectField({ label: "Noise", options: NOISE_COLORS, value: t.noiseColor, onChange: (v) => onPatch(t.id, { noiseColor: v as NoiseColor }) }),
