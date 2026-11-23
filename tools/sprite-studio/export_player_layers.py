@@ -12,6 +12,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import player_actions  # noqa: E402
 import studio_core  # noqa: E402
 
 CELL_PX = 192
@@ -26,6 +27,7 @@ CLIPS = (
     ("Hero_Dodge", "dodge", 6, 16, True),
     ("Hero_Downed", "downed", 2, 4, True),
     ("Hero_Swim", "swim", 4, 6, False),
+    ("Hero_Bow", "bow", 3, 8, False),
 )
 
 ALL_LAYER_COLLECTIONS = (
@@ -279,6 +281,13 @@ def layer_specs():
     ]
 
 
+def ensure_required_actions(arm_obj):
+    """Synthesize Hero_Bow in memory when exporting a .blend saved before Hero_Bow existed."""
+    if "Hero_Bow" not in bpy.data.actions:
+        player_actions.build_bow_action(arm_obj, "Hero")
+        player_actions.reset_pose_bones(arm_obj)
+
+
 def main():
     cli = parse_cli_opts(sys.argv)
     out_dir = cli["out"]
@@ -286,6 +295,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     scene = bpy.context.scene
     studio_core.configure_color_and_render(scene, CELL_PX)
+    ensure_required_actions(bpy.data.objects["Rig_Hero"])
     if "--sockets-only" in sys.argv:
         export_shoulder_sockets(out_dir)
         print(f"Exported shoulder sockets only to {out_dir}")

@@ -11,7 +11,6 @@ const GROUND_Y = 148;
 const PX_PER_METER = 80;
 const WORLD_SCALE = 16 / PX_PER_METER;
 const SHEET_COLS = 6;
-const SHEET_ROWS = 41;
 
 const DIRS = ["south", "se", "side", "ne", "north"];
 const CLIPS = [
@@ -23,7 +22,10 @@ const CLIPS = [
   { state: "dodge", frames: 6, fps: 16 },
   { state: "downed", frames: 2, fps: 4 },
   { state: "swim", frames: 4, fps: 6 },
+  { state: "bow", frames: 3, fps: 8 },
 ];
+const PORTRAIT_ROW = CLIPS.length * DIRS.length;
+const SHEET_ROWS = PORTRAIT_ROW + 1;
 
 const BODY_MALE = "body-male";
 const BODY_FEMALE = "body-female";
@@ -148,7 +150,7 @@ function packLayerSheet({ rawDir, layer, anchors }) {
       row++;
     }
   }
-  packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40, ext });
+  packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: PORTRAIT_ROW, ext });
   if (ext) console.log(`Layer ${layer.id} cell bounds (@${CELL}px):`, ext);
   fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.png`), encodePng(sheetW, sheetH, rgba));
 }
@@ -193,7 +195,7 @@ function buildFullRigMeta({ rawDir, anchorsByGender }) {
   return {
     frameWidth: CELL, frameHeight: CELL, cols: SHEET_COLS, rows: SHEET_ROWS, groundY: GROUND_Y,
     anchorX: 0.5, anchorY: Number((GROUND_Y / CELL).toFixed(4)), scale: Number(WORLD_SCALE.toFixed(4)),
-    portraitRow: 40, portraitCol: 0, directions: DIRS,
+    portraitRow: PORTRAIT_ROW, portraitCol: 0, directions: DIRS,
     clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
     layers: LAYERS.map((l) => l.id),
     bakeVersion: Date.now(),

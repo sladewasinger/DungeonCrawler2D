@@ -48,10 +48,17 @@ export function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing 
   return dir === "north" || dir === "south" ? dir : flipX ? "west" : "east";
 }
 
+function pickFacingVector(snap: PlayerSnapshot): { readonly dx: number; readonly dy: number } {
+  const bowAim = snap.heldItem === "bow" && (!snap.moving || (snap.bowCharge ?? 0) > 0.02);
+  if (!bowAim) return { dx: snap.facingX, dy: snap.facingY };
+  return { dx: snap.aimX ?? snap.facingX, dy: snap.aimY ?? snap.facingY };
+}
+
 export function resolvePlayerFacing(opts: {
   readonly snap: PlayerSnapshot; readonly is3d: boolean; readonly prev: { readonly dir: FacingDir; readonly flipX: boolean };
 }): { readonly dir: FacingDir; readonly flipX: boolean } {
-  return opts.is3d ? resolveFacingDir8(opts.snap.facingX, opts.snap.facingY, opts.prev) : resolveFacingDir(opts.snap.facingX, opts.snap.facingY);
+  const { dx, dy } = pickFacingVector(opts.snap);
+  return opts.is3d ? resolveFacingDir8(dx, dy, opts.prev) : resolveFacingDir(dx, dy);
 }
 
 export function computePlayerCombatFx(snap: PlayerSnapshot, timeSec: number, is3d: boolean) {
@@ -63,9 +70,8 @@ export function computePlayerCombatFx(snap: PlayerSnapshot, timeSec: number, is3
   });
 }
 
-export function resolveHeroAnimTrack(sprites: CharacterSpriteSet, dir: FacingDir, bowAim: boolean): DirectionAnim {
-  const sheet = bowAim && sprites.armless ? sprites.armless : sprites;
-  return sheet[dir] ?? sprites[dir] ?? sprites.south;
+export function resolveHeroAnimTrack(sprites: CharacterSpriteSet, dir: FacingDir): DirectionAnim {
+  return sprites[dir] ?? sprites.south;
 }
 
 export const computeSwimDip = (swimming: boolean, timeSec: number): number =>
@@ -82,11 +88,20 @@ function resolveJumpTrack(anim: DirectionAnim, jumpVz: number | undefined): Pose
     : { clip: "fall", textures: anim.fall, poses: FALL_POSES, fps: 8, airborne: "fall" };
 }
 
+function isBowAiming(snap: PlayerSnapshot, anim: DirectionAnim): boolean {
+  return snap.heldItem === "bow" && Boolean(anim.bow?.length) && (!snap.moving || (snap.bowCharge ?? 0) > 0.02);
+}
+
+function resolveGroundTrack(anim: DirectionAnim, snap: PlayerSnapshot, is3d: boolean): PoseTrack {
+  if (isBowAiming(snap, anim)) return { clip: "bow", textures: anim.bow!, poses: IDLE_POSES, fps: 8, airborne: "ground" };
+  if (snap.moving) return resolveMovingTrack(anim, Boolean(snap.sprinting));
+  return { clip: "idle", textures: anim.idle, poses: IDLE_POSES, fps: is3d ? 6 : 5, airborne: "ground" };
+}
+
 function resolveAirOrGroundTrack(anim: DirectionAnim, snap: PlayerSnapshot, is3d: boolean): PoseTrack {
   if ((snap.jumpZ ?? 0) > 0.01) return resolveJumpTrack(anim, snap.jumpVz);
   if (snap.inDeepWater && anim.swim?.length) return { clip: "swim", textures: anim.swim, poses: IDLE_POSES, fps: 6, airborne: "ground" };
-  if (snap.moving) return resolveMovingTrack(anim, Boolean(snap.sprinting));
-  return { clip: "idle", textures: anim.idle, poses: IDLE_POSES, fps: is3d ? 6 : 5, airborne: "ground" };
+  return resolveGroundTrack(anim, snap, is3d);
 }
 
 export function resolvePoseTrack(opts: { readonly anim: DirectionAnim; readonly snap: PlayerSnapshot; readonly is3d: boolean }): PoseTrack {
@@ -96,10 +111,17 @@ export function resolvePoseTrack(opts: { readonly anim: DirectionAnim; readonly 
   return resolveAirOrGroundTrack(anim, snap, is3d);
 }
 
+function computeBowFrameIdx(count: number, bowCharge: number | undefined): number {
+  if (count <= 1 || (bowCharge ?? 0) <= 0.05) return 0;
+  return Math.min(count - 1, 1 + Math.floor(Math.min(0.999, bowCharge!) * (count - 1)));
+}
+
 export function computePoseFrameIdx(opts: {
-  readonly track: PoseTrack; readonly timeSec: number; readonly dodgeStartSec: number | null; readonly gaitPhase?: number | undefined;
+  readonly track: PoseTrack; readonly timeSec: number; readonly dodgeStartSec: number | null;
+  readonly gaitPhase?: number | undefined; readonly bowCharge?: number | undefined;
 }): number {
-  const { track, timeSec, dodgeStartSec, gaitPhase } = opts;
+  const { track, timeSec, dodgeStartSec, gaitPhase, bowCharge } = opts;
+  if (track.clip === "bow") return computeBowFrameIdx(track.textures.length, bowCharge);
   if (track.clip === "dodge" && dodgeStartSec !== null) {
     return Math.min(track.textures.length - 1, Math.max(0, Math.floor((timeSec - dodgeStartSec) * track.fps)));
   }
@@ -113,7 +135,9 @@ export function resolvePoseSnapshot(opts: {
   readonly dodgeStartSec: number | null; readonly gaitPhase?: number | undefined;
 }): { readonly active: ActivePose; readonly texture: Texture | undefined } {
   const track = resolvePoseTrack(opts);
-  const frameIdx = computePoseFrameIdx({ track, timeSec: opts.timeSec, dodgeStartSec: opts.dodgeStartSec, gaitPhase: opts.gaitPhase });
+  const frameIdx = computePoseFrameIdx({
+    track, timeSec: opts.timeSec, dodgeStartSec: opts.dodgeStartSec, gaitPhase: opts.gaitPhase, bowCharge: opts.snap.bowCharge,
+  });
   return {
     texture: track.textures[frameIdx],
     active: {

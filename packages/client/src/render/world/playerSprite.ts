@@ -1,4 +1,4 @@
-/** Renders 3D 8-dir Hero sprites with baked arms/hand sockets, 360° bow overlay, and waterline swim mask. */
+/** Renders 3D 8-dir Hero sprites with baked arms/hand sockets, vertical slight-tilt bow, and swim mask. */
 import { DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX, advanceGaitClock, createGaitClock, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, Sprite, type Text, type Texture } from "pixi.js";
 import type { ArmPlacement } from "../character/armRig.js";
@@ -8,9 +8,7 @@ import {
 } from "../character/characterSprites.js";
 import type { computeActorCombatFx, HeldLayout, OffhandPlacement, ShieldPlacement } from "../character/heldPlacement.js";
 import { getGearScale, getGrippingHandTexture, getHeldWeaponVisual, getShieldTexture, getWaistLanternFrames, type HeldWeaponVisual } from "../character/heldWeapons.js";
-import { sampleShoulderSockets } from "../character/playerAssets.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
-import { PlayerArmRigView, computeTwoSegmentArmRig } from "./playerArmIk.js";
 import { PlayerHpBar, createPlayerNameLabel } from "./playerHpBar.js";
 import {
   attachToSlot, computePlayerCombatFx, computeSwimDip, gearLayoutFor, makeArmSprite, makeGroundShadow,
@@ -19,7 +17,6 @@ import {
 } from "./playerPoseHelpers.js";
 
 const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
-const BOW_ARM_SEGMENT_SCALE = 1 / 3;
 
 export class PlayerView {
   readonly root = new Container();
@@ -39,7 +36,6 @@ export class PlayerView {
   private readonly offhandHandSprite = makeHandSprite();
   private readonly rightArmSprite = makeArmSprite();
   private readonly leftArmSprite = makeArmSprite();
-  private readonly armRigView = new PlayerArmRigView();
   private readonly shieldSprite = makeShieldSprite();
   private readonly hpBar = new PlayerHpBar();
   private readonly label: Text;
@@ -111,7 +107,7 @@ export class PlayerView {
     this.waterMask.visible = swimming;
     this.actorGroup.mask = swimming ? this.waterMask : null;
     this.waterRing.visible = swimming; this.groundShadow.visible = !swimming;
-    this.body.tint = fx.tint; this.armRigView.setTint(fx.tint);
+    this.body.tint = fx.tint;
     this.rightArmSprite.tint = fx.tint; this.leftArmSprite.tint = fx.tint;
     this.groundShadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.65));
     this.groundShadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
@@ -134,7 +130,7 @@ export class PlayerView {
     const facing = resolvePlayerFacing({ snap, is3d, prev: this.lastFacing });
     if (is3d) this.lastFacing = facing;
     this.dodgeStartSec = nextDodgeStart(snap.dodging, timeSec, this.dodgeStartSec);
-    const anim = resolveHeroAnimTrack(this.sprites, facing.dir, snap.heldItem === "bow");
+    const anim = resolveHeroAnimTrack(this.sprites, facing.dir);
     const { active, texture } = resolvePoseSnapshot({ anim, facing, snap, is3d, timeSec, dodgeStartSec: this.dodgeStartSec, gaitPhase });
     if (texture) this.body.texture = texture;
     const scale = this.sprites.worldScale ?? CHARACTER_WORLD_SCALE;
@@ -143,7 +139,7 @@ export class PlayerView {
   }
 
   private refreshHandTextures(female: boolean): void {
-    const tex = this.sprites.armSegments ? this.sprites.armSegments.handFront : getGrippingHandTexture(female);
+    const tex = getGrippingHandTexture(female);
     this.handSprite.texture = tex;
     this.secondaryHandSprite.texture = tex;
     this.offhandHandSprite.texture = tex;
@@ -160,51 +156,32 @@ export class PlayerView {
     if (this.shouldHideGear(snap)) { this.hideAllGearAndArms(); return; }
     const visual = getHeldWeaponVisual(snap.heldItem, timeSec, snap.bowCharge);
     const layout = gearLayoutFor({ snap, visual, timeSec, is3d: Boolean(this.sprites.is3d), active, gaitPhase });
-    const handTint = this.sprites.armSegments ? this.body.tint : skinTint(appearance.skin);
-    const isBowMode = visual?.aimMode === "aim360";
-    this.syncMainHand({ tint: handTint, visual, main: layout.main, showGripHands: !this.sprites.is3d || isBowMode });
-    this.syncOffhand({ tint: handTint, off: layout.offhand, timeSec, showHand: !this.sprites.is3d });
+    const handTint = skinTint(appearance.skin);
+    const showHands = !this.sprites.is3d;
+    this.syncMainHand({ tint: handTint, visual, main: layout.main, showGripHands: showHands });
+    this.syncOffhand({ tint: handTint, off: layout.offhand, timeSec, showHand: showHands });
     this.syncShield(layout.shield);
-    this.syncArmsForPose(snap, active, { layout, visual, isBowMode: Boolean(this.sprites.is3d && isBowMode) });
+    this.syncArmsForPose(snap, active, { layout, visual });
   }
 
   private syncArmsForPose(
     snap: PlayerSnapshot, active: ActivePose,
-    ctx: { readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null; readonly isBowMode: boolean },
+    ctx: { readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null },
   ): void {
     if (this.sprites.is3d) {
-      if (!ctx.isBowMode) {
-        this.rightArmSprite.visible = false; this.leftArmSprite.visible = false;
-        this.armRigView.setVisible(false); return;
-      }
-      if (this.sprites.armSegments) { this.sync3dArms(snap, active, ctx); return; }
+      this.rightArmSprite.visible = false; this.leftArmSprite.visible = false; return;
     }
     this.syncLegacyArms(snap, active, ctx);
   }
 
-  private sync3dArms(snap: PlayerSnapshot, active: ActivePose, ctx: { readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null }): void {
-    this.rightArmSprite.visible = false; this.leftArmSprite.visible = false;
-    const body = (snap.appearance ?? DEFAULT_APPEARANCE).body;
-    const seg = this.sprites.armSegments;
-    const sockets = sampleShoulderSockets({ body, clip: active.clip, dir: active.dir, frameIdx: active.frameIdx, flipX: active.flipX });
-    if (!sockets || !seg) { this.armRigView.setVisible(false); return; }
-    const rig = computeTwoSegmentArmRig({
-      sockets, dir: active.dir, flipX: active.flipX, layout: ctx.layout,
-      grips: ctx.visual?.grips ?? null, pose: active.pose, airborne: active.airborne,
-      bowCharge: snap.bowCharge ?? 0, body, swinging: Boolean(snap.swingProgress),
-    });
-    this.armRigView.apply({ rig, segments: seg, backSlot: this.backSlot, frontSlot: this.frontSlot, worldScale: BOW_ARM_SEGMENT_SCALE });
-  }
-
   private syncLegacyArms(snap: PlayerSnapshot, active: ActivePose, ctx: { readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null }): void {
-    this.armRigView.setVisible(false);
     const rig = solveLegacyArmRigForSnap({ snap, active, layout: ctx.layout, visual: ctx.visual });
     this.syncArm(this.rightArmSprite, rig.right); this.syncArm(this.leftArmSprite, rig.left);
   }
 
   private hideAllGearAndArms(): void {
     this.heldGroup.visible = false; this.offhandGroup.visible = false;
-    this.shieldSprite.visible = false; this.armRigView.setVisible(false);
+    this.shieldSprite.visible = false;
     this.rightArmSprite.visible = false; this.leftArmSprite.visible = false;
   }
 

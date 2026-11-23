@@ -2,7 +2,7 @@
 
 import math
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler, Matrix, Vector
 
 ALL_HERO_BONES = (
     "Pelvis", "Torso", "Neck", "Head",
@@ -301,8 +301,70 @@ def build_swim_action(arm_obj, prefix="Hero"):
     return action
 
 
+def aim_bone_dir(pb, target_dir):
+    """Rotate a pose bone cleanly so its +Y shaft aligns with armature-space target_dir."""
+    bpy.context.view_layer.update()
+    rest_p = pb.parent.bone.matrix_local.to_3x3() if pb.parent else Matrix.Identity(3)
+    pose_p = pb.parent.matrix.to_3x3() if pb.parent else Matrix.Identity(3)
+    zero_mat = pose_p @ (rest_p.inverted() @ pb.bone.matrix_local.to_3x3())
+    zero_y = zero_mat.col[1].normalized()
+    q_delta = zero_y.rotation_difference(target_dir.normalized())
+    desired_mat = q_delta.to_matrix() @ zero_mat
+    pb.rotation_euler = (zero_mat.inverted() @ desired_mat).to_euler("XYZ")
+
+
+def solve_arm_ik(upper_pb, fore_pb, hand_target, pole_dir):
+    """Solve 2-bone 3D arm IK so wrist/socket reaches toward hand_target with elbow bent toward pole_dir."""
+    bpy.context.view_layer.update()
+    sh = upper_pb.head.copy()
+    l1 = upper_pb.bone.length
+    l2 = fore_pb.bone.length + 0.045
+    to_tgt = Vector(hand_target) - sh
+    dist = max(0.05, min(l1 + l2 - 0.004, to_tgt.length))
+    fwd = to_tgt.normalized() if to_tgt.length > 1e-4 else Vector((0.0, -1.0, 0.0))
+    bend = (Vector(pole_dir) - fwd * Vector(pole_dir).dot(fwd))
+    bend_dir = bend.normalized() if bend.length > 1e-4 else Vector((1.0, 0.0, 0.0))
+    cos_a = max(-1.0, min(1.0, (l1 * l1 + dist * dist - l2 * l2) / (2.0 * l1 * dist)))
+    sin_a = math.sqrt(max(0.0, 1.0 - cos_a * cos_a))
+    elbow = sh + fwd * (l1 * cos_a) + bend_dir * (l1 * sin_a)
+    aim_bone_dir(upper_pb, elbow - sh)
+    bpy.context.view_layer.update()
+    aim_bone_dir(fore_pb, Vector(hand_target) - fore_pb.head)
+
+
+def build_bow_action(arm_obj, prefix="Hero"):
+    """Build 3-frame Hero_Bow archery stance (ready vertical hold, half draw, full draw)."""
+    action = prepare_clean_action(f"{prefix}_Bow", fps=8)
+    bind_action_for_edit(arm_obj, action)
+    reset_pose_bones(arm_obj)
+    pb = arm_obj.pose.bones
+
+    # Frame specs: (pel_z, pel_rz, tor_rx, tor_rz, head_rz, left_hand_tgt, right_hand_tgt, right_pole)
+    frames = (
+        (-0.015, -8.0, 2.0, -10.0, 16.0, (0.09, -0.39, 0.96), (-0.18, -0.14, 0.78), (-0.45, 0.25, -0.35)),
+        (-0.022, -10.0, 3.0, -13.0, 21.0, (0.04, -0.45, 1.04), (-0.06, -0.22, 1.03), (-0.95, 0.30, 0.05)),
+        (-0.028, -12.0, 4.0, -16.0, 26.0, (0.02, -0.46, 1.07), (-0.11, -0.10, 1.06), (-0.95, 0.35, 0.06)),
+    )
+    for f, (pz, pel_rz, tor_rx, tor_rz, head_rz, lh_tgt, rh_tgt, r_pole) in enumerate(frames, start=1):
+        reset_pose_bones(arm_obj)
+        set_world_loc(pb["Pelvis"], 0.0, 0.0, pz)
+        set_world_rot(pb["Pelvis"], 0.0, 0.0, pel_rz)
+        set_world_rot(pb["Torso"], tor_rx, 0.0, tor_rz)
+        set_world_rot(pb["Head"], -2.0, 0.0, head_rz)
+        set_world_rot(pb["Thigh_L"], -14.0, -4.0, 0.0)
+        set_world_rot(pb["Shin_L"], 18.0, 0.0, 0.0)
+        set_world_rot(pb["Foot_L"], -4.0, 0.0, 0.0)
+        set_world_rot(pb["Thigh_R"], 12.0, 4.0, 0.0)
+        set_world_rot(pb["Shin_R"], 14.0, 0.0, 0.0)
+        set_world_rot(pb["Foot_R"], -6.0, 0.0, 0.0)
+        solve_arm_ik(pb["UpperArm_L"], pb["Forearm_L"], lh_tgt, (0.6, 0.2, -0.75))
+        solve_arm_ik(pb["UpperArm_R"], pb["Forearm_R"], rh_tgt, r_pole)
+        key_pose_bones(arm_obj, f)
+    return action
+
+
 def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
-    """Attach Idle, Walk, Run, Jump, Fall, Dodge, Downed, and Swim Actions onto Rig_Hero."""
+    """Attach Idle, Walk, Run, Jump, Fall, Dodge, Downed, Swim, and Bow Actions onto Rig_Hero."""
     arm_obj = bpy.data.objects.get(arm_name)
     if not arm_obj or arm_obj.type != "ARMATURE":
         raise ValueError(f"Missing hero armature: {arm_name}")
@@ -319,10 +381,11 @@ def apply_player_actions(prefix="Hero", arm_name="Rig_Hero"):
     dodge = build_dodge_action(arm_obj, prefix)
     downed = build_downed_action(arm_obj, prefix)
     swim = build_swim_action(arm_obj, prefix)
+    bow = build_bow_action(arm_obj, prefix)
 
     reset_pose_bones(arm_obj)
     bind_action_for_edit(arm_obj, idle)
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 6
     bpy.context.scene.frame_set(1)
-    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed, swim)]
+    return [a.name for a in (idle, walk, run, jump, fall, dodge, downed, swim, bow)]

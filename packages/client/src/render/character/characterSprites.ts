@@ -1,6 +1,6 @@
 /** Cached 32x32 4-directional procedural character sprite builder with 64-entry LRU cache. */
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
-import type { Texture } from "pixi.js";
+import { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline } from "../textures/pixelCanvas.js";
 import { armCanvasSize, buildArmRects } from "./armRig.js";
 import { buildArmorRects } from "./characterArmorLayers.js";
@@ -83,27 +83,16 @@ function buildDirectionAnim(input: {
 
 function collectDirTextures(dirAnim: DirectionAnim | undefined, unique: Set<Texture>): void {
   if (!dirAnim) return;
-  for (const track of [dirAnim.idle, dirAnim.walk ?? [], dirAnim.run, dirAnim.jump, dirAnim.fall, dirAnim.dodge ?? [], dirAnim.downed ?? [], dirAnim.swim ?? []]) {
-    for (const tex of track) unique.add(tex);
+  for (const track of Object.values(dirAnim) as readonly (readonly Texture[] | undefined)[]) {
+    if (track) for (const tex of track) unique.add(tex);
   }
-}
-
-function destroyArmSegTextures(set: CharacterSpriteSet, unique: Set<Texture>): void {
-  const seg = set.armSegments;
-  if (!seg) return;
-  for (const tex of [
-    seg.upperFront, seg.upperBack, seg.upperOutline, seg.forearmFront, seg.forearmBack,
-    seg.forearmOutline, seg.handFront, seg.handBack, seg.handOutline, seg.handFillFront, seg.handFillBack,
-  ]) unique.add(tex);
 }
 
 function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
   if (!set) return;
   const unique = new Set<Texture>([set.frontArm, set.backArm]);
   for (const dirAnim of [set.south, set.se, set.north, set.ne, set.side]) collectDirTextures(dirAnim, unique);
-  if (set.armless) for (const dirAnim of Object.values(set.armless)) collectDirTextures(dirAnim, unique);
-  destroyArmSegTextures(set, unique);
-  for (const tex of unique) tex.destroy(true);
+  for (const tex of unique) if (tex !== Texture.EMPTY) tex.destroy(true);
 }
 
 function evictOldestIfFull(): void {
