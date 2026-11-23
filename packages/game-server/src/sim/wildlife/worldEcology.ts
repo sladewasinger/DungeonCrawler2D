@@ -173,30 +173,24 @@ export class WorldEcology {
   }
 
   private finalizeDeath(e: WildlifeEntity): void {
-    e.corpse = true;
-    e.aiState = ST_DEAD;
-    e.telegraphTimer = 0;
+    e.corpse = true; e.aiState = ST_DEAD; e.telegraphTimer = 0;
     e.corpseTimer = e.kind === KIND_SLIME ? 0.35 : AI_TUNING.corpseDurationSec;
     CREATURE_SPECS[e.kind].lootDrops.forEach((drop, idx) => {
-      const span = drop.max - drop.min + 1;
-      const count = drop.min + Math.floor(Math.random() * span);
+      const count = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
       if (count <= 0) return;
       const ang = idx * 2.1 + Math.random();
       this.loot.spawnLoot({ itemId: drop.itemId, count, x: e.x, y: e.y, vx: Math.cos(ang) * 1.8, vy: Math.sin(ang) * 1.8 });
     });
+    if (e.embeddedArrows > 0) {
+      this.loot.spawnLoot({ itemId: "arrow", count: e.embeddedArrows, x: e.x, y: e.y, vx: 0.7, vy: -0.7 });
+      e.embeddedArrows = 0;
+    }
   }
 
-  openChest(player: CombatPlayerRef, chestId: string | undefined, events: WorldEvent[]): string | null {
-    return this.loot.openChest(player, chestId, events);
-  }
-
-  transferChest(player: CombatPlayerRef, req: Parameters<LootManager["transferChest"]>[1]): boolean {
-    return this.loot.transferChest(player, req);
-  }
-
-  takeAllChest(player: CombatPlayerRef, chestId: string, events: WorldEvent[]): number {
-    return this.loot.takeAllChest(player, chestId, events);
-  }
+  spawnRecoverableArrow(x: number, y: number): void { this.loot.spawnLoot({ itemId: "arrow", count: 1, x, y, vx: 0, vy: 0 }); }
+  openChest(p: CombatPlayerRef, cid: string | undefined, ev: WorldEvent[]): string | null { return this.loot.openChest(p, cid, ev); }
+  transferChest(p: CombatPlayerRef, req: Parameters<LootManager["transferChest"]>[1]): boolean { return this.loot.transferChest(p, req); }
+  takeAllChest(p: CombatPlayerRef, cid: string, ev: WorldEvent[]): number { return this.loot.takeAllChest(p, cid, ev); }
 
   debugSpawnNearPlayer(player: { readonly x: number; readonly y: number; readonly facingX: number; readonly facingY: number }, kind: WildlifeKind, count = 1): void {
     const mag = Math.max(0.01, Math.hypot(player.facingX, player.facingY));

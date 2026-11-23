@@ -1,4 +1,4 @@
-/** Touch-only right-hand combat action cluster: ATK (tap or 360-deg bow drag), ROLL, and BLOCK. */
+/** Touch-only right-hand combat action cluster: dynamic primary action, ROLL, and BLOCK. */
 
 export interface MobileCombatState {
   readonly attack: boolean;
@@ -7,6 +7,20 @@ export interface MobileCombatState {
   readonly block: boolean;
   readonly dodge: boolean;
   readonly aim: { readonly x: number; readonly y: number } | undefined;
+}
+
+const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
+  bow: "BOW",
+  bandage: "HEAL",
+  "cooked-meat": "EAT",
+  "raw-meat": "EAT",
+  axe: "CHOP",
+  pickaxe: "MINE",
+  map: "MAP",
+};
+
+export function actionLabelForHeldItem(heldItem: string | null): string {
+  return (heldItem && ITEM_ACTION_LABELS[heldItem]) || "ATK";
 }
 
 function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElement {
@@ -22,6 +36,7 @@ export class MobileCombatControls {
   private readonly atkBtn: HTMLButtonElement;
   private readonly rollBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
+  private heldItem: string | null = null;
   private isBowHeld = false;
   private atkPointerId: number | null = null;
   private atkOrigin = { x: 0, y: 0 };
@@ -31,10 +46,10 @@ export class MobileCombatControls {
   private dodgeQueued = false;
   private blockHeld = false;
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, private readonly onMapTap?: () => void) {
     const cluster = document.createElement("div");
     cluster.className = "ow-combat-cluster";
-    this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Attack or draw bow");
+    this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Use held item or draw bow");
     this.rollBtn = makeCombatBtn("ow-roll-btn", "ROLL", "Dodge roll");
     this.blockBtn = makeCombatBtn("ow-block-btn", "BLOCK", "Raise shield block");
     this.blockBtn.hidden = true;
@@ -44,9 +59,11 @@ export class MobileCombatControls {
     this.bindRollAndBlock();
   }
 
-  setGear(gear: { readonly isBowHeld: boolean; readonly hasShield: boolean }): void {
-    this.isBowHeld = gear.isBowHeld;
-    this.atkBtn.textContent = gear.isBowHeld ? "BOW" : "ATK";
+  setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
+    this.heldItem = gear.heldItem;
+    this.isBowHeld = gear.heldItem === "bow";
+    this.atkBtn.textContent = actionLabelForHeldItem(gear.heldItem);
+    this.atkBtn.dataset.role = gear.heldItem === "bandage" || gear.heldItem?.endsWith("-meat") ? "heal" : (gear.heldItem ?? "none");
     this.blockBtn.hidden = !gear.hasShield;
     if (!gear.hasShield) this.setBlockHeld(false);
   }
@@ -72,6 +89,7 @@ export class MobileCombatControls {
     this.atkBtn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       this.atkBtn.setPointerCapture?.(e.pointerId);
+      if (this.heldItem === "map" && this.onMapTap) { this.onMapTap(); return; }
       if (!this.isBowHeld) { this.attackQueued = true; return; }
       this.atkPointerId = e.pointerId;
       this.atkOrigin = { x: e.clientX, y: e.clientY };

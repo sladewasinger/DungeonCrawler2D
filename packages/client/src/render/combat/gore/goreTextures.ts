@@ -1,11 +1,10 @@
-/** Cached nearest-neighbor HD-pixel gore textures compiled from monochrome luminance masks. */
+/** Cached liquid (smooth rounded canvas) and solid (crisp pixel-art mask) gore textures. */
 import { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas } from "../../textures/pixelCanvas.js";
 import {
-  ARC_MASKS, BONE_PILE_MASK, CHUNK_MASKS, DROPLET_MASK, FOOTPRINT_MASKS,
-  GOOP_BLOB_MASKS, GOOP_PUDDLE_MASKS, POOL_MASKS, RUBBLE_PILE_MASK,
-  SPARK_MASK, SPLATTER_MASKS, STREAK_MASKS, WATER_PLUME_MASKS,
+  BONE_PILE_MASK, CHUNK_MASKS, RUBBLE_PILE_MASK, SPARK_MASK,
 } from "./goreArtMasks.js";
+import { buildSmoothLiquidGoreTextures } from "./goreLiquidShapes.js";
 
 export type ChunkKind = "soft" | "bone" | "stone" | "straw";
 
@@ -56,13 +55,14 @@ let cachedSet: GoreTextureSet | null = null;
 
 export function getGoreTextures(): GoreTextureSet {
   if (cachedSet) return cachedSet;
+  const smooth = buildSmoothLiquidGoreTextures();
   cachedSet = {
-    splatters: SPLATTER_MASKS.map(maskToTexture),
-    arcs: ARC_MASKS.map(maskToTexture),
-    streaks: STREAK_MASKS.map(maskToTexture),
-    goopBlobs: GOOP_BLOB_MASKS.map(maskToTexture),
-    goopPuddles: GOOP_PUDDLE_MASKS.map(maskToTexture),
-    pools: POOL_MASKS.map(maskToTexture),
+    splatters: smooth.splatters,
+    arcs: smooth.arcs,
+    streaks: smooth.streaks,
+    goopBlobs: smooth.goopBlobs,
+    goopPuddles: smooth.goopPuddles,
+    pools: smooth.pools,
     chunks: {
       soft: CHUNK_MASKS.soft.map(maskToTexture),
       bone: CHUNK_MASKS.bone.map(maskToTexture),
@@ -71,9 +71,9 @@ export function getGoreTextures(): GoreTextureSet {
     },
     bonePile: maskToTexture(BONE_PILE_MASK),
     rubblePile: maskToTexture(RUBBLE_PILE_MASK),
-    footprints: FOOTPRINT_MASKS.map(maskToTexture),
-    waterPlumes: WATER_PLUME_MASKS.map(maskToTexture),
-    droplet: maskToTexture(DROPLET_MASK),
+    footprints: smooth.footprints,
+    waterPlumes: smooth.waterPlumes,
+    droplet: smooth.droplet,
     spark: maskToTexture(SPARK_MASK),
   };
   return cachedSet;

@@ -137,7 +137,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
     jump: st.input.consumeJump(), bowDraw: combat.bowDraw, bowRelease: combat.bowRelease,
   });
   const pl = st.poseTuner.applyPreview(cur.player);
-  st.input.setGearState({ isBowHeld: pl.heldItem === "bow", hasShield: cur.inventory.armor.offhand === "wooden-shield" });
+  st.input.setGearState({ heldItem: pl.heldItem ?? null, hasShield: cur.inventory.armor.offhand === "wooden-shield" });
   st.camX += (pl.x - st.camX) * Math.min(1, dt * 8);
   st.camY += (pl.y - pl.elevation * 0.625 - 2.2 - st.camY) * Math.min(1, dt * 8);
   const sw = st.rig.app.screen.width; const sh = st.rig.app.screen.height;

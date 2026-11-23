@@ -1,7 +1,12 @@
-/** Authoritative arrow projectile simulation and collision against dummies, wildlife, and players. */
-import { PARRY_STAGGER_SEC, WorldChunkCache, isInSanctuary, type GoreStyle, type ProjectileSnapshot, type WorldEvent } from "@dc2d/engine";
+/** Authoritative swept-segment arrow projectile simulation, tree embedding, stone ricochet, and arrow recovery. */
+import {
+  GroundKind, PARRY_STAGGER_SEC, PropKind, WorldChunkCache, isInSanctuary,
+  playerProjectileHurtbox, projectileHurtbox, segmentHitsEllipse,
+  type ChunkProp, type GoreStyle, type ProjectileSnapshot, type WorldEvent,
+} from "@dc2d/engine";
 import { applyIncomingPlayerHit, type CombatPlayerRef } from "../combatActions.js";
 import { damageDummy, type SimEntity } from "../dummySim.js";
+import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 import type { WorldEcology } from "./worldEcology.js";
 
 export interface SimProjectile {
@@ -20,33 +25,56 @@ export interface SimProjectile {
 }
 
 const DRIP_GORE: GoreStyle = "drip";
+const WOOD_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.Palisade, PropKind.Stump]);
+const STONE_PROPS = new Set<PropKind>([PropKind.Boulder, PropKind.RuinPillar]);
 
 interface RayHitCtx {
   readonly pr: SimProjectile;
+  readonly x0: number;
+  readonly y0: number;
   readonly dx: number;
   readonly dy: number;
   readonly events: WorldEvent[];
 }
 
-function hitDummy(ctx: RayHitCtx, dummies: readonly SimEntity[]): boolean {
+function hitDummy(ctx: RayHitCtx, dummies: readonly SimEntity[], ecology: WorldEcology): boolean {
   for (const d of dummies) {
-    if (d.respawnTimer > 0 || Math.hypot(ctx.pr.x - d.x, ctx.pr.y - d.y) > 0.48) continue;
-    return damageDummy({ entity: d, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
+    if (d.respawnTimer > 0) continue;
+    const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: projectileHurtbox(d, d.kind) });
+    if (t === null) continue;
+    damageDummy({ entity: d, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
+    ecology.spawnRecoverableArrow(d.x - ctx.dx * 0.35, d.y - ctx.dy * 0.35);
+    return true;
   }
   return false;
 }
 
+function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: WildlifeEntity; readonly t: number; readonly ecology: WorldEcology }): void {
+  const { ctx, w, t, ecology } = opts;
+  const isStone = CREATURE_SPECS[w.kind].substance === "stone";
+  if (!isStone) w.embeddedArrows += 1;
+  ecology.damageEntity({ entity: w, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
+  if (!isStone) return;
+  const hx = ctx.x0 + (ctx.pr.x - ctx.x0) * t;
+  const hy = ctx.y0 + (ctx.pr.y - ctx.y0) * t;
+  ctx.events.push({ kind: "arrowRicochet", x: hx, y: hy, dirX: -ctx.dx, dirY: -ctx.dy });
+}
+
 function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology): boolean {
   for (const w of ecology.list) {
-    if (w.corpse || w.hp <= 0 || Math.hypot(ctx.pr.x - w.x, ctx.pr.y - w.y) > 0.48) continue;
-    return ecology.damageEntity({ entity: w, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
+    if (w.corpse || w.hp <= 0) continue;
+    const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: projectileHurtbox(w, w.kind) });
+    if (t === null) continue;
+    applyWildlifeArrowHit({ ctx, w, t, ecology });
+    return true;
   }
   return false;
 }
 
 function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boolean {
   for (const p of players.values()) {
-    if (p.id === ctx.pr.ownerId || Math.hypot(ctx.pr.x - p.x, ctx.pr.y - p.y) > 0.42) continue;
+    if (p.id === ctx.pr.ownerId) continue;
+    if (segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: playerProjectileHurtbox(p) }) === null) continue;
     if (isInSanctuary(ctx.pr.originX, ctx.pr.originY) || isInSanctuary(p.x, p.y)) return true;
     applyIncomingPlayerHit({
       target: p, attackerOrigin: { x: ctx.pr.originX, y: ctx.pr.originY }, attackerId: ctx.pr.ownerId,
@@ -58,29 +86,62 @@ function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boole
   return false;
 }
 
-function hitProjectileTarget(opts: {
-  readonly pr: SimProjectile; readonly dummies: readonly SimEntity[];
-  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[];
+function testPropImpact(ctx: RayHitCtx, prop: ChunkProp, ecology: WorldEcology): boolean {
+  const isWood = WOOD_PROPS.has(prop.kind);
+  const isStone = STONE_PROPS.has(prop.kind);
+  if ((!isWood && !isStone) || prop.elevation > ctx.pr.elevation) return false;
+  const t = segmentHitsEllipse({
+    x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
+    box: { cx: prop.x, cy: prop.y - 0.15, rx: prop.radius + 0.14, ry: prop.radius + 0.42 },
+  });
+  if (t === null) return false;
+  const hx = ctx.x0 + (ctx.pr.x - ctx.x0) * t;
+  const hy = ctx.y0 + (ctx.pr.y - ctx.y0) * t;
+  if (isWood) {
+    ctx.events.push({ kind: "arrowEmbed", x: hx, y: hy, dirX: ctx.dx, dirY: ctx.dy });
+    ecology.spawnRecoverableArrow(hx - ctx.dx * 0.4, hy - ctx.dy * 0.4);
+  } else {
+    ctx.events.push({ kind: "arrowRicochet", x: hx, y: hy, dirX: -ctx.dx, dirY: -ctx.dy });
+  }
+  return true;
+}
+
+function checkPropCollision(ctx: RayHitCtx, cache: WorldChunkCache, ecology: WorldEcology): boolean {
+  return cache.propsNear(ctx.pr.x, ctx.pr.y).some((prop) => testPropImpact(ctx, prop, ecology));
+}
+
+function stepSingleProjectile(opts: {
+  readonly pr: SimProjectile; readonly cache: WorldChunkCache; readonly dummies: readonly SimEntity[];
+  readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[]; readonly dt: number;
 }): boolean {
-  const spd = Math.max(0.01, Math.hypot(opts.pr.vx, opts.pr.vy));
-  const ctx: RayHitCtx = { pr: opts.pr, dx: opts.pr.vx / spd, dy: opts.pr.vy / spd, events: opts.events };
-  return hitDummy(ctx, opts.dummies) || hitWildlife(ctx, opts.ecology) || hitPlayer(ctx, opts.players);
+  const { pr, cache, dummies, ecology, players, events, dt } = opts;
+  const x0 = pr.x;
+  const y0 = pr.y;
+  pr.x += pr.vx * dt;
+  pr.y += pr.vy * dt;
+  pr.ttl -= dt;
+  const spd = Math.max(0.01, Math.hypot(pr.vx, pr.vy));
+  const ctx: RayHitCtx = { pr, x0, y0, dx: pr.vx / spd, dy: pr.vy / spd, events };
+  if (hitDummy(ctx, dummies, ecology) || hitWildlife(ctx, ecology) || hitPlayer(ctx, players)) return false;
+  if (checkPropCollision(ctx, cache, ecology)) return false;
+  const tile = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y));
+  if (tile.elevation > pr.elevation) { events.push({ kind: "arrowRicochet", x: x0, y: y0, dirX: -ctx.dx, dirY: -ctx.dy }); return false; }
+  if (pr.ttl <= 0) {
+    if (tile.ground !== GroundKind.DeepWater) {
+      events.push({ kind: "arrowEmbed", x: pr.x, y: pr.y, dirX: ctx.dx, dirY: ctx.dy });
+      ecology.spawnRecoverableArrow(pr.x, pr.y);
+    }
+    return false;
+  }
+  return true;
 }
 
 export function stepProjectileList(opts: {
   readonly cache: WorldChunkCache; readonly projectiles: SimProjectile[]; readonly dummies: readonly SimEntity[];
   readonly ecology: WorldEcology; readonly players: Map<string, CombatPlayerRef>; readonly events: WorldEvent[]; readonly dt: number;
 }): void {
-  const { cache, projectiles, dummies, ecology, players, events, dt } = opts;
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const pr = projectiles[i]!;
-    pr.x += pr.vx * dt;
-    pr.y += pr.vy * dt;
-    pr.ttl -= dt;
-    const blocked = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y)).elevation > pr.elevation;
-    if (blocked || pr.ttl <= 0 || hitProjectileTarget({ pr, dummies, ecology, players, events })) {
-      projectiles.splice(i, 1);
-    }
+  for (let i = opts.projectiles.length - 1; i >= 0; i--) {
+    if (!stepSingleProjectile({ ...opts, pr: opts.projectiles[i]! })) opts.projectiles.splice(i, 1);
   }
 }
 

@@ -60,9 +60,12 @@ export const ClientInputSchema = z.object({
   bowRelease: z.boolean().optional(),
   block: z.boolean().optional(),
   dodge: z.boolean().optional(),
+  dodgeDirX: z.number().min(-1).max(1).optional(),
+  dodgeDirY: z.number().min(-1).max(1).optional(),
   interact: z.boolean().optional(),
 });
 
+export const ClientRespawnSchema = z.object({ t: z.literal("respawn"), seq: SeqSchema });
 export const ClientTorchToggleSchema = z.object({ t: z.literal("toggleTorch"), seq: SeqSchema });
 export const ClientSetDayPhaseSchema = z.object({ t: z.literal("setDayPhase"), dayPhase: z.number().min(0).max(1), paused: z.boolean().optional(), seq: SeqSchema });
 export const ClientMoveSlotSchema = z.object({ t: z.literal("moveSlot"), from: SlotIndexSchema, to: SlotIndexSchema, seq: SeqSchema });
@@ -93,6 +96,7 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema,
   ClientSetAppearanceSchema,
   ClientInputSchema,
+  ClientRespawnSchema,
   ClientTorchToggleSchema,
   ClientSetDayPhaseSchema,
   ClientMoveSlotSchema,
@@ -213,7 +217,7 @@ export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 
 export const WorldEventSchema = z.object({
   kind: z.enum([
-    "swing", "hit", "block", "parry", "arrowFire", "dodge",
+    "swing", "hit", "block", "parry", "arrowFire", "arrowEmbed", "arrowRicochet", "dodge",
     "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal", "playerLeave",
   ]),
   x: z.number(),

@@ -15,7 +15,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -71,6 +71,7 @@ function dispatchMessage(ctx: {
     hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
     setAppearance: () => msg.t === "setAppearance" && sim.setAppearance(playerId, msg),
     input: () => msg.t === "input" && sim.queueInput(playerId, msg),
+    respawn: () => sim.respawnPlayer(playerId),
     toggleTorch: () => sim.toggleTorch(playerId),
     setDayPhase: () => msg.t === "setDayPhase" && sim.setDayPhase(msg.dayPhase, msg.paused),
     selectHotbar: () => msg.t === "selectHotbar" && sim.selectHotbar(playerId, msg.slot),

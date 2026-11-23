@@ -4,8 +4,8 @@ import path from "node:path";
 import { applyInternalDepthCreases, binarizeAndClean, measureSpriteBounds, shiftSpriteFrame } from "./pixelPost.mjs";
 import { decodePng, encodePng } from "./pngCodec.mjs";
 
-const RAW_DIR = process.argv[2];
 const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
+const RIG_META_PATH = path.join(OUT_DIR, "player-rig.json");
 const CELL = 192;
 const GROUND_Y = 148;
 const PX_PER_METER = 80;
@@ -25,9 +25,12 @@ const CLIPS = [
   { state: "swim", frames: 4, fps: 6 },
 ];
 
+const BODY_MALE = "body-male";
+const BODY_FEMALE = "body-female";
+
 const LAYERS = [
-  { id: "body-male", gender: "male" },
-  { id: "body-female", gender: "female" },
+  { id: BODY_MALE, gender: "male" },
+  { id: BODY_FEMALE, gender: "female" },
   { id: "body-male-arms", gender: "male" },
   { id: "body-female-arms", gender: "female" },
   { id: "hair-short", gender: "female" },
@@ -44,20 +47,30 @@ const LAYERS = [
   { id: "armor-feet-leather-boots", gender: "female" },
 ];
 
-function loadCleanedFrame({ layerId, clip, dir, frameNum }) {
-  const colorPath = path.join(RAW_DIR, layerId, `${clip}_${dir}_f${frameNum}.png`);
+function parseCliArgs(argv) {
+  const rawDir = argv[0];
+  if (!rawDir || rawDir.startsWith("--")) throw new Error("Usage: node bakePlayerAssets.mjs <rawDir> [--layers <csv>]");
+  let onlyLayers = null;
+  for (let i = 1; i < argv.length - 1; i++) {
+    if (argv[i] === "--layers") onlyLayers = new Set(argv[i + 1].split(",").map((s) => s.trim()).filter(Boolean));
+  }
+  return { rawDir, onlyLayers };
+}
+
+function loadCleanedFrame({ rawDir, layerId, clip, dir, frameNum }) {
+  const colorPath = path.join(rawDir, layerId, `${clip}_${dir}_f${frameNum}.png`);
   if (!fs.existsSync(colorPath)) return null;
-  const depthPath = path.join(RAW_DIR, layerId, `${clip}_${dir}_f${frameNum}_depth.png`);
+  const depthPath = path.join(rawDir, layerId, `${clip}_${dir}_f${frameNum}_depth.png`);
   const rawColor = decodePng(fs.readFileSync(colorPath));
   const rawDepth = fs.existsSync(depthPath) ? decodePng(fs.readFileSync(depthPath)) : null;
   const clean = binarizeAndClean(rawColor, 4);
   return rawDepth ? applyInternalDepthCreases(clean, rawDepth, 16) : clean;
 }
 
-function computeBodyAnchors(bodyId) {
+function computeBodyAnchors(rawDir, bodyId) {
   const anchors = {};
   for (const dir of DIRS) {
-    const idleF1 = loadCleanedFrame({ layerId: bodyId, clip: "idle", dir, frameNum: 1 });
+    const idleF1 = loadCleanedFrame({ rawDir, layerId: bodyId, clip: "idle", dir, frameNum: 1 });
     if (!idleF1) throw new Error(`Missing anchor frame for ${bodyId} ${dir}`);
     const bounds = measureSpriteBounds(idleF1);
     const dx = Math.floor(CELL / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5);
@@ -65,6 +78,22 @@ function computeBodyAnchors(bodyId) {
     anchors[dir] = { dx, dy };
   }
   return anchors;
+}
+
+function hasAnchorFrames(rawDir, bodyId) {
+  return DIRS.every((dir) => fs.existsSync(path.join(rawDir, bodyId, `idle_${dir}_f1.png`)));
+}
+
+function resolveGenderAnchors({ rawDir, bodyId, prevAnchors }) {
+  if (hasAnchorFrames(rawDir, bodyId)) return computeBodyAnchors(rawDir, bodyId);
+  return prevAnchors ?? null;
+}
+
+function resolveAnchorsByGender(rawDir, prevMeta) {
+  return {
+    male: resolveGenderAnchors({ rawDir, bodyId: BODY_MALE, prevAnchors: prevMeta?.anchorsByGender?.male }),
+    female: resolveGenderAnchors({ rawDir, bodyId: BODY_FEMALE, prevAnchors: prevMeta?.anchorsByGender?.female }),
+  };
 }
 
 function blitIntoSheet({ sheetRgba, sheetW, frame, col, row }) {
@@ -90,7 +119,7 @@ function updateSheetExtremes(ext, bounds) {
 }
 
 function packFrameCell(opts) {
-  const processed = loadCleanedFrame({ layerId: opts.layerId, clip: opts.clip, dir: opts.dir, frameNum: opts.frameNum });
+  const processed = loadCleanedFrame({ rawDir: opts.rawDir, layerId: opts.layerId, clip: opts.clip, dir: opts.dir, frameNum: opts.frameNum });
   if (!processed) return;
   const aligned = shiftSpriteFrame(processed, opts.shift.dx, opts.shift.dy);
   if (opts.ext) updateSheetExtremes(opts.ext, measureSpriteBounds(aligned));
@@ -100,13 +129,13 @@ function packFrameCell(opts) {
 function packClipDir(opts) {
   for (let f = 1; f <= opts.clip.frames; f++) {
     packFrameCell({
-      rgba: opts.rgba, sheetW: opts.sheetW, layerId: opts.layerId, clip: opts.clip.state,
+      rawDir: opts.rawDir, rgba: opts.rgba, sheetW: opts.sheetW, layerId: opts.layerId, clip: opts.clip.state,
       dir: opts.dir, frameNum: f, shift: opts.shift, col: f - 1, row: opts.row, ext: opts.ext,
     });
   }
 }
 
-function packLayerSheet(layer, anchors) {
+function packLayerSheet({ rawDir, layer, anchors }) {
   const sheetW = SHEET_COLS * CELL;
   const sheetH = SHEET_ROWS * CELL;
   const rgba = new Uint8Array(sheetW * sheetH * 4);
@@ -115,11 +144,11 @@ function packLayerSheet(layer, anchors) {
   let row = 0;
   for (const clip of CLIPS) {
     for (const dir of DIRS) {
-      packClipDir({ rgba, sheetW, layerId: layer.id, clip, dir, shift: anchors[dir], row, ext });
+      packClipDir({ rawDir, rgba, sheetW, layerId: layer.id, clip, dir, shift: anchors[dir], row, ext });
       row++;
     }
   }
-  packFrameCell({ rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40, ext });
+  packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40, ext });
   if (ext) console.log(`Layer ${layer.id} cell bounds (@${CELL}px):`, ext);
   fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.png`), encodePng(sheetW, sheetH, rgba));
 }
@@ -159,37 +188,38 @@ function convertSockets(rawSockets, anchorsByGender) {
   return out;
 }
 
-function run() {
-  if (!RAW_DIR) throw new Error("Usage: node bakePlayerAssets.mjs <rawDir>");
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const anchorsByGender = {
-    male: computeBodyAnchors("body-male"),
-    female: computeBodyAnchors("body-female"),
-  };
-  for (const layer of LAYERS) {
-    packLayerSheet(layer, anchorsByGender[layer.gender]);
-  }
-  const rawSockets = JSON.parse(fs.readFileSync(path.join(RAW_DIR, "raw_sockets.json"), "utf8"));
-  const rigMeta = {
-    frameWidth: CELL,
-    frameHeight: CELL,
-    cols: SHEET_COLS,
-    rows: SHEET_ROWS,
-    groundY: GROUND_Y,
-    anchorX: 0.5,
-    anchorY: Number((GROUND_Y / CELL).toFixed(4)),
-    scale: Number(WORLD_SCALE.toFixed(4)),
-    portraitRow: 40,
-    portraitCol: 0,
-    directions: DIRS,
+function buildFullRigMeta({ rawDir, anchorsByGender }) {
+  const rawSockets = JSON.parse(fs.readFileSync(path.join(rawDir, "raw_sockets.json"), "utf8"));
+  return {
+    frameWidth: CELL, frameHeight: CELL, cols: SHEET_COLS, rows: SHEET_ROWS, groundY: GROUND_Y,
+    anchorX: 0.5, anchorY: Number((GROUND_Y / CELL).toFixed(4)), scale: Number(WORLD_SCALE.toFixed(4)),
+    portraitRow: 40, portraitCol: 0, directions: DIRS,
     clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
     layers: LAYERS.map((l) => l.id),
     bakeVersion: Date.now(),
+    anchorsByGender,
     sockets: convertSockets(rawSockets, anchorsByGender),
     handSockets: rawSockets.handSockets ? convertSockets(rawSockets.handSockets, anchorsByGender) : undefined,
   };
-  fs.writeFileSync(path.join(OUT_DIR, "player-rig.json"), JSON.stringify(rigMeta, null, 2) + "\n");
-  console.log("Baked player assets:", { outDir: OUT_DIR, layers: LAYERS.length, anchorsByGender });
+}
+
+function packTargetLayer({ rawDir, layer, anchors }) {
+  if (!anchors) throw new Error(`Missing anchors for ${layer.gender}; export body-${layer.gender} or run full bake.`);
+  packLayerSheet({ rawDir, layer, anchors });
+}
+
+function run() {
+  const { rawDir, onlyLayers } = parseCliArgs(process.argv.slice(2));
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const prevMeta = fs.existsSync(RIG_META_PATH) ? JSON.parse(fs.readFileSync(RIG_META_PATH, "utf8")) : null;
+  const anchorsByGender = resolveAnchorsByGender(rawDir, prevMeta);
+  const targets = onlyLayers ? LAYERS.filter((l) => onlyLayers.has(l.id)) : LAYERS;
+  for (const layer of targets) packTargetLayer({ rawDir, layer, anchors: anchorsByGender[layer.gender] });
+  const rigMeta = onlyLayers && prevMeta
+    ? { ...prevMeta, anchorsByGender, bakeVersion: Date.now() }
+    : buildFullRigMeta({ rawDir, anchorsByGender });
+  fs.writeFileSync(RIG_META_PATH, JSON.stringify(rigMeta, null, 2) + "\n");
+  console.log("Baked player assets:", { outDir: OUT_DIR, bakedLayers: targets.length, bakeVersion: rigMeta.bakeVersion });
 }
 
 run();

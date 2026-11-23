@@ -1,5 +1,8 @@
-/** Touch joystick + combat buttons, desktop WASD/arrows, mouse combat, shortcuts, and wheel zoom. */
+/** Touch joystick + combat buttons, swipe-to-roll, world tap, desktop WASD, and shortcuts. */
 import { COMBAT_TUNING } from "@dc2d/engine";
+import {
+  HOTBAR_DIGIT_MAP, createJoystickDom, createJumpButton, isEditingText, isGuardedBrowserCombo, isUiTarget,
+} from "./inputHelpers.js";
 import { MobileCombatControls } from "./mobileCombatControls.js";
 
 export interface InputCallbacks {
@@ -11,6 +14,7 @@ export interface InputCallbacks {
   readonly onToggleCharacter: () => void;
   readonly onToggleMap?: () => void;
   readonly onInteract?: () => void;
+  readonly onWorldTap?: (clientX: number, clientY: number) => void;
   readonly onClosePanels: () => void;
 }
 
@@ -20,35 +24,9 @@ export interface CombatInputsFrame {
   readonly bowRelease: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
+  readonly dodgeDir: { readonly x: number; readonly y: number } | undefined;
   readonly interact: boolean;
   readonly mobileAim: { readonly x: number; readonly y: number } | undefined;
-}
-
-const UI_OVERLAY_SELECTOR =
-  ".ow-hud, .ow-hotbar, .ow-modal, .ow-zoom-controls, .ow-jump-btn, .ow-combat-cluster, .ow-audio-popover, .ow-vitals";
-
-const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
-  Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
-};
-
-const GUARDED_BROWSER_COMBOS = new Set([
-  "KeyS", "KeyO", "KeyP", "KeyF", "KeyD", "KeyG", "KeyH", "KeyJ", "KeyU", "KeyK", "KeyL", "KeyE", "KeyB", "KeyA",
-]);
-const GUARDED_ALWAYS_COMBOS = new Set(["KeyS", "KeyO", "KeyP"]);
-
-function isGuardedBrowserCombo(e: KeyboardEvent, editingText: boolean): boolean {
-  if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return false;
-  return editingText ? GUARDED_ALWAYS_COMBOS.has(e.code) : GUARDED_BROWSER_COMBOS.has(e.code);
-}
-
-function isEditingText(target: EventTarget | null): boolean {
-  const tag = (target as HTMLElement | null)?.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA";
-}
-
-function isUiTarget(target: EventTarget | null): boolean {
-  return Boolean((target as HTMLElement | null)?.closest(UI_OVERLAY_SELECTOR));
 }
 
 export class InputController {
@@ -58,8 +36,11 @@ export class InputController {
   private touchVector = { x: 0, y: 0 };
   private mouseClient: { x: number; y: number } | null = null;
   private mouseMovedAtMs = 0;
+  private touchStartMs = 0;
+  private touchMaxDist = 0;
   private jumpQueued = false;
   private dodgeQueued = false;
+  private dodgeDir: { readonly x: number; readonly y: number } | undefined;
   private interactQueued = false;
   private attackQueued = false;
   private bowReleaseQueued = false;
@@ -68,56 +49,52 @@ export class InputController {
   private isBowHeld = false;
   private hasShield = false;
   private enabled = true;
+  private readonly callbacks: InputCallbacks;
   private readonly stickEl: HTMLDivElement;
   private readonly knobEl: HTMLDivElement;
   private readonly mobileCombat: MobileCombatControls;
 
   constructor(host: HTMLElement, callbacks: InputCallbacks) {
+    this.callbacks = callbacks;
     const { ring, knob } = createJoystickDom();
     this.stickEl = ring;
     this.knobEl = knob;
     const jumpBtn = createJumpButton(() => { this.jumpQueued = true; });
     host.append(ring, jumpBtn);
-    this.mobileCombat = new MobileCombatControls(host);
+    this.mobileCombat = new MobileCombatControls(host, () => callbacks.onToggleMap?.());
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
   }
 
-  setGearState(gear: { readonly isBowHeld: boolean; readonly hasShield: boolean }): void {
-    this.isBowHeld = gear.isBowHeld;
+  setGearState(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
+    this.isBowHeld = gear.heldItem === "bow";
     this.hasShield = gear.hasShield;
     this.mobileCombat.setGear(gear);
   }
 
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
-    if (!enabled) this.resetHeldInputs();
-  }
-
+  setEnabled(enabled: boolean): void { this.enabled = enabled; if (!enabled) this.resetHeldInputs(); }
   queueInteract(): void { this.interactQueued = true; }
-
-  consumeJump(): boolean {
-    const fired = this.jumpQueued;
-    this.jumpQueued = false;
-    return fired;
-  }
+  consumeJump(): boolean { const fired = this.jumpQueued; this.jumpQueued = false; return fired; }
 
   consumeCombat(): CombatInputsFrame {
     const mob = this.mobileCombat.consumeState();
+    const dodgeDir = this.dodgeQueued ? this.dodgeDir : undefined;
     const out: CombatInputsFrame = {
       attack: this.attackQueued || mob.attack,
       bowDraw: (this.isBowHeld && this.leftMouseDown) || mob.bowDraw,
       bowRelease: this.bowReleaseQueued || mob.bowRelease,
-      block: this.hasShield && (this.rightMouseDown || mob.block),
+      block: this.isBlockHeld(mob.block),
       dodge: this.dodgeQueued || mob.dodge,
+      dodgeDir,
       interact: this.interactQueued,
       mobileAim: mob.aim,
     };
-    this.attackQueued = false;
-    this.bowReleaseQueued = false;
-    this.dodgeQueued = false;
-    this.interactQueued = false;
+    this.clearQueuedCombat();
     return out;
+  }
+
+  private isBlockHeld(mobileBlock: boolean): boolean {
+    return this.hasShield && (this.rightMouseDown || mobileBlock);
   }
 
   movement(): { readonly x: number; readonly y: number } {
@@ -131,22 +108,24 @@ export class InputController {
   }
 
   mouseAim(nowMs: number): { readonly x: number; readonly y: number; readonly recent: boolean } | null {
-    if (!this.mouseClient) return null;
-    return { x: this.mouseClient.x, y: this.mouseClient.y, recent: nowMs - this.mouseMovedAtMs < 1500 };
+    return this.mouseClient ? { x: this.mouseClient.x, y: this.mouseClient.y, recent: nowMs - this.mouseMovedAtMs < 1500 } : null;
   }
 
-  private down(...codes: readonly string[]): boolean {
-    return codes.some((c) => this.keys.has(c));
+  private clearQueuedCombat(): void {
+    this.attackQueued = false;
+    this.bowReleaseQueued = false;
+    this.dodgeQueued = false;
+    this.dodgeDir = undefined;
+    this.interactQueued = false;
   }
+
+  private down(...codes: readonly string[]): boolean { return codes.some((c) => this.keys.has(c)); }
 
   private bindKeyboard(callbacks: InputCallbacks): void {
     window.addEventListener("keydown", (e) => {
       const editing = isEditingText(e.target);
       if (this.enabled && isGuardedBrowserCombo(e, editing)) e.preventDefault();
-      if (!this.enabled || editing) {
-        if (this.enabled && e.code === "Escape") (e.target as HTMLElement).blur();
-        return;
-      }
+      if (!this.enabled || editing) { if (this.enabled && e.code === "Escape") (e.target as HTMLElement).blur(); return; }
       this.keys.add(e.code);
       if (!e.repeat) this.handleShortcut(e, callbacks);
     });
@@ -154,11 +133,7 @@ export class InputController {
     window.addEventListener("blur", () => this.resetHeldInputs());
   }
 
-  private resetHeldInputs(): void {
-    this.keys.clear();
-    this.leftMouseDown = false;
-    this.rightMouseDown = false;
-  }
+  private resetHeldInputs(): void { this.keys.clear(); this.leftMouseDown = false; this.rightMouseDown = false; }
 
   private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
@@ -168,11 +143,8 @@ export class InputController {
     if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
     const actions: Readonly<Record<string, () => void>> = {
       KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
-      KeyC: callbacks.onToggleCrafting,
-      KeyH: callbacks.onToggleCharacter,
-      KeyF: callbacks.onToggleTorch,
-      KeyM: () => callbacks.onToggleMap?.(),
-      Escape: callbacks.onClosePanels,
+      KeyC: callbacks.onToggleCrafting, KeyH: callbacks.onToggleCharacter,
+      KeyF: callbacks.onToggleTorch, KeyM: () => callbacks.onToggleMap?.(), Escape: callbacks.onClosePanels,
     };
     actions[e.code]?.();
   }
@@ -182,35 +154,26 @@ export class InputController {
     host.addEventListener("contextmenu", (e) => { if (this.enabled && !isUiTarget(e.target)) e.preventDefault(); });
     host.addEventListener("pointerdown", (e) => { if (!this.enabled) return; this.startTouch(e); this.onMouseDown(e); });
     host.addEventListener("pointermove", (e) => { this.moveTouch(e); this.trackMouseAim(e); });
-    host.addEventListener("pointerup", (e) => { this.endTouch(e); this.onMouseUp(e); });
-    host.addEventListener("pointercancel", (e) => { this.endTouch(e); this.onMouseUp(e); });
+    host.addEventListener("pointerup", (e) => { this.endTouch(e, true); this.onMouseUp(e); });
+    host.addEventListener("pointercancel", (e) => { this.endTouch(e, false); this.onMouseUp(e); });
   }
 
   private onMouseDown(e: PointerEvent): void {
     if (e.pointerType !== "mouse" || isUiTarget(e.target)) return;
     this.mouseClient = { x: e.clientX, y: e.clientY };
     this.mouseMovedAtMs = performance.now();
-    if (e.button === 0) {
-      this.leftMouseDown = true;
-      if (!this.isBowHeld) this.attackQueued = true;
-    } else if (e.button === 2) {
-      this.rightMouseDown = true;
-    }
+    if (e.button === 0) { this.leftMouseDown = true; if (!this.isBowHeld) this.attackQueued = true; }
+    else if (e.button === 2) { this.rightMouseDown = true; }
   }
 
   private onMouseUp(e: PointerEvent): void {
     if (e.pointerType !== "mouse") return;
-    if (e.button === 0) {
-      if (this.leftMouseDown && this.isBowHeld) this.bowReleaseQueued = true;
-      this.leftMouseDown = false;
-    } else if (e.button === 2) {
-      this.rightMouseDown = false;
-    }
+    if (e.button === 0) { if (this.leftMouseDown && this.isBowHeld) this.bowReleaseQueued = true; this.leftMouseDown = false; }
+    else if (e.button === 2) { this.rightMouseDown = false; }
   }
 
   private trackMouseAim(e: PointerEvent): void {
-    if (e.pointerType !== "mouse") return;
-    if ((e.target as HTMLElement | null)?.closest(".ow-modal")) return;
+    if (e.pointerType !== "mouse" || (e.target as HTMLElement | null)?.closest(".ow-modal")) return;
     this.mouseClient = { x: e.clientX, y: e.clientY };
     this.mouseMovedAtMs = performance.now();
   }
@@ -219,6 +182,8 @@ export class InputController {
     if (e.pointerType !== "touch" || this.pointerId !== null || isUiTarget(e.target)) return;
     this.pointerId = e.pointerId;
     this.origin = { x: e.clientX, y: e.clientY };
+    this.touchStartMs = performance.now();
+    this.touchMaxDist = 0;
     this.touchVector = { x: 0, y: 0 };
     this.stickEl.style.left = `${e.clientX}px`;
     this.stickEl.style.top = `${e.clientY}px`;
@@ -232,6 +197,7 @@ export class InputController {
     const dx = e.clientX - this.origin.x;
     const dy = e.clientY - this.origin.y;
     const dist = Math.hypot(dx, dy);
+    this.touchMaxDist = Math.max(this.touchMaxDist, dist);
     const clamped = Math.min(dist, maxRadius);
     const nx = dist > 2 ? dx / dist : 0;
     const ny = dist > 2 ? dy / dist : 0;
@@ -242,32 +208,24 @@ export class InputController {
     this.touchVector = analogSpeed > 0 ? { x: nx * analogSpeed, y: ny * analogSpeed } : { x: 0, y: 0 };
   }
 
-  private endTouch(e: PointerEvent): void {
+  private endTouch(e: PointerEvent, completed: boolean): void {
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
     this.touchVector = { x: 0, y: 0 };
     this.stickEl.style.display = "none";
+    if (!completed || !this.enabled) return;
+    this.resolveTouchGesture(e);
   }
-}
 
-function createJoystickDom(): { ring: HTMLDivElement; knob: HTMLDivElement } {
-  const ring = document.createElement("div");
-  ring.className = "ow-joystick";
-  const knob = document.createElement("div");
-  knob.className = "ow-joystick__knob";
-  ring.appendChild(knob);
-  return { ring, knob };
-}
-
-function createJumpButton(onPress: () => void): HTMLButtonElement {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "ow-jump-btn";
-  btn.textContent = "JUMP";
-  btn.setAttribute("aria-label", "Jump");
-  btn.addEventListener("pointerdown", (e) => {
-    e.stopPropagation();
-    onPress();
-  });
-  return btn;
+  private resolveTouchGesture(e: PointerEvent): void {
+    const elapsed = performance.now() - this.touchStartMs;
+    const dx = e.clientX - this.origin.x;
+    const dy = e.clientY - this.origin.y;
+    const dist = Math.hypot(dx, dy);
+    if (this.touchMaxDist < 14 && elapsed < 260) { this.callbacks.onWorldTap?.(e.clientX, e.clientY); return; }
+    if (this.origin.x <= window.innerWidth * 0.58 && dist >= 34 && elapsed <= 260) {
+      this.dodgeQueued = true;
+      this.dodgeDir = { x: dx / dist, y: dy / dist };
+    }
+  }
 }

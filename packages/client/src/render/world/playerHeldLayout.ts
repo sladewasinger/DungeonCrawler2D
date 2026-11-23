@@ -67,10 +67,10 @@ function socketMainCarry(opts: {
   const c = getTunedSwordArm(yawIdx, body);
   if (aimMode === "upright") {
     const tilt = Math.cos(right.angle) * 0.22 + (UPRIGHT_TILT[yawIdx] ?? 0) * 0.45;
-    return { x: right.x, y: right.y, rotation: tilt, scaleX: scale * c.scaleSign, scaleY: scale, behindBody: right.behind };
+    return { x: right.x, y: right.y, rotation: tilt, scaleX: scale * c.scaleSign, scaleY: scale, behindBody: c.behind };
   }
   const tilt = (right.angle - Math.PI * 0.5) * 0.22;
-  return { x: right.x, y: right.y, rotation: c.rot + tilt * c.rotSign, scaleX: c.scaleSign * scale, scaleY: scale, behindBody: right.behind || c.behind };
+  return { x: right.x, y: right.y, rotation: c.rot + tilt * c.rotSign, scaleX: c.scaleSign * scale, scaleY: scale, behindBody: c.behind };
 }
 
 function pickLegacyCarryPose(opts: {
@@ -112,11 +112,11 @@ function compute3dOffhand(opts: {
     const p = projectOrbit3d(opts.yawIdx, { lx: 0.24, ly: -0.04, lz: 0.62 });
     return { kind: "hipLantern", x: p.x, y: p.y + opts.bob * 0.4, rotation: 0, behindBody: p.behind };
   }
+  const c = getTunedLanternArm(opts.yawIdx, opts.body);
   if (opts.hands) {
     const lh = opts.hands.left;
-    return { kind: "handLantern", x: lh.x, y: lh.y, rotation: (lh.angle - Math.PI * 0.5) * 0.16, behindBody: lh.behind };
+    return { kind: "handLantern", x: lh.x, y: lh.y, rotation: (lh.angle - Math.PI * 0.5) * 0.16, behindBody: c.behind };
   }
-  const c = getTunedLanternArm(opts.yawIdx, opts.body);
   return { kind: "handLantern", x: c.x, y: c.y + opts.bob * 0.6, rotation: c.rot + opts.sway * 0.6, behindBody: c.behind };
 }
 
@@ -130,11 +130,11 @@ function compute3dShield(opts: {
     const p = projectOrbit3d(opts.yawIdx, { lx: 0.1, ly: -0.28, lz: 0.84 });
     return { equipped: true, x: p.x, y: p.y + opts.bob * 0.45, rotation: 0.08 * scaleSign, scaleX: CHARACTER_WORLD_SCALE * scaleSign, behindBody: p.behind };
   }
+  const c = getTunedLanternArm(opts.yawIdx, opts.body);
   if (opts.hands) {
     const lh = opts.hands.left;
-    return { equipped: true, x: lh.x, y: lh.y, rotation: (lh.angle - Math.PI * 0.5) * 0.14, scaleX: CHARACTER_WORLD_SCALE * scaleSign, behindBody: lh.behind };
+    return { equipped: true, x: lh.x, y: lh.y, rotation: (lh.angle - Math.PI * 0.5) * 0.14, scaleX: CHARACTER_WORLD_SCALE * scaleSign, behindBody: c.behind };
   }
-  const c = getTunedLanternArm(opts.yawIdx, opts.body);
   return { equipped: true, x: c.x, y: c.y + opts.bob * 0.45, rotation: 0.08 * scaleSign, scaleX: CHARACTER_WORLD_SCALE * scaleSign, behindBody: c.behind };
 }
 

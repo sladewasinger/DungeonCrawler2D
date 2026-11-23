@@ -1,4 +1,4 @@
-/** Compact HP bar, Stamina bar, and subtle spawn Sanctuary indicator above the bottom hotbar. */
+/** Centered HP bar + Sanctuary pill and left-edge vertical Stamina bar (blue -> yellow -> red). */
 import type { PlayerSnapshot } from "@dc2d/engine";
 import { domNode } from "./slotRenderer.js";
 
@@ -15,8 +15,14 @@ function readVitals(player: PlayerSnapshot | undefined): {
   };
 }
 
+function staminaTierForPct(pct: number): "high" | "mid" | "low" {
+  if (pct >= 55) return "high";
+  return pct >= 25 ? "mid" : "low";
+}
+
 export class VitalsBar {
   readonly el: HTMLDivElement;
+  readonly staminaRail: HTMLDivElement;
   private readonly hpFill: HTMLDivElement;
   private readonly hpText: HTMLSpanElement;
   private readonly stamFill: HTMLDivElement;
@@ -30,15 +36,16 @@ export class VitalsBar {
     this.hpText = domNode("span", "ow-vbar-text");
     hpWrap.append(this.hpFill, this.hpText);
 
-    const stamWrap = domNode("div", "ow-vbar ow-vbar-stam");
-    this.stamFill = domNode("div", "ow-vbar-fill");
-    stamWrap.append(this.stamFill);
-
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill");
     this.sanctuaryPill.textContent = "Sanctuary";
+    this.el.append(hpWrap, this.sanctuaryPill);
 
-    this.el.append(hpWrap, stamWrap, this.sanctuaryPill);
-    host.append(this.el);
+    this.staminaRail = domNode("div", "ow-stamina-rail");
+    this.staminaRail.setAttribute("aria-label", "Stamina");
+    this.stamFill = domNode("div", "ow-stamina-fill");
+    this.stamFill.dataset.tier = "high";
+    this.staminaRail.append(this.stamFill);
+    host.append(this.el, this.staminaRail);
   }
 
   sync(player: PlayerSnapshot | undefined): void {
@@ -48,7 +55,9 @@ export class VitalsBar {
     this.lastKey = key;
     this.hpFill.style.width = `${Math.min(100, (v.hp / v.maxHp) * 100)}%`;
     this.hpText.textContent = `${v.hp}/${v.maxHp}`;
-    this.stamFill.style.width = `${Math.min(100, (v.stam / v.maxStam) * 100)}%`;
+    const stamPct = Math.min(100, Math.max(0, (v.stam / v.maxStam) * 100));
+    this.stamFill.style.height = `${stamPct}%`;
+    this.stamFill.dataset.tier = staminaTierForPct(stamPct);
     this.sanctuaryPill.hidden = !v.safe;
   }
 }

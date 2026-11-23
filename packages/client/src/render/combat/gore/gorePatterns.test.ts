@@ -70,4 +70,12 @@ describe("gorePatterns", () => {
       expect(joined).toContain("1");
     }
   });
+
+  it("makes reduced gore noticeably lighter with no blade arcs and smaller death pools", () => {
+    const full = planGoreSpawn({ dirX: 1, dirY: 0, style: STYLE_SLICE, substance: "blood", fatal: true }, 1);
+    const reduced = planGoreSpawn({ dirX: 1, dirY: 0, style: STYLE_SLICE, substance: "blood", fatal: true }, 0.45);
+    expect(reduced.particles.some((p) => p.kind === "arc")).toBe(false);
+    expect(reduced.particles.length).toBeLessThan(full.particles.length);
+    expect(reduced.staticDecal?.scaleMult ?? 1).toBeLessThanOrEqual(0.5);
+  });
 });

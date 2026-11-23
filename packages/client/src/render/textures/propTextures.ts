@@ -6,9 +6,10 @@ import {
   makeHdBushVariants, makeHdOakCanopyTexture, makeHdOakTrunkTexture,
   makeHdPineCanopyTexture, makeHdPineTrunkTexture, makeHdTallGrassVariants, makeHdWildflowerVariants,
 } from "./hdFoliageTextures.js";
+import { makeHdCampfireFrames, makeHdTorchFrames } from "./hdFireTextures.js";
 import {
-  makeHdBoulderVariants, makeHdCampfireFrames, makeHdFallbackPalisadeTexture,
-  makeHdFallbackRuinPillarTexture, makeHdFallbackTentTexture, makeHdStumpTexture, makeHdTorchFrames,
+  makeHdBoulderVariants, makeHdFallbackPalisadeTexture,
+  makeHdFallbackRuinPillarTexture, makeHdFallbackTentTexture, makeHdStumpTexture,
 } from "./hdPropTextures.js";
 import { getPoiPropSpriteSpec, makePalisadeTexture, makeRuinPillarTexture, makeTentTexture } from "./poiPropTextures.js";
 import { getLoadedSpriteAsset } from "./spriteManifest.js";

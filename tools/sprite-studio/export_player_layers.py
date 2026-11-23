@@ -184,14 +184,15 @@ def project_px(scene, cam, pt):
     return [float(co.x * CELL_PX), float((1.0 - co.y) * CELL_PX), float(co.z)]
 
 
-def hand_entry(scene, cam, elbow_world, hand_world, torso_depth):
+def hand_entry(scene, cam, elbow_world, hand_world, spine_xy):
     pe = project_px(scene, cam, elbow_world)
     ph = project_px(scene, cam, hand_world)
+    spine_same_z = project_px(scene, cam, Vector((spine_xy.x, spine_xy.y, hand_world.z)))
     return {
         "px": ph[0],
         "py": ph[1],
         "angle": round(math.atan2(ph[1] - pe[1], ph[0] - pe[0]), 4),
-        "behind": ph[2] > torso_depth + 0.01,
+        "behind": ph[2] > spine_same_z[2] + 0.01,
     }
 
 
@@ -245,8 +246,8 @@ def export_shoulder_sockets(out_dir):
                         hl_pos = hl_base - lr_axis * hand_in + Vector((0.0, 0.0, z_off))
                         hr_pos = hr_base + lr_axis * hand_in + Vector((0.0, 0.0, z_off))
                         hands[gender][cname][dname].append({
-                            "left": hand_entry(scene, cam, el_l - lr_axis * hand_in, hl_pos, torso_p[2]),
-                            "right": hand_entry(scene, cam, el_r + lr_axis * hand_in, hr_pos, torso_p[2]),
+                            "left": hand_entry(scene, cam, el_l - lr_axis * hand_in, hl_pos, mid),
+                            "right": hand_entry(scene, cam, el_r + lr_axis * hand_in, hr_pos, mid),
                         })
     finally:
         root.rotation_euler = Euler((0.0, 0.0, 0.0), "XYZ")

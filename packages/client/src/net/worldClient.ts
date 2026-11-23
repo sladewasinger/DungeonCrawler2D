@@ -1,6 +1,6 @@
 /** Multiplayer WebSocket client with holistic action-ack gating, chest ops, and offline preview fallback. */
 import {
-  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, ServerMessageSchema, WorldChunkCache, isInSanctuary, wrapDayPhase,
+  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, ServerMessageSchema, WorldChunkCache, isInSanctuary, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type EntityKind, type GroundLootSnapshot, type InventorySnapshot,
   type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
@@ -28,6 +28,7 @@ export interface StepInputFrame {
   readonly bowRelease?: boolean | undefined;
   readonly block?: boolean | undefined;
   readonly dodge?: boolean | undefined;
+  readonly dodgeDir?: { readonly x: number; readonly y: number } | undefined;
   readonly interact?: boolean | undefined;
 }
 
@@ -54,7 +55,8 @@ function buildInputMessage(opts: {
 }): ClientMessage {
   const extras: Record<string, boolean> = {};
   for (const key of ACTION_FLAG_KEYS) if (opts.input[key]) extras[key] = true;
-  return { t: "input", seq: opts.seq, moveX: opts.moveDir.x, moveY: opts.moveDir.y, ...(opts.normAim ? { aimX: opts.normAim.x, aimY: opts.normAim.y } : {}), ...extras } as ClientMessage;
+  const dodgeDir = normalizeDirection(opts.input.dodgeDir, false);
+  return { t: "input", seq: opts.seq, moveX: opts.moveDir.x, moveY: opts.moveDir.y, ...(opts.normAim ? { aimX: opts.normAim.x, aimY: opts.normAim.y } : {}), ...(dodgeDir ? { dodgeDirX: dodgeDir.x, dodgeDirY: dodgeDir.y } : {}), ...extras } as ClientMessage;
 }
 
 export class WorldClient {
@@ -96,8 +98,7 @@ export class WorldClient {
   connect(): void {
     if (this.ws || this.mode === "connecting") return;
     if (this.reconnectTimer !== null) { window.clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
-    this.mode = "connecting";
-    this.openSocket(this.wsUrl);
+    this.mode = "connecting"; this.openSocket(this.wsUrl);
   }
 
   private openSocket(url: string): void {
@@ -227,6 +228,11 @@ export class WorldClient {
   }
 
   toggleTorch(): void { this.localPlayer = { ...this.localPlayer, torchLit: !this.localPlayer.torchLit }; const seq = this.nextSeq(); this.torchGate = { pendingSeq: seq, atMs: performance.now() }; this.send({ t: "toggleTorch", seq }); }
+  respawn(): void {
+    const seq = this.nextSeq();
+    if (this.mode === "server") { this.send({ t: "respawn", seq }); return; }
+    this.localPlayer = { ...this.localPlayer, x: SANCTUARY_CENTER.x, y: SANCTUARY_CENTER.y, elevation: 0, hp: this.localPlayer.maxHp ?? 100, stamina: this.localPlayer.maxStamina ?? 100 };
+  }
   setDayPhase(dayPhase: number, paused?: boolean): void {
     this.dayPhase = wrapDayPhase(dayPhase);
     if (paused !== undefined) this.dayPaused = paused;

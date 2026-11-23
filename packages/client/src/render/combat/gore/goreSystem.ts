@@ -69,7 +69,8 @@ export class GoreSystem {
   setGoreLevel(level: GoreLevel): void {
     this.level = level;
     saveGoreLevel(level);
-    if (level === "off") this.clear();
+    if (level === "off") { this.clear(); return; }
+    if (level === "reduced") this.decals.shrinkToRatio(0.35);
   }
 
   spawn(input: GoreSpawnInput): void {
@@ -101,7 +102,7 @@ export class GoreSystem {
   }
 
   stepBleedDrips(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[], dt: number): void {
-    if (this.level === "off") return;
+    if (this.level !== "full") return;
     this.bleedAcc += dt;
     if (this.bleedAcc < GORE_TUNING.bleedDripIntervalSec) return;
     this.bleedAcc = 0;
@@ -110,7 +111,7 @@ export class GoreSystem {
   }
 
   stepFootprints(players: readonly PlayerSnapshot[], entities: readonly WorldEntitySnapshot[]): void {
-    if (this.level === "off") return;
+    if (this.level !== "full") return;
     this.decals.stepFootprints(buildFootActors(players, entities), this.tileCache);
   }
 

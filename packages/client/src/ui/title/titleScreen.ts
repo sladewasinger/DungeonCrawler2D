@@ -42,7 +42,6 @@ export class TitleScreen {
   private appearance: CharacterAppearance;
   private open = true;
   private lastCacheRev = -1;
-  private readonly assetPollId: number;
 
   constructor(private readonly host: HTMLElement, private readonly opts: TitleScreenOptions) {
     ensureTitleStyles();
@@ -58,16 +57,25 @@ export class TitleScreen {
     this.root.append(card);
     host.append(this.root);
     this.refreshPreview();
-    this.assetPollId = window.setInterval(() => {
+    window.setInterval(() => {
       if (this.open && getCharacterCacheRevision() !== this.lastCacheRev) this.refreshPreview();
     }, 200);
   }
 
   isOpen(): boolean { return this.open; }
 
+  reopen(name: string, appearance: CharacterAppearance): void {
+    this.name = name;
+    this.appearance = appearance;
+    this.nameInput.value = name;
+    this.open = true;
+    this.host.dataset.titleOpen = "true";
+    this.root.hidden = false;
+    this.refreshPreview();
+  }
+
   dismiss(): void {
     this.open = false;
-    window.clearInterval(this.assetPollId);
     this.root.hidden = true;
     delete this.host.dataset.titleOpen;
   }

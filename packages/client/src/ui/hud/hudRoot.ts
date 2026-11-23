@@ -46,7 +46,7 @@ export class HudRoot {
     this.drag = new SlotDragManager({
       ...actions,
       onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
-    }, () => this.refreshFromCache());
+    });
     this.hotbar = new BottomHotbar(host, this.drag, actions.onToggleTorch);
     this.vitals = new VitalsBar(host);
     this.inventoryModal = new InventoryModal(host, this.drag, {

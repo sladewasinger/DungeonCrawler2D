@@ -1,4 +1,4 @@
-/** Procedural 3x HD-pixel (48 px/tile) boulder, broad cut stump, campfire, torch, and POI fallbacks. */
+/** Procedural 3x HD-pixel (48 px/tile) boulder, broad cut stump, and POI fallbacks. */
 import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import type { Texture } from "pixi.js";
 import {
@@ -58,53 +58,6 @@ export function makeHdStumpTexture(): Texture {
   fillEllipsePixel(ctx, { cx: 40, cy: 31, rx: 2, ry: 2, color: "#6ec45e" });
   stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.propSolidPx });
   return canvasToNearestTexture(canvas);
-}
-
-const FLAME_SHIFTS = [
-  { sway: 0, h: 16 }, { sway: -2, h: 19 }, { sway: 1, h: 15 }, { sway: 2, h: 18 },
-];
-
-export function makeHdCampfireFrames(): readonly Texture[] {
-  return FLAME_SHIFTS.map((f, idx) => {
-    const w = 54; const h = 54;
-    const { canvas, ctx } = createPixelCanvas(w, h);
-    for (let a = 0; a < 8; a++) {
-      const ang = (a / 8) * Math.PI * 2;
-      fillEllipsePixel(ctx, { cx: 27 + Math.cos(ang) * 14, cy: 37 + Math.sin(ang) * 7, rx: 4, ry: 3, color: a > 3 ? "#4b5563" : "#788496" });
-    }
-    ctx.fillStyle = "#5c341b";
-    ctx.fillRect(17, 33, 20, 4); ctx.fillRect(21, 30, 12, 8);
-    fillCluster(ctx, [
-      { cx: 27, cy: 34, rx: 8, ry: 4, color: "#ea580c" },
-      { cx: 27 + f.sway, cy: 28 - f.h * 0.25, rx: 7, ry: f.h * 0.52, color: "#f97316" },
-      { cx: 27 + f.sway * 1.2, cy: 28 - f.h * 0.18, rx: 4, ry: f.h * 0.36, color: "#facc15" },
-      { cx: 27 + f.sway, cy: 30, rx: 2, ry: 3, color: "#fef9c3" },
-    ]);
-    ctx.fillStyle = "#fde047";
-    ctx.fillRect(22 + idx * 3, 12 + (idx % 2) * 3, 2, 2);
-    stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.propSolidPx });
-    return canvasToNearestTexture(canvas);
-  });
-}
-
-export function makeHdTorchFrames(): readonly Texture[] {
-  return FLAME_SHIFTS.map((f, idx) => {
-    const w = 36; const h = 66;
-    const { canvas, ctx } = createPixelCanvas(w, h);
-    ctx.fillStyle = "#5a351d"; ctx.fillRect(15, 28, 6, 30);
-    ctx.fillStyle = "#7a4a2a"; ctx.fillRect(16, 28, 2, 29);
-    ctx.fillStyle = "#475569"; ctx.fillRect(14, 24, 8, 5);
-    ctx.fillStyle = "#94a3b8"; ctx.fillRect(15, 25, 3, 2);
-    fillCluster(ctx, [
-      { cx: 18 + f.sway, cy: 19, rx: 6, ry: 9, color: "#ea580c" },
-      { cx: 18 + f.sway, cy: 19, rx: 4, ry: 6, color: "#fbbf24" },
-      { cx: 18 + f.sway, cy: 20, rx: 2, ry: 3, color: "#fef9c3" },
-    ]);
-    ctx.fillStyle = "#fde047";
-    ctx.fillRect(14 + idx * 2, 6 + (idx % 2) * 2, 2, 2);
-    stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.propSolidPx });
-    return canvasToNearestTexture(canvas);
-  });
 }
 
 export function makeHdFallbackPalisadeTexture(): Texture {

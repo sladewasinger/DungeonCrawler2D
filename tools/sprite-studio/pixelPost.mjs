@@ -225,7 +225,7 @@ export function postProcessFrame(opts) {
   const clean = binarizeAndClean(opts.colorImg, opts.minIslandArea ?? 4);
   const creased = opts.depthImg ? applyInternalDepthCreases(clean, opts.depthImg) : clean;
   const interiorMask = captureOpaqueMask(creased);
-  const outlined = applyOuterSelOut(creased, opts.outlineRadius ?? 4);
+  const outlined = applyOuterSelOut(creased, opts.outlineRadius ?? 2);
   const translucent = applyTranslucentBodyAlpha(outlined, interiorMask, opts.bodyAlpha ?? 1.0);
   const bounds = measureSpriteBounds(translucent);
   const dx = opts.dx ?? (Math.floor(translucent.width / 2) - Math.round((bounds.minX + bounds.maxX) * 0.5));

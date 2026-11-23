@@ -48,6 +48,8 @@ interface SimPlayer {
   bowReleaseQueued: boolean;
   blockHeld: boolean;
   dodgeQueued: boolean;
+  dodgeDirX: number | undefined;
+  dodgeDirY: number | undefined;
   interactQueued: boolean;
   readonly combat: PlayerCombatState;
 }
@@ -76,7 +78,7 @@ export class WorldSim {
       jumpZ: 0, jumpVz: 0, jumpQueued: false,
       moveX: 0, moveY: 0, moving: false, sprinting: false, torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
-      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, interactQueued: false,
+      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, dodgeDirX: undefined, dodgeDirY: undefined, interactQueued: false,
       combat: createCombatState(),
     });
     return id;
@@ -101,7 +103,9 @@ export class WorldSim {
     readonly aimX?: number | undefined; readonly aimY?: number | undefined;
     readonly jump?: boolean | undefined; readonly attack?: boolean | undefined;
     readonly bowDraw?: boolean | undefined; readonly bowRelease?: boolean | undefined;
-    readonly block?: boolean | undefined; readonly dodge?: boolean | undefined; readonly interact?: boolean | undefined;
+    readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
+    readonly dodgeDirX?: number | undefined; readonly dodgeDirY?: number | undefined;
+    readonly interact?: boolean | undefined;
   }): void {
     const p = this.players.get(playerId);
     if (!p) return;
@@ -113,11 +117,12 @@ export class WorldSim {
     p.bowDrawing = Boolean(input.bowDraw);
     if (input.bowRelease) p.bowReleaseQueued = true;
     p.blockHeld = Boolean(input.block);
-    if (input.dodge) p.dodgeQueued = true;
+    if (input.dodge) { p.dodgeQueued = true; p.dodgeDirX = input.dodgeDirX; p.dodgeDirY = input.dodgeDirY; }
     if (input.interact) p.interactQueued = true;
     applyAimInput(p, input);
   }
 
+  respawnPlayer(playerId: string): void { const p = this.players.get(playerId); if (p) this.combat.respawnPlayerNow(p); }
   toggleTorch(playerId: string): void { const p = this.players.get(playerId); if (p) p.torchLit = !p.torchLit; }
   setDayPhase(dayPhase: number, paused?: boolean): void { this.dayPhase = wrapDayPhase(dayPhase); if (paused !== undefined) this.dayPaused = paused; }
   ackActionSeq(playerId: string, seq?: number): void { const p = this.players.get(playerId); if (p && seq !== undefined) p.lastActionAckSeq = Math.max(p.lastActionAckSeq, seq); }
@@ -180,13 +185,16 @@ export class WorldSim {
       input: {
         moveX: p.moveX, moveY: p.moveY, attackQueued: p.attackQueued,
         bowDrawing: p.bowDrawing, bowReleaseQueued: p.bowReleaseQueued,
-        blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued, interactQueued: p.interactQueued,
+        blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued,
+        dodgeDirX: p.dodgeDirX, dodgeDirY: p.dodgeDirY, interactQueued: p.interactQueued,
       },
     });
     p.jumpQueued = false;
     p.attackQueued = false;
     p.bowReleaseQueued = false;
     p.dodgeQueued = false;
+    p.dodgeDirX = undefined;
+    p.dodgeDirY = undefined;
     p.interactQueued = false;
     this.movePlayer(p, dtSeconds);
   }

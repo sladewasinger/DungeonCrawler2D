@@ -8,6 +8,7 @@ import {
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
 import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js";
+import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
@@ -41,17 +42,14 @@ export interface SceneFrameInput {
   readonly events?: readonly WorldEvent[];
 }
 
-const ZOOM_STOPS = [1.5, 2.25, 3.0, 4.5, 6.0] as const;
+const ZOOM_STOPS = [1.5, 2.0, 3.0, 4.0, 6.0] as const;
 
-export const CAMERA_TUNING = {
-  defaultZoom: 3.0,
-  minZoom: 1.5,
-  maxZoom: 6.0,
-  followLerpRate: 9,
-  hitstopTimeScale: 0.12,
-  grassWindStrength: 0,
-  canopyWindStrength: 0.9,
-} as const;
+function isMobileViewport(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(hover: none), (pointer: coarse), (max-width: 900px)")?.matches);
+}
+const resolveDefaultZoom = (): number => (isMobileViewport() ? ZOOM_STOPS[1] : ZOOM_STOPS[3]);
+
+export const CAMERA_TUNING = { defaultZoom: 4.0, minZoom: 1.5, maxZoom: 6.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
 
 export class WorldScene {
   private readonly sceneRoot = new Container();
@@ -65,6 +63,7 @@ export class WorldScene {
   private readonly gore = new GoreSystem();
   private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
+  private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
   private interactHandler: (() => void) | null = null;
@@ -73,7 +72,7 @@ export class WorldScene {
   private camY = 0.5;
   private shakeMag = 0;
   private shakeTime = 0;
-  private zoom: number = CAMERA_TUNING.defaultZoom;
+  private zoom: number = resolveDefaultZoom();
 
   private constructor(private readonly app: Application, host: HTMLElement) {
     const [groundCam, waterCam, shadowCam, goreCam, grassCam, ysortCam, canopyCam, emissiveCam] =
@@ -89,7 +88,7 @@ export class WorldScene {
     goreCam!.addChild(this.gore.decalLayer);
     this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
     this.configureGoreLayers(ysortCam!);
-    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer);
+    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer, this.hitboxDebug.container);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];
@@ -129,6 +128,7 @@ export class WorldScene {
 
   setInteractHandler(cb: () => void): void { this.interactHandler = cb; }
   setGoreLevel(level: GoreLevel): void { this.gore.setGoreLevel(level); }
+  setShowHitboxes(enabled: boolean): void { this.hitboxDebug.setEnabled(enabled); }
   setQualityPreset(presetId: QualityPresetId): void {
     this.qualityId = presetId;
     const preset = QUALITY_PRESETS[presetId];
@@ -137,6 +137,7 @@ export class WorldScene {
     this.gore.setQualityBudget({ maxDecals: preset.maxGoreDecals, maxGoreParticles: preset.maxGoreParticles });
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
+  currentZoom(): number { return this.zoom; }
   adjustZoom(factor: number): void {
     let best = 0;
     for (let i = 1; i < ZOOM_STOPS.length; i++) {
@@ -189,6 +190,7 @@ export class WorldScene {
     this.gore.stepFootprints(input.players, entities);
     this.gore.step(simDt);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
+    this.hitboxDebug.render({ cache: input.cache, local, players: input.players, entities, projectiles: input.projectiles ?? [] });
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
       maxParticles: preset.maxParticles, campfires, torches: lights.filter((l) => l.kind === "torch"),
@@ -209,20 +211,21 @@ export class WorldScene {
   }
 
   private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
-    if (ev.kind === "playerLeave") {
-      this.particles.spawnSmokePoof({ x: ev.x, y: ev.y, durationSec: PLAYER_LEAVE_SMOKE_DURATION_SEC });
-      return;
-    }
-    if (ev.kind !== "hit") return;
-    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
-    this.spawnHitGore(ev, input, local);
+    if (ev.kind === "playerLeave") { this.particles.spawnSmokePoof({ x: ev.x, y: ev.y, durationSec: PLAYER_LEAVE_SMOKE_DURATION_SEC }); return; }
+    if (ev.kind === "arrowRicochet") { this.emitSparksAt(ev, local?.elevation ?? 0); return; }
+    if (ev.kind === "hit") this.applyEntityHitFx(ev, input, local);
   }
 
-  private spawnHitGore(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+  private emitSparksAt(ev: NonNullable<SceneFrameInput["events"]>[number], elevation: number): void {
+    this.gore.spawnClashSparks({ x: ev.x, y: ev.y, dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1, elevation });
+  }
+
+  private applyEntityHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
     if (!ev.goreStyle || !ev.substance) return;
     const elev = resolveEventElev(ev.targetId, input.entities, local);
     this.gore.spawn(buildGoreSpawn(ev, elev, input.cache));
-    if (ev.substance === "stone") this.gore.spawnClashSparks({ x: ev.x, y: ev.y, dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1, elevation: elev });
+    if (ev.substance === "stone") this.emitSparksAt(ev, elev);
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {

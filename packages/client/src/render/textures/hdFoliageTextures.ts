@@ -1,4 +1,4 @@
-/** Procedural 3x HD-pixel (48 px/tile) foliage & tree textures with uniform AA Borderlands sel-out. */
+/** Procedural 3x HD-pixel (48 px/tile) foliage & tree textures with uniform solid Borderlands sel-out. */
 import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import type { Texture } from "pixi.js";
 import {
@@ -191,7 +191,6 @@ export function makeHdTallGrassVariants(): readonly Texture[] {
       { bx: 28 - v, lean: 8, h: 23 + v, c: "#286130", tc: "#5ca84f" },
     ];
     for (const b of blades) paintBlade(ctx, { baseX: b.bx, baseY: 43, h: b.h, lean: b.lean, color: b.c, tipColor: b.tc });
-    fillEllipsePixel(ctx, { cx: 21, cy: 42, rx: 9, ry: 3, color: "#1c4724" });
     stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.foliageSolidPx });
     return canvasToNearestTexture(canvas);
   });
@@ -219,10 +218,6 @@ export function makeHdWildflowerVariants(): readonly Texture[] {
       ctx.fillStyle = b.center;
       ctx.fillRect(fx - 1, fy - 1, 3, 3);
     }
-    fillCluster(ctx, [
-      { cx: 16, cy: 40, rx: 5, ry: 3, color: "#34843d" },
-      { cx: 26, cy: 40, rx: 5, ry: 3, color: "#266130" },
-    ]);
     stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.foliageSolidPx });
     return canvasToNearestTexture(canvas);
   });

@@ -30,12 +30,25 @@ const HUD_CSS = `
   backdrop-filter: blur(6px); pointer-events: none;
 }
 .ow-vbar { position: relative; height: 10px; border-radius: 999px; background: rgba(15, 23, 42, 0.92); overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.2); }
-.ow-vbar-hp { width: clamp(78px, 18vw, 130px); }
-.ow-vbar-stam { width: clamp(54px, 12vw, 88px); }
+.ow-vbar-hp { width: clamp(92px, 22vw, 150px); }
 .ow-vbar-fill { height: 100%; width: 100%; border-radius: 999px; transition: width 90ms linear; }
 .ow-vbar-hp .ow-vbar-fill { background: linear-gradient(90deg, #dc2626, #f87171); }
-.ow-vbar-stam .ow-vbar-fill { background: linear-gradient(90deg, #d97706, #fbbf24); }
 .ow-vbar-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #f8fafc; text-shadow: 0 1px 2px #000; }
+.ow-stamina-rail {
+  position: fixed; left: max(10px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%);
+  z-index: 38; width: 12px; height: clamp(110px, 24vh, 174px);
+  padding: 2px; border-radius: 999px;
+  background: rgba(12, 18, 26, 0.8); border: 1px solid rgba(148, 163, 184, 0.26);
+  backdrop-filter: blur(6px); pointer-events: none;
+  display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+}
+.ow-stamina-fill {
+  width: 100%; height: 100%; border-radius: 999px;
+  transition: height 80ms linear, background 160ms ease;
+  background: linear-gradient(180deg, #38bdf8, #2563eb);
+}
+.ow-stamina-fill[data-tier="mid"] { background: linear-gradient(180deg, #fde047, #f59e0b); }
+.ow-stamina-fill[data-tier="low"] { background: linear-gradient(180deg, #fb7185, #dc2626); }
 .ow-sanctuary-pill {
   padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
   color: #86efac; background: rgba(20, 83, 45, 0.6); border: 1px solid rgba(74, 222, 128, 0.35);
@@ -102,8 +115,28 @@ const HUD_CSS = `
   .ow-chest-body { grid-template-columns: 1fr; }
   .ow-chest-modal { --ow-bag-slot: clamp(30px, calc((100vw - 88px) / 9), 44px); }
 }
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  :root {
+    --ow-slot-size: clamp(28px, calc((100vw - 54px) / 10), 42px);
+  }
+  .ow-hotbar {
+    bottom: env(safe-area-inset-bottom);
+    gap: 3px;
+    padding: 4px 6px;
+    border-radius: 12px 12px 0 0;
+    border-bottom: 0;
+  }
+  .ow-vitals {
+    bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 12px);
+  }
+  .ow-stamina-rail {
+    left: max(8px, env(safe-area-inset-left));
+    top: 44%;
+    width: 10px;
+    height: clamp(92px, 22vh, 148px);
+  }
+}
 @media (max-width: 620px) {
-  .ow-hotbar { gap: 3px; padding: 6px; }
   .ow-inv-body { grid-template-columns: 1fr; }
   .ow-armor-grid { grid-template-columns: repeat(5, var(--ow-bag-slot)); }
   .ow-hero-lbl { width: 100%; }

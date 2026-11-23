@@ -17,7 +17,8 @@
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
     "lint": "eslint . && node scripts/check-folder-size.mjs",
     "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed",
-    "sprite:bake": "node tools/sprite-studio/runBake.mjs"
+    "sprite:bake": "node tools/sprite-studio/runBake.mjs",
+    "player:bake": "node tools/sprite-studio/runPlayerBake.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

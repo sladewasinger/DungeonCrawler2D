@@ -76,7 +76,7 @@
     "armor-legs-leather-leggings-female",
     "armor-feet-leather-boots"
   ],
-  "bakeVersion": 1795428728306,
+  "bakeVersion": 1795436825041,
   "sockets": {
     "male": {
       "idle": {
@@ -6614,6 +6614,52 @@
             }
           }
         ]
+      }
+    }
+  },
+  "anchorsByGender": {
+    "male": {
+      "south": {
+        "dx": 0,
+        "dy": -3
+      },
+      "se": {
+        "dx": -1,
+        "dy": -7
+      },
+      "side": {
+        "dx": -2,
+        "dy": -6
+      },
+      "ne": {
+        "dx": -1,
+        "dy": -5
+      },
+      "north": {
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    "female": {
+      "south": {
+        "dx": 0,
+        "dy": -3
+      },
+      "se": {
+        "dx": -1,
+        "dy": -6
+      },
+      "side": {
+        "dx": -2,
+        "dy": -5
+      },
+      "ne": {
+        "dx": -1,
+        "dy": -3
+      },
+      "north": {
+        "dx": 0,
+        "dy": 2
       }
     }
   }

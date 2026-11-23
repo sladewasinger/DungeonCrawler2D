@@ -1,4 +1,4 @@
-/** Unified pointer drag-and-drop, Shift-click chest transfer, and 2-tap transfer across Hotbar, Backpack, Armor, and Chests. */
+/** Unified pointer drag-and-drop and Shift-click chest transfer with forgiving gap snapping. */
 import { HOTBAR_SLOT_COUNT, type ArmorSlotKey, type InventorySlot, type InventorySnapshot } from "@dc2d/engine";
 import { getItemIconUrl } from "../icons/itemIcons.js";
 import { domNode, type HudActions } from "./slotRenderer.js";
@@ -12,19 +12,26 @@ interface PointerTracker {
   readonly source: DragSource; readonly startX: number; readonly startY: number; readonly itemId: string; dragging: boolean;
 }
 
+interface DropCandidate {
+  readonly source: DragSource;
+  readonly edgeDist: number;
+  readonly centerDist: number;
+  readonly hasItem: boolean;
+}
+
 const DRAG_THRESHOLD_PX = 6;
 const KIND_CHEST = "chest" as const;
 const KIND_INV = "inv" as const;
+const SLOT_SELECTOR = "[data-slot-index], [data-armor-slot], [data-chest-slot]";
+const PANE_SELECTOR = ".ow-chest-pane, .ow-backpack-grid, .ow-armor-grid, .ow-hotbar, .ow-modal";
 
 export class SlotDragManager {
   private tracker: PointerTracker | null = null;
   private ghost: HTMLImageElement | null = null;
-  private tapSource: DragSource | null = null;
   private latestInv: InventorySnapshot | null = null;
   private chestSlots: readonly InventorySlot[] | null = null;
-  private panelOpen = false;
 
-  constructor(private readonly actions: HudActions, private readonly onSelectionChange: () => void) {
+  constructor(private readonly actions: HudActions) {
     window.addEventListener("pointermove", (e) => this.handleMove(e));
     window.addEventListener("pointerup", (e) => this.handleUp(e));
     window.addEventListener("pointercancel", () => this.cancelDrag());
@@ -32,18 +39,11 @@ export class SlotDragManager {
 
   setState(inv: InventorySnapshot, opts: { readonly panelOpen: boolean; readonly chestSlots?: readonly InventorySlot[] | null }): void {
     this.latestInv = inv;
-    this.panelOpen = opts.panelOpen;
     this.chestSlots = opts.chestSlots ?? null;
-    if (!opts.panelOpen && this.tapSource) this.clearTapSelection();
   }
 
-  activeTapSource(): DragSource | null { return this.tapSource; }
-
-  clearTapSelection(): void {
-    if (!this.tapSource) return;
-    this.tapSource = null;
-    this.onSelectionChange();
-  }
+  activeTapSource(): DragSource | null { return null; }
+  clearTapSelection(): void { /* Tap-to-select removed; drag-and-drop or Shift-click only. */ }
 
   bindSlot(btn: HTMLButtonElement, source: DragSource): void {
     if (source.kind === "slot") btn.dataset.slotIndex = String(source.index);
@@ -72,7 +72,8 @@ export class SlotDragManager {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const itemId = this.itemIdFor(source);
     if (this.tryQuickChestTransfer(e, source, itemId)) return;
-    if (!canStartPointer(itemId, this.tapSource, source)) return;
+    const isHotbar = source.kind === "slot" && source.index < HOTBAR_SLOT_COUNT;
+    if (!itemId && !isHotbar) return;
     e.preventDefault();
     this.tracker = { source, startX: e.clientX, startY: e.clientY, itemId: itemId ?? "", dragging: false };
   }
@@ -95,28 +96,44 @@ export class SlotDragManager {
     if (!tracker) return;
     this.cancelDrag();
     if (tracker.dragging) {
-      const target = findDropTarget(e.clientX, e.clientY);
+      const target = this.findForgivingDropTarget(e.clientX, e.clientY, tracker.source);
       if (target) this.dispatchTransfer(tracker.source, target);
       return;
     }
-    this.handleTap(tracker.source);
-  }
-
-  private handleTap(source: DragSource): void {
-    if (source.kind === "slot" && source.index < HOTBAR_SLOT_COUNT) this.actions.onSelectHotbar(source.index);
-    if (!this.panelOpen) return;
-    if (this.tapSource && !sameSource(this.tapSource, source)) {
-      this.dispatchTransfer(this.tapSource, source);
-      this.clearTapSelection();
-      return;
+    if (tracker.source.kind === "slot" && tracker.source.index < HOTBAR_SLOT_COUNT) {
+      this.actions.onSelectHotbar(tracker.source.index);
     }
-    this.toggleTapSource(source);
   }
 
-  private toggleTapSource(source: DragSource): void {
-    const same = Boolean(this.tapSource && sameSource(this.tapSource, source));
-    this.tapSource = same || !this.itemIdFor(source) ? null : source;
-    this.onSelectionChange();
+  private findForgivingDropTarget(x: number, y: number, from: DragSource): DragSource | null {
+    const hovered = document.elementFromPoint(x, y);
+    const direct = hovered?.closest<HTMLElement>(SLOT_SELECTOR);
+    const directSrc = direct ? sourceFromEl(direct) : null;
+    if (directSrc) return directSrc;
+    const scope = hovered?.closest<HTMLElement>(PANE_SELECTOR) ?? document.body;
+    const maxEdgeDist = scope !== document.body ? 76 : 42;
+    return this.pickNearestCandidate(scope, { x, y, maxEdgeDist, from });
+  }
+
+  private pickNearestCandidate(scope: ParentNode, opts: {
+    readonly x: number; readonly y: number; readonly maxEdgeDist: number; readonly from: DragSource;
+  }): DragSource | null {
+    const list = this.collectCandidates(scope, opts);
+    if (list.length === 0) return null;
+    list.sort((a, b) => a.edgeDist - b.edgeDist || Number(a.hasItem) - Number(b.hasItem) || a.centerDist - b.centerDist);
+    return list[0]!.source;
+  }
+
+  private collectCandidates(scope: ParentNode, opts: {
+    readonly x: number; readonly y: number; readonly maxEdgeDist: number; readonly from: DragSource;
+  }): DropCandidate[] {
+    const list: DropCandidate[] = [];
+    for (const el of scope.querySelectorAll<HTMLElement>(SLOT_SELECTOR)) {
+      if (el.offsetParent === null) continue;
+      const cand = measureDropCandidate(el, opts, (src) => Boolean(this.itemIdFor(src)));
+      if (cand) list.push(cand);
+    }
+    return list;
   }
 
   private dispatchTransfer(from: DragSource, to: DragSource): void {
@@ -156,11 +173,6 @@ function readInventoryItemId(inv: InventorySnapshot, source: DragSource): string
   return source.kind === "armor" ? inv.armor[source.armorSlot] : null;
 }
 
-function canStartPointer(itemId: string | null, tapSource: DragSource | null, source: DragSource): boolean {
-  if (itemId || tapSource) return true;
-  return source.kind === "slot" && source.index < HOTBAR_SLOT_COUNT;
-}
-
 function dispatchInvArmorTransfer(from: DragSource, to: DragSource, actions: HudActions): void {
   if (from.kind === "armor") {
     if (to.kind === "slot") actions.onUnequipArmor({ armorSlot: from.armorSlot, targetSlot: to.index });
@@ -185,10 +197,21 @@ function parseIndexedSource(raw: string | undefined, kind: "chest" | "slot"): Dr
   return Number.isInteger(index) ? { kind, index } : null;
 }
 
-function findDropTarget(x: number, y: number): DragSource | null {
-  const el = document.elementFromPoint(x, y);
-  const slotEl = el?.closest<HTMLElement>("[data-slot-index], [data-armor-slot], [data-chest-slot]");
-  if (!slotEl) return null;
+function measureDropCandidate(
+  el: HTMLElement,
+  opts: { readonly x: number; readonly y: number; readonly maxEdgeDist: number; readonly from: DragSource },
+  hasItemFn: (src: DragSource) => boolean,
+): DropCandidate | null {
+  const source = sourceFromEl(el);
+  if (!source || sameSource(source, opts.from)) return null;
+  const r = el.getBoundingClientRect();
+  const edgeDist = Math.hypot(Math.max(r.left - opts.x, 0, opts.x - r.right), Math.max(r.top - opts.y, 0, opts.y - r.bottom));
+  if (edgeDist > opts.maxEdgeDist) return null;
+  const centerDist = Math.hypot(opts.x - (r.left + r.width * 0.5), opts.y - (r.top + r.height * 0.5));
+  return { source, edgeDist, centerDist, hasItem: hasItemFn(source) };
+}
+
+function sourceFromEl(slotEl: HTMLElement): DragSource | null {
   const indexed = parseIndexedSource(slotEl.dataset.chestSlot, KIND_CHEST)
     ?? parseIndexedSource(slotEl.dataset.slotIndex, "slot");
   if (indexed) return indexed;

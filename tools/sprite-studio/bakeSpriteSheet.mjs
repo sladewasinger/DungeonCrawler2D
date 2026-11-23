@@ -158,7 +158,7 @@ function run() {
   const pxPerMeter = Number(meta.pxPerMeter ?? 32);
   const scale = Number((16 / pxPerMeter).toFixed(4));
   const minIslandArea = Math.max(4, Math.round(4 * (pxPerMeter / 32)));
-  const outlineRadius = Math.max(2, Math.round(4 * (pxPerMeter / 48)));
+  const outlineRadius = Math.max(1.5, Math.round(2 * (pxPerMeter / 48)));
   const bodyAlpha = Number(meta.bodyAlpha ?? 1.0);
   const resolvedGroundY = args.groundY ?? meta.groundY ?? Math.round((meta.cellPx ?? 64) * 0.8125);
   const effectiveArgs = { ...args, groundY: resolvedGroundY, minIslandArea, bodyAlpha, outlineRadius };

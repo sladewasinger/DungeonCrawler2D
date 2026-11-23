@@ -156,9 +156,14 @@ export function synthImpact(opts: {
 }
 
 export type CombatCueKind =
-  | "block" | "parry" | "bowDraw" | "arrowFire" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave";
+  | "block" | "parry" | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
+  arrowEmbed: (ctx, dst) => playNoiseBurst({ ctx, dst, duration: 0.08, freq: 420, filterType: FILTER_BP, gain: 0.14, q: 2.0 }),
+  arrowRicochet: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 1580, f1: 980, duration: 0.14, gain: 0.15 });
+    playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2400, filterType: FILTER_BP, gain: 0.12, q: 3.0 });
+  },
   parry: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 1180, f1: 1620, duration: 0.28, gain: AUDIO_TUNING.combat.parryGain });
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 2360, f1: 1900, duration: 0.22, gain: AUDIO_TUNING.combat.parryGain * 0.58 });

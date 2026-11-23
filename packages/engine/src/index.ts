@@ -136,11 +136,15 @@ export {
   STAMINA_REGEN_PER_SEC,
   comboMultiplier,
   computeMitigatedDamage,
+  entityFootRadius,
   evaluateBowShot,
   isInSanctuary,
   isWithinSector,
+  playerProjectileHurtbox,
+  projectileHurtbox,
+  segmentHitsEllipse,
 } from "./combat/combatRules.js";
-export type { GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export type { EllipseHurtbox, GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
 export { WALK_CYCLE_TILES, RUN_CYCLE_TILES, createGaitClock, advanceGaitClock, gaitFrameIndex } from "./combat/gaitClock.js";
 export type { GaitClock, GaitStepInput, GaitStepResult } from "./combat/gaitClock.js";
 export {

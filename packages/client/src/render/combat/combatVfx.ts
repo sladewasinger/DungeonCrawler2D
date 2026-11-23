@@ -109,6 +109,17 @@ export class CombatVfxLayer {
     if (ev.kind === "block") this.spawnBurst({ x: ev.x, y: ev.y, color: 0x93c5fd, radius: 9, text: "BLOCK" });
     else if (ev.kind === "heal") this.spawnPopup({ x: ev.x, y: ev.y - 0.9, label: `+${Math.round(ev.value ?? 20)}`, color: 0x4ade80 });
     else if (ev.kind === "dodge") this.spawnBurst({ x: ev.x, y: ev.y, color: 0xcbd5e1, radius: 7, text: "" });
+    else if (ev.kind === "arrowRicochet") this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" });
+    else if (ev.kind === "arrowEmbed") this.spawnStuckArrow(ev);
+  }
+
+  private spawnStuckArrow(ev: WorldEvent): void {
+    const g = new Graphics();
+    drawArrowGraphic(g, 0.4);
+    g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 8);
+    g.rotation = Math.atan2(ev.dirY ?? 0, ev.dirX ?? 1);
+    this.container.addChild(g);
+    this.slashes.push({ g, age: 0, ttl: 3.5, baseAngle: 0, spec: null, actorId: undefined });
   }
 
   step(input: {

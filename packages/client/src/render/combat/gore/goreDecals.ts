@@ -72,6 +72,10 @@ export class GoreDecalManager {
 
   attachElevatedLayer(host: Container): void { this.elevatedHost = host; }
   setMaxDecals(limit: number): void { this.maxDecals = Math.max(0, limit); this.trimExcess(); }
+  shrinkToRatio(ratio: number): void {
+    const target = Math.max(0, Math.round(this.decals.length * ratio));
+    while (this.decals.length > target) this.decals.shift()?.sprite.destroy();
+  }
 
   clear(): void {
     for (const dc of this.decals) dc.sprite.destroy();

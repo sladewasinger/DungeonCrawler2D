@@ -122,6 +122,10 @@ function isBlockedFromFront(target: CombatPlayerRef, attackerOrigin: { readonly 
   });
 }
 
+export function forceRespawnPlayer(target: CombatPlayerRef, events: WorldEvent[]): void {
+  respawnAtSanctuary(target, events);
+}
+
 function respawnAtSanctuary(target: CombatPlayerRef, events: WorldEvent[]): void {
   target.x = SANCTUARY_CENTER.x;
   target.y = SANCTUARY_CENTER.y;

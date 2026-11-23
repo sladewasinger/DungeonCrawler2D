@@ -175,10 +175,12 @@ export function stampSelOutOutline(
     readonly overrideRgb?: readonly [number, number, number];
   },
 ): void {
+  const rawSolid = opts.solidPx ?? ACTIVE_OUTLINE_STYLE.propSolidPx;
+  if (rawSolid <= 0) return;
   const { w, h } = opts;
   const img = ctx.getImageData(0, 0, w, h);
   const out = new Uint8ClampedArray(img.data);
-  const solidR = Math.max(0.75, opts.solidPx ?? ACTIVE_OUTLINE_STYLE.propSolidPx);
+  const solidR = Math.max(0.75, rawSolid);
   const ring = buildOffsetRing(solidR);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

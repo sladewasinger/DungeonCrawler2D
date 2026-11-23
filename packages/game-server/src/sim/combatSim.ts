@@ -7,7 +7,7 @@ import {
   type GoreStyle, type GroundLootSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import {
-  applyIncomingPlayerHit, comboMultFor, finisherGore, resolveDummyStrikeOnPlayer,
+  applyIncomingPlayerHit, comboMultFor, finisherGore, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
   resolveMeleeHits, stepCombatTimers, stepPlayerRespawn, tryHealConsumable, type CombatPlayerRef,
 } from "./combatActions.js";
 import {
@@ -27,6 +27,8 @@ export interface CombatStepRequest {
 export interface CombatInputFlags {
   readonly moveX: number;
   readonly moveY: number;
+  readonly dodgeDirX?: number | undefined;
+  readonly dodgeDirY?: number | undefined;
   readonly attackQueued: boolean;
   readonly bowDrawing: boolean;
   readonly bowReleaseQueued: boolean;
@@ -53,8 +55,17 @@ export class CombatWorld {
     stepCombatTimers(p, input.blockHeld, dt);
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
     if (input.interactQueued) this.ecology.openChest(p, undefined, this.events);
-    if (input.dodgeQueued && !p.inDeepWater) this.tryStartDodge(p, input.moveX, input.moveY);
+    if (input.dodgeQueued && !p.inDeepWater) this.startInputDodge(p, input);
     this.stepOffense({ p, players, input, dt });
+  }
+
+  private startInputDodge(p: CombatPlayerRef, input: CombatInputFlags): void {
+    const hasDir = input.dodgeDirX !== undefined && input.dodgeDirY !== undefined;
+    this.tryStartDodge(p, hasDir ? input.dodgeDirX! : input.moveX, hasDir ? input.dodgeDirY! : input.moveY);
+  }
+
+  respawnPlayerNow(p: CombatPlayerRef): void {
+    forceRespawnPlayer(p, this.events);
   }
 
   private stepOffense(opts: {

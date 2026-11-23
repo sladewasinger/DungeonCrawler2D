@@ -53,7 +53,8 @@ export function addPropSprite(
   const sprite = new Sprite(tex);
   const spec = resolvePoiSpec(prop.kind, tex);
   const foliage = prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower;
-  sprite.anchor.set(spec ? spec.anchorX : 0.5, spec ? spec.anchorY : foliage ? 0.94 : 0.9);
+  const baseAnchorY = prop.kind === PropKind.Campfire ? 0.78 : foliage ? 0.94 : 0.9;
+  sprite.anchor.set(spec ? spec.anchorX : 0.5, spec ? spec.anchorY : baseAnchorY);
   sprite.scale.set(spec ? spec.scale : HD_PROP_SCALE);
   sprite.position.set(prop.x * TILE_PX, prop.y * TILE_PX - elev * ELEVATION_LIFT_PX);
   sprite.zIndex = Math.round(prop.y * TILE_PX) + elev * 2;
