@@ -1,7 +1,7 @@
 /** Player combat state, shield parry/block resolution, melee combo hits, and heals. */
 import { getItemDef } from "@dc2d/content";
 import {
-  BLEED_DURATION_SEC, HIT_IFRAME_SEC, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
+  BLEED_DURATION_SEC, COMBAT_TUNING, HIT_IFRAME_SEC, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
   SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC, comboMultiplier, computeArmorDefense,
   computeMitigatedDamage, consumeItemFromSlots, isInSanctuary, isWithinSector,
   type GoreStyle, type PlayerInventoryState, type WorldEvent,
@@ -43,6 +43,8 @@ export interface CombatPlayerRef {
   aimY: number;
   selectedHotbar: number;
   moving?: boolean;
+  inWater?: boolean;
+  inDeepWater?: boolean;
   inventory: PlayerInventoryState;
   readonly combat: PlayerCombatState;
 }
@@ -73,12 +75,25 @@ function isBlockReady(c: PlayerCombatState): boolean {
   return c.dodgeTimer <= 0 && c.swingTimer <= 0 && c.staggerTimer <= 0 && c.bowCharge <= 0;
 }
 
+function stepDeepWaterStamina(p: CombatPlayerRef, dt: number): void {
+  const c = p.combat;
+  if (p.moving) {
+    c.stamina = Math.max(0, c.stamina - COMBAT_TUNING.swim.staminaDrainPerSec * dt);
+    return;
+  }
+  c.stamina = Math.min(c.maxStamina, c.stamina + COMBAT_TUNING.swim.idleTreadRegenPerSec * dt);
+}
+
+const canBlockNow = (p: CombatPlayerRef, blockHeld: boolean): boolean =>
+  !p.inDeepWater && blockHeld && Boolean(p.inventory.armor.offhand) && isBlockReady(p.combat);
+
 export function stepCombatTimers(p: CombatPlayerRef, blockHeld: boolean, dt: number): void {
   const c = p.combat;
   decayCombatTimers(c, dt);
-  c.blocking = blockHeld && Boolean(p.inventory.armor.offhand) && isBlockReady(c);
+  c.blocking = canBlockNow(p, blockHeld);
   c.blockElapsed = c.blocking ? c.blockElapsed + dt : 0;
   if (c.swingTimer > 0 || c.dodgeTimer > 0) return;
+  if (p.inDeepWater) { stepDeepWaterStamina(p, dt); return; }
   const rate = c.blocking ? STAMINA_REGEN_PER_SEC * 0.45 : STAMINA_REGEN_PER_SEC;
   c.stamina = Math.min(c.maxStamina, c.stamina + rate * dt);
 }

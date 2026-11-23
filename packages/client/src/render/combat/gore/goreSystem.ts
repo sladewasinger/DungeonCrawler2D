@@ -4,7 +4,7 @@ import { Container, Sprite, type Texture } from "pixi.js";
 import { GORE_TUNING } from "../combatVisualTuning.js";
 import { ELEVATION_LIFT_PX } from "../../world/cliffStrips.js";
 import { GoreDecalManager, type FootprintActor, type TileSampler } from "./goreDecals.js";
-import { planGoreSpawn, type PlannedParticle, type PlannedParticleKind } from "./gorePatterns.js";
+import { planClashSparks, planGoreSpawn, type PlannedParticle, type PlannedParticleKind } from "./gorePatterns.js";
 import { goreScaleForLevel, loadGoreLevel, saveGoreLevel, type GoreLevel } from "./gorePrefs.js";
 import { getGoreTextures } from "./goreTextures.js";
 
@@ -87,6 +87,12 @@ export class GoreSystem {
         substance: input.substance, scaleMult: plan.staticDecal.scaleMult, cache: this.tileCache,
       });
     }
+  }
+
+  spawnClashSparks(opts: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation?: number }): void {
+    const ox = opts.x * TILE_PX; const oy = opts.y * TILE_PX;
+    const elev = opts.elevation ?? 0;
+    for (const p of planClashSparks(opts.dirX, opts.dirY, 12)) this.pushDroplet({ plan: p, substance: "stone", ox, oy, elev });
   }
 
   step(dt: number): void {

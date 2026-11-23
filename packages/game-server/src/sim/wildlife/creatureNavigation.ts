@@ -1,5 +1,5 @@
 /** A* waypoint following, prop avoidance, true-velocity facing sync, and knockback physics. */
-import { ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, findTilePath, hasElevationLineOfSight, isInSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
+import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, findTilePath, hasElevationLineOfSight, isInSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 
 export interface MoveCreatureOpts {
@@ -62,6 +62,8 @@ export function stepKnockbackVelocity(cache: WorldChunkCache, e: WildlifeEntity,
   e.x = res.x;
   e.y = res.y;
   e.elevation = res.elevation;
+  e.inWater = res.inWater;
+  e.inDeepWater = res.inDeepWater;
   const decay = Math.exp(-KB_DECAY_RATE * dt);
   e.kbVx *= decay;
   e.kbVy *= decay;
@@ -114,7 +116,7 @@ export function findReturnReaggroPlayer<T extends { readonly x: number; readonly
 }
 
 function shouldJumpLedge(cache: WorldChunkCache, e: WildlifeEntity, step: { readonly dx: number; readonly dy: number }): boolean {
-  if (e.jumpZ > 0.01) return false;
+  if (e.jumpZ > 0.01 || e.inDeepWater) return false;
   const mag = Math.hypot(step.dx, step.dy);
   if (mag <= 0.002) return false;
   const curTile = cache.tileAt(Math.floor(e.x), Math.floor(e.y));
@@ -134,7 +136,9 @@ export function stepIdleJumpArc(e: WildlifeEntity, dt: number): void {
 }
 
 export function moveCreatureToward(opts: MoveCreatureOpts): void {
-  const { cache, e, tx, ty, speed, dt } = opts;
+  const { cache, e, tx, ty, dt } = opts;
+  const waterMult = e.inDeepWater ? COMBAT_TUNING.movementMults.deepWater : e.inWater ? COMBAT_TUNING.movementMults.shallowWater : 1;
+  const speed = opts.speed * waterMult;
   const stopR = opts.stopRadius ?? 0.08;
   const directDist = Math.hypot(tx - e.x, ty - e.y);
   const steer = resolveSteerGoal({ cache, e, tx, ty, stopR, directDist, usePathfinding: opts.usePathfinding !== false });
@@ -166,6 +170,8 @@ function applyResolvedStep(step: {
   e.x = res.x;
   e.y = res.y;
   e.elevation = res.elevation;
+  e.inWater = res.inWater;
+  e.inDeepWater = res.inDeepWater;
   if (res.elevationDrop !== 0) e.jumpZ = Math.max(0, e.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   if (moveDist > 0.002 && actualMag > 0.008) {
     e.facingX = actualDx / actualMag;
@@ -236,8 +242,7 @@ function tangentialBias(opts: {
 }): { readonly x: number; readonly y: number } {
   const forwardDot = -(opts.nx * opts.dir.x + opts.ny * opts.dir.y);
   if (forwardDot <= 0.25) return { x: 0, y: 0 };
-  const perpX = -opts.ny;
-  const perpY = opts.nx;
+  const perpX = -opts.ny; const perpY = opts.nx;
   const cross = opts.dir.x * perpX + opts.dir.y * perpY;
   const sign = Math.abs(cross) > 0.08 ? Math.sign(cross) : opts.tieSign;
   return { x: perpX * sign * opts.mag, y: perpY * sign * opts.mag };
@@ -248,21 +253,17 @@ function computeObstacleAvoidance(
   e: WildlifeEntity,
   dir: { readonly x: number; readonly y: number },
 ): { readonly x: number; readonly y: number } {
-  let ax = 0;
-  let ay = 0;
+  let ax = 0; let ay = 0;
   const tieSign = e.packSlot % 2 === 0 ? 1 : -1;
   for (const obs of cache.blockingObstaclesNear(e.x, e.y)) {
-    const dx = e.x - obs.x;
-    const dy = e.y - obs.y;
+    const dx = e.x - obs.x; const dy = e.y - obs.y;
     const d = Math.hypot(dx, dy);
     const thresh = obs.radius + 0.64;
     if (d <= 0.01 || d >= thresh) continue;
     const push = thresh - d;
-    const nx = dx / d;
-    const ny = dy / d;
+    const nx = dx / d; const ny = dy / d;
     const tang = tangentialBias({ nx, ny, dir, tieSign, mag: push * 1.15 });
-    ax += nx * push + tang.x;
-    ay += ny * push + tang.y;
+    ax += nx * push + tang.x; ay += ny * push + tang.y;
   }
   return { x: ax, y: ay };
 }

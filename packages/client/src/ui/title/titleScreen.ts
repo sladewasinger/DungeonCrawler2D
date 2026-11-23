@@ -3,7 +3,7 @@ import { EYE_PALETTES, HAIR_PALETTES, SKIN_PALETTES } from "@dc2d/content";
 import {
   BODY_STYLES, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, SKIN_TONES, type CharacterAppearance,
 } from "@dc2d/engine";
-import { getCharacterSpriteSet } from "../../render/character/characterSprites.js";
+import { getCharacterCacheRevision, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
 import { domNode } from "../hud/slotRenderer.js";
 import { ensureTitleStyles } from "./titleStyles.js";
 
@@ -41,6 +41,8 @@ export class TitleScreen {
   private name: string;
   private appearance: CharacterAppearance;
   private open = true;
+  private lastCacheRev = -1;
+  private readonly assetPollId: number;
 
   constructor(private readonly host: HTMLElement, private readonly opts: TitleScreenOptions) {
     ensureTitleStyles();
@@ -56,12 +58,16 @@ export class TitleScreen {
     this.root.append(card);
     host.append(this.root);
     this.refreshPreview();
+    this.assetPollId = window.setInterval(() => {
+      if (this.open && getCharacterCacheRevision() !== this.lastCacheRev) this.refreshPreview();
+    }, 200);
   }
 
   isOpen(): boolean { return this.open; }
 
   dismiss(): void {
     this.open = false;
+    window.clearInterval(this.assetPollId);
     this.root.hidden = true;
     delete this.host.dataset.titleOpen;
   }
@@ -132,7 +138,7 @@ export class TitleScreen {
 
   private makeSwatchRow(opts: {
     readonly title: string; readonly field: "skin" | "eyeColor" | "hairColor";
-    readonly keys: readonly string[]; readonly palettes: Readonly<Record<string, { readonly base: string }>>;
+    readonly keys: readonly string[]; readonly palettes: Readonly<Record<string, { readonly base: string; readonly tip?: { readonly base: string } }>>;
   }): HTMLDivElement {
     const row = domNode(TAG_DIV, "ow-hero-row");
     const lbl = domNode("span", "ow-hero-lbl");
@@ -142,7 +148,8 @@ export class TitleScreen {
       const btn = domNode(TAG_BTN, "ow-swatch");
       btn.type = TAG_BTN;
       btn.setAttribute("aria-label", `${opts.title} ${key}`);
-      btn.style.background = opts.palettes[key]?.base ?? "#94a3b8";
+      const pal = opts.palettes[key];
+      btn.style.background = pal?.tip ? `linear-gradient(180deg, ${pal.base} 35%, ${pal.tip.base} 78%)` : (pal?.base ?? "#94a3b8");
       btn.addEventListener("click", () => this.selectField(opts.field, key));
       this.groups[opts.field].push({ key, btn });
       row.append(btn);
@@ -157,6 +164,7 @@ export class TitleScreen {
   }
 
   private refreshPreview(): void {
+    this.lastCacheRev = getCharacterCacheRevision();
     this.portrait.src = getCharacterSpriteSet(this.appearance, EMPTY_ARMOR).previewUrl;
     const fields = ["body", "skin", "eyeColor", "hairStyle", "hairColor"] as const;
     for (const field of fields) {

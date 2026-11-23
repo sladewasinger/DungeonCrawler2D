@@ -143,7 +143,6 @@ export class AudioEngine {
     if (ev.kind === "swing") { this.dispatchSwingEvent(ev, dst); return; }
     if (ev.kind === "telegraph") { this.dispatchTelegraphEvent(ev, dst); return; }
     if (ev.kind === "creatureVocal") { this.dispatchVocalEvent(ev, dst); return; }
-    if (ev.kind === "playerLeave") return;
     synthCombatCue(this.ctx, dst, ev.kind);
   }
 

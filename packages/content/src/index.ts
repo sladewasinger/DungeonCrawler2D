@@ -16,3 +16,5 @@ export {
 export type { ArmorVisualStyle, HairPalette, ToneTriad } from "./character/palettes.js";
 export { FOREST_LIGHT_STYLE, QUALITY_PRESETS } from "./world/palettes.js";
 export type { QualityPresetId, QualityPresetSpec } from "./world/palettes.js";
+export { ACTIVE_OUTLINE_STYLE, DEFAULT_OUTLINE_STYLE, OUTLINE_STYLE_PRESETS } from "./world/outlineConfig.js";
+export type { OutlineStyleId, OutlineStyleSpec } from "./world/outlineConfig.js";

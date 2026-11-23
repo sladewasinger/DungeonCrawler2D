@@ -89,3 +89,7 @@ export const GORE_TUNING = {
     "explode-away": { count: 28, streaks: 6, chunks: 9, speed: 92, spread: Math.PI * 2, minScale: 0.54, maxScale: 0.92, decalAlpha: 0.9, ttlSec: 150, vz: 64 },
   } as Readonly<Record<GoreStyle, GoreStyleTuning>>,
 } as const;
+
+
+/** Default fade duration (seconds) for the smoke cloud when a player disconnects. */
+export const PLAYER_LEAVE_SMOKE_DURATION_SEC = 4.0;

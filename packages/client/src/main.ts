@@ -191,23 +191,22 @@ function mountHudAndControls(opts: {
     if (hud.activePanel() === "chest") { hud.closePanels(); return; }
     const near = client.nearestChest();
     if (!near) return;
-    client.openChest(near.id);
-    hud.openChest(near.id);
-    audio.playUi("open");
+    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open");
   };
   const input = new InputController(host, {
-    onToggleTorch: toggleTorch, onZoom: (factor) => scene.adjustZoom(factor),
+    onToggleTorch: toggleTorch, onZoom: (f) => scene.adjustZoom(f),
     onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); },
     onToggleCrafting: () => { hud.toggleCrafting(); audio.playUi("open"); },
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
+    onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); },
     onInteract: onInteractChest, onClosePanels: () => hud.closePanels(),
   });
   const audioPopover = new AudioPopover(host, audio, { onSetGoreLevel: (lvl) => scene.setGoreLevel(lvl) });
   const toolbar = new AtmosphereToolbar(host, {
-    onSetDayPhase: (phase, paused) => client.setDayPhase(phase, paused), onSetQuality: (preset) => scene.setQualityPreset(preset),
+    onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onToggleAudio: () => { audioPopover.toggle(); audio.playUi("click"); }, onZoom: (factor) => scene.adjustZoom(factor),
+    onToggleAudio: () => { audioPopover.toggle(); audio.playUi("click"); }, onZoom: (f) => scene.adjustZoom(f),
     onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
   });
   return { hud, feedback, input, toolbar, audioPopover, onInteractChest };

@@ -1,4 +1,5 @@
 /** Offscreen pixel-art canvas helpers and nearest-neighbor PixiJS texture builders. */
+import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import { Texture } from "pixi.js";
 
 export type PixelRect = readonly [x: number, y: number, w: number, h: number, color: string];
@@ -117,17 +118,17 @@ export function fillCluster(ctx: CanvasRenderingContext2D, blobs: readonly Pixel
   for (const blob of blobs) fillEllipsePixel(ctx, blob);
 }
 
-function buildOffsetRing(radiusPx: number): readonly (readonly [number, number])[] {
-  const r2 = radiusPx * radiusPx;
+function buildOffsetRing(aaRadius: number): readonly (readonly [number, number, number])[] {
+  const r = Math.ceil(aaRadius);
   const list: [number, number, number][] = [];
-  for (let dy = -radiusPx; dy <= radiusPx; dy++) {
-    for (let dx = -radiusPx; dx <= radiusPx; dx++) {
-      const d2 = dx * dx + dy * dy;
-      if (d2 > 0 && d2 <= r2) list.push([dx, dy, d2]);
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist <= aaRadius) list.push([dx, dy, dist]);
     }
   }
   list.sort((a, b) => a[2] - b[2]);
-  return list.map(([dx, dy]) => [dx, dy] as const);
+  return list;
 }
 
 function toSelOutInk(data: Uint8ClampedArray, idx: number): readonly [number, number, number] {
@@ -140,14 +141,14 @@ function toSelOutInk(data: Uint8ClampedArray, idx: number): readonly [number, nu
 
 function findNearestInk(
   data: Uint8ClampedArray,
-  q: { readonly w: number; readonly h: number; readonly x: number; readonly y: number; readonly ring: readonly (readonly [number, number])[] },
-): readonly [number, number, number] | null {
-  for (const [dx, dy] of q.ring) {
+  q: { readonly w: number; readonly h: number; readonly x: number; readonly y: number; readonly ring: readonly (readonly [number, number, number])[] },
+): { readonly rgb: readonly [number, number, number]; readonly dist: number } | null {
+  for (const [dx, dy, dist] of q.ring) {
     const nx = q.x + dx; const ny = q.y + dy;
     const inRange = nx >= 0 && ny >= 0 && nx < q.w && ny < q.h;
     if (!inRange) continue;
     const idx = (ny * q.w + nx) * 4;
-    if (data[idx + 3]! >= 128) return toSelOutInk(data, idx);
+    if (data[idx + 3]! >= 128) return { rgb: toSelOutInk(data, idx), dist };
   }
   return null;
 }
@@ -155,24 +156,30 @@ function findNearestInk(
 function paintSelOutPixel(opts: {
   readonly src: Uint8ClampedArray; readonly out: Uint8ClampedArray;
   readonly x: number; readonly y: number; readonly w: number; readonly h: number;
-  readonly ring: readonly (readonly [number, number])[]; readonly overrideRgb?: readonly [number, number, number];
+  readonly ring: readonly (readonly [number, number, number])[];
+  readonly overrideRgb?: readonly [number, number, number];
 }): void {
   const i = (opts.y * opts.w + opts.x) * 4;
   if (opts.src[i + 3]! >= 128) return;
-  const rgb = findNearestInk(opts.src, opts);
-  if (!rgb) return;
-  const c = opts.overrideRgb ?? rgb;
+  const hit = findNearestInk(opts.src, opts);
+  if (!hit) return;
+  const c = opts.overrideRgb ?? hit.rgb;
   opts.out[i] = c[0]; opts.out[i + 1] = c[1]; opts.out[i + 2] = c[2]; opts.out[i + 3] = 255;
 }
 
 export function stampSelOutOutline(
   ctx: CanvasRenderingContext2D,
-  opts: { readonly w: number; readonly h: number; readonly radiusPx?: number; readonly overrideRgb?: readonly [number, number, number] },
+  opts: {
+    readonly w: number; readonly h: number;
+    readonly solidPx?: number;
+    readonly overrideRgb?: readonly [number, number, number];
+  },
 ): void {
   const { w, h } = opts;
   const img = ctx.getImageData(0, 0, w, h);
   const out = new Uint8ClampedArray(img.data);
-  const ring = buildOffsetRing(opts.radiusPx ?? 4);
+  const solidR = Math.max(0.75, opts.solidPx ?? ACTIVE_OUTLINE_STYLE.propSolidPx);
+  const ring = buildOffsetRing(solidR);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       paintSelOutPixel({ src: img.data, out, x, y, w, h, ring, ...(opts.overrideRgb ? { overrideRgb: opts.overrideRgb } : {}) });

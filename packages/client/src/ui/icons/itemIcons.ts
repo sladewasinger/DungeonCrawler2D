@@ -149,7 +149,7 @@ const PAINTERS: Readonly<Record<string, (ctx: CanvasRenderingContext2D, id: stri
 function buildItemCanvas(itemId: string): HTMLCanvasElement {
   const { canvas, ctx } = createPixelCanvas(32, 32);
   (PAINTERS[itemId] ?? paintFallbackItem)(ctx, itemId);
-  stampSelOutOutline(ctx, { w: 32, h: 32, radiusPx: 2 });
+  stampSelOutOutline(ctx, { w: 32, h: 32, solidPx: 1.4 });
   return canvas;
 }
 

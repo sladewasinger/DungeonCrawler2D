@@ -14,7 +14,7 @@ if SCRIPT_DIR not in sys.path:
 
 import studio_core  # noqa: E402
 
-CELL_PX = 144
+CELL_PX = 192
 DIRS_5 = (("south", 0.0), ("se", 45.0), ("side", 90.0), ("ne", 135.0), ("north", 180.0))
 
 CLIPS = (

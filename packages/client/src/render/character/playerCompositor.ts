@@ -1,5 +1,5 @@
 /** Data-driven 3D Hero compositor building baked-arm & bow-only armless sheets + bold Borderlands outlines. */
-import { ARMOR_VISUAL_STYLES, SKIN_PALETTES, getArmorVisualStyle, getItemDef, type ToneTriad } from "@dc2d/content";
+import { ACTIVE_OUTLINE_STYLE, ARMOR_VISUAL_STYLES, SKIN_PALETTES, getArmorVisualStyle, getItemDef, type ToneTriad } from "@dc2d/content";
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Rectangle, Texture, type TextureSource } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas } from "../textures/pixelCanvas.js";
@@ -64,10 +64,12 @@ function sliceAllDirs(source: TextureSource, meta: PlayerRigMeta): Readonly<Reco
 }
 
 function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
-  const cw = 64; const ch = 82;
+  const resMul = (1 / 3) / meta.scale;
+  const cw = Math.round(64 * resMul);
+  const ch = Math.round(82 * resMul);
   const { canvas, ctx } = createPixelCanvas(cw, ch);
   const sx = meta.portraitCol * meta.frameWidth + Math.floor((meta.frameWidth - cw) * 0.5);
-  const sy = meta.portraitRow * meta.frameHeight + meta.groundY - ch + 8;
+  const sy = meta.portraitRow * meta.frameHeight + meta.groundY - ch + Math.round(8 * resMul);
   ctx.drawImage(srcCanvas, sx, sy, cw, ch, 0, 0, cw, ch);
   return canvas.toDataURL();
 }
@@ -170,7 +172,9 @@ function compositeSheetCanvas(opts: {
     data: imgData.data, width: w, height: h, palettes: resolveSentinelPalettes(appearance),
     cellW: meta.frameWidth, cellH: meta.frameHeight,
   });
-  applyUnifiedSelOut(imgData.data, w, h);
+  const resMul = (1 / 3) / meta.scale;
+  const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, resMul);
+  applyUnifiedSelOut({ data: imgData.data, width: w, height: h, solidRadiusPx });
   ctx.putImageData(imgData, 0, 0);
   return { canvas, source: Texture.from({ resource: canvas, scaleMode: "nearest" }).source };
 }

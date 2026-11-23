@@ -19,6 +19,7 @@ import {
 } from "./playerPoseHelpers.js";
 
 const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
+const BOW_ARM_SEGMENT_SCALE = 1 / 3;
 
 export class PlayerView {
   readonly root = new Container();
@@ -105,6 +106,7 @@ export class PlayerView {
     const { fx, jumpZ, jumpPx, swimming, timeSec } = opts;
     this.actorGroup.position.set(fx.x, -jumpPx + fx.y + computeSwimDip(swimming, timeSec));
     this.actorGroup.alpha = fx.alpha; this.actorGroup.rotation = fx.rot;
+    this.waterMask.visible = swimming;
     this.actorGroup.mask = swimming ? this.waterMask : null;
     this.waterRing.visible = swimming; this.groundShadow.visible = !swimming;
     this.body.tint = fx.tint; this.armRigView.setTint(fx.tint);
@@ -189,7 +191,7 @@ export class PlayerView {
       grips: ctx.visual?.grips ?? null, pose: active.pose, airborne: active.airborne,
       bowCharge: snap.bowCharge ?? 0, body, swinging: Boolean(snap.swingProgress),
     });
-    this.armRigView.apply({ rig, segments: seg, backSlot: this.backSlot, frontSlot: this.frontSlot, worldScale: this.sprites.worldScale ?? CHARACTER_WORLD_SCALE });
+    this.armRigView.apply({ rig, segments: seg, backSlot: this.backSlot, frontSlot: this.frontSlot, worldScale: BOW_ARM_SEGMENT_SCALE });
   }
 
   private syncLegacyArms(snap: PlayerSnapshot, active: ActivePose, ctx: { readonly layout: HeldLayout; readonly visual: HeldWeaponVisual | null }): void {

@@ -53,7 +53,7 @@ export class CombatWorld {
     stepCombatTimers(p, input.blockHeld, dt);
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
     if (input.interactQueued) this.ecology.openChest(p, undefined, this.events);
-    if (input.dodgeQueued) this.tryStartDodge(p, input.moveX, input.moveY);
+    if (input.dodgeQueued && !p.inDeepWater) this.tryStartDodge(p, input.moveX, input.moveY);
     this.stepOffense({ p, players, input, dt });
   }
 
@@ -98,12 +98,11 @@ export class CombatWorld {
   }
 
   moveMultiplier(p: CombatPlayerRef): number {
-    const m = COMBAT_TUNING.movementMults;
-    if (p.combat.dodgeTimer > 0) return m.dodge;
-    if (p.combat.swingTimer > 0) return m.swing;
-    if (p.combat.blocking) return m.block;
-    if (p.combat.bowCharge > 0) return m.bowDraw;
-    return 1;
+    return baseActionMult(p) * waterMoveMult(p);
+  }
+
+  pushEvent(ev: WorldEvent): void {
+    this.events.push(ev);
   }
 
   snapshots(): {
@@ -222,6 +221,20 @@ export function playerCombatExtras(p: CombatPlayerRef) {
 }
 
 const DEFAULT_MELEE_STATS = { cost: 8, damage: 10, range: 1.5, halfArc: 0.75, gore: "splatter" as GoreStyle };
+
+function waterMoveMult(p: CombatPlayerRef): number {
+  const m = COMBAT_TUNING.movementMults;
+  if (p.inDeepWater) return p.combat.stamina <= 1 ? m.exhaustedSwim : m.deepWater;
+  return p.inWater ? m.shallowWater : 1;
+}
+
+function baseActionMult(p: CombatPlayerRef): number {
+  const m = COMBAT_TUNING.movementMults;
+  if (p.combat.dodgeTimer > 0) return m.dodge;
+  if (p.combat.swingTimer > 0) return m.swing;
+  if (p.combat.blocking) return m.block;
+  return p.combat.bowCharge > 0 ? m.bowDraw : 1;
+}
 
 function meleeStatsFor(heldId: string | null) {
   const def = heldId ? getItemDef(heldId) : undefined;

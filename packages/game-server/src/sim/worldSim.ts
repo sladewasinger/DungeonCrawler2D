@@ -38,6 +38,7 @@ interface SimPlayer {
   sprinting: boolean;
   torchLit: boolean;
   inWater: boolean;
+  inDeepWater: boolean;
   lastAckSeq: number;
   lastActionAckSeq: number;
   selectedHotbar: number;
@@ -73,7 +74,7 @@ export class WorldSim {
       id, name, appearance: sanitizeCharacterAppearance(appearance),
       x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, aimX: 0, aimY: 1, hasExplicitAim: false,
       jumpZ: 0, jumpVz: 0, jumpQueued: false,
-      moveX: 0, moveY: 0, moving: false, sprinting: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
+      moveX: 0, moveY: 0, moving: false, sprinting: false, torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
       attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, interactQueued: false,
       combat: createCombatState(),
@@ -81,7 +82,11 @@ export class WorldSim {
     return id;
   }
 
-  removePlayer(playerId: string): void { this.players.delete(playerId); }
+  removePlayer(playerId: string): void {
+    const p = this.players.get(playerId);
+    if (p) this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
+    this.players.delete(playerId);
+  }
   setPlayerName(playerId: string, name: string): void { const p = this.players.get(playerId); if (p) p.name = name; }
 
   setAppearance(playerId: string, req: { readonly name?: string | undefined; readonly appearance: CharacterAppearance }): void {
@@ -167,7 +172,7 @@ export class WorldSim {
   }
 
   private stepPlayer(p: SimPlayer, dtSeconds: number): void {
-    const arc = stepJumpArc({ jumpZ: p.jumpZ, jumpVz: p.jumpVz }, p.jumpQueued, dtSeconds);
+    const arc = stepJumpArc({ jumpZ: p.jumpZ, jumpVz: p.jumpVz }, p.jumpQueued && !p.inDeepWater, dtSeconds);
     p.jumpZ = arc.jumpZ;
     p.jumpVz = arc.jumpVz;
     this.combat.stepPlayerAction({
@@ -198,7 +203,7 @@ export class WorldSim {
       radius: PLAYER_RADIUS, elevation: p.elevation, airborne: p.jumpZ > 0.02, jumpZ: p.jumpZ,
     });
     p.x = res.x; p.y = res.y; p.elevation = res.elevation;
-    p.inWater = res.inWater; p.moving = true;
+    p.inWater = res.inWater; p.inDeepWater = res.inDeepWater; p.moving = true;
     p.sprinting = isSprintingMove({ mag, mult, inWater: res.inWater, dodging: p.combat.dodgeTimer > 0 });
     if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   }
@@ -219,7 +224,7 @@ export class WorldSim {
       id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
       facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
       jumpZ: p.jumpZ, jumpVz: p.jumpVz,
-      moving: p.moving, sprinting: p.sprinting, torchLit: p.torchLit, inWater: p.inWater, lastAckSeq: p.lastAckSeq,
+      moving: p.moving, sprinting: p.sprinting, torchLit: p.torchLit, inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
       heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
       appearance: p.appearance, armor: { ...p.inventory.armor },
       ...playerCombatExtras(p),

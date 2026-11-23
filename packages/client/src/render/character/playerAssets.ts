@@ -44,6 +44,7 @@ export interface PlayerRigMeta {
   readonly directions: readonly FacingDir[];
   readonly clips: Readonly<Record<string, PlayerClipLayout>>;
   readonly layers: readonly string[];
+  readonly bakeVersion?: number | undefined;
   readonly sockets: Readonly<
     Record<"male" | "female", Readonly<Record<string, Readonly<Record<FacingDir, readonly FrameSockets[]>>>>>
   >;
@@ -57,6 +58,7 @@ const MAX_CACHED_LAYER_IMAGES = 64;
 const INITIAL_PRELOAD_CAP = 20;
 
 let rigMeta: PlayerRigMeta | null = null;
+let rigBakeVersion = 0;
 const layerImages = new Map<string, HTMLImageElement>();
 const inflightLayers = new Map<string, Promise<HTMLImageElement | null>>();
 let inflightPreload: Promise<void> | null = null;
@@ -86,7 +88,7 @@ function loadSingleLayer(id: string): Promise<HTMLImageElement | null> {
   if (existing) { storeLayerLru(id, existing); return Promise.resolve(existing); }
   const inflight = inflightLayers.get(id);
   if (inflight) return inflight;
-  const p = loadImage(`/assets/player/${id}.png`).then((img) => {
+  const p = loadImage(`/assets/player/${id}.png${rigBakeVersion ? `?v=${rigBakeVersion}` : ""}`).then((img) => {
     inflightLayers.delete(id);
     if (img) storeLayerLru(id, img);
     return img;
@@ -98,9 +100,10 @@ function loadSingleLayer(id: string): Promise<HTMLImageElement | null> {
 async function fetchPlayerAssets(): Promise<void> {
   if (typeof fetch !== "function" || typeof Image === "undefined") return;
   try {
-    const res = await fetch(RIG_META_URL);
+    const res = await fetch(RIG_META_URL, { cache: "no-cache" });
     if (!res.ok) return;
     const meta = (await res.json()) as PlayerRigMeta;
+    rigBakeVersion = meta.bakeVersion ?? 0;
     const bootIds = meta.layers.slice(0, INITIAL_PRELOAD_CAP);
     const loaded = await Promise.all(bootIds.map(async (id) => ({ id, img: await loadSingleLayer(id) })));
     if (loaded.some((entry) => entry.img === null)) return;

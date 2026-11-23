@@ -9,6 +9,7 @@ export interface InputCallbacks {
   readonly onToggleInventory: () => void;
   readonly onToggleCrafting: () => void;
   readonly onToggleCharacter: () => void;
+  readonly onToggleMap?: () => void;
   readonly onInteract?: () => void;
   readonly onClosePanels: () => void;
 }
@@ -30,6 +31,16 @@ const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
   Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
   Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
 };
+
+const GUARDED_BROWSER_COMBOS = new Set([
+  "KeyS", "KeyO", "KeyP", "KeyF", "KeyD", "KeyG", "KeyH", "KeyJ", "KeyU", "KeyK", "KeyL", "KeyE", "KeyB", "KeyA",
+]);
+const GUARDED_ALWAYS_COMBOS = new Set(["KeyS", "KeyO", "KeyP"]);
+
+function isGuardedBrowserCombo(e: KeyboardEvent, editingText: boolean): boolean {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return false;
+  return editingText ? GUARDED_ALWAYS_COMBOS.has(e.code) : GUARDED_BROWSER_COMBOS.has(e.code);
+}
 
 function isEditingText(target: EventTarget | null): boolean {
   const tag = (target as HTMLElement | null)?.tagName;
@@ -130,7 +141,9 @@ export class InputController {
 
   private bindKeyboard(callbacks: InputCallbacks): void {
     window.addEventListener("keydown", (e) => {
-      if (!this.enabled || isEditingText(e.target)) {
+      const editing = isEditingText(e.target);
+      if (this.enabled && isGuardedBrowserCombo(e, editing)) e.preventDefault();
+      if (!this.enabled || editing) {
         if (this.enabled && e.code === "Escape") (e.target as HTMLElement).blur();
         return;
       }
@@ -158,6 +171,7 @@ export class InputController {
       KeyC: callbacks.onToggleCrafting,
       KeyH: callbacks.onToggleCharacter,
       KeyF: callbacks.onToggleTorch,
+      KeyM: () => callbacks.onToggleMap?.(),
       Escape: callbacks.onClosePanels,
     };
     actions[e.code]?.();

@@ -69,9 +69,25 @@ function createEntityBody(kind: WorldEntityKind): {
   return { body: gfx, baseScale: 1, hpTopY: -27, shadowRx: 7, animations: null };
 }
 
+function makeEntityWaterRing(): Graphics {
+  const g = new Graphics();
+  g.ellipse(0, -4, 7.5, 2.8).stroke({ color: 0xbae6fd, width: 1.1, alpha: 0.65 });
+  g.visible = false;
+  return g;
+}
+
+function makeEntityWaterMask(): Graphics {
+  const g = new Graphics();
+  g.rect(-48, -96, 96, 90).fill(0xffffff);
+  g.visible = false;
+  return g;
+}
+
 class EntityView {
   readonly root = new Container();
   private readonly shadow = new Graphics();
+  private readonly waterRing = makeEntityWaterRing();
+  private readonly waterMask = makeEntityWaterMask();
   private readonly body: Sprite | Graphics;
   private readonly baseScale: number;
   private readonly animations: LoadedSpriteAnimations | null;
@@ -96,7 +112,16 @@ class EntityView {
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow, this.body, this.hpBg, this.hpFill, this.indicator.container);
+    this.root.addChild(this.shadow, this.waterRing, this.waterMask, this.body, this.hpBg, this.hpFill, this.indicator.container);
+  }
+
+  private syncWaterState(snap: WorldEntitySnapshot, dead: boolean, jumpZ: number): boolean {
+    const swimming = Boolean(snap.inDeepWater && !dead && jumpZ <= 0.03);
+    this.waterMask.visible = swimming;
+    this.body.mask = swimming ? this.waterMask : null;
+    this.waterRing.visible = swimming;
+    this.shadow.visible = !dead && !swimming;
+    return swimming;
   }
 
   sync(snap: WorldEntitySnapshot, timeSec: number): void {
@@ -109,22 +134,18 @@ class EntityView {
     this.lastX = snap.x;
     this.lastY = snap.y;
     const jumpZ = snap.jumpZ ?? 0;
-    const lift = snap.elevation * ELEVATION_LIFT_PX;
-    this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - lift);
+    this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - snap.elevation * ELEVATION_LIFT_PX);
     this.root.zIndex = resolveEntityZIndex(snap, dead);
-    this.shadow.visible = !dead;
+    const swimming = this.syncWaterState(snap, dead, jumpZ);
     this.shadow.scale.set(Math.max(0.55, 1 - jumpZ * 0.6));
     this.shadow.alpha = Math.max(0.45, 1 - jumpZ * 0.7);
-    this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge" });
+    this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge", swimming });
     const hpVisible = this.syncHpBar(snap, dead);
     this.indicator.sync({ snap, timeSec, dead, hpVisible });
   }
 
   private syncAnimatedSprite(opts: {
-    readonly snap: WorldEntitySnapshot;
-    readonly timeSec: number;
-    readonly moving: boolean;
-    readonly dead: boolean;
+    readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean; readonly dead: boolean; readonly swimBob: number;
   }): boolean {
     if (!this.animations || !(this.body instanceof Sprite)) return false;
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
@@ -133,28 +154,26 @@ class EntityView {
     this.body.texture = frame.texture;
     this.body.alpha = fx.alpha;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
-    this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
+    this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE + opts.swimBob;
     this.body.tint = resolveBodyTint(opts.snap);
     this.body.scale.set(frame.flipX * this.baseScale, this.baseScale * fx.scaleYMult);
     return true;
   }
 
-  private syncBodyState(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean }): void {
-    const { snap, timeSec, moving } = opts;
+  private syncBodyState(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly moving: boolean; readonly swimming: boolean }): void {
+    const { snap, timeSec, moving, swimming } = opts;
     const dead = isCorpseState(snap);
-    if (this.syncAnimatedSprite({ snap, timeSec, moving, dead })) return;
+    const swimBob = swimming ? 2.2 + Math.sin(timeSec * 4.8 + snap.x) * 0.6 : 0;
+    if (this.syncAnimatedSprite({ snap, timeSec, moving, dead, swimBob })) return;
     const slime = this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME;
     if (dead && slime) {
-      this.body.alpha = 1;
-      this.body.rotation = 0;
-      this.body.position.y = 0;
-      this.body.scale.set(1.15 * this.baseScale, 0.35 * this.baseScale);
-      this.body.tint = 0x86efac;
+      this.body.alpha = 1; this.body.rotation = 0; this.body.position.y = 0;
+      this.body.scale.set(1.15 * this.baseScale, 0.35 * this.baseScale); this.body.tint = 0x86efac;
       return;
     }
     this.body.alpha = resolveAiVisualEffects(snap, timeSec, dead).alpha;
     this.body.rotation = dead ? Math.PI * 0.48 : this.liveShakeAngle(snap, timeSec);
-    this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead });
+    this.body.position.y = resolveFallbackBodyY({ snap, moving, timeSec, dead }) + swimBob;
     this.body.tint = resolveBodyTint(snap);
     this.applyBodyScale(snap, timeSec, dead);
   }

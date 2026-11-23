@@ -46,7 +46,7 @@ function processGearFrame(fileBase) {
   const depthImg = decodePng(fs.readFileSync(path.join(RAW_DIR, `${fileBase}_depth.png`)));
   const clean = binarizeAndClean(colorImg, 4);
   const creased = applyInternalDepthCreases(clean, depthImg, 14);
-  const outlined = applyOuterSelOut(creased, 3);
+  const outlined = applyOuterSelOut(creased, 2.0);
   return cropTight(outlined, 2);
 }
 

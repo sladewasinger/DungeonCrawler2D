@@ -266,6 +266,7 @@ export class WorldEcology {
         id: e.id, kind: e.kind, substance: e.substance, x: e.x, y: e.y, elevation: e.elevation, jumpZ: e.jumpZ,
         facingX: e.facingX, facingY: e.facingY, hp: e.hp, maxHp: e.maxHp, hitTimer: e.hitTimer,
         staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer, aiState: e.aiState, corpse: e.corpse,
+        inWater: e.inWater, inDeepWater: e.inDeepWater,
         telegraphProgress: e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / Math.max(0.05, e.windupDuration)) : 0,
       })),
       ...this.loot.snapshot(),

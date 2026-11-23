@@ -42,7 +42,7 @@ const DEFAULT_MAX_NODES = 900;
 const PROP_HARD_PAD = 0.34;
 const PROP_SOFT_PAD = 0.22;
 const WATER_STEP_PENALTY = 0.55;
-const DEEP_WATER_STEP_PENALTY = 1.85;
+const DEEP_WATER_STEP_PENALTY = 2.8;
 const SQRT2 = Math.SQRT2;
 const ALL_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const;
 

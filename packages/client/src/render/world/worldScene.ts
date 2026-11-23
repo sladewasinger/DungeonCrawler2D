@@ -7,6 +7,7 @@ import {
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
+import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
@@ -21,7 +22,7 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  buildGoreSpawn, nearestCampfireDist, nearestWaterDist, resolveEventElev, type SceneAudioDistances,
+  buildGoreSpawn, collectWaterActors, nearestCampfireDist, nearestWaterDist, resolveEventElev, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
 export type { SceneAudioDistances } from "./sceneHelpers.js";
@@ -40,10 +41,12 @@ export interface SceneFrameInput {
   readonly events?: readonly WorldEvent[];
 }
 
+const ZOOM_STOPS = [1.5, 2.25, 3.0, 4.5, 6.0] as const;
+
 export const CAMERA_TUNING = {
-  defaultZoom: 4.0,
-  minZoom: 1.6,
-  maxZoom: 5.0,
+  defaultZoom: 3.0,
+  minZoom: 1.5,
+  maxZoom: 6.0,
   followLerpRate: 9,
   hitstopTimeScale: 0.12,
   grassWindStrength: 0,
@@ -134,7 +137,14 @@ export class WorldScene {
     this.gore.setQualityBudget({ maxDecals: preset.maxGoreDecals, maxGoreParticles: preset.maxGoreParticles });
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
-  adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, CAMERA_TUNING.minZoom, CAMERA_TUNING.maxZoom); }
+  adjustZoom(factor: number): void {
+    let best = 0;
+    for (let i = 1; i < ZOOM_STOPS.length; i++) {
+      if (Math.abs(ZOOM_STOPS[i]! - this.zoom) < Math.abs(ZOOM_STOPS[best]! - this.zoom)) best = i;
+    }
+    const next = clamp(best + (factor > 1 ? 1 : -1), 0, ZOOM_STOPS.length - 1);
+    this.zoom = ZOOM_STOPS[next]!;
+  }
 
   screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
     const rect = this.app.canvas.getBoundingClientRect();
@@ -169,18 +179,20 @@ export class WorldScene {
     readonly preset: (typeof QUALITY_PRESETS)[QualityPresetId];
   }): void {
     const { input, local, simDt, lights, campfires, casters, preset } = opts;
+    const entities = input.entities ?? [];
     this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, timeSec: input.timeSec });
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });
     this.gore.setTileSampler(input.cache);
-    this.gore.stepBleedDrips(input.players, input.entities ?? [], simDt);
-    this.gore.stepFootprints(input.players, input.entities ?? []);
+    this.gore.stepBleedDrips(input.players, entities, simDt);
+    this.gore.stepFootprints(input.players, entities);
     this.gore.step(simDt);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
-      maxParticles: preset.maxParticles, campfires, playerWading: Boolean(local?.inWater && local.moving),
+      maxParticles: preset.maxParticles, campfires, torches: lights.filter((l) => l.kind === "torch"),
+      waterActors: collectWaterActors(input.players, entities),
     });
     this.lighting.renderPass({
       renderer: this.app.renderer, width: this.app.screen.width, height: this.app.screen.height,
@@ -197,11 +209,20 @@ export class WorldScene {
   }
 
   private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+    if (ev.kind === "playerLeave") {
+      this.particles.spawnSmokePoof({ x: ev.x, y: ev.y, durationSec: PLAYER_LEAVE_SMOKE_DURATION_SEC });
+      return;
+    }
     if (ev.kind !== "hit") return;
     if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
-    if (ev.goreStyle && ev.substance) {
-      this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local), input.cache));
-    }
+    this.spawnHitGore(ev, input, local);
+  }
+
+  private spawnHitGore(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+    if (!ev.goreStyle || !ev.substance) return;
+    const elev = resolveEventElev(ev.targetId, input.entities, local);
+    this.gore.spawn(buildGoreSpawn(ev, elev, input.cache));
+    if (ev.substance === "stone") this.gore.spawnClashSparks({ x: ev.x, y: ev.y, dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1, elevation: elev });
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {

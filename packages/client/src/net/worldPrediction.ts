@@ -14,7 +14,7 @@ export function createDefaultPlayer(
 ): PlayerSnapshot {
   return {
     id, name: prefs?.name ?? "Adventurer", x: 0.5, y: 0.5, elevation: 0,
-    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false,
+    facingX: 0, facingY: 1, aimX: 0, aimY: 1, jumpZ: 0, jumpVz: 0, moving: false, sprinting: false, torchLit: true, inWater: false, inDeepWater: false,
     lastAckSeq: 0, heldItem: null, appearance: prefs?.appearance ?? DEFAULT_APPEARANCE, armor: { ...STARTER_ARMOR },
   };
 }
@@ -67,6 +67,7 @@ function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
     blocking: serverMe.blocking, dodging: serverMe.dodging, invulnTimer: serverMe.invulnTimer,
     staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
     hitTimer: serverMe.hitTimer, respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary,
+    inWater: Boolean(serverMe.inWater), inDeepWater: Boolean(serverMe.inDeepWater),
   };
 }
 
@@ -89,7 +90,7 @@ export function reconcilePredictedPlayer(
   };
 }
 
-function movementMultiplier(player: PlayerSnapshot): number {
+function baseActionMultiplier(player: PlayerSnapshot): number {
   const m = COMBAT_TUNING.movementMults;
   if (player.dodging) return m.dodge;
   if ((player.swingProgress ?? 0) > 0) return m.swing;
@@ -98,36 +99,41 @@ function movementMultiplier(player: PlayerSnapshot): number {
   return 1;
 }
 
+function waterSpeedMultiplier(player: PlayerSnapshot): number {
+  const m = COMBAT_TUNING.movementMults;
+  if (player.inDeepWater) return (player.stamina ?? 100) <= 1 ? m.exhaustedSwim : m.deepWater;
+  return player.inWater ? m.shallowWater : 1;
+}
+
+function movementMultiplier(player: PlayerSnapshot): number {
+  return baseActionMultiplier(player) * waterSpeedMultiplier(player);
+}
+
+const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0) > 0 || (p.staggerTimer ?? 0) > 0;
+
 export function predictLocalPlayerMove(input: {
   readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
   readonly nx: number; readonly ny: number; readonly dt: number;
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly jump?: boolean | undefined;
 }): PlayerSnapshot {
-  if ((input.player.respawnTimer ?? 0) > 0 || (input.player.staggerTimer ?? 0) > 0) {
-    return { ...input.player, moving: false, sprinting: false };
-  }
-  const arc = stepJumpArc(
-    { jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 },
-    Boolean(input.jump),
-    input.dt,
-  );
+  if (isPlayerImmobilized(input.player)) return { ...input.player, moving: false, sprinting: false };
+  const wantsJump = Boolean(input.jump) && !input.player.inDeepWater;
+  const arc = stepJumpArc({ jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 }, wantsJump, input.dt);
   const mag = Math.hypot(input.nx, input.ny);
-  const moving = mag > 0.05;
   const aimVec = resolveAim(input);
-  if (!moving) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  if (mag <= 0.05) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
   const mult = movementMultiplier(input.player);
   const step = PLAYER_SPEED * mult * input.dt;
   const moved = resolveMovement({
-    cache: input.cache, x: input.player.x, y: input.player.y,
-    dx: input.nx * step, dy: input.ny * step, radius: PLAYER_RADIUS,
-    elevation: input.player.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
+    cache: input.cache, x: input.player.x, y: input.player.y, dx: input.nx * step, dy: input.ny * step,
+    radius: PLAYER_RADIUS, elevation: input.player.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
   const nextJumpZ = Math.max(0, arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(input.player.dodging) });
   return {
-    ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation,
-    ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz, moving: true, sprinting, inWater: moved.inWater,
+    ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation, ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz,
+    moving: true, sprinting, inWater: moved.inWater, inDeepWater: moved.inDeepWater,
   };
 }
 

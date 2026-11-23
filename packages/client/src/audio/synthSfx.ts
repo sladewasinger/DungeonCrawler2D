@@ -134,6 +134,8 @@ const DRY_IMPACT_SPECS: Partial<Record<GoreSubstance, (ctx: AudioContext, dst: A
   stone: (ctx, dst, { baseGain, fatal }) => {
     playNoiseBurst({ ctx, dst, duration: fatal ? 0.2 : 0.12, freq: 1450, filterType: FILTER_BP, gain: baseGain * (fatal ? 1.25 : 0.95), q: 1.4 });
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 140, f1: 52, duration: 0.12, gain: baseGain * 0.85 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 1920, f1: 1260, duration: 0.11, gain: baseGain * 0.42 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 3120, f1: 2150, duration: 0.08, gain: baseGain * 0.28, delay: 0.01 });
   },
   bone: (ctx, dst, { baseGain, fatal }) => {
     playNoiseBurst({ ctx, dst, duration: fatal ? 0.18 : 0.1, freq: 2150, filterType: FILTER_BP, gain: baseGain * 0.95, q: 2.6 });
@@ -154,7 +156,7 @@ export function synthImpact(opts: {
 }
 
 export type CombatCueKind =
-  | "block" | "parry" | "bowDraw" | "arrowFire" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot";
+  | "block" | "parry" | "bowDraw" | "arrowFire" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
   parry: (ctx, dst) => {
@@ -176,6 +178,10 @@ const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioN
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 784, f1: 1046, duration: 0.22, gain: 0.13, delay: 0.11 });
   },
   loot: (ctx, dst) => playTone({ ctx, dst, wave: WAVE_SINE, f0: 880, f1: 1320, duration: 0.09, gain: 0.1 }),
+  playerLeave: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 155, f1: 42, duration: 0.24, gain: 0.22 });
+    playSweptNoise({ ctx, dst, duration: 0.42, f0: 1500, f1: 220, filterType: "lowpass", gain: 0.24, q: 1.1, attackSec: 0.015, noiseColor: "pink" });
+  },
 };
 
 const STUDIO_CUE_OVERRIDES: Partial<Record<CombatCueKind, string>> = {

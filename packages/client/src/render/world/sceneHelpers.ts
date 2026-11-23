@@ -56,3 +56,24 @@ export function buildGoreSpawn(ev: WorldEvent, elevation: number, cache?: WorldC
     fatal: ev.fatal, comboStep: ev.comboStep, sweepDir: ev.sweepDir, cache,
   };
 }
+
+
+interface EntityWaterSample {
+  readonly x: number; readonly y: number; readonly hp: number;
+  readonly inWater?: boolean | undefined; readonly inDeepWater?: boolean | undefined; readonly corpse?: boolean | undefined;
+}
+
+const isLiveInWater = (e: EntityWaterSample): boolean => !e.corpse && e.hp > 0 && Boolean(e.inWater || e.inDeepWater);
+
+export function collectWaterActors(
+  players: readonly PlayerSnapshot[],
+  entities: readonly EntityWaterSample[],
+): readonly { readonly x: number; readonly y: number; readonly moving: boolean; readonly deep: boolean }[] {
+  const pList = players
+    .filter((p) => p.inWater || p.inDeepWater)
+    .map((p) => ({ x: p.x, y: p.y, moving: p.moving, deep: Boolean(p.inDeepWater) }));
+  const eList = entities
+    .filter(isLiveInWater)
+    .map((e) => ({ x: e.x, y: e.y, moving: true, deep: Boolean(e.inDeepWater) }));
+  return [...pList, ...eList];
+}

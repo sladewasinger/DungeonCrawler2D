@@ -40,6 +40,7 @@ export function makeWaterRing(): Graphics {
 export function makeWaterMask(): Graphics {
   const g = new Graphics();
   g.rect(-48, -96, 96, 90).fill(0xffffff);
+  g.visible = false;
   return g;
 }
 

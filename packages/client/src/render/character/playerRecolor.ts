@@ -1,5 +1,5 @@
-/** Pure Sentinel-palette recoloring (with two-tone hair gradients) and 4px Borderlands sel-out outlining. */
-import { EYE_PALETTES, HAIR_PALETTES, SKIN_PALETTES, type HairPalette, type ToneTriad } from "@dc2d/content";
+/** Pure Sentinel-palette recoloring (with two-tone hair gradients) and crisp solid Borderlands sel-out outlining. */
+import { ACTIVE_OUTLINE_STYLE, EYE_PALETTES, HAIR_PALETTES, SKIN_PALETTES, type HairPalette, type ToneTriad } from "@dc2d/content";
 import type { CharacterAppearance } from "@dc2d/engine";
 
 export type RgbTriad = readonly [number, number, number];
@@ -139,51 +139,88 @@ export function computeSelOutRgb(r: number, g: number, b: number): RgbTriad {
   return [Math.max(10, Math.round(r * 0.22 + 5)), Math.max(9, Math.round(g * 0.20 + 3)), Math.max(15, Math.round(b * 0.26 + 9))];
 }
 
-function buildDiskOffsets(radiusPx: number): readonly (readonly [number, number])[] {
-  const r = Math.max(1, Math.round(radiusPx));
-  const out: [number, number][] = [];
-  const rSq = (r + 0.22) * (r + 0.22);
-  for (let dy = -r; dy <= r; dy++) {
-    for (let dx = -r; dx <= r; dx++) {
-      if ((dx !== 0 || dy !== 0) && dx * dx + dy * dy <= rSq) out.push([dx, dy]);
-    }
+const DISK_OFFSET_CACHE = new Map<number, readonly (readonly [number, number, number])[]>();
+
+function pushDiskRow(ctx: {
+  readonly dy: number; readonly r: number; readonly maxSq: number; readonly out: [number, number, number][];
+}): void {
+  for (let dx = -ctx.r; dx <= ctx.r; dx++) {
+    const dSq = dx * dx + ctx.dy * ctx.dy;
+    if (dSq > 0 && dSq <= ctx.maxSq) ctx.out.push([dx, ctx.dy, dSq]);
   }
+}
+
+function getDiskOffsets(solidRadiusPx: number): readonly (readonly [number, number, number])[] {
+  const radius = Math.max(0.75, solidRadiusPx);
+  const key = Math.round(radius * 100);
+  const cached = DISK_OFFSET_CACHE.get(key);
+  if (cached) return cached;
+  const r = Math.ceil(radius);
+  const maxSq = radius * radius;
+  const out: [number, number, number][] = [];
+  for (let dy = -r; dy <= r; dy++) pushDiskRow({ dy, r, maxSq, out });
+  out.sort((a, b) => a[2] - b[2]);
+  DISK_OFFSET_CACHE.set(key, out);
   return out;
 }
 
-const DISK_4PX_OFFSETS = buildDiskOffsets(4);
-
-function readOpaqueAt(src: Uint8ClampedArray, w: number, coord: { readonly x: number; readonly y: number }): RgbTriad | null {
-  const p = (coord.y * w + coord.x) * 4;
-  if ((src[p + 3] ?? 0) === 0) return null;
-  return [src[p] ?? 0, src[p + 1] ?? 0, src[p + 2] ?? 0];
+function hasHoleCardinal(src: Uint8ClampedArray, rowIdx: number, w: number): boolean {
+  if (src[(rowIdx - 1) * 4 + 3]! === 0 || src[(rowIdx + 1) * 4 + 3]! === 0) return true;
+  return src[(rowIdx - w) * 4 + 3]! === 0 || src[(rowIdx + w) * 4 + 3]! === 0;
 }
 
-function darkestNeighbor(src: Uint8ClampedArray, idx: number, ctx: { readonly w: number; readonly h: number }): RgbTriad | null {
-  const x = idx % ctx.w;
-  const y = (idx - x) / ctx.w;
-  let best: RgbTriad | null = null;
-  let bestLuma = Infinity;
-  for (const [dx, dy] of DISK_4PX_OFFSETS) {
-    const nx = x + dx; const ny = y + dy;
-    if (nx < 0 || nx >= ctx.w || ny < 0 || ny >= ctx.h) continue;
-    const rgb = readOpaqueAt(src, ctx.w, { x: nx, y: ny });
-    if (!rgb) continue;
-    const luma = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-    if (luma < bestLuma) { bestLuma = luma; best = rgb; }
+function isSilhouetteEdge(
+  src: Uint8ClampedArray,
+  pt: { readonly w: number; readonly h: number; readonly x: number; readonly y: number },
+): boolean {
+  const { w, h, x, y } = pt;
+  if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return true;
+  return hasHoleCardinal(src, y * w + x, w);
+}
+
+function tryWriteEdge(ctx: {
+  readonly src: Uint8ClampedArray; readonly data: Uint8ClampedArray; readonly bestDistSq: Uint8Array;
+  readonly ni: number; readonly dSq: number; readonly edgeRgb: RgbTriad;
+}): void {
+  if (ctx.src[ctx.ni * 4 + 3]! > 0 || ctx.dSq >= ctx.bestDistSq[ctx.ni]!) return;
+  ctx.bestDistSq[ctx.ni] = ctx.dSq;
+  const p = ctx.ni * 4;
+  ctx.data[p] = ctx.edgeRgb[0]; ctx.data[p + 1] = ctx.edgeRgb[1]; ctx.data[p + 2] = ctx.edgeRgb[2]; ctx.data[p + 3] = 255;
+}
+
+function splatDisk(ctx: {
+  readonly src: Uint8ClampedArray; readonly data: Uint8ClampedArray; readonly bestDistSq: Uint8Array;
+  readonly w: number; readonly h: number; readonly x: number; readonly y: number;
+  readonly offsets: readonly (readonly [number, number, number])[]; readonly edgeRgb: RgbTriad;
+}): void {
+  for (const [dx, dy, dSq] of ctx.offsets) {
+    const nx = ctx.x + dx;
+    const ny = ctx.y + dy;
+    const inBounds = nx >= 0 && ny >= 0 && nx < ctx.w && ny < ctx.h;
+    if (inBounds) tryWriteEdge({ src: ctx.src, data: ctx.data, bestDistSq: ctx.bestDistSq, ni: ny * ctx.w + nx, dSq, edgeRgb: ctx.edgeRgb });
   }
-  return best;
 }
 
-export function applyUnifiedSelOut(data: Uint8ClampedArray, w: number, h: number): void {
+function processRowEdges(ctx: {
+  readonly src: Uint8ClampedArray; readonly data: Uint8ClampedArray; readonly bestDistSq: Uint8Array;
+  readonly w: number; readonly h: number; readonly y: number;
+  readonly offsets: readonly (readonly [number, number, number])[];
+}): void {
+  for (let x = 0; x < ctx.w; x++) {
+    const p = (ctx.y * ctx.w + x) * 4;
+    if (ctx.src[p + 3]! === 0 || !isSilhouetteEdge(ctx.src, { w: ctx.w, h: ctx.h, x, y: ctx.y })) continue;
+    const edgeRgb = computeSelOutRgb(ctx.src[p]!, ctx.src[p + 1]!, ctx.src[p + 2]!);
+    splatDisk({ src: ctx.src, data: ctx.data, bestDistSq: ctx.bestDistSq, w: ctx.w, h: ctx.h, x, y: ctx.y, offsets: ctx.offsets, edgeRgb });
+  }
+}
+
+export function applyUnifiedSelOut(opts: {
+  readonly data: Uint8ClampedArray; readonly width: number; readonly height: number;
+  readonly solidRadiusPx?: number | undefined;
+}): void {
+  const { data, width: w, height: h } = opts;
   const src = new Uint8ClampedArray(data);
-  const total = w * h;
-  for (let i = 0; i < total; i++) {
-    if ((src[i * 4 + 3] ?? 0) > 0) continue;
-    const n = darkestNeighbor(src, i, { w, h });
-    if (!n) continue;
-    const edge = computeSelOutRgb(n[0], n[1], n[2]);
-    const p = i * 4;
-    data[p] = edge[0]; data[p + 1] = edge[1]; data[p + 2] = edge[2]; data[p + 3] = 255;
-  }
+  const bestDistSq = new Uint8Array(w * h).fill(255);
+  const offsets = getDiskOffsets(opts.solidRadiusPx ?? ACTIVE_OUTLINE_STYLE.actorSolidPx);
+  for (let y = 0; y < h; y++) processRowEdges({ src, data, bestDistSq, w, h, y, offsets });
 }

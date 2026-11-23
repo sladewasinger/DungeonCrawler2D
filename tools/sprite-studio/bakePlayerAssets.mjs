@@ -6,9 +6,9 @@ import { decodePng, encodePng } from "./pngCodec.mjs";
 
 const RAW_DIR = process.argv[2];
 const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
-const CELL = 144;
-const GROUND_Y = 120;
-const PX_PER_METER = 48;
+const CELL = 192;
+const GROUND_Y = 148;
+const PX_PER_METER = 80;
 const WORLD_SCALE = 16 / PX_PER_METER;
 const SHEET_COLS = 6;
 const SHEET_ROWS = 41;
@@ -81,28 +81,46 @@ function blitIntoSheet({ sheetRgba, sheetW, frame, col, row }) {
   }
 }
 
+function updateSheetExtremes(ext, bounds) {
+  if (bounds.contentWidth === 0) return;
+  ext.minX = Math.min(ext.minX, bounds.minX);
+  ext.minY = Math.min(ext.minY, bounds.minY);
+  ext.maxX = Math.max(ext.maxX, bounds.maxX);
+  ext.maxY = Math.max(ext.maxY, bounds.maxY);
+}
+
 function packFrameCell(opts) {
   const processed = loadCleanedFrame({ layerId: opts.layerId, clip: opts.clip, dir: opts.dir, frameNum: opts.frameNum });
   if (!processed) return;
   const aligned = shiftSpriteFrame(processed, opts.shift.dx, opts.shift.dy);
+  if (opts.ext) updateSheetExtremes(opts.ext, measureSpriteBounds(aligned));
   blitIntoSheet({ sheetRgba: opts.rgba, sheetW: opts.sheetW, frame: aligned, col: opts.col, row: opts.row });
+}
+
+function packClipDir(opts) {
+  for (let f = 1; f <= opts.clip.frames; f++) {
+    packFrameCell({
+      rgba: opts.rgba, sheetW: opts.sheetW, layerId: opts.layerId, clip: opts.clip.state,
+      dir: opts.dir, frameNum: f, shift: opts.shift, col: f - 1, row: opts.row, ext: opts.ext,
+    });
+  }
 }
 
 function packLayerSheet(layer, anchors) {
   const sheetW = SHEET_COLS * CELL;
   const sheetH = SHEET_ROWS * CELL;
   const rgba = new Uint8Array(sheetW * sheetH * 4);
+  const trackBounds = layer.id === "body-male" || layer.id === "hair-ponytail";
+  const ext = trackBounds ? { minX: CELL, minY: CELL, maxX: -1, maxY: -1 } : null;
   let row = 0;
   for (const clip of CLIPS) {
     for (const dir of DIRS) {
-      const shift = anchors[dir];
-      for (let f = 1; f <= clip.frames; f++) {
-        packFrameCell({ rgba, sheetW, layerId: layer.id, clip: clip.state, dir, frameNum: f, shift, col: f - 1, row });
-      }
+      packClipDir({ rgba, sheetW, layerId: layer.id, clip, dir, shift: anchors[dir], row, ext });
       row++;
     }
   }
-  packFrameCell({ rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40 });
+  packFrameCell({ rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: 40, ext });
+  if (ext) console.log(`Layer ${layer.id} cell bounds (@${CELL}px):`, ext);
   fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.png`), encodePng(sheetW, sheetH, rgba));
 }
 
@@ -166,6 +184,7 @@ function run() {
     directions: DIRS,
     clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
     layers: LAYERS.map((l) => l.id),
+    bakeVersion: Date.now(),
     sockets: convertSockets(rawSockets, anchorsByGender),
     handSockets: rawSockets.handSockets ? convertSockets(rawSockets.handSockets, anchorsByGender) : undefined,
   };

@@ -220,3 +220,10 @@ export function planGoreSpawn(req: GorePlanRequest, levelScale: number): GoreSpa
   if (req.passiveDrip) return planPassiveDrip(req, base);
   return (SUBSTANCE_PLANNERS[req.substance] ?? planLiquidCombat)(req, base, levelScale);
 }
+
+
+export function planClashSparks(dirX: number, dirY: number, count = 12): readonly PlannedParticle[] {
+  const out: PlannedParticle[] = [];
+  pushSparks(out, Math.atan2(dirY, dirX), count);
+  return out;
+}
