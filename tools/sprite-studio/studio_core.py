@@ -55,13 +55,14 @@ def clear_scene():
     """Remove all objects and orphan data blocks for a clean deterministic build."""
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
+    for act in list(bpy.data.actions):
+        bpy.data.actions.remove(act)
     for collection in (
         bpy.data.meshes,
         bpy.data.armatures,
         bpy.data.materials,
         bpy.data.cameras,
         bpy.data.lights,
-        bpy.data.actions,
     ):
         for item in list(collection):
             if item.users == 0:

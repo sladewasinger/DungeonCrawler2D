@@ -1,5 +1,5 @@
 /** Client-side inventory snapshot builders and local-preview fallback mutations. */
-import { getItemDef, getRecipeDef, maxStackForItem, STARTER_LOADOUT } from "@dc2d/content";
+import { getItemDef, getRecipeDef, maxStackForItem, STARTER_ARMOR, STARTER_LOADOUT } from "@dc2d/content";
 import {
   HOTBAR_SLOT_COUNT,
   PropKind,
@@ -27,7 +27,7 @@ export function createStarterInventorySnapshot(): InventorySnapshot {
       state.slots[entry.slot] = { itemId: entry.itemId, count: entry.count };
     }
   }
-  return { slots: state.slots, armor: state.armor, selectedHotbar: 0, nearCampfire: true };
+  return { slots: state.slots, armor: { ...STARTER_ARMOR }, selectedHotbar: 0, nearCampfire: true };
 }
 
 export function isNearCampfire(cache: WorldChunkCache, x: number, y: number): boolean {

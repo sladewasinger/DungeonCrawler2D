@@ -29,11 +29,17 @@ uniform float uTileStride;
 uniform float uLayerMode;
 
 vec4 fringeColor(int code) {
-  if (code == 1) return vec4(220.0, 192.0, 136.0, 115.0) / 255.0;
-  if (code == 2) return vec4(156.0, 115.0, 73.0, 115.0) / 255.0;
-  if (code == 3) return vec4(82.0, 162.0, 70.0, 102.0) / 255.0;
-  if (code == 4) return vec4(62.0, 139.0, 67.0, 102.0) / 255.0;
+  if (code == 1) return vec4(227.0, 201.0, 146.0, 132.0) / 255.0;
+  if (code == 2) return vec4(176.0, 134.0, 92.0, 132.0) / 255.0;
+  if (code == 3) return vec4(109.0, 170.0, 75.0, 122.0) / 255.0;
+  if (code == 4) return vec4(92.0, 153.0, 72.0, 122.0) / 255.0;
   return vec4(0.0);
+}
+
+int fringeReach(int coord) {
+  int wave = ((coord / 3) + (coord / 5)) & 1;
+  int broad = (coord / 7) & 1;
+  return 2 + wave + broad;
 }
 
 int cornerBandWidth(int row) {
@@ -70,8 +76,17 @@ vec3 applyGroundAo(vec3 rgb, ivec2 px, int aoMask, int inner) {
   return rgb;
 }
 
-vec3 sampleTile(int kind, int variant, ivec2 px, int stride) {
-  ivec2 atlasPx = ivec2(variant * stride + 1 + px.x, kind * stride + 1 + px.y);
+ivec2 tilePhaseOffset(ivec2 cell) {
+  uint h = uint(cell.x) * 374761393u + uint(cell.y) * 668265263u;
+  h = (h ^ (h >> 13)) * 1274126177u;
+  h = h ^ (h >> 16);
+  return ivec2(int(h & 3u) * 8, int((h >> 2) & 3u) * 8);
+}
+
+vec3 sampleTile(int kind, int variant, ivec2 cell, ivec2 px, int inner, int stride) {
+  ivec2 off = tilePhaseOffset(cell);
+  ivec2 spx = ivec2((px.x + off.x) % inner, (px.y + off.y) % inner);
+  ivec2 atlasPx = ivec2(variant * stride + 1 + spx.x, kind * stride + 1 + spx.y);
   return texelFetch(uAtlas, atlasPx, 0).rgb;
 }
 
@@ -90,21 +105,25 @@ void main(void) {
     if (inCutCorner(px, cornerMask, inner)) discard;
     int wKind = packed.r == 1 ? 1 : 0;
     float alpha = packed.r == 1 ? 0.86 : 1.0;
-    vec3 wRgb = sampleTile(wKind, variant, px, stride);
+    vec3 wRgb = sampleTile(wKind, variant, cell, px, inner, stride);
     finalColor = vec4(wRgb * alpha, alpha);
     return;
   }
 
-  vec3 rgb = sampleTile(packed.r, variant, px, stride);
+  vec3 rgb = sampleTile(packed.r, variant, cell, px, inner, stride);
   int northFringe = packed.b & 7;
   int westFringe = (packed.b >> 3) & 7;
-  if (northFringe > 0 && px.y < 4) {
+  int nReach = fringeReach(px.x);
+  int wReach = fringeReach(px.y);
+  if (northFringe > 0 && px.y <= nReach) {
     vec4 fc = fringeColor(northFringe);
-    rgb = mix(rgb, fc.rgb, fc.a);
+    float fade = px.y == nReach ? ((px.x & 1) == 0 ? 0.5 : 0.0) : 1.0;
+    rgb = mix(rgb, fc.rgb, fc.a * fade);
   }
-  if (westFringe > 0 && px.x < 4) {
+  if (westFringe > 0 && px.x <= wReach) {
     vec4 fc = fringeColor(westFringe);
-    rgb = mix(rgb, fc.rgb, fc.a);
+    float fade = px.x == wReach ? ((px.y & 1) == 0 ? 0.5 : 0.0) : 1.0;
+    rgb = mix(rgb, fc.rgb, fc.a * fade);
   }
   int aoMask = (packed.g >> 2) & 15;
   finalColor = vec4(applyGroundAo(rgb, px, aoMask, inner), 1.0);

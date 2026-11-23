@@ -1,6 +1,7 @@
-/** Pure parabolic vertical jump & fall integration shared across server simulation and client prediction. */
+/** Pure parabolic vertical jump, fall integration, and foot-elevation support checks. */
+import { clamp } from "../math/noise.js";
 
-export const JUMP_VELOCITY_TILES_PER_SEC = 4.6;
+export const JUMP_VELOCITY_TILES_PER_SEC = 5.5;
 export const JUMP_GRAVITY_TILES_PER_SEC2 = 22.0;
 export const JUMP_VISUAL_PX_PER_TILE = 18;
 export const ELEVATION_DROP_TO_JUMP_Z = 10 / JUMP_VISUAL_PX_PER_TILE;
@@ -19,4 +20,47 @@ export function stepJumpArc(state: JumpState, jumpPressed: boolean, dtSeconds: n
   const nextZ = baseZ + 0.5 * (baseVz + nextVz) * dtSeconds;
   if (nextZ <= 0) return { jumpZ: 0, jumpVz: 0 };
   return { jumpZ: nextZ, jumpVz: nextVz };
+}
+
+export function forEachFootTile(
+  pos: { readonly x: number; readonly y: number; readonly radius: number },
+  fn: (tx: number, ty: number) => boolean,
+): boolean {
+  const footDepth = Math.min(pos.radius, 0.14);
+  const minTx = Math.floor(pos.x - pos.radius);
+  const maxTx = Math.floor(pos.x + pos.radius);
+  const minTy = Math.floor(pos.y - footDepth);
+  const maxTy = Math.floor(pos.y + footDepth);
+  for (let ty = minTy; ty <= maxTy; ty++) {
+    for (let tx = minTx; tx <= maxTx; tx++) {
+      if (!fn(tx, ty)) return false;
+    }
+  }
+  return true;
+}
+
+export function resolveDestElevation(
+  sampleElevation: (tx: number, ty: number) => number,
+  dest: {
+    readonly x: number; readonly y: number; readonly radius: number;
+    readonly elevation: number; readonly airborne: boolean; readonly stairs: boolean;
+  },
+): { readonly nextElevation: number; readonly elevationDrop: number } {
+  if (dest.stairs) return { nextElevation: dest.elevation, elevationDrop: 0 };
+  if (!dest.airborne) {
+    return { nextElevation: clamp(sampleElevation(Math.floor(dest.x), Math.floor(dest.y)), 0, 2), elevationDrop: 0 };
+  }
+  let min = 2;
+  let max = 0;
+  forEachFootTile(dest, (tx, ty) => {
+    const e = sampleElevation(tx, ty);
+    min = Math.min(min, e);
+    max = Math.max(max, e);
+    return true;
+  });
+  const maxSupport = clamp(max, 0, 2);
+  if (maxSupport < dest.elevation) return { nextElevation: maxSupport, elevationDrop: dest.elevation - maxSupport };
+  const minSupport = clamp(min, 0, 2);
+  if (minSupport > dest.elevation) return { nextElevation: minSupport, elevationDrop: dest.elevation - minSupport };
+  return { nextElevation: dest.elevation, elevationDrop: 0 };
 }

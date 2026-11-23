@@ -7,7 +7,8 @@ import {
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
-import { GoreSystem } from "../combat/goreSystem.js";
+import type { GoreLevel } from "../combat/gore/gorePrefs.js";
+import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WorldPickupsRenderer } from "../combat/worldPickups.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
@@ -40,7 +41,7 @@ export interface SceneFrameInput {
 }
 
 export const CAMERA_TUNING = {
-  defaultZoom: 3.8,
+  defaultZoom: 4.0,
   minZoom: 1.6,
   maxZoom: 5.0,
   followLerpRate: 9,
@@ -67,6 +68,8 @@ export class WorldScene {
   private qualityId: QualityPresetId = "high";
   private camX = 0.5;
   private camY = 0.5;
+  private shakeMag = 0;
+  private shakeTime = 0;
   private zoom: number = CAMERA_TUNING.defaultZoom;
 
   private constructor(private readonly app: Application, host: HTMLElement) {
@@ -82,9 +85,8 @@ export class WorldScene {
     shadowCam!.addChild(this.castShadows.container);
     goreCam!.addChild(this.gore.decalLayer);
     this.pickups = new WorldPickupsRenderer(host, () => this.interactHandler?.());
-    this.gore.particleLayer.zIndex = 100_000;
-    ysortCam!.addChild(this.pickups.container, this.gore.particleLayer);
-    emissiveCam!.addChild(this.particles.container, this.vfx.container);
+    this.configureGoreLayers(ysortCam!);
+    emissiveCam!.addChild(this.particles.container, this.vfx.container, this.gore.sparkLayer);
     waterHost.filters = [this.waterEffect.filter];
     grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];
@@ -104,6 +106,14 @@ export class WorldScene {
     ]);
   }
 
+  private configureGoreLayers(ysortCam: Container): void {
+    this.gore.attachElevatedLayer(ysortCam);
+    this.gore.particleLayer.zIndex = 100_000;
+    ysortCam.addChild(this.pickups.container, this.gore.particleLayer);
+    const preset = QUALITY_PRESETS[this.qualityId];
+    this.gore.setQualityBudget({ maxDecals: preset.maxGoreDecals, maxGoreParticles: preset.maxGoreParticles });
+  }
+
   static async mount(host: HTMLElement): Promise<WorldScene> {
     const app = new Application();
     await app.init({
@@ -115,10 +125,13 @@ export class WorldScene {
   }
 
   setInteractHandler(cb: () => void): void { this.interactHandler = cb; }
+  setGoreLevel(level: GoreLevel): void { this.gore.setGoreLevel(level); }
   setQualityPreset(presetId: QualityPresetId): void {
     this.qualityId = presetId;
-    this.app.renderer.resolution = Math.min(QUALITY_PRESETS[presetId].maxDpr, window.devicePixelRatio || 1);
+    const preset = QUALITY_PRESETS[presetId];
+    this.app.renderer.resolution = Math.min(preset.maxDpr, window.devicePixelRatio || 1);
     this.app.resize();
+    this.gore.setQualityBudget({ maxDecals: preset.maxGoreDecals, maxGoreParticles: preset.maxGoreParticles });
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
   adjustZoom(factor: number): void { this.zoom = clamp(this.zoom * factor, CAMERA_TUNING.minZoom, CAMERA_TUNING.maxZoom); }
@@ -160,7 +173,9 @@ export class WorldScene {
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });
+    this.gore.setTileSampler(input.cache);
     this.gore.stepBleedDrips(input.players, input.entities ?? [], simDt);
+    this.gore.stepFootprints(input.players, input.entities ?? []);
     this.gore.step(simDt);
     this.vfx.step({ dt: simDt, projectiles: input.projectiles ?? [], players: input.players, local });
     this.particles.step({
@@ -178,14 +193,21 @@ export class WorldScene {
     const events = input.events ?? [];
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
-    for (const ev of events) {
-      if (ev.kind === "hit" && ev.goreStyle && ev.substance) {
-        this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local)));
-      }
+    for (const ev of events) this.applyWorldHitFx(ev, input, local);
+  }
+
+  private applyWorldHitFx(ev: NonNullable<SceneFrameInput["events"]>[number], input: SceneFrameInput, local: PlayerSnapshot | undefined): void {
+    if (ev.kind !== "hit") return;
+    if (ev.targetId === input.localPlayerId) this.shakeMag = Math.max(this.shakeMag, ev.fatal ? 5.5 : 3.2);
+    if (ev.goreStyle && ev.substance) {
+      this.gore.spawn(buildGoreSpawn(ev, resolveEventElev(ev.targetId, input.entities, local), input.cache));
     }
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {
+    this.shakeTime += dt;
+    this.shakeMag *= Math.exp(-16 * dt);
+    if (this.shakeMag < 0.08) this.shakeMag = 0;
     if (!local) return;
     const follow = Math.min(1, dt * CAMERA_TUNING.followLerpRate);
     this.camX += (local.x - this.camX) * follow;
@@ -195,9 +217,11 @@ export class WorldScene {
   private syncCameraContainers(): void {
     const sw = this.app.screen.width;
     const sh = this.app.screen.height;
+    const sx = this.shakeMag > 0 ? Math.sin(this.shakeTime * 71) * this.shakeMag : 0;
+    const sy = this.shakeMag > 0 ? Math.cos(this.shakeTime * 59) * this.shakeMag : 0;
     for (const host of this.filterHosts) host.filterArea = this.app.screen;
     for (const cam of this.cameras) {
-      cam.position.set(sw * 0.5, sh * 0.5);
+      cam.position.set(sw * 0.5 + sx, sh * 0.5 + sy);
       cam.pivot.set(this.camX * TILE_PX, this.camY * TILE_PX);
       cam.scale.set(this.zoom);
     }

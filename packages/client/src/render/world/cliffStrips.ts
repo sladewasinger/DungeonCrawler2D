@@ -20,17 +20,22 @@ const RIM_DARK = "#1b202a";
 
 function paintStairCell(ctx: CanvasRenderingContext2D, px: number): void {
   const height = TERRAIN_TEX_PX + LIFT_TEX_PX;
-  ctx.fillStyle = "#5c6372";
+  ctx.fillStyle = "#6b717c";
   ctx.fillRect(px, 0, TERRAIN_TEX_PX, height);
   for (let i = 0; i < 6; i++) {
     const sy = 2 + i * 8;
-    ctx.fillStyle = "#bcc5d4";
-    ctx.fillRect(px + 2, sy, TERRAIN_TEX_PX - 4, 2);
-    ctx.fillStyle = "#9ca6b6";
-    ctx.fillRect(px + 2, sy + 2, TERRAIN_TEX_PX - 4, 3);
-    ctx.fillStyle = "#3f4552";
-    ctx.fillRect(px + 2, sy + 5, TERRAIN_TEX_PX - 4, 3);
+    ctx.fillStyle = "#b4bcc8";
+    ctx.fillRect(px + 2, sy, TERRAIN_TEX_PX - 4, 1);
+    ctx.fillStyle = "#8c94a0";
+    ctx.fillRect(px + 2, sy + 1, TERRAIN_TEX_PX - 4, 4);
+    ctx.fillStyle = "#525864";
+    ctx.fillRect(px + 2, sy + 5, TERRAIN_TEX_PX - 4, 2);
+    ctx.fillStyle = "#242832";
+    ctx.fillRect(px + 2, sy + 7, TERRAIN_TEX_PX - 4, 1);
   }
+  ctx.fillStyle = "#4f843a";
+  ctx.fillRect(px + 1, 5, 2, 4);
+  ctx.fillRect(px + TERRAIN_TEX_PX - 3, 21, 2, 4);
   ctx.fillStyle = RIM_DARK;
   ctx.fillRect(px, 0, 2, height);
   ctx.fillRect(px + TERRAIN_TEX_PX - 2, 0, 2, height);
@@ -51,20 +56,35 @@ function paintDropOffBevels(input: {
   if (n.elevation < elev && !n.stairs) {
     ctx.fillStyle = RIM_DARK;
     ctx.fillRect(px, 0, TERRAIN_TEX_PX, 2);
-    ctx.fillStyle = "rgba(225, 240, 205, 0.48)";
+    ctx.fillStyle = "rgba(232, 244, 198, 0.42)";
     ctx.fillRect(px, 2, TERRAIN_TEX_PX, 4);
   }
   if (w.elevation < elev && !w.stairs) {
     ctx.fillStyle = RIM_DARK;
     ctx.fillRect(px, 0, 2, TERRAIN_TEX_PX);
-    ctx.fillStyle = "rgba(225, 240, 205, 0.34)";
+    ctx.fillStyle = "rgba(232, 244, 198, 0.30)";
     ctx.fillRect(px + 2, 0, 4, TERRAIN_TEX_PX);
   }
   if (e.elevation < elev && !e.stairs) {
     ctx.fillStyle = RIM_DARK;
     ctx.fillRect(px + TERRAIN_TEX_PX - 2, 0, 2, TERRAIN_TEX_PX);
-    ctx.fillStyle = "rgba(16, 22, 32, 0.35)";
+    ctx.fillStyle = "rgba(18, 24, 34, 0.34)";
     ctx.fillRect(px + TERRAIN_TEX_PX - 6, 0, 4, TERRAIN_TEX_PX);
+  }
+}
+
+function paintCliffOverhangRim(ctx: CanvasRenderingContext2D, px: number, wx: number): void {
+  ctx.fillStyle = "#6ea84b";
+  ctx.fillRect(px, TERRAIN_TEX_PX - 4, TERRAIN_TEX_PX, 3);
+  ctx.fillStyle = "#589340";
+  ctx.fillRect(px, TERRAIN_TEX_PX - 1, TERRAIN_TEX_PX, 2);
+  for (let i = 0; i < 4; i++) {
+    const sx = px + i * 8 + (((wx * 3 + i) & 1) === 0 ? 1 : 2);
+    const drop = 2 + ((wx + i) % 3);
+    ctx.fillStyle = "#437632";
+    ctx.fillRect(sx, TERRAIN_TEX_PX + 1, 5, drop);
+    ctx.fillStyle = "#242832";
+    ctx.fillRect(sx, TERRAIN_TEX_PX + 1 + drop, 5, 2);
   }
 }
 
@@ -80,21 +100,25 @@ function paintSouthCliffWall(input: {
   const south = cache.tileAt(wx, wy + 1);
   if (south.elevation >= elev || south.stairs) return;
 
-  ctx.fillStyle = "#6ca156";
-  ctx.fillRect(px, TERRAIN_TEX_PX - 4, TERRAIN_TEX_PX, 4);
-  ctx.fillStyle = "#1f2430";
-  ctx.fillRect(px, TERRAIN_TEX_PX, TERRAIN_TEX_PX, 2);
-  ctx.fillStyle = "#626978";
-  ctx.fillRect(px, TERRAIN_TEX_PX + 2, TERRAIN_TEX_PX, 8);
-  ctx.fillStyle = "#484f5e";
-  ctx.fillRect(px, TERRAIN_TEX_PX + 10, TERRAIN_TEX_PX, 8);
+  ctx.fillStyle = "#474c57";
+  ctx.fillRect(px, TERRAIN_TEX_PX, TERRAIN_TEX_PX, LIFT_TEX_PX);
+  ctx.fillStyle = "#7a808a";
+  ctx.fillRect(px, TERRAIN_TEX_PX + 2, TERRAIN_TEX_PX, 7);
+  ctx.fillStyle = "#606670";
+  ctx.fillRect(px, TERRAIN_TEX_PX + 9, TERRAIN_TEX_PX, 6);
   ctx.fillStyle = RIM_DARK;
   ctx.fillRect(px, TERRAIN_TEX_PX + LIFT_TEX_PX - 2, TERRAIN_TEX_PX, 2);
 
-  for (let fx = 4; fx < TERRAIN_TEX_PX - 4; fx += 9) {
-    ctx.fillStyle = "#3c424f";
-    ctx.fillRect(px + fx, TERRAIN_TEX_PX + 5, 2, 4);
+  for (let col = 0; col < 3; col++) {
+    const cx = px + 3 + col * 10 + ((wx + col) % 2);
+    ctx.fillStyle = "#8c939e";
+    ctx.fillRect(cx, TERRAIN_TEX_PX + 4, 6, 1);
+    ctx.fillStyle = "#2f3440";
+    ctx.fillRect(cx + 5, TERRAIN_TEX_PX + 3, 2, 7);
+    ctx.fillRect(cx - 1, TERRAIN_TEX_PX + 11, 2, 6);
   }
+  paintCliffOverhangRim(ctx, px, wx);
+  ctx.fillStyle = RIM_DARK;
   if (cache.tileAt(wx - 1, wy).elevation < elev) ctx.fillRect(px, TERRAIN_TEX_PX, 2, LIFT_TEX_PX);
   if (cache.tileAt(wx + 1, wy).elevation < elev) ctx.fillRect(px + TERRAIN_TEX_PX - 2, TERRAIN_TEX_PX, 2, LIFT_TEX_PX);
 }

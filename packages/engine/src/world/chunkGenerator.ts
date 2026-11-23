@@ -32,7 +32,7 @@ function addSpawnLandmarks(input: {
   readonly lights: PointLightSpec[];
 }): void {
   if (input.cx === 0 && input.cy === 0) {
-    pushProp(input.props, PropKind.Campfire, { x: 2.5, y: -1.5, elevation: 0, radius: 0.45, blocks: true });
+    pushProp(input.props, PropKind.Campfire, { x: 2.5, y: -1.5, elevation: 0, radius: 0.48, blocks: true });
     input.lights.push({
       id: "spawn-campfire", kind: "campfire", x: 2.5, y: -1.5, color: CAMPFIRE_LIGHT_COLOR, radiusPx: 185, intensity: 1.15,
     });

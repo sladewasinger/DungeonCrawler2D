@@ -26,6 +26,22 @@ export interface StarterLoadoutEntry {
   readonly count: number;
 }
 
+export interface StarterArmorLoadout {
+  readonly head: string | null;
+  readonly chest: string | null;
+  readonly legs: string | null;
+  readonly feet: string | null;
+  readonly offhand: string | null;
+}
+
+export const STARTER_ARMOR: StarterArmorLoadout = {
+  head: null,
+  chest: "leather-tunic",
+  legs: "leather-leggings",
+  feet: "leather-boots",
+  offhand: null,
+};
+
 const CAT_WEAPON: ItemCategory = "weapon";
 const CAT_TOOL: ItemCategory = "tool";
 const CAT_ARMOR: ItemCategory = "armor";
@@ -33,7 +49,7 @@ const CAT_CONSUMABLE: ItemCategory = "consumable";
 const CAT_MATERIAL: ItemCategory = "material";
 
 export const ITEM_CATALOG: readonly ItemDef[] = [
-  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "splatter" },
+  { id: "sword", name: "Iron Sword", category: CAT_WEAPON, maxStack: 1, damage: 18, staminaCost: 12, range: 1.85, arcRad: 1.75, goreStyle: "thin-streak" },
   { id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, damage: 22, staminaCost: 14, range: 11, goreStyle: "drip" },
   { id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, goreStyle: "chunk-spray" },
   { id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: "chunk-spray" },
@@ -62,14 +78,11 @@ export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [
   { slot: 4, itemId: "bandage", count: 3 },
   { slot: 8, itemId: "map", count: 1 },
   { slot: 9, itemId: "leather-hood", count: 1 },
-  { slot: 10, itemId: "leather-tunic", count: 1 },
   { slot: 11, itemId: "wood", count: 8 },
   { slot: 12, itemId: "stone", count: 6 },
   { slot: 13, itemId: "flint", count: 4 },
   { slot: 14, itemId: "raw-meat", count: 3 },
   { slot: 15, itemId: "herb", count: 4 },
-  { slot: 16, itemId: "leather-boots", count: 1 },
-  { slot: 17, itemId: "leather-leggings", count: 1 },
   { slot: 18, itemId: "wooden-shield", count: 1 },
 ];
 

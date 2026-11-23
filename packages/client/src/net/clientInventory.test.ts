@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { createStarterInventorySnapshot, reconcileInventorySnapshot } from "./clientInventory.js";
 
 describe("reconcileInventorySnapshot", () => {
+  it("equips starter chest, legs, and feet armor without helmet by default", () => {
+    const starter = createStarterInventorySnapshot();
+    expect(starter.armor).toEqual({
+      head: null,
+      chest: "leather-tunic",
+      legs: "leather-leggings",
+      feet: "leather-boots",
+      offhand: null,
+    });
+  });
+
   it("ignores stale pre-ack snapshots while preserving campfire updates", () => {
     const optimistic = { ...createStarterInventorySnapshot(), selectedHotbar: 1, nearCampfire: true };
     const staleServer = { ...createStarterInventorySnapshot(), selectedHotbar: 0, nearCampfire: false, ackSeq: 1 };

@@ -48,10 +48,11 @@ export function resolveEventElev(
   return match?.elevation ?? local?.elevation ?? 0;
 }
 
-export function buildGoreSpawn(ev: WorldEvent, elevation: number) {
+export function buildGoreSpawn(ev: WorldEvent, elevation: number, cache?: WorldChunkCache) {
   return {
     x: ev.x, y: ev.y, elevation,
     dirX: ev.dirX ?? 0, dirY: ev.dirY ?? 1,
     style: ev.goreStyle!, substance: ev.substance!,
+    fatal: ev.fatal, comboStep: ev.comboStep, sweepDir: ev.sweepDir, cache,
   };
 }

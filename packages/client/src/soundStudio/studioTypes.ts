@@ -28,6 +28,13 @@ export function createDefaultTrack(kind: TrackKind, index: number): SoundTrackSp
       enabled: true, solo: false,
     };
   }
+  if (kind === "vocal") {
+    return {
+      id, name: `Vocal Growl ${index}`, kind, wave: "sawtooth", filterType: "bandpass", noiseColor: "pink",
+      f0: 165, f1: 95, q: 3.5, delaySec: 0, durationSec: 0.34, attackSec: 0.018, holdSec: 0.12, gain: 0.36, pan: 0,
+      enabled: true, solo: false,
+    };
+  }
   return {
     id, name: `Noise Burst ${index}`, kind, wave: "sine", filterType: "bandpass", noiseColor: "white",
     f0: 950, f1: 950, q: 1.1, delaySec: 0, durationSec: 0.08, attackSec: 0.012, holdSec: 0, gain: 0.14, pan: 0,

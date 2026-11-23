@@ -1,5 +1,5 @@
 /** Self-contained local client-side sandbox world simulation (chests, combat, player, lineup). */
-import { STARTER_LOADOUT, getItemDef, maxStackForItem } from "@dc2d/content";
+import { STARTER_ARMOR, STARTER_LOADOUT, getItemDef, maxStackForItem } from "@dc2d/content";
 import {
   CHEST_SLOT_COUNT, DEFAULT_APPEARANCE, MAX_PLAYER_HP, MAX_PLAYER_STAMINA,
   createEmptyChestSlots, createEmptyInventoryState, equipArmorFromSlot,
@@ -22,7 +22,7 @@ export interface SandboxStepInput {
   readonly dt: number;
   readonly timeSec: number;
   readonly move: { readonly x: number; readonly y: number };
-  readonly aim: { readonly x: number; readonly y: number };
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly attack: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
@@ -54,7 +54,7 @@ const SANDBOX_CHEST_SPECS: readonly { readonly id: string; readonly poiKind: "ba
 function createStarterInv(): PlayerInventoryState {
   const base = createEmptyInventoryState();
   for (const item of STARTER_LOADOUT) base.slots[item.slot] = { itemId: item.itemId, count: item.count };
-  return { slots: base.slots, armor: { ...base.armor, offhand: "wooden-shield" } };
+  return { slots: base.slots, armor: { ...STARTER_ARMOR, offhand: "wooden-shield" } };
 }
 
 function createSandboxChests(): WorldChestSnapshot[] {
@@ -89,7 +89,8 @@ export class SandboxSim {
   private facing: SandboxFacing = "auto";
   private aiLive = false;
   private player: PlayerSnapshot;
-  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0 };
+  private pendingEvents: WorldEvent[] = [];
+  private readonly timers: PlayerMoveTimers = { dodgeTimer: 0, swingTimer: 0, comboResetTimer: 0, bowChargeSec: 0, invulnTimer: 0 };
 
   constructor() {
     this.player = this.initialPlayer();
@@ -112,10 +113,24 @@ export class SandboxSim {
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } {
     return { x: this.player.x, y: this.player.y, elevation: this.player.elevation };
   }
+  isInCombatAim(): boolean { return (this.player.swingProgress ?? 0) > 0 || (this.player.bowCharge ?? 0) > 0.05; }
   isAiLive(): boolean { return this.aiLive; }
   setPose(pose: SandboxPose): void { this.pose = pose; this.aiLive = false; }
   setFacing(facing: SandboxFacing): void { this.facing = facing; this.aiLive = false; }
-  setAiLive(live: boolean): void { this.aiLive = live; for (const a of this.actors) if (live && !isDummyKind(a.snap.kind)) a.awake = true; }
+  private queueAlert(a: SandboxActor): void {
+    this.pendingEvents.push({
+      kind: "creatureVocal", x: a.snap.x, y: a.snap.y, actorId: a.snap.id, entityKind: a.snap.kind, vocalKind: "alert",
+    });
+  }
+
+  setAiLive(live: boolean): void {
+    this.aiLive = live;
+    if (!live) return;
+    const liveActors = this.actors.filter((a) => !isDummyKind(a.snap.kind) && a.snap.hp > 0);
+    for (const a of liveActors) a.awake = true;
+    const near = [...liveActors].sort((a, b) => Math.hypot(a.snap.x - this.player.x, a.snap.y - this.player.y) - Math.hypot(b.snap.x - this.player.x, b.snap.y - this.player.y));
+    for (const a of near.slice(0, 2)) this.queueAlert(a);
+  }
 
   wakeNearest(): void {
     let best: SandboxActor | null = null; let bestD = 999;
@@ -124,11 +139,13 @@ export class SandboxSim {
       const d = Math.hypot(a.snap.x - this.player.x, a.snap.y - this.player.y);
       if (d < bestD) { bestD = d; best = a; }
     }
-    if (best) best.awake = true;
+    if (best) { best.awake = true; this.queueAlert(best); }
   }
 
   spawnWolfPack(): void {
-    this.actors.push(...createWolfPackActors(this.player.x, Math.max(4, this.player.y - 1.5), ++this.packSeq));
+    const pack = createWolfPackActors(this.player.x, Math.max(4, this.player.y - 1.5), ++this.packSeq);
+    this.actors.push(...pack);
+    if (pack[0]) this.queueAlert(pack[0]);
   }
 
   teleportTo(x: number, y: number): void {
@@ -143,6 +160,8 @@ export class SandboxSim {
     this.aiLive = false;
     this.pose = "idle";
     this.facing = "auto";
+    this.timers.invulnTimer = 0;
+    this.pendingEvents = [];
     this.player = this.initialPlayer();
   }
 
@@ -219,7 +238,7 @@ export class SandboxSim {
     readonly projectiles: readonly ProjectileSnapshot[];
     readonly events: readonly WorldEvent[];
   } {
-    const events: WorldEvent[] = [];
+    const events: WorldEvent[] = this.pendingEvents.splice(0);
     this.player = advanceSandboxPlayer({ player: this.player, cache: this.cache, timers: this.timers, input });
     this.player = advanceSandboxBow({
       player: this.player, timers: this.timers, input,
@@ -232,7 +251,7 @@ export class SandboxSim {
     events.push(...stepSandboxActors({
       actors: this.actors, player: this.player, pose: this.pose, facing: this.facing, aiLive: this.aiLive,
       dt: input.dt, timeSec: input.timeSec,
-      onHitPlayer: () => { const h = applySandboxPlayerHit(this.player, 8); this.player = h.nextPlayer; return h.event; },
+      onHitPlayer: () => { const h = applySandboxPlayerHit(this.player, this.timers, 8); if (!h) return null; this.player = h.nextPlayer; return h.event; },
     }));
     return {
       player: this.player,

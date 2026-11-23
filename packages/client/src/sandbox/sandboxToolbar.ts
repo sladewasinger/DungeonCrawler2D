@@ -37,6 +37,7 @@ export interface SandboxToolbarActions {
   readonly onZoom: (factor: number) => void;
   readonly onJumpGallery: () => void;
   readonly onJumpTerrain: () => void;
+  readonly onTogglePoseTuner: () => void;
   readonly onReset: () => void;
 }
 
@@ -86,6 +87,7 @@ function buildOptionGroup<T extends string>(opts: {
 export class SandboxToolbar {
   readonly el: HTMLDivElement;
   private readonly aiBtn: HTMLButtonElement;
+  private readonly tunerBtn: HTMLButtonElement;
   private readonly poseBtns = new Map<SandboxPose, HTMLButtonElement>();
   private readonly facingBtns = new Map<SandboxFacing, HTMLButtonElement>();
   private readonly timeBtns: { readonly phase: number; readonly btn: HTMLButtonElement }[] = [];
@@ -97,6 +99,7 @@ export class SandboxToolbar {
     const badge = domNode("span", "ow-sbx-title");
     badge.textContent = `SANDBOX (${spriteCount} PNGs)`;
     this.aiBtn = makeBtn("AI: Frozen", actions.onToggleAi);
+    this.tunerBtn = makeBtn("Pose Tuner", actions.onTogglePoseTuner);
     const poseGrp = buildOptionGroup({ label: "Pose", items: POSES, map: this.poseBtns, onSelect: actions.onSetPose });
     const dirGrp = buildOptionGroup({ label: "Dir", items: FACINGS, map: this.facingBtns, onSelect: actions.onSetFacing });
     const titleLink = domNode("a", "ow-sbx-link");
@@ -106,7 +109,7 @@ export class SandboxToolbar {
       badge, this.aiBtn, makeBtn("Wake Nearest", actions.onWakeNearest), makeBtn("Spawn Wolf Pack", actions.onSpawnPack),
       poseGrp, dirGrp, this.buildTimeGroup(actions.onSetDayPhase),
       buildZoomGroup(actions.onZoom), buildJumpGroup(actions.onJumpGallery, actions.onJumpTerrain),
-      makeBtn("Reset Arena", actions.onReset), titleLink,
+      this.tunerBtn, makeBtn("Reset Arena", actions.onReset), titleLink,
     );
     host.append(this.el);
   }
@@ -124,9 +127,13 @@ export class SandboxToolbar {
     return grp;
   }
 
-  sync(opts: { readonly aiLive: boolean; readonly pose: SandboxPose; readonly facing: SandboxFacing; readonly dayPhase: number }): void {
+  sync(opts: {
+    readonly aiLive: boolean; readonly pose: SandboxPose; readonly facing: SandboxFacing;
+    readonly dayPhase: number; readonly poseTunerOpen?: boolean | undefined;
+  }): void {
     this.aiBtn.textContent = opts.aiLive ? "AI: Live" : "AI: Frozen";
     this.aiBtn.dataset.active = String(opts.aiLive);
+    this.tunerBtn.dataset.active = String(Boolean(opts.poseTunerOpen));
     for (const [id, btn] of this.poseBtns) btn.dataset.active = String(!opts.aiLive && opts.pose === id);
     for (const [id, btn] of this.facingBtns) btn.dataset.active = String(!opts.aiLive && opts.facing === id);
     for (const t of this.timeBtns) t.btn.dataset.active = String(Math.abs(opts.dayPhase - t.phase) < 0.08);

@@ -106,4 +106,37 @@ describe("combatSim", () => {
     expect(bAfterHeal.hp).toBeLessThanOrEqual(100);
     expect(must(sim.snapshots().find((p) => p.id === a)).x).toBeGreaterThan(SANCTUARY_CENTER.x + 5);
   });
+
+  it("holds fallen player in downed state with hitTimer before sanctuary respawn", () => {
+    const sim = new WorldSim(1337);
+    const a = sim.addPlayer("Attacker");
+    const b = sim.addPlayer("Victim");
+    let seqA = advanceMove({ sim, id: a, moveX: 1, moveY: 0, steps: 32, seqStart: 1 });
+    sim.queueInput(a, { seq: seqA++, moveX: 0, moveY: 0 });
+    let seqB = advanceMove({ sim, id: b, moveX: 1, moveY: 0, steps: 33, seqStart: 1 });
+    sim.queueInput(b, { seq: seqB++, moveX: 0, moveY: 0 });
+    sim.selectHotbar(a, 0);
+    for (let i = 0; i < 24; i++) {
+      sim.queueInput(a, { seq: seqA++, moveX: 0, moveY: 0, aimX: 1, aimY: 0, attack: true });
+      for (let s = 0; s < 6; s++) sim.step();
+      if ((must(sim.snapshots().find((p) => p.id === b)).hp ?? 100) <= 0) break;
+    }
+    const fallen = must(sim.snapshots().find((p) => p.id === b));
+    expect(fallen.hp).toBe(0);
+    expect(fallen.respawnTimer).toBeGreaterThan(1.0);
+    expect(fallen.hitTimer).toBeGreaterThan(0);
+    expect(fallen.x).toBeGreaterThan(SANCTUARY_CENTER.x + 5);
+
+    sim.queueInput(b, { seq: seqB++, moveX: 1, moveY: 0 });
+    sim.step();
+    expect(must(sim.snapshots().find((p) => p.id === b)).x).toBeCloseTo(fallen.x, 3);
+
+    sim.queueInput(b, { seq: seqB, moveX: 0, moveY: 0 });
+    sim.drainCombatEvents();
+    for (let i = 0; i < 36; i++) sim.step();
+    const revived = must(sim.snapshots().find((p) => p.id === b));
+    expect(revived.respawnTimer).toBe(0);
+    expect(revived.hp).toBe(revived.maxHp);
+    expect(revived.x).toBeCloseTo(SANCTUARY_CENTER.x, 2);
+  });
 });

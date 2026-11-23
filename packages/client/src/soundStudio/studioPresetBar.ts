@@ -16,6 +16,7 @@ export function buildStudioTrackToolbar(opts: {
   const bar = document.createElement("div");
   bar.className = "st-bar";
   bar.append(
+    makeStudioBtn("+ Vocal Growl", () => opts.onAddTrack("vocal")),
     makeStudioBtn("+ Swept Noise", () => opts.onAddTrack("sweptNoise")),
     makeStudioBtn("+ Noise Burst", () => opts.onAddTrack("noise")),
     makeStudioBtn("+ Tone Osc", () => opts.onAddTrack("tone")),

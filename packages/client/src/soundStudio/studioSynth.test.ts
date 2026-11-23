@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CREATURE_VOCAL_KINDS, CREATURE_VOICE_KINDS } from "../audio/creatures/synthCreatureSfx.js";
 import { formatGameCodeSnippet, parseImportedPresetJson } from "./io/studioCodeExport.js";
 import { STUDIO_PRESETS } from "./studioPresets.js";
 import { mergePresetLibrary, tracksFingerprint, upsertSavedPreset } from "./studioStorage.js";
@@ -62,5 +63,16 @@ describe("soundStudio", () => {
     const snippet = formatGameCodeSnippet("Roundtrip", tracks);
     expect(snippet).toContain("playProceduralTracks");
     expect(snippet).toContain("ROUNDTRIP_TRACKS");
+  });
+
+  it("exposes all 45 creature vocal presets sourced from live creature specs", () => {
+    for (const kind of CREATURE_VOICE_KINDS) {
+      for (const vocal of CREATURE_VOCAL_KINDS) {
+        const preset = STUDIO_PRESETS.find((p) => p.id === `creature-${kind}-${vocal}`);
+        expect(preset).toBeDefined();
+        expect(preset?.tracks.length ?? 0).toBeGreaterThanOrEqual(1);
+      }
+    }
+    expect(STUDIO_PRESETS.filter((p) => p.id.startsWith("creature-"))).toHaveLength(45);
   });
 });

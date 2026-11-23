@@ -12,6 +12,7 @@ export const TRACK_COLORS: Readonly<Record<SoundTrackSpec["kind"], string>> = {
   tone: "#38bdf8",
   sweptNoise: "#fbbf24",
   noise: "#4ade80",
+  vocal: "#c084fc",
 };
 
 export function timelineSecToX(sec: number, width: number, spanSec: number): number {

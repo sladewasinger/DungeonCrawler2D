@@ -9,8 +9,18 @@ import type {
 } from "../textures/spriteManifest.js";
 
 const DIR_SOUTH: SpriteDirection = "south";
+const DIR_SE: SpriteDirection = "se";
 const DIR_SIDE: SpriteDirection = "side";
+const DIR_NE: SpriteDirection = "ne";
 const DIR_NORTH: SpriteDirection = "north";
+
+const OCTANT_BANDS: readonly { readonly min: number; readonly max: number; readonly dir: SpriteDirection }[] = [
+  { min: -90, max: -67.5, dir: DIR_NORTH },
+  { min: -67.5, max: -22.5, dir: DIR_NE },
+  { min: -22.5, max: 22.5, dir: DIR_SIDE },
+  { min: 22.5, max: 67.5, dir: DIR_SE },
+  { min: 67.5, max: 90, dir: DIR_SOUTH },
+];
 
 const STATE_IDLE: SpriteAnimState = "idle";
 const STATE_WALK: SpriteAnimState = "walk";
@@ -25,6 +35,8 @@ export interface SampledSpriteFrame {
 
 export interface AnimatorTrackState {
   prevState: SpriteAnimState | null;
+  lastDir: SpriteDirection | null;
+  lastFlipX: 1 | -1;
   lastAttackClip: LoadedSpriteClip | null;
   lastAttackFlipX: 1 | -1;
   lastAttackWasCharge: boolean;
@@ -38,6 +50,8 @@ export interface AnimatorTrackState {
 export function createAnimatorTrackState(): AnimatorTrackState {
   return {
     prevState: null,
+    lastDir: null,
+    lastFlipX: 1,
     lastAttackClip: null,
     lastAttackFlipX: 1,
     lastAttackWasCharge: false,
@@ -49,14 +63,62 @@ export function createAnimatorTrackState(): AnimatorTrackState {
   };
 }
 
-export function resolveFacingDirection(facingX: number, facingY: number): {
-  readonly dir: SpriteDirection;
-  readonly flipX: 1 | -1;
-} {
-  if (Math.abs(facingX) >= Math.abs(facingY) * 0.85) {
-    return { dir: DIR_SIDE, flipX: facingX < 0 ? -1 : 1 };
-  }
-  return { dir: facingY < 0 ? DIR_NORTH : DIR_SOUTH, flipX: 1 };
+function hashIdPhase(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return (h >>> 0) % 97;
+}
+
+function resolveAxisDir(ax: number, ay: number, prevDir: SpriteDirection | null): boolean {
+  if (prevDir === DIR_SIDE) return ay <= ax * 1.25;
+  if (prevDir === DIR_NORTH || prevDir === DIR_SOUTH) return ax > ay * 1.15;
+  return ax >= ay * 0.9;
+}
+
+function resolveVertDir(facingY: number, prevDir: SpriteDirection | null): SpriteDirection {
+  const prevVert = prevDir === DIR_NORTH || prevDir === DIR_SOUTH ? prevDir : null;
+  if (prevVert && Math.abs(facingY) <= 0.12) return prevVert;
+  return facingY < 0 ? DIR_NORTH : DIR_SOUTH;
+}
+
+function resolveFlipX(facingX: number, prevFlip: 1 | -1): 1 | -1 {
+  if (Math.abs(facingX) <= 0.15) return prevFlip;
+  return facingX < 0 ? -1 : 1;
+}
+
+function resolveFourDir(
+  facingY: number,
+  dims: { readonly ax: number; readonly ay: number; readonly flipX: 1 | -1; readonly prevDir: SpriteDirection | null },
+): { readonly dir: SpriteDirection; readonly flipX: 1 | -1 } {
+  if (resolveAxisDir(dims.ax, dims.ay, dims.prevDir)) return { dir: DIR_SIDE, flipX: dims.flipX };
+  return { dir: resolveVertDir(facingY, dims.prevDir), flipX: 1 };
+}
+
+export function resolveFacingDirection(
+  facingX: number,
+  facingY: number,
+  opts?: { readonly dir?: SpriteDirection | null; readonly flipX?: 1 | -1; readonly eightDir?: boolean },
+): { readonly dir: SpriteDirection; readonly flipX: 1 | -1 } {
+  const ax = Math.abs(facingX);
+  const ay = Math.abs(facingY);
+  const flipX = resolveFlipX(facingX, opts?.flipX ?? 1);
+  const prevDir = opts?.dir ?? null;
+  if (opts?.eightDir) return resolveEightDir(facingY, ax, { flipX, prevDir });
+  return resolveFourDir(facingY, { ax, ay, flipX, prevDir });
+}
+
+function pickOctantDir(deg: number, prevDir: SpriteDirection | null): SpriteDirection {
+  const prevBand = prevDir ? OCTANT_BANDS.find((b) => b.dir === prevDir) : undefined;
+  if (prevBand && deg >= prevBand.min - 6 && deg <= prevBand.max + 6) return prevBand.dir;
+  return OCTANT_BANDS.find((b) => deg >= b.min && deg <= b.max)?.dir ?? DIR_SOUTH;
+}
+
+function resolveEightDir(
+  facingY: number, ax: number, ctx: { readonly flipX: 1 | -1; readonly prevDir: SpriteDirection | null },
+): { readonly dir: SpriteDirection; readonly flipX: 1 | -1 } {
+  const dir = pickOctantDir(Math.atan2(facingY, ax) * (180 / Math.PI), ctx.prevDir);
+  const sideFlip: 1 | -1 = dir === DIR_NORTH || dir === DIR_SOUTH ? 1 : ctx.flipX;
+  return { dir, flipX: sideFlip };
 }
 
 export function resolveAnimState(input: {
@@ -106,7 +168,7 @@ function resolveFrameIndex(input: {
     return Math.min(introLen - 1, Math.floor(Math.max(0, input.snap.telegraphProgress) * introLen));
   }
   const { start, count } = resolveLoopSpan(input.clip, len);
-  const phase = Math.abs(input.snap.x * 0.37 + input.snap.y * 0.19);
+  const phase = hashIdPhase(input.snap.id);
   return start + (Math.floor(Math.max(0, input.timeSec) * input.clip.fps + phase) % count);
 }
 
@@ -169,6 +231,27 @@ function resolveTrackOutro(
   return sampleOutroFrame(track, opts.timeSec);
 }
 
+function supportsEightDir(animations: LoadedSpriteAnimations, state: SpriteAnimState): boolean {
+  const runFallback = state === STATE_RUN ? animations.clips[STATE_WALK] : undefined;
+  const byDir = animations.clips[state] ?? runFallback ?? animations.clips[STATE_IDLE];
+  return Boolean(byDir?.se || byDir?.ne);
+}
+
+function trackFacing(opts: {
+  readonly track: AnimatorTrackState | undefined;
+  readonly snap: WorldEntitySnapshot;
+  readonly eightDir: boolean;
+}) {
+  const res = resolveFacingDirection(opts.snap.facingX, opts.snap.facingY, {
+    dir: opts.track?.lastDir ?? null, flipX: opts.track?.lastFlipX ?? 1, eightDir: opts.eightDir,
+  });
+  if (opts.track) {
+    opts.track.lastDir = res.dir;
+    opts.track.lastFlipX = res.flipX;
+  }
+  return res;
+}
+
 export function sampleAnimatedFrame(input: {
   readonly animations: LoadedSpriteAnimations;
   readonly track?: AnimatorTrackState | undefined;
@@ -177,8 +260,8 @@ export function sampleAnimatedFrame(input: {
   readonly moving: boolean;
   readonly timeSec: number;
 }): SampledSpriteFrame | null {
-  const { dir, flipX } = resolveFacingDirection(input.snap.facingX, input.snap.facingY);
   const state = resolveAnimState({ snap: input.snap, dead: input.dead, moving: input.moving });
+  const { dir, flipX } = trackFacing({ track: input.track, snap: input.snap, eightDir: supportsEightDir(input.animations, state) });
   const clip = pickClipForState(input.animations, state, dir);
   const isCharge = input.snap.telegraphProgress <= 0 && input.snap.aiState === "charge";
   const outro = resolveTrackOutro(input.track, { state, isCharge, clip, flipX, timeSec: input.timeSec });

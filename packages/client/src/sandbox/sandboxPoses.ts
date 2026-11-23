@@ -24,7 +24,7 @@ export const LINEUP_SPECS: readonly LineupSpec[] = [
   { kind: "goblin", label: "Goblin", maxHp: 60, substance: "blood" },
   { kind: "orc", label: "Orc", maxHp: 120, substance: "blood" },
   { kind: "skeleton", label: "Skeleton", maxHp: 75, substance: "bone" },
-  { kind: "golem", label: "Golem", maxHp: 220, substance: "bone" },
+  { kind: "golem", label: "Golem", maxHp: 220, substance: "stone" },
   { kind: "dummy", label: "Dummy", maxHp: 100, substance: "straw" },
   { kind: "slime-dummy", label: "Slime Dummy", maxHp: 100, substance: "slime" },
   { kind: "spar-dummy", label: "Spar Dummy", maxHp: 120, substance: "straw" },
