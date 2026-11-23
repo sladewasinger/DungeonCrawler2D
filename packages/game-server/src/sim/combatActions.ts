@@ -30,6 +30,7 @@ export interface PlayerCombatState {
   hitTimer: number;
   respawnTimer: number;
   actionCooldown: number;
+  pebbleCooldown: number;
 }
 
 export interface CombatPlayerRef {
@@ -43,6 +44,11 @@ export interface CombatPlayerRef {
   aimY: number;
   selectedHotbar: number;
   moving?: boolean;
+  crouching?: boolean;
+  stealthVis?: number;
+  inCover?: boolean;
+  noiseRadius?: number;
+  visibility?: number;
   inWater?: boolean;
   inDeepWater?: boolean;
   inventory: PlayerInventoryState;
@@ -54,7 +60,7 @@ export function createCombatState(): PlayerCombatState {
     hp: MAX_PLAYER_HP, maxHp: MAX_PLAYER_HP, stamina: MAX_PLAYER_STAMINA, maxStamina: MAX_PLAYER_STAMINA,
     comboStep: 0, comboResetTimer: 0, swingTimer: 0, swingDuration: 0.26, bowCharge: 0,
     blocking: false, blockElapsed: 0, dodgeTimer: 0, dodgeCooldown: 0, dodgeDirX: 0, dodgeDirY: 1,
-    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, hitTimer: 0, respawnTimer: 0, actionCooldown: 0,
+    invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, hitTimer: 0, respawnTimer: 0, actionCooldown: 0, pebbleCooldown: 0,
   };
 }
 
@@ -69,6 +75,7 @@ function decayCombatTimers(c: PlayerCombatState, dt: number): void {
   c.bleedTimer = Math.max(0, c.bleedTimer - dt);
   c.hitTimer = Math.max(0, c.hitTimer - dt);
   c.actionCooldown = Math.max(0, c.actionCooldown - dt);
+  c.pebbleCooldown = Math.max(0, c.pebbleCooldown - dt);
 }
 
 function isBlockReady(c: PlayerCombatState): boolean {

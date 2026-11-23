@@ -1,37 +1,30 @@
-/** Diegetic overhead pixel indicators and sprite concealment/feed tells for creature AI states. */
-import type { WorldEntitySnapshot } from "@dc2d/engine";
+/** Diegetic 3-stage perception & behavior indicators (?, brief ! pop, distinct Attack Windup/Charge, Flank, Feed). */
+import { JUMP_VISUAL_PX_PER_TILE, type WorldEntitySnapshot } from "@dc2d/engine";
 import { Container, Graphics } from "pixi.js";
 
-export type AiIndicatorKind = "alert" | "charge" | "investigate" | "flank" | "feed";
+export type AiIndicatorKind = "spotted" | "windup" | "charge" | "investigate" | "flank" | "feed";
 
-const IND_ALERT: AiIndicatorKind = "alert";
+const IND_SPOTTED: AiIndicatorKind = "spotted";
+const IND_WINDUP: AiIndicatorKind = "windup";
 const IND_CHARGE: AiIndicatorKind = "charge";
 const IND_INVESTIGATE: AiIndicatorKind = "investigate";
 const IND_FLANK: AiIndicatorKind = "flank";
 const IND_FEED: AiIndicatorKind = "feed";
 const INK = 0x0f172a;
-const CALM_STATES = new Set<string>(["idle", "patrol", "ambush", "return"]);
 
-const DIRECT_INDICATOR_MAP: Partial<Record<string, AiIndicatorKind>> = {
-  [IND_CHARGE]: IND_CHARGE,
-  [IND_ALERT]: IND_ALERT,
+const STATE_MARKER_MAP: Partial<Record<string, AiIndicatorKind>> = {
   [IND_INVESTIGATE]: IND_INVESTIGATE,
   [IND_FLANK]: IND_FLANK,
   [IND_FEED]: IND_FEED,
 };
 
-function resolveIndicatorKind(opts: {
-  readonly snap: WorldEntitySnapshot; readonly dead: boolean;
-  readonly timeSec: number; readonly chasePopUntilSec: number;
-}): AiIndicatorKind | null {
-  const { snap, dead, timeSec, chasePopUntilSec } = opts;
+function resolveIndicatorKind(snap: WorldEntitySnapshot, dead: boolean): AiIndicatorKind | null {
   if (dead) return null;
   const state = snap.aiState ?? "idle";
   if (state === IND_CHARGE) return IND_CHARGE;
-  if (snap.telegraphProgress > 0) return IND_ALERT;
-  const direct = DIRECT_INDICATOR_MAP[state];
-  if (direct) return direct;
-  return state === "chase" && timeSec < chasePopUntilSec ? IND_ALERT : null;
+  if (snap.telegraphProgress > 0) return IND_WINDUP;
+  if (snap.spottedPop || state === "alert") return IND_SPOTTED;
+  return STATE_MARKER_MAP[state] ?? null;
 }
 
 function drawExclamation(g: Graphics, ox: number, fill: number): void {
@@ -39,6 +32,12 @@ function drawExclamation(g: Graphics, ox: number, fill: number): void {
   g.rect(ox - 2, -4, 4, 4).fill(INK);
   g.rect(ox - 1, -11, 2, 5).fill(fill);
   g.rect(ox - 1, -3, 2, 2).fill(fill);
+}
+
+function drawWindupDiamond(g: Graphics): void {
+  g.poly([0, -13, 5, -7, 0, -1, -5, -7], true).fill(INK);
+  g.poly([0, -11.5, 3.6, -7, 0, -2.5, -3.6, -7], true).fill(0xef4444);
+  g.poly([0, -9.5, 1.8, -7, 0, -4.5, -1.8, -7], true).fill(0xfef08a);
 }
 
 function drawQuestionMark(g: Graphics): void {
@@ -65,7 +64,8 @@ function drawFeedDots(g: Graphics): void {
 }
 
 const INDICATOR_DRAWERS: Record<AiIndicatorKind, (g: Graphics) => void> = {
-  alert: (g) => drawExclamation(g, 0, 0xf97316),
+  spotted: (g) => drawExclamation(g, 0, 0xf97316),
+  windup: drawWindupDiamond,
   charge: (g) => { drawExclamation(g, -2.5, 0xef4444); drawExclamation(g, 2.5, 0xfef08a); },
   investigate: drawQuestionMark,
   flank: drawFlankChevrons,
@@ -88,8 +88,6 @@ export class AiIndicatorView {
   private readonly gfx = new Graphics();
   private readonly baseY: number;
   private drawnKind: AiIndicatorKind | null = null;
-  private prevAiState = "idle";
-  private chasePopUntilSec = 0;
 
   constructor(hpTopY: number) {
     this.baseY = hpTopY - 2;
@@ -101,17 +99,13 @@ export class AiIndicatorView {
     readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly dead: boolean; readonly hpVisible: boolean;
   }): void {
     const { snap, timeSec, dead, hpVisible } = opts;
-    const state = snap.aiState ?? "idle";
-    if (CALM_STATES.has(this.prevAiState) && state === "chase") {
-      this.chasePopUntilSec = timeSec + 1.2;
-    }
-    this.prevAiState = state;
-    const kind = resolveIndicatorKind({ snap, dead, timeSec, chasePopUntilSec: this.chasePopUntilSec });
+    const kind = resolveIndicatorKind(snap, dead);
     this.container.visible = kind !== null;
-    if (!kind) return;
+    if (!kind) { this.drawnKind = null; return; }
     this.ensureDrawnKind(kind);
     const bob = kind === IND_INVESTIGATE ? Math.sin(timeSec * 4.5) * 1.4 : 0;
-    this.container.position.set(0, this.baseY - (hpVisible ? 5 : 0) + bob);
+    const jumpLift = (snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE;
+    this.container.position.set(0, this.baseY - (hpVisible ? 5 : 0) - jumpLift + bob);
     this.container.scale.set(this.computeScale(kind, snap.telegraphProgress, timeSec));
     this.container.alpha = kind === IND_FEED ? 0.72 + Math.abs(Math.sin(timeSec * 5)) * 0.28 : 1;
   }
@@ -125,7 +119,7 @@ export class AiIndicatorView {
 
   private computeScale(kind: AiIndicatorKind, telegraph: number, timeSec: number): number {
     if (kind === IND_CHARGE) return 1.05 + Math.abs(Math.sin(timeSec * 12)) * 0.22;
-    if (kind === IND_ALERT && telegraph > 0) return 1 + telegraph * 0.28;
+    if (kind === IND_WINDUP) return 0.96 + telegraph * 0.36;
     if (kind === IND_FEED) return 0.92 + Math.abs(Math.sin(timeSec * 5)) * 0.14;
     return 1;
   }

@@ -106,11 +106,25 @@ export class CombatVfxLayer {
   }
 
   private handleFeedbackEvent(ev: WorldEvent): void {
-    if (ev.kind === "block") this.spawnBurst({ x: ev.x, y: ev.y, color: 0x93c5fd, radius: 9, text: "BLOCK" });
-    else if (ev.kind === "heal") this.spawnPopup({ x: ev.x, y: ev.y - 0.9, label: `+${Math.round(ev.value ?? 20)}`, color: 0x4ade80 });
-    else if (ev.kind === "dodge") this.spawnBurst({ x: ev.x, y: ev.y, color: 0xcbd5e1, radius: 7, text: "" });
-    else if (ev.kind === "arrowRicochet") this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" });
-    else if (ev.kind === "arrowEmbed") this.spawnStuckArrow(ev);
+    const bursts: Partial<Record<WorldEvent["kind"], () => void>> = {
+      block: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0x93c5fd, radius: 9, text: "BLOCK" }),
+      heal: () => this.spawnPopup({ x: ev.x, y: ev.y - 0.9, label: `+${Math.round(ev.value ?? 20)}`, color: 0x4ade80 }),
+      dodge: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xcbd5e1, radius: 7, text: "" }),
+      arrowRicochet: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfde047, radius: 7, text: "" }),
+      arrowEmbed: () => this.spawnStuckArrow(ev),
+      distract: () => this.spawnNoiseRipple(ev),
+      backstab: () => this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "BACKSTAB!" }),
+    };
+    bursts[ev.kind]?.();
+  }
+
+  private spawnNoiseRipple(ev: WorldEvent): void {
+    const g = new Graphics();
+    g.circle(0, 0, 6).stroke({ color: 0xfde047, width: 1.2, alpha: 0.75 });
+    g.circle(0, 0, 12).stroke({ color: 0xfde047, width: 0.9, alpha: 0.45 });
+    g.position.set(ev.x * TILE_PX, ev.y * TILE_PX - 2);
+    this.container.addChild(g);
+    this.slashes.push({ g, age: 0, ttl: 0.65, baseAngle: 0, spec: null, actorId: undefined });
   }
 
   private spawnStuckArrow(ev: WorldEvent): void {

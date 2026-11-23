@@ -1,7 +1,7 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
 import { STARTER_ARMOR } from "@dc2d/content";
 import {
-  COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, WorldChunkCache, resolveMovement, stepJumpArc,
+  COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, STEALTH_TUNING, WorldChunkCache, resolveMovement, stepJumpArc,
   type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
@@ -67,6 +67,7 @@ function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
     blocking: serverMe.blocking, dodging: serverMe.dodging, invulnTimer: serverMe.invulnTimer,
     staggerTimer: serverMe.staggerTimer, bleedTimer: serverMe.bleedTimer,
     hitTimer: serverMe.hitTimer, respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary,
+    stealthVis: serverMe.stealthVis, inCover: serverMe.inCover,
     inWater: Boolean(serverMe.inWater), inDeepWater: Boolean(serverMe.inDeepWater),
   };
 }
@@ -106,7 +107,8 @@ function waterSpeedMultiplier(player: PlayerSnapshot): number {
 }
 
 function movementMultiplier(player: PlayerSnapshot): number {
-  return baseActionMultiplier(player) * waterSpeedMultiplier(player);
+  const crouchMult = player.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
+  return baseActionMultiplier(player) * waterSpeedMultiplier(player) * crouchMult;
 }
 
 const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0) > 0 || (p.staggerTimer ?? 0) > 0;
@@ -116,23 +118,26 @@ export function predictLocalPlayerMove(input: {
   readonly nx: number; readonly ny: number; readonly dt: number;
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
   readonly jump?: boolean | undefined;
+  readonly crouch?: boolean | undefined;
 }): PlayerSnapshot {
-  if (isPlayerImmobilized(input.player)) return { ...input.player, moving: false, sprinting: false };
-  const wantsJump = Boolean(input.jump) && !input.player.inDeepWater;
-  const arc = stepJumpArc({ jumpZ: input.player.jumpZ ?? 0, jumpVz: input.player.jumpVz ?? 0 }, wantsJump, input.dt);
+  const curPlayer = input.crouch !== undefined ? { ...input.player, crouching: input.crouch } : input.player;
+  if (isPlayerImmobilized(curPlayer)) return { ...curPlayer, moving: false, sprinting: false };
+  const wantsJump = Boolean(input.jump) && !curPlayer.inDeepWater;
+  const arc = stepJumpArc({ jumpZ: curPlayer.jumpZ ?? 0, jumpVz: curPlayer.jumpVz ?? 0 }, wantsJump, input.dt);
   const mag = Math.hypot(input.nx, input.ny);
-  const aimVec = resolveAim(input);
-  if (mag <= 0.05) return { ...input.player, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
-  const mult = movementMultiplier(input.player);
+  const aimVec = resolveAim({ ...input, player: curPlayer });
+  if (mag <= 0.05) return { ...curPlayer, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  const mult = movementMultiplier(curPlayer);
   const step = PLAYER_SPEED * mult * input.dt;
   const moved = resolveMovement({
-    cache: input.cache, x: input.player.x, y: input.player.y, dx: input.nx * step, dy: input.ny * step,
-    radius: PLAYER_RADIUS, elevation: input.player.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
+    cache: input.cache, x: curPlayer.x, y: curPlayer.y, dx: input.nx * step, dy: input.ny * step,
+    radius: PLAYER_RADIUS, elevation: curPlayer.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
   const nextJumpZ = Math.max(0, arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
-  const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(input.player.dodging) });
+  const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(curPlayer.dodging) });
   return {
-    ...input.player, x: moved.x, y: moved.y, elevation: moved.elevation, ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz,
+    ...curPlayer, x: moved.x, y: moved.y, elevation: moved.elevation, ...aimVec, jumpZ: nextJumpZ, jumpVz: arc.jumpVz,
+    crouching: sprinting ? false : Boolean(curPlayer.crouching),
     moving: true, sprinting, inWater: moved.inWater, inDeepWater: moved.inDeepWater,
   };
 }

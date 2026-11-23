@@ -106,7 +106,11 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const aim = resolveAimForTick({ ctx, combat, move, local: preLocal, entities: pre.entities });
-  ctx.client.stepInput({ move, dt: ctx.dt, aim, jump: ctx.input.consumeJump(), attack: combat.attack, bowDraw: combat.bowDraw, bowRelease: combat.bowRelease, block: combat.block, dodge: combat.dodge, dodgeDir: combat.dodgeDir, interact: combat.interact });
+  ctx.client.stepInput({
+    move, dt: ctx.dt, aim, jump: ctx.input.consumeJump(), attack: combat.attack, bowDraw: combat.bowDraw,
+    bowRelease: combat.bowRelease, block: combat.block, dodge: combat.dodge, dodgeDir: combat.dodgeDir,
+    crouch: combat.crouch, throwPebble: combat.throwPebble, interact: combat.interact,
+  });
   const view = ctx.client.snapshot();
   const frameEvents = [...pre.events, ...view.events];
   const dists = ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players, localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, events: frameEvents });

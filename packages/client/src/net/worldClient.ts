@@ -1,6 +1,6 @@
 /** Multiplayer WebSocket client with holistic action-ack gating, chest ops, and offline preview fallback. */
 import {
-  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, ServerMessageSchema, WorldChunkCache, isInSanctuary, wrapDayPhase,
+  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, ServerMessageSchema, WorldChunkCache, isInSanctuary, sampleStealthExposure, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type EntityKind, type GroundLootSnapshot, type InventorySnapshot,
   type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
@@ -15,38 +15,21 @@ import { RemotePlayerSmoother } from "./remoteInterp.js";
 import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 const INITIAL_DAY_PHASE = 0.62;
-const ACTION_FLAG_KEYS = ["jump", "attack", "bowDraw", "bowRelease", "block", "dodge", "interact"] as const;
+const ACTION_FLAG_KEYS = ["jump", "attack", "bowDraw", "bowRelease", "block", "dodge", "crouch", "throwPebble", "interact"] as const;
 export type ConnectionMode = "connecting" | "server" | "local";
-
 export interface StepInputFrame {
-  readonly move: { readonly x: number; readonly y: number };
-  readonly dt: number;
-  readonly aim?: { readonly x: number; readonly y: number } | undefined;
-  readonly jump?: boolean | undefined;
-  readonly attack?: boolean | undefined;
-  readonly bowDraw?: boolean | undefined;
-  readonly bowRelease?: boolean | undefined;
-  readonly block?: boolean | undefined;
-  readonly dodge?: boolean | undefined;
-  readonly dodgeDir?: { readonly x: number; readonly y: number } | undefined;
-  readonly interact?: boolean | undefined;
+  readonly move: { readonly x: number; readonly y: number }; readonly dt: number; readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  readonly jump?: boolean | undefined; readonly attack?: boolean | undefined; readonly bowDraw?: boolean | undefined;
+  readonly bowRelease?: boolean | undefined; readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
+  readonly dodgeDir?: { readonly x: number; readonly y: number } | undefined; readonly crouch?: boolean | undefined;
+  readonly throwPebble?: boolean | undefined; readonly interact?: boolean | undefined;
 }
-
 export interface WorldViewState {
-  readonly mode: ConnectionMode;
-  readonly dayPhase: number;
-  readonly dayPaused: boolean;
-  readonly cache: WorldChunkCache;
-  readonly players: readonly PlayerSnapshot[];
-  readonly localPlayerId: string;
-  readonly inventory: InventorySnapshot;
-  readonly localName: string;
-  readonly localAppearance: CharacterAppearance;
-  readonly projectiles: readonly ProjectileSnapshot[];
-  readonly entities: readonly WorldEntitySnapshot[];
-  readonly chests: readonly WorldChestSnapshot[];
-  readonly groundLoot: readonly GroundLootSnapshot[];
-  readonly events: readonly WorldEvent[];
+  readonly mode: ConnectionMode; readonly dayPhase: number; readonly dayPaused: boolean; readonly cache: WorldChunkCache;
+  readonly players: readonly PlayerSnapshot[]; readonly localPlayerId: string; readonly inventory: InventorySnapshot;
+  readonly localName: string; readonly localAppearance: CharacterAppearance; readonly projectiles: readonly ProjectileSnapshot[];
+  readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
+  readonly groundLoot: readonly GroundLootSnapshot[]; readonly events: readonly WorldEvent[];
 }
 
 function buildInputMessage(opts: {
@@ -204,6 +187,14 @@ export class WorldClient {
 
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } { return this.localPlayer; }
 
+  private stepLocalAtmosphere(dt: number): void {
+    const exp = sampleStealthExposure({ cache: this.cache, x: this.localPlayer.x, y: this.localPlayer.y, dayPhase: this.dayPhase, torchLit: this.localPlayer.torchLit, crouching: Boolean(this.localPlayer.crouching), moving: this.localPlayer.moving, sprinting: Boolean(this.localPlayer.sprinting) });
+    if (this.mode === "server") { this.localPlayer = { ...this.localPlayer, stealthVis: exp.visibility, inCover: exp.inCover }; return; }
+    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dt / DAY_DURATION_SECONDS);
+    this.localPlayer = { ...this.localPlayer, inSanctuary: isInSanctuary(this.localPlayer.x, this.localPlayer.y), stealthVis: exp.visibility, inCover: exp.inCover };
+    this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
+  }
+
   stepInput(input: StepInputFrame): void {
     const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
     const normAim = normalizeDirection(input.aim, false);
@@ -211,11 +202,8 @@ export class WorldClient {
     this.swing.step({ dt: input.dt, attack: Boolean(input.attack), heldId: heldItemForInventory(this.inventory), player: this.localPlayer, normAim, isServer: this.mode === "server", events: this.queuedEvents });
     const swingProgress = this.swing.activeProgress(this.localPlayer.swingProgress);
     if (this.mode === "server") this.send(buildInputMessage({ seq: ++this.seq, moveDir, normAim, input }));
-    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: { ...this.localPlayer, swingProgress }, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump });
-    if (this.mode === "server") return;
-    if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + input.dt / DAY_DURATION_SECONDS);
-    this.localPlayer = { ...this.localPlayer, inSanctuary: isInSanctuary(this.localPlayer.x, this.localPlayer.y) };
-    this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
+    this.localPlayer = predictLocalPlayerMove({ cache: this.cache, player: { ...this.localPlayer, swingProgress }, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump, crouch: input.crouch });
+    this.stepLocalAtmosphere(input.dt);
   }
 
   setCharacter(req: { readonly name: string; readonly appearance: CharacterAppearance }): void {

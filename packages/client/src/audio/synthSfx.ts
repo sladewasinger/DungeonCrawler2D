@@ -156,13 +156,22 @@ export function synthImpact(opts: {
 }
 
 export type CombatCueKind =
-  | "block" | "parry" | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph" | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave";
+  | "block" | "parry" | "bowDraw" | "arrowFire" | "arrowEmbed" | "arrowRicochet" | "dodge" | "telegraph"
+  | "heal" | "respawn" | "chestOpen" | "loot" | "playerLeave" | "distract" | "backstab";
 
 const SIMPLE_CUES: Partial<Record<CombatCueKind, (ctx: AudioContext, dst: AudioNode) => void>> = {
   arrowEmbed: (ctx, dst) => playNoiseBurst({ ctx, dst, duration: 0.08, freq: 420, filterType: FILTER_BP, gain: 0.14, q: 2.0 }),
   arrowRicochet: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 1580, f1: 980, duration: 0.14, gain: 0.15 });
     playNoiseBurst({ ctx, dst, duration: 0.09, freq: 2400, filterType: FILTER_BP, gain: 0.12, q: 3.0 });
+  },
+  distract: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_TRI, f0: 760, f1: 480, duration: 0.07, gain: 0.13 });
+    playNoiseBurst({ ctx, dst, duration: 0.06, freq: 1400, filterType: FILTER_BP, gain: 0.1, q: 2.5 });
+  },
+  backstab: (ctx, dst) => {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 980, f1: 1640, duration: 0.16, gain: 0.18 });
+    playNoiseBurst({ ctx, dst, duration: 0.1, freq: 2600, filterType: "highpass", gain: 0.14 });
   },
   parry: (ctx, dst) => {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 1180, f1: 1620, duration: 0.28, gain: AUDIO_TUNING.combat.parryGain });

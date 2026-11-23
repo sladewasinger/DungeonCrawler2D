@@ -62,6 +62,8 @@ export const ClientInputSchema = z.object({
   dodge: z.boolean().optional(),
   dodgeDirX: z.number().min(-1).max(1).optional(),
   dodgeDirY: z.number().min(-1).max(1).optional(),
+  crouch: z.boolean().optional(),
+  throwPebble: z.boolean().optional(),
   interact: z.boolean().optional(),
 });
 
@@ -148,6 +150,9 @@ export const PlayerSnapshotSchema = z.object({
   hitTimer: z.number().optional(),
   respawnTimer: z.number().optional(),
   inSanctuary: z.boolean().optional(),
+  crouching: z.boolean().optional(),
+  stealthVis: z.number().optional(),
+  inCover: z.boolean().optional(),
 });
 
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
@@ -184,6 +189,7 @@ export const WorldEntitySnapshotSchema = z.object({
   bleedTimer: z.number(),
   telegraphProgress: z.number(),
   aiState: z.enum(AI_STATES).optional(),
+  spottedPop: z.boolean().optional(),
   corpse: z.boolean().optional(),
   inWater: z.boolean().optional(),
   inDeepWater: z.boolean().optional(),
@@ -219,6 +225,7 @@ export const WorldEventSchema = z.object({
   kind: z.enum([
     "swing", "hit", "block", "parry", "arrowFire", "arrowEmbed", "arrowRicochet", "dodge",
     "heal", "respawn", "telegraph", "chestOpen", "loot", "creatureVocal", "playerLeave",
+    "distract", "backstab",
   ]),
   x: z.number(),
   y: z.number(),

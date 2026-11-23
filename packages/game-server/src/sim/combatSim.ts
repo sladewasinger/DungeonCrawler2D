@@ -2,9 +2,9 @@
 import { getItemDef } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, COMBO_SWING_SEC, COMBO_WINDOW_SEC, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC,
-  DODGE_IFRAME_SEC, DODGE_STAMINA_COST, PARRY_STAGGER_SEC, WorldChunkCache,
+  DODGE_IFRAME_SEC, DODGE_STAMINA_COST, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
   consumeItemFromSlots, evaluateBowShot, isInSanctuary,
-  type GoreStyle, type GroundLootSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type GoreStyle, type WorldEvent,
 } from "@dc2d/engine";
 import {
   applyIncomingPlayerHit, comboMultFor, finisherGore, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
@@ -34,6 +34,7 @@ export interface CombatInputFlags {
   readonly bowReleaseQueued: boolean;
   readonly blockHeld: boolean;
   readonly dodgeQueued: boolean;
+  readonly throwPebble?: boolean | undefined;
   readonly interactQueued?: boolean;
 }
 
@@ -56,6 +57,7 @@ export class CombatWorld {
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
     if (input.interactQueued) this.ecology.openChest(p, undefined, this.events);
     if (input.dodgeQueued && !p.inDeepWater) this.startInputDodge(p, input);
+    if (input.throwPebble) this.throwPebble(p, false);
     this.stepOffense({ p, players, input, dt });
   }
 
@@ -76,8 +78,30 @@ export class CombatWorld {
     if (heldId === "bow") { this.stepBowAction(p, input, dt); return; }
     p.combat.bowCharge = 0;
     if (!input.attackQueued) return;
-    if (heldId && tryHealConsumable(p, heldId, this.events)) return;
+    if (this.tryItemAction(p, heldId)) return;
     this.tryMeleeSwing(p, heldId, players);
+  }
+
+  private tryItemAction(p: CombatPlayerRef, heldId: string | null): boolean {
+    if (!heldId) return false;
+    if (heldId === "stone") return this.throwPebble(p, true);
+    return tryHealConsumable(p, heldId, this.events);
+  }
+
+  private throwPebble(p: CombatPlayerRef, consumeStone: boolean): boolean {
+    if (p.combat.pebbleCooldown > 0) return false;
+    if (consumeStone && !consumeItemFromSlots(p.inventory.slots, "stone", 1)) return false;
+    p.combat.pebbleCooldown = STEALTH_TUNING.pebbleCooldownSec;
+    let tx = p.x; let ty = p.y;
+    for (let i = 1; i <= 10; i++) {
+      const nx = p.x + p.aimX * (STEALTH_TUNING.pebbleRangeTiles * i / 10);
+      const ny = p.y + p.aimY * (STEALTH_TUNING.pebbleRangeTiles * i / 10);
+      if (this.cache.tileAt(Math.floor(nx), Math.floor(ny)).elevation > p.elevation) break;
+      tx = nx; ty = ny;
+    }
+    this.events.push({ kind: "distract", x: tx, y: ty, actorId: p.id });
+    this.ecology.emitNoise({ x: tx, y: ty, radius: STEALTH_TUNING.pebbleNoiseRadiusTiles, sourceId: p.id });
+    return true;
   }
 
   stepWorld(opts: { readonly players: Map<string, CombatPlayerRef>; readonly dt: number; readonly dayPhase: number; readonly timeSec: number }): void {
@@ -109,38 +133,16 @@ export class CombatWorld {
   }
 
   moveMultiplier(p: CombatPlayerRef): number {
-    return baseActionMult(p) * waterMoveMult(p);
+    return baseActionMult(p) * waterMoveMult(p) * (p.crouching ? STEALTH_TUNING.crouchSpeedMult : 1);
   }
 
-  pushEvent(ev: WorldEvent): void {
-    this.events.push(ev);
-  }
-
-  snapshots(): {
-    readonly projectiles: ProjectileSnapshot[];
-    readonly entities: WorldEntitySnapshot[];
-    readonly chests: WorldChestSnapshot[];
-    readonly groundLoot: GroundLootSnapshot[];
-  } {
+  pushEvent(ev: WorldEvent): void { this.events.push(ev); }
+  snapshots() {
     const eco = this.ecology.snapshots();
-    return {
-      entities: [...serializeDummies(this.dummies), ...eco.entities],
-      projectiles: serializeProjectiles(this.projectiles),
-      chests: eco.chests,
-      groundLoot: eco.groundLoot,
-    };
+    return { entities: [...serializeDummies(this.dummies), ...eco.entities], projectiles: serializeProjectiles(this.projectiles), chests: eco.chests, groundLoot: eco.groundLoot };
   }
-
-  drainEvents(): WorldEvent[] {
-    const out = this.events;
-    this.events = [];
-    return out;
-  }
-
-  debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void {
-    this.ecology.debugSpawnNearPlayer(p, kind, count);
-  }
-
+  drainEvents(): WorldEvent[] { const out = this.events; this.events = []; return out; }
+  debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void { this.ecology.debugSpawnNearPlayer(p, kind, count); }
   handleChestRequest(p: CombatPlayerRef, req:
     | { readonly t: "openChest"; readonly chestId: string }
     | { readonly t: "chestTransfer"; readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }
@@ -191,6 +193,7 @@ export class CombatWorld {
       elevation: p.elevation, charge: shot.ratio, damage: dmg, ttl: 0.95,
     });
     this.events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
+    this.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
   }
 
   private tryMeleeSwing(p: CombatPlayerRef, heldId: string | null, players: Map<string, CombatPlayerRef>): void {
@@ -208,6 +211,7 @@ export class CombatWorld {
     const sweepDir = c.comboStep === 2 ? -1 : 1;
     const goreStyle = finisherGore(stats.gore, c.comboStep);
     this.events.push({ kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, comboStep: c.comboStep });
+    this.ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 2.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
     resolveMeleeHits({
       attacker: p, players: players.values(), dummies: this.dummies, rawDamage,
       range: stats.range, halfArcRad: stats.halfArc, goreStyle, comboStep: c.comboStep, sweepDir, events: this.events,

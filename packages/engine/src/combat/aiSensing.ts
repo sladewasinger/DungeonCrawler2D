@@ -99,10 +99,18 @@ export interface PerceptionQuery {
     readonly y: number;
     readonly elevation: number;
     readonly moving: boolean;
+    readonly visibility?: number | undefined;
+    readonly noiseRadius?: number | undefined;
   };
   readonly visionRange: number;
   readonly halfConeRad: number;
   readonly hearRange: number;
+}
+
+function resolveEffectiveHear(opts: PerceptionQuery): number {
+  const nr = opts.target.noiseRadius;
+  if (nr !== undefined) return Math.min(opts.hearRange * 1.65, nr);
+  return opts.target.moving ? opts.hearRange : opts.hearRange * 0.55;
 }
 
 export function canPerceiveTarget(opts: PerceptionQuery): boolean {
@@ -110,9 +118,9 @@ export function canPerceiveTarget(opts: PerceptionQuery): boolean {
   const dx = target.x - observer.x;
   const dy = target.y - observer.y;
   const dist = Math.hypot(dx, dy);
-  if (dist > opts.visionRange) return false;
-  const effectiveHear = target.moving ? opts.hearRange : opts.hearRange * 0.55;
-  if (dist <= effectiveHear) {
+  const effectiveVision = opts.visionRange * (0.32 + 0.68 * (target.visibility ?? 1));
+  if (dist > Math.max(effectiveVision, resolveEffectiveHear(opts))) return false;
+  if (dist <= resolveEffectiveHear(opts)) {
     return Math.abs(observer.elevation - target.elevation) <= 1;
   }
   const dirMag = Math.max(0.01, Math.hypot(observer.facingX, observer.facingY));

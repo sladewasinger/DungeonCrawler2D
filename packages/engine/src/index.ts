@@ -158,3 +158,5 @@ export {
 export type { AiState, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";
 export { findTilePath } from "./combat/pathfinding.js";
 export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";
+export { STEALTH_TUNING, isBackstabAngle, sampleStealthExposure } from "./combat/stealthRules.js";
+export type { StealthExposure, StealthQuery } from "./combat/stealthRules.js";

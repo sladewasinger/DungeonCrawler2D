@@ -95,6 +95,8 @@ export class PlayerView {
     const swimming = Boolean(snap.inDeepWater && jumpZ <= 0.03);
     const fx = computePlayerCombatFx(snap, timeSec, Boolean(this.sprites.is3d));
     this.applyActorFx({ fx, jumpZ, jumpPx, swimming, timeSec });
+    this.actorGroup.scale.set(1, snap.crouching ? 0.88 : 1);
+    if (snap.crouching && snap.inCover) this.actorGroup.alpha = fx.alpha * 0.68;
     const barVisible = this.hpBar.sync({ snap, jumpPx, timeSec });
     this.label.position.y = (barVisible ? -32 : -27) - jumpPx;
   }

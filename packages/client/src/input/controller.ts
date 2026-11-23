@@ -25,6 +25,8 @@ export interface CombatInputsFrame {
   readonly block: boolean;
   readonly dodge: boolean;
   readonly dodgeDir: { readonly x: number; readonly y: number } | undefined;
+  readonly crouch: boolean;
+  readonly throwPebble: boolean;
   readonly interact: boolean;
   readonly mobileAim: { readonly x: number; readonly y: number } | undefined;
 }
@@ -41,6 +43,8 @@ export class InputController {
   private jumpQueued = false;
   private dodgeQueued = false;
   private dodgeDir: { readonly x: number; readonly y: number } | undefined;
+  private crouching = false;
+  private throwPebbleQueued = false;
   private interactQueued = false;
   private attackQueued = false;
   private bowReleaseQueued = false;
@@ -76,21 +80,42 @@ export class InputController {
   queueInteract(): void { this.interactQueued = true; }
   consumeJump(): boolean { const fired = this.jumpQueued; this.jumpQueued = false; return fired; }
 
+  private resolveBowDraw(mobBowDraw: boolean): boolean {
+    return mobBowDraw || (this.isBowHeld && this.leftMouseDown);
+  }
+
+  private resolveDodgeDir(): { readonly x: number; readonly y: number } | undefined {
+    return this.dodgeQueued ? this.dodgeDir : undefined;
+  }
+
   consumeCombat(): CombatInputsFrame {
     const mob = this.mobileCombat.consumeState();
-    const dodgeDir = this.dodgeQueued ? this.dodgeDir : undefined;
+    const dodge = this.dodgeQueued || mob.dodge;
+    const attack = this.attackQueued || mob.attack;
+    if (this.shouldCancelCrouch(dodge, attack)) this.syncCrouch(false);
     const out: CombatInputsFrame = {
-      attack: this.attackQueued || mob.attack,
-      bowDraw: (this.isBowHeld && this.leftMouseDown) || mob.bowDraw,
+      attack,
+      bowDraw: this.resolveBowDraw(mob.bowDraw),
       bowRelease: this.bowReleaseQueued || mob.bowRelease,
       block: this.isBlockHeld(mob.block),
-      dodge: this.dodgeQueued || mob.dodge,
-      dodgeDir,
+      dodge,
+      dodgeDir: this.resolveDodgeDir(),
+      crouch: this.crouching || mob.crouch,
+      throwPebble: this.throwPebbleQueued,
       interact: this.interactQueued,
       mobileAim: mob.aim,
     };
     this.clearQueuedCombat();
     return out;
+  }
+
+  private shouldCancelCrouch(dodge: boolean, attack: boolean): boolean {
+    return dodge || attack || this.down("ShiftLeft", "ShiftRight");
+  }
+
+  private syncCrouch(next: boolean): void {
+    this.crouching = next;
+    this.mobileCombat.setCrouching(next);
   }
 
   private isBlockHeld(mobileBlock: boolean): boolean {
@@ -112,11 +137,9 @@ export class InputController {
   }
 
   private clearQueuedCombat(): void {
-    this.attackQueued = false;
-    this.bowReleaseQueued = false;
-    this.dodgeQueued = false;
-    this.dodgeDir = undefined;
-    this.interactQueued = false;
+    this.attackQueued = false; this.bowReleaseQueued = false;
+    this.dodgeQueued = false; this.dodgeDir = undefined;
+    this.throwPebbleQueued = false; this.interactQueued = false;
   }
 
   private down(...codes: readonly string[]): boolean { return codes.some((c) => this.keys.has(c)); }
@@ -139,12 +162,22 @@ export class InputController {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
     if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return; }
     if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
-    if (e.code === "Space") { e.preventDefault(); this.jumpQueued = true; return; }
+    if (e.code === "Space") {
+      e.preventDefault();
+      this.jumpQueued = true;
+      this.syncCrouch(false);
+      return;
+    }
     if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
     const actions: Readonly<Record<string, () => void>> = {
       KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
-      KeyC: callbacks.onToggleCrafting, KeyH: callbacks.onToggleCharacter,
-      KeyF: callbacks.onToggleTorch, KeyM: () => callbacks.onToggleMap?.(), Escape: callbacks.onClosePanels,
+      KeyX: () => this.syncCrouch(!this.crouching),
+      KeyQ: () => { this.throwPebbleQueued = true; },
+      KeyC: callbacks.onToggleCrafting,
+      KeyH: callbacks.onToggleCharacter,
+      KeyF: callbacks.onToggleTorch,
+      KeyM: () => { callbacks.onToggleMap?.(); },
+      Escape: callbacks.onClosePanels,
     };
     actions[e.code]?.();
   }

@@ -1,4 +1,4 @@
-/** Touch-only right-hand combat action cluster: dynamic primary action, ROLL, and BLOCK. */
+/** Touch-only right-hand combat action cluster: dynamic primary action, SNEAK, ROLL, and BLOCK. */
 
 export interface MobileCombatState {
   readonly attack: boolean;
@@ -6,6 +6,7 @@ export interface MobileCombatState {
   readonly bowRelease: boolean;
   readonly block: boolean;
   readonly dodge: boolean;
+  readonly crouch: boolean;
   readonly aim: { readonly x: number; readonly y: number } | undefined;
 }
 
@@ -17,6 +18,7 @@ const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
   axe: "CHOP",
   pickaxe: "MINE",
   map: "MAP",
+  stone: "TOSS",
 };
 
 export function actionLabelForHeldItem(heldItem: string | null): string {
@@ -35,6 +37,7 @@ function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElem
 export class MobileCombatControls {
   private readonly atkBtn: HTMLButtonElement;
   private readonly rollBtn: HTMLButtonElement;
+  private readonly sneakBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
   private heldItem: string | null = null;
   private isBowHeld = false;
@@ -45,18 +48,25 @@ export class MobileCombatControls {
   private bowReleaseQueued = false;
   private dodgeQueued = false;
   private blockHeld = false;
+  private crouching = false;
 
   constructor(host: HTMLElement, private readonly onMapTap?: () => void) {
     const cluster = document.createElement("div");
     cluster.className = "ow-combat-cluster";
     this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Use held item or draw bow");
     this.rollBtn = makeCombatBtn("ow-roll-btn", "ROLL", "Dodge roll");
+    this.sneakBtn = makeCombatBtn("ow-roll-btn ow-sneak-btn", "SNEAK", "Toggle crouch sneak");
     this.blockBtn = makeCombatBtn("ow-block-btn", "BLOCK", "Raise shield block");
     this.blockBtn.hidden = true;
-    cluster.append(this.blockBtn, this.rollBtn, this.atkBtn);
+    cluster.append(this.blockBtn, this.sneakBtn, this.rollBtn, this.atkBtn);
     host.append(cluster);
     this.bindAtk();
     this.bindRollAndBlock();
+  }
+
+  setCrouching(next: boolean): void {
+    this.crouching = next;
+    this.sneakBtn.dataset.active = String(next);
   }
 
   setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
@@ -72,15 +82,10 @@ export class MobileCombatControls {
     const attack = this.attackQueued;
     const bowRelease = this.bowReleaseQueued;
     const dodge = this.dodgeQueued;
-    this.attackQueued = false;
-    this.bowReleaseQueued = false;
-    this.dodgeQueued = false;
+    this.attackQueued = false; this.bowReleaseQueued = false; this.dodgeQueued = false;
     return {
-      attack,
-      bowDraw: this.isBowHeld && this.atkPointerId !== null,
-      bowRelease,
-      block: this.blockHeld,
-      dodge,
+      attack, bowDraw: this.isBowHeld && this.atkPointerId !== null, bowRelease,
+      block: this.blockHeld, dodge, crouch: this.crouching,
       aim: this.atkPointerId !== null ? this.atkDragAim : undefined,
     };
   }
@@ -99,8 +104,7 @@ export class MobileCombatControls {
     this.atkBtn.addEventListener("pointermove", (e) => this.updateBowDrag(e));
     const finishAtk = (e: PointerEvent): void => {
       if (e.pointerId !== this.atkPointerId) return;
-      this.atkPointerId = null;
-      this.atkBtn.dataset.active = "false";
+      this.atkPointerId = null; this.atkBtn.dataset.active = "false";
       if (this.isBowHeld) this.bowReleaseQueued = true;
     };
     this.atkBtn.addEventListener("pointerup", finishAtk);
@@ -116,22 +120,13 @@ export class MobileCombatControls {
   }
 
   private bindRollAndBlock(): void {
-    this.rollBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      this.dodgeQueued = true;
-    });
-    this.blockBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      this.blockBtn.setPointerCapture?.(e.pointerId);
-      this.setBlockHeld(true);
-    });
+    this.rollBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.dodgeQueued = true; });
+    this.sneakBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.setCrouching(!this.crouching); });
+    this.blockBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.blockBtn.setPointerCapture?.(e.pointerId); this.setBlockHeld(true); });
     const endBlock = (): void => this.setBlockHeld(false);
     this.blockBtn.addEventListener("pointerup", endBlock);
     this.blockBtn.addEventListener("pointercancel", endBlock);
   }
 
-  private setBlockHeld(next: boolean): void {
-    this.blockHeld = next;
-    this.blockBtn.dataset.active = String(next);
-  }
+  private setBlockHeld(next: boolean): void { this.blockHeld = next; this.blockBtn.dataset.active = String(next); }
 }

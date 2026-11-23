@@ -1,7 +1,7 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement,
-  sanitizeCharacterAppearance, stepJumpArc, wrapDayPhase,
+  COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache, resolveMovement,
+  sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
   type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
@@ -36,6 +36,12 @@ interface SimPlayer {
   moveY: number;
   moving: boolean;
   sprinting: boolean;
+  crouching: boolean;
+  stealthVis: number;
+  inCover: boolean;
+  noiseRadius: number;
+  visibility: number;
+  sprintNoiseAcc: number;
   torchLit: boolean;
   inWater: boolean;
   inDeepWater: boolean;
@@ -50,6 +56,7 @@ interface SimPlayer {
   dodgeQueued: boolean;
   dodgeDirX: number | undefined;
   dodgeDirY: number | undefined;
+  throwPebbleQueued: boolean;
   interactQueued: boolean;
   readonly combat: PlayerCombatState;
 }
@@ -76,19 +83,16 @@ export class WorldSim {
       id, name, appearance: sanitizeCharacterAppearance(appearance),
       x: 0.5 + offset, y: 0.5, elevation: 0, facingX: 0, facingY: 1, aimX: 0, aimY: 1, hasExplicitAim: false,
       jumpZ: 0, jumpVz: 0, jumpQueued: false,
-      moveX: 0, moveY: 0, moving: false, sprinting: false, torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
+      moveX: 0, moveY: 0, moving: false, sprinting: false, crouching: false, stealthVis: 0.7, inCover: false, noiseRadius: 0.5, visibility: 0.7, sprintNoiseAcc: 0,
+      torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
-      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, dodgeDirX: undefined, dodgeDirY: undefined, interactQueued: false,
+      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, dodgeDirX: undefined, dodgeDirY: undefined, throwPebbleQueued: false, interactQueued: false,
       combat: createCombatState(),
     });
     return id;
   }
 
-  removePlayer(playerId: string): void {
-    const p = this.players.get(playerId);
-    if (p) this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
-    this.players.delete(playerId);
-  }
+  removePlayer(playerId: string): void { const p = this.players.get(playerId); if (p) this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id }); this.players.delete(playerId); }
   setPlayerName(playerId: string, name: string): void { const p = this.players.get(playerId); if (p) p.name = name; }
 
   setAppearance(playerId: string, req: { readonly name?: string | undefined; readonly appearance: CharacterAppearance }): void {
@@ -99,27 +103,34 @@ export class WorldSim {
   }
 
   queueInput(playerId: string, input: {
-    readonly seq: number; readonly moveX: number; readonly moveY: number;
-    readonly aimX?: number | undefined; readonly aimY?: number | undefined;
-    readonly jump?: boolean | undefined; readonly attack?: boolean | undefined;
-    readonly bowDraw?: boolean | undefined; readonly bowRelease?: boolean | undefined;
-    readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
+    readonly seq: number; readonly moveX: number; readonly moveY: number; readonly aimX?: number | undefined; readonly aimY?: number | undefined;
+    readonly jump?: boolean | undefined; readonly attack?: boolean | undefined; readonly bowDraw?: boolean | undefined;
+    readonly bowRelease?: boolean | undefined; readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
     readonly dodgeDirX?: number | undefined; readonly dodgeDirY?: number | undefined;
-    readonly interact?: boolean | undefined;
+    readonly crouch?: boolean | undefined; readonly throwPebble?: boolean | undefined; readonly interact?: boolean | undefined;
   }): void {
     const p = this.players.get(playerId);
     if (!p) return;
-    p.moveX = input.moveX;
-    p.moveY = input.moveY;
-    p.lastAckSeq = input.seq;
+    p.moveX = input.moveX; p.moveY = input.moveY; p.lastAckSeq = input.seq;
+    p.crouching = Boolean(input.crouch) && !input.dodge && !input.jump;
+    this.applyActionInputs(p, input);
+    applyAimInput(p, input);
+  }
+
+  private applyActionInputs(p: SimPlayer, input: {
+    readonly jump?: boolean | undefined; readonly attack?: boolean | undefined; readonly bowDraw?: boolean | undefined;
+    readonly bowRelease?: boolean | undefined; readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
+    readonly dodgeDirX?: number | undefined; readonly dodgeDirY?: number | undefined;
+    readonly throwPebble?: boolean | undefined; readonly interact?: boolean | undefined;
+  }): void {
+    p.bowDrawing = Boolean(input.bowDraw);
+    p.blockHeld = Boolean(input.block);
     if (input.jump) p.jumpQueued = true;
     if (input.attack) p.attackQueued = true;
-    p.bowDrawing = Boolean(input.bowDraw);
     if (input.bowRelease) p.bowReleaseQueued = true;
-    p.blockHeld = Boolean(input.block);
     if (input.dodge) { p.dodgeQueued = true; p.dodgeDirX = input.dodgeDirX; p.dodgeDirY = input.dodgeDirY; }
+    if (input.throwPebble) p.throwPebbleQueued = true;
     if (input.interact) p.interactQueued = true;
-    applyAimInput(p, input);
   }
 
   respawnPlayer(playerId: string): void { const p = this.players.get(playerId); if (p) this.combat.respawnPlayerNow(p); }
@@ -129,45 +140,19 @@ export class WorldSim {
   actionAckSeq(playerId: string): number { return this.players.get(playerId)?.lastActionAckSeq ?? 0; }
   selectHotbar(playerId: string, slot: number): void { const p = this.players.get(playerId); if (p && slot >= 0 && slot < HOTBAR_SLOT_COUNT) p.selectedHotbar = slot; }
   moveSlot(playerId: string, move: { readonly from: number; readonly to: number }): void { const p = this.players.get(playerId); if (p) movePlayerInventorySlot(p.inventory, move); }
-
-  equipArmor(playerId: string, req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }): void {
-    const p = this.players.get(playerId);
-    if (!p) return;
-    const updated = equipPlayerArmor(p.inventory, req);
-    if (updated) p.inventory = updated;
-  }
-
-  unequipArmor(playerId: string, req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }): void {
-    const p = this.players.get(playerId);
-    if (!p) return;
-    const updated = unequipPlayerArmor(p.inventory, req);
-    if (updated) p.inventory = updated;
-  }
-
+  equipArmor(playerId: string, req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }): void { const p = this.players.get(playerId); if (!p) return; const u = equipPlayerArmor(p.inventory, req); if (u) p.inventory = u; }
+  unequipArmor(playerId: string, req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }): void { const p = this.players.get(playerId); if (!p) return; const u = unequipPlayerArmor(p.inventory, req); if (u) p.inventory = u; }
   craftRecipe(playerId: string, recipeId: string): boolean {
     const p = this.players.get(playerId);
     if (!p) return false;
-    const updated = craftPlayerRecipe(p.inventory, { recipeId, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y) });
-    if (!updated) return false;
-    p.inventory = updated;
+    const u = craftPlayerRecipe(p.inventory, { recipeId, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y) });
+    if (!u) return false;
+    p.inventory = u;
     return true;
   }
-
-  debugSpawnNearPlayer(playerId: string, kind: Parameters<CombatWorld["debugSpawnNearPlayer"]>[1], count = 1): void {
-    const p = this.players.get(playerId);
-    if (p) this.combat.debugSpawnNearPlayer(p, kind, count);
-  }
-
-  handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void {
-    const p = this.players.get(playerId);
-    if (p) this.combat.handleChestRequest(p, req);
-  }
-
-  inventorySnapshot(playerId: string): InventorySnapshot | undefined {
-    const p = this.players.get(playerId);
-    if (!p) return undefined;
-    return buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq });
-  }
+  debugSpawnNearPlayer(playerId: string, kind: Parameters<CombatWorld["debugSpawnNearPlayer"]>[1], count = 1): void { const p = this.players.get(playerId); if (p) this.combat.debugSpawnNearPlayer(p, kind, count); }
+  handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void { const p = this.players.get(playerId); if (p) this.combat.handleChestRequest(p, req); }
+  inventorySnapshot(playerId: string): InventorySnapshot | undefined { const p = this.players.get(playerId); return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq }) : undefined; }
 
   step(dtSeconds = 1 / TICK_RATE): void {
     this.tick += 1;
@@ -178,25 +163,30 @@ export class WorldSim {
 
   private stepPlayer(p: SimPlayer, dtSeconds: number): void {
     const arc = stepJumpArc({ jumpZ: p.jumpZ, jumpVz: p.jumpVz }, p.jumpQueued && !p.inDeepWater, dtSeconds);
-    p.jumpZ = arc.jumpZ;
-    p.jumpVz = arc.jumpVz;
+    p.jumpZ = arc.jumpZ; p.jumpVz = arc.jumpVz;
     this.combat.stepPlayerAction({
       player: p, players: this.players, dt: dtSeconds,
-      input: {
-        moveX: p.moveX, moveY: p.moveY, attackQueued: p.attackQueued,
-        bowDrawing: p.bowDrawing, bowReleaseQueued: p.bowReleaseQueued,
-        blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued,
-        dodgeDirX: p.dodgeDirX, dodgeDirY: p.dodgeDirY, interactQueued: p.interactQueued,
-      },
+      input: { moveX: p.moveX, moveY: p.moveY, attackQueued: p.attackQueued, bowDrawing: p.bowDrawing, bowReleaseQueued: p.bowReleaseQueued, blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued, dodgeDirX: p.dodgeDirX, dodgeDirY: p.dodgeDirY, throwPebble: p.throwPebbleQueued, interactQueued: p.interactQueued },
     });
-    p.jumpQueued = false;
-    p.attackQueued = false;
-    p.bowReleaseQueued = false;
-    p.dodgeQueued = false;
+    p.jumpQueued = false; p.attackQueued = false; p.bowReleaseQueued = false; p.dodgeQueued = false;
     p.dodgeDirX = undefined;
     p.dodgeDirY = undefined;
+    p.throwPebbleQueued = false;
     p.interactQueued = false;
     this.movePlayer(p, dtSeconds);
+    this.updateStealthAndNoise(p, dtSeconds);
+  }
+
+  private updateStealthAndNoise(p: SimPlayer, dtSeconds: number): void {
+    if (p.sprinting) p.crouching = false;
+    const exp = sampleStealthExposure({ cache: this.cache, x: p.x, y: p.y, dayPhase: this.dayPhase, torchLit: p.torchLit, crouching: p.crouching, moving: p.moving, sprinting: p.sprinting });
+    p.stealthVis = exp.visibility; p.visibility = exp.visibility; p.inCover = exp.inCover; p.noiseRadius = exp.noiseRadius;
+    if (p.sprinting && !p.crouching) {
+      p.sprintNoiseAcc += dtSeconds;
+      if (p.sprintNoiseAcc >= 0.45) { p.sprintNoiseAcc = 0; this.combat.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.sprintNoiseRadiusTiles, sourceId: p.id }); }
+    } else {
+      p.sprintNoiseAcc = 0;
+    }
   }
 
   private movePlayer(p: SimPlayer, dtSeconds: number): void {
@@ -232,7 +222,8 @@ export class WorldSim {
       id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
       facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
       jumpZ: p.jumpZ, jumpVz: p.jumpVz,
-      moving: p.moving, sprinting: p.sprinting, torchLit: p.torchLit, inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
+      moving: p.moving, sprinting: p.sprinting, crouching: p.crouching, stealthVis: p.stealthVis, inCover: p.inCover,
+      torchLit: p.torchLit, inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
       heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
       appearance: p.appearance, armor: { ...p.inventory.armor },
       ...playerCombatExtras(p),

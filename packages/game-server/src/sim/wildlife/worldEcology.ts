@@ -1,18 +1,29 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, BLEED_DURATION_SEC, GroundKind, WorldChunkCache, findTilePath, getPoiGuardRoster, hashUnit2d, isInSanctuary, isWithinSector, worldToChunkCoord,
+  AI_TUNING, BLEED_DURATION_SEC, GroundKind, STEALTH_TUNING, WorldChunkCache, findTilePath, getPoiGuardRoster, hashUnit2d, isBackstabAngle, isInSanctuary, isWithinSector, worldToChunkCoord,
   type ChunkPoi, type GoreStyle, type GoreSubstance, type GroundLootSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { stepWildlifeEntity } from "./creatureAi.js";
 import { applyKnockbackImpulse, clearNavPath, isClearSpot } from "./creatureNavigation.js";
 import { hasSpiderCover, isScavengeLootId, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn } from "./creatureBehaviors.js";
-import { CREATURE_SPECS, ST_ALERT, ST_DEAD, ST_RETURN, createWildlifeEntity, type CreatureArchetypeSpec, type WildlifeEntity, type WildlifeKind } from "./creatureSpecs.js";
+import {
+  CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_DEAD, ST_FEED, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN,
+  createWildlifeEntity, type CreatureArchetypeSpec, type WildlifeEntity, type WildlifeKind,
+} from "./creatureSpecs.js";
 import { LootManager } from "./lootManager.js";
 import { ScentTrail } from "./scentTrail.js";
+import { rallyWolfPack } from "./wolfPackAi.js";
 
 const KIND_SLIME: WildlifeKind = "slime";
 const BLEED_SUBSTANCES = new Set<GoreSubstance>(["blood", "slime", "ichor"]);
+const UNAWARE_STATES = new Set([ST_IDLE, ST_PATROL, ST_INVESTIGATE, ST_FEED, ST_AMBUSH]);
+
+function computeSectorStrike(attacker: CombatPlayerRef, e: WildlifeEntity, baseDmg: number): { readonly damage: number; readonly sneakHit: boolean } {
+  const unaware = e.targetPlayerId === null || UNAWARE_STATES.has(e.aiState);
+  const sneakHit = unaware && (Boolean(attacker.crouching) || isBackstabAngle({ attacker, target: e, targetFacing: { x: e.facingX, y: e.facingY } }));
+  return { sneakHit, damage: sneakHit ? Math.round(baseDmg * STEALTH_TUNING.backstabDamageMult) : baseDmg };
+}
 
 function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
   if (!BLEED_SUBSTANCES.has(substance)) return;
@@ -118,56 +129,57 @@ export class WorldEcology {
     }
   }
 
-  spawnEntity(opts: {
-    readonly kind: WildlifeKind; readonly x: number; readonly y: number;
-    readonly homeRadius: number; readonly poiId: string | null; readonly packId: string | null; readonly packSlot: number;
-  }): WildlifeEntity {
+  spawnEntity(opts: { readonly kind: WildlifeKind; readonly x: number; readonly y: number; readonly homeRadius: number; readonly poiId: string | null; readonly packId: string | null; readonly packSlot: number }): WildlifeEntity {
     const elev = this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation;
     const e = createWildlifeEntity({ id: `mob-${this.nextId++}`, elevation: elev, ...opts });
     this.list.push(e);
     return e;
   }
 
+  private propagateHitAlerts(e: WildlifeEntity, silentFatal: boolean, events: WorldEvent[]): void {
+    if (silentFatal) return;
+    this.alertAllies(e);
+    if (e.kind === "wolf") rallyWolfPack({ source: e, entities: this.list, events });
+  }
+
   damageEntity(opts: {
     readonly entity: WildlifeEntity; readonly damage: number; readonly dirX: number; readonly dirY: number;
     readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
-    readonly actorId: string; readonly events: WorldEvent[];
+    readonly actorId: string; readonly events: WorldEvent[]; readonly silentKill?: boolean;
   }): boolean {
     const e = opts.entity;
     if (e.corpse || e.hp <= 0) return false;
     const spec = CREATURE_SPECS[e.kind];
     e.hp = Math.max(0, e.hp - opts.damage);
-    e.hitTimer = 0.24;
-    e.alertedTimer = 6.0;
-    e.provokedTimer = 5.0;
+    e.hitTimer = 0.24; e.alertedTimer = 6.0; e.provokedTimer = 5.0;
     if (e.aiState === ST_RETURN) { e.aiState = ST_ALERT; clearNavPath(e); }
-    e.lastKnownX = e.x - opts.dirX * 1.5;
-    e.lastKnownY = e.y - opts.dirY * 1.5;
-    this.alertAllies(e);
+    e.lastKnownX = e.x - opts.dirX * 1.5; e.lastKnownY = e.y - opts.dirY * 1.5;
     const fatal = e.hp <= 0;
+    this.propagateHitAlerts(e, fatal && Boolean(opts.silentKill), opts.events);
     if (!fatal) {
       applyKnockbackImpulse(e, { dirX: opts.dirX, dirY: opts.dirY, force: opts.damage >= 22 ? 8.0 : 6.4 });
       e.staggerTimer = Math.max(e.staggerTimer, Math.max(0.03, 0.13 * (1 - spec.knockbackResist * 0.75)));
       applyWildlifeBleed(e, spec.substance, opts.goreStyle);
     }
     const goreStyle = resolveWildlifeGore({ e, spec, fatal, goreStyle: opts.goreStyle, comboStep: opts.comboStep });
-    opts.events.push({
-      kind: "hit", x: e.x, y: e.y, dirX: opts.dirX, dirY: opts.dirY, value: opts.damage,
-      actorId: opts.actorId, targetId: e.id, comboStep: opts.comboStep, sweepDir: opts.sweepDir,
-      goreStyle, substance: spec.substance, fatal, entityKind: e.kind,
-    });
+    opts.events.push({ kind: "hit", x: e.x, y: e.y, dirX: opts.dirX, dirY: opts.dirY, value: opts.damage, actorId: opts.actorId, targetId: e.id, comboStep: opts.comboStep, sweepDir: opts.sweepDir, goreStyle, substance: spec.substance, fatal, entityKind: e.kind });
     if (fatal) this.finalizeDeath(e);
     return true;
   }
 
+  emitNoise(opts: { readonly x: number; readonly y: number; readonly radius: number; readonly sourceId?: string }): void {
+    for (const e of this.list) {
+      if (e.corpse || e.hp <= 0 || e.id === opts.sourceId || e.targetPlayerId !== null) continue;
+      if (!UNAWARE_STATES.has(e.aiState) || Math.hypot(e.x - opts.x, e.y - opts.y) > opts.radius) continue;
+      e.lastKnownX = opts.x; e.lastKnownY = opts.y; e.investigateTimer = 5.5; e.aiState = ST_INVESTIGATE;
+    }
+  }
+
   private alertAllies(source: WildlifeEntity): void {
-    for (const other of this.list) {
-      if (other.corpse || other.id === source.id) continue;
-      const sameGroup = (source.packId && other.packId === source.packId) || (source.poiId && other.poiId === source.poiId);
-      if (sameGroup) {
-        other.alertedTimer = 6.0;
-        other.lastKnownX = source.lastKnownX;
-        other.lastKnownY = source.lastKnownY;
+    for (const o of this.list) {
+      if (o.corpse || o.id === source.id) continue;
+      if ((source.packId && o.packId === source.packId) || (source.poiId && o.poiId === source.poiId)) {
+        o.alertedTimer = 6.0; o.lastKnownX = source.lastKnownX; o.lastKnownY = source.lastKnownY;
       }
     }
   }
@@ -181,10 +193,7 @@ export class WorldEcology {
       const ang = idx * 2.1 + Math.random();
       this.loot.spawnLoot({ itemId: drop.itemId, count, x: e.x, y: e.y, vx: Math.cos(ang) * 1.8, vy: Math.sin(ang) * 1.8 });
     });
-    if (e.embeddedArrows > 0) {
-      this.loot.spawnLoot({ itemId: "arrow", count: e.embeddedArrows, x: e.x, y: e.y, vx: 0.7, vy: -0.7 });
-      e.embeddedArrows = 0;
-    }
+    if (e.embeddedArrows > 0) { this.loot.spawnLoot({ itemId: "arrow", count: e.embeddedArrows, x: e.x, y: e.y, vx: 0.7, vy: -0.7 }); e.embeddedArrows = 0; }
   }
 
   spawnRecoverableArrow(x: number, y: number): void { this.loot.spawnLoot({ itemId: "arrow", count: 1, x, y, vx: 0, vy: 0 }); }
@@ -194,29 +203,25 @@ export class WorldEcology {
 
   debugSpawnNearPlayer(player: { readonly x: number; readonly y: number; readonly facingX: number; readonly facingY: number }, kind: WildlifeKind, count = 1): void {
     const mag = Math.max(0.01, Math.hypot(player.facingX, player.facingY));
-    const nx = player.facingX / mag;
-    const ny = player.facingY / mag;
+    const nx = player.facingX / mag; const ny = player.facingY / mag;
     const packId = count > 1 ? `dbg-${this.nextId}` : null;
     for (let i = 0; i < Math.min(5, Math.max(1, count)); i++) {
-      const spawned = this.spawnEntity({ kind, x: player.x + nx * 4.0 + (i - (count - 1) * 0.5) * 1.1, y: player.y + ny * 4.0 + (i % 2) * 0.6, homeRadius: 16, poiId: null, packId, packSlot: i });
-      spawned.facingX = -nx;
-      spawned.facingY = -ny;
+      const s = this.spawnEntity({ kind, x: player.x + nx * 4 + (i - (count - 1) * 0.5) * 1.1, y: player.y + ny * 4 + (i % 2) * 0.6, homeRadius: 16, poiId: null, packId, packSlot: i });
+      s.facingX = -nx; s.facingY = -ny;
     }
   }
 
   hitSector(opts: {
     readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
     readonly damage: number; readonly range: number; readonly halfArcRad: number;
-    readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;
-    readonly events: WorldEvent[];
+    readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined; readonly events: WorldEvent[];
   }): void {
     for (const e of this.list) {
       if (e.corpse || e.hp <= 0) continue;
       if (!isWithinSector({ origin: opts.attacker, dir: opts.dir, target: e, range: opts.range, halfArcRad: opts.halfArcRad })) continue;
-      this.damageEntity({
-        entity: e, damage: opts.damage, dirX: opts.dir.x, dirY: opts.dir.y, goreStyle: opts.goreStyle,
-        comboStep: opts.comboStep, sweepDir: opts.sweepDir, actorId: opts.attacker.id, events: opts.events,
-      });
+      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, opts.damage);
+      if (sneakHit) { e.staggerTimer = Math.max(e.staggerTimer, 0.85); opts.events.push({ kind: "backstab", x: e.x, y: e.y, value: damage, actorId: opts.attacker.id, targetId: e.id }); }
+      this.damageEntity({ entity: e, damage, dirX: opts.dir.x, dirY: opts.dir.y, goreStyle: opts.goreStyle, comboStep: opts.comboStep, sweepDir: opts.sweepDir, actorId: opts.attacker.id, events: opts.events, silentKill: sneakHit });
     }
   }
 
@@ -244,11 +249,7 @@ export class WorldEcology {
       ...this.loot.groundLoot.filter((g) => isScavengeLootId(g.itemId)).map((g) => ({ x: g.x, y: g.y, isMeatLoot: true })),
     ];
     for (let i = this.list.length - 1; i >= 0; i--) {
-      const keep = stepWildlifeEntity({
-        cache: this.cache, e: this.list[i]!, allEntities: this.list, players: opts.players,
-        foods, scent: this.scent, events: opts.events, timeSec: opts.timeSec, dayPhase: opts.dayPhase,
-        dt: opts.dt, onStrike: opts.onStrike,
-      });
+      const keep = stepWildlifeEntity({ cache: this.cache, e: this.list[i]!, allEntities: this.list, players: opts.players, foods, scent: this.scent, events: opts.events, timeSec: opts.timeSec, dayPhase: opts.dayPhase, dt: opts.dt, onStrike: opts.onStrike });
       if (!keep) this.list.splice(i, 1);
     }
     this.loot.step(opts.players, opts.events, opts.dt);
@@ -259,7 +260,7 @@ export class WorldEcology {
       entities: this.list.map((e) => ({
         id: e.id, kind: e.kind, substance: e.substance, x: e.x, y: e.y, elevation: e.elevation, jumpZ: e.jumpZ,
         facingX: e.facingX, facingY: e.facingY, hp: e.hp, maxHp: e.maxHp, hitTimer: e.hitTimer,
-        staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer, aiState: e.aiState, corpse: e.corpse,
+        staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer, aiState: e.aiState, spottedPop: e.spottedPopTimer > 0, corpse: e.corpse,
         inWater: e.inWater, inDeepWater: e.inDeepWater,
         telegraphProgress: e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / Math.max(0.05, e.windupDuration)) : 0,
       })),
