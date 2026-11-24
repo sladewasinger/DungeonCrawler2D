@@ -1,5 +1,6 @@
 /** Pure camp structure definitions, prop/light converters, and placement validity rules. */
 import type { WorldChunkCache } from "../world/collision.js";
+import { closestObstacleCorePoint, propCollisionOffsetY, propStructureShape } from "../world/propFootprints.js";
 import { GroundKind, PropKind, type ChunkProp, type PointLightSpec } from "../world/types.js";
 
 export const STRUCTURE_KINDS = ["campfire", "torch", "wood-chest", "workbench", "bed", "palisade"] as const;
@@ -51,6 +52,21 @@ export function structureToPointLight(rec: PlacedStructureRecord): PointLightSpe
   };
 }
 
+function structurePlacementBlocked(opts: {
+  readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly kind: StructureKind;
+}): boolean {
+  const spec = STRUCTURE_SPECS[opts.kind];
+  const shape = propStructureShape(spec.propKind);
+  const cy = opts.y + propCollisionOffsetY(spec.propKind);
+  const radius = shape ? shape.radius : spec.radius;
+  const point = shape ? { x: opts.x, y: cy, halfX: shape.halfX, halfY: shape.halfY } : { x: opts.x, y: cy };
+  for (const obs of opts.cache.blockingObstaclesNear(opts.x, opts.y)) {
+    const core = closestObstacleCorePoint(obs, point);
+    if (Math.hypot(opts.x - core.x, cy - core.y) < obs.radius + radius + 0.08) return true;
+  }
+  return false;
+}
+
 export function canPlaceStructure(opts: {
   readonly cache: WorldChunkCache; readonly x: number; readonly y: number;
   readonly playerX: number; readonly playerY: number; readonly playerElev: number; readonly kind: StructureKind;
@@ -59,9 +75,5 @@ export function canPlaceStructure(opts: {
   if (dist < 0.8 || dist > 3.6) return false;
   const tile = opts.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y));
   if (tile.ground === GroundKind.DeepWater || tile.ground === GroundKind.ShallowWater || tile.elevation !== opts.playerElev) return false;
-  const spec = STRUCTURE_SPECS[opts.kind];
-  for (const obs of opts.cache.blockingObstaclesNear(opts.x, opts.y)) {
-    if (Math.hypot(obs.x - opts.x, obs.y - opts.y) < obs.radius + spec.radius + 0.08) return false;
-  }
-  return true;
+  return !structurePlacementBlocked(opts);
 }

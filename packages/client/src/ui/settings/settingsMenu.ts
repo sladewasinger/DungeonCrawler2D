@@ -4,6 +4,7 @@ import type { AudioEngine } from "../../audio/audioEngine.js";
 import type { AudioPrefs } from "../../audio/audioPrefs.js";
 import { loadGoreLevel, saveGoreLevel, type GoreLevel } from "../../render/combat/gore/gorePrefs.js";
 import { isFullscreenActive, isFullscreenSupported, onFullscreenChange, toggleFullscreen } from "../fullscreen.js";
+import { formatRelativeZoom, sanitizeCameraZoom } from "./cameraZoom.js";
 import {
   makeChoiceRow, makeNode, makePillBtn, makeSection, makeSliderRow, makeToggleRow,
 } from "./settingsControls.js";
@@ -92,8 +93,15 @@ export class SettingsMenu {
 
   syncExternalState(quality: QualityPresetId, zoom: number): void {
     this.qualityChoice.setActive(quality);
-    this.zoomValEl.textContent = `${zoom.toFixed(1)}×`;
+    this.zoomValEl.textContent = formatRelativeZoom(zoom);
     this.syncFs();
+  }
+
+  syncZoomPref(zoom: number): void {
+    const clean = sanitizeCameraZoom(zoom);
+    if (this.prefs.cameraZoom === clean) return;
+    this.prefs = { ...this.prefs, cameraZoom: clean };
+    saveSettingsPrefs(this.prefs);
   }
 
   private buildHeader(): HTMLDivElement {
@@ -127,7 +135,8 @@ export class SettingsMenu {
     });
     const zoomControl = this.buildZoomRow();
     const fpsToggle = makeToggleRow("Show FPS", this.prefs.showFps, (val) => this.updatePrefs({ showFps: val }));
-    sec.append(qualityChoice.row, goreChoice.row, zoomControl.row, fpsToggle.row);
+    const pingToggle = makeToggleRow("Show Ping", this.prefs.showPing, (val) => this.updatePrefs({ showPing: val }));
+    sec.append(qualityChoice.row, goreChoice.row, zoomControl.row, fpsToggle.row, pingToggle.row);
     const fsBtn = this.appendOptionalVideoRows(sec);
     return { sec, qualityChoice, fsBtn, zoomVal: zoomControl.zoomVal };
   }
@@ -153,11 +162,19 @@ export class SettingsMenu {
     lbl.textContent = "Camera Zoom";
     const grp = makeNode("div", "ow-settings-actions");
     const zoomVal = makeNode("span", "ow-settings-zoom-val");
-    zoomVal.textContent = `${this.cb.initialZoom.toFixed(1)}×`;
+    zoomVal.textContent = formatRelativeZoom(this.cb.initialZoom);
     grp.append(
-      makePillBtn("−", () => { zoomVal.textContent = `${this.cb.onZoom(1 / 1.18).toFixed(1)}×`; }, "ow-zoom-btn"),
+      makePillBtn("−", () => {
+        const next = this.cb.onZoom(1 / 1.18);
+        zoomVal.textContent = formatRelativeZoom(next);
+        this.updatePrefs({ cameraZoom: next });
+      }, "ow-zoom-btn"),
       zoomVal,
-      makePillBtn("+", () => { zoomVal.textContent = `${this.cb.onZoom(1.18).toFixed(1)}×`; }, "ow-zoom-btn"),
+      makePillBtn("+", () => {
+        const next = this.cb.onZoom(1.18);
+        zoomVal.textContent = formatRelativeZoom(next);
+        this.updatePrefs({ cameraZoom: next });
+      }, "ow-zoom-btn"),
     );
     row.append(lbl, grp);
     return { row, zoomVal };

@@ -82,6 +82,26 @@ export function insertIntoSlots(
   return item.count - remaining;
 }
 
+/** Returns true if at least one unit of `itemId` can fit into `slots`. */
+export function canInsertSlotItem(
+  slots: readonly InventorySlot[],
+  itemId: string,
+  maxStackFor: StackLimitLookup,
+): boolean {
+  const maxStack = Math.max(1, maxStackFor(itemId));
+  return slots.some((slot) => slot === null || (maxStack > 1 && slot.itemId === itemId && slot.count < maxStack));
+}
+
+/** Removes up to `count` (or whole stack if omitted) from `slotIndex` and returns what was removed. */
+export function removeFromSlot(slots: InventorySlot[], slotIndex: number, count?: number): SlotItem | null {
+  if (!isValidSlotIndex(slotIndex, slots.length)) return null;
+  const cur = slots[slotIndex];
+  if (!cur) return null;
+  const take = count === undefined ? cur.count : Math.min(cur.count, Math.max(1, Math.floor(count)));
+  slots[slotIndex] = cur.count > take ? { itemId: cur.itemId, count: cur.count - take } : null;
+  return { itemId: cur.itemId, count: take };
+}
+
 function isValidSlotIndex(index: number, length: number): boolean {
   return index >= 0 && index < length;
 }

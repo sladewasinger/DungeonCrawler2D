@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WorldChunkCache } from "../world/collision.js";
-import { canPerceiveTarget, computeFlankRingSlot, hasElevationLineOfSight } from "./aiSensing.js";
+import { GroundKind, PropKind, type ChunkProp } from "../world/types.js";
+import { canPerceiveTarget, computeFlankRingSlot, hasClearChargeLane, hasElevationLineOfSight } from "./aiSensing.js";
 
 describe("aiSensing", () => {
   it("blocks line of sight across higher cliff ridges", () => {
@@ -33,5 +34,39 @@ describe("aiSensing", () => {
     const b = computeFlankRingSlot({ centerX: 10, centerY: 10, slotIndex: 1, packSize: 3, ringRadius: 2.1, phaseRad: 0 });
     expect(Math.hypot(a.x - 10, a.y - 10)).toBeCloseTo(2.1, 4);
     expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(3.5);
+  });
+
+  it("requires same elevation and unobstructed terrain/props for boar charge lanes", () => {
+    const cache = new WorldChunkCache(1337);
+    expect(hasClearChargeLane({
+      cache,
+      from: { x: -5, y: -10, elevation: 0 },
+      to: { x: -11, y: -10, elevation: 1 },
+    })).toBe(false);
+    expect(hasClearChargeLane({
+      cache,
+      from: { x: -5, y: -10, elevation: 0 },
+      to: { x: -15, y: -10, elevation: 0 },
+    })).toBe(false);
+
+    const laneCache = new (class extends WorldChunkCache {
+      override tileAt(wx: number) {
+        return { ground: GroundKind.Grass, elevation: Math.floor(wx) >= 28 ? 1 : 0, stairs: false };
+      }
+      override propsNear(): readonly ChunkProp[] {
+        return [{ id: "pal-mid", kind: PropKind.Palisade, x: 24, y: 12, variant: 0, elevation: 0, radius: 0.48, blocksMovement: true }];
+      }
+      override poisNear() { return []; }
+    })(1);
+    expect(hasClearChargeLane({
+      cache: laneCache,
+      from: { x: 21, y: 12, elevation: 0 },
+      to: { x: 26, y: 12, elevation: 0 },
+    })).toBe(false);
+    expect(hasClearChargeLane({
+      cache: laneCache,
+      from: { x: 21, y: 15, elevation: 0 },
+      to: { x: 27.3, y: 15, elevation: 0 },
+    })).toBe(true);
   });
 });

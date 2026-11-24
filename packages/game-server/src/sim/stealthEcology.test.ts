@@ -81,10 +81,19 @@ describe("Phase 6 stealth and ecological AI", () => {
     const crashEvs: WorldEvent[] = [];
     cliffEco.step({ dt: 0.05, timeSec: 0.05, dayPhase: 0.5, players: [makePlayer(24, 12)], events: crashEvs, onStrike: () => {} });
     expect(boar.stunnedTimer).toBeGreaterThan(1.0);
+    expect(boar.kbVx).toBeGreaterThan(0);
+    expect(boar.attackCooldown).toBeGreaterThan(1.5);
     expect(crashEvs.some((e) => e.kind === "boarCrash")).toBe(true);
     const hpBefore = boar.hp;
     cliffEco.damageEntity({ entity: boar, damage: 20, dirX: 1, dirY: 0, goreStyle: "splatter", actorId: "p1", events: [] });
     expect(hpBefore - boar.hp).toBe(Math.round(20 * 1.35));
+
+    // Stepping during post-crash stun & cooldown should rebound off the wall without triggering another immediate crash.
+    const postCrashEvs: WorldEvent[] = [];
+    for (let i = 0; i < 25; i++) {
+      cliffEco.step({ dt: 0.05, timeSec: (i + 2) * 0.05, dayPhase: 0.5, players: [makePlayer(24, 12)], events: postCrashEvs, onStrike: () => {} });
+    }
+    expect(postCrashEvs.some((e) => e.kind === "boarCrash")).toBe(false);
   });
 
   it("embeds arrows only in tree trunks, glides over boulders/stumps, wakes hit spiders, and collects arrows manually", () => {
@@ -184,5 +193,71 @@ describe("Phase 6 stealth and ecological AI", () => {
     }
     expect(waterWolf.inDeepWater).toBe(true);
     expect(waterWolf.x - 20).toBeLessThan((landWolf.x - 20) * 0.65);
+  });
+
+  it("executes directional slime active attack hitbox frames east without hitting a player behind on the west side", () => {
+    const eco = new WorldEcology(new FlatTestCache(1337));
+    const slime = eco.spawnEntity({ kind: "slime", x: 20, y: 12, homeRadius: 10, poiId: null, packId: null, packSlot: 0 });
+    slime.facingX = 1; slime.facingY = 0; slime.attackCooldown = 0;
+    const p = makePlayer(20.95, 12);
+    let strikes = 0;
+    eco.step({ dt: 0.05, timeSec: 0, dayPhase: 0.5, players: [p], events: [], onStrike: () => { strikes += 1; } });
+    expect(slime.telegraphTimer).toBeGreaterThan(0);
+
+    // Slip to the west side behind the slime before active frames fire
+    p.x = 18.85;
+    for (let i = 1; i <= 10; i++) {
+      eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [p], events: [], onStrike: () => { strikes += 1; } });
+    }
+    expect(strikes).toBe(0);
+
+    // Reset facing east and stand ahead of the slime during its active attack window
+    slime.attackCooldown = 0; slime.telegraphTimer = 0; slime.strikeTimer = 0;
+    slime.facingX = 1; slime.facingY = 0;
+    p.x = 20.95;
+    let sawActiveAtk = false;
+    for (let i = 11; i <= 22; i++) {
+      eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [p], events: [], onStrike: () => { strikes += 1; } });
+      if ((eco.snapshots().entities.find((e) => e.id === slime.id)?.attackProgress ?? 0) > 0) sawActiveAtk = true;
+    }
+    expect(sawActiveAtk).toBe(true);
+    expect(strikes).toBe(1);
+  });
+
+  it("prevents boars below a cliff from hitting elevated players or looping wall crashes", () => {
+    const sheerEco = new WorldEcology(new CliffWallCache(1337));
+    const sheerBoar = sheerEco.spawnEntity({ kind: "boar", x: 16.4, y: 12, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
+    sheerBoar.facingX = -1; sheerBoar.facingY = 0;
+    const sheerTop = makePlayer(14.8, 12);
+    sheerTop.elevation = 2;
+    let sheerStrikes = 0;
+    const sheerEvents: WorldEvent[] = [];
+    for (let i = 0; i < 60; i++) {
+      sheerEco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [sheerTop], events: sheerEvents, onStrike: () => { sheerStrikes += 1; } });
+    }
+    expect(sheerStrikes).toBe(0);
+    expect(sheerEvents.some((e) => e.kind === "boarCrash")).toBe(false);
+
+    class OneTileCliffCache extends WorldChunkCache {
+      override tileAt(wx: number) {
+        return { ground: Math.floor(wx) <= 15 ? GroundKind.CliffStone : GroundKind.Grass, elevation: Math.floor(wx) <= 15 ? 1 : 0, stairs: false };
+      }
+      override propsNear() { return []; }
+    }
+    const eco = new WorldEcology(new OneTileCliffCache(1337));
+    const boar = eco.spawnEntity({ kind: "boar", x: 16.4, y: 12, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
+    boar.facingX = -1; boar.facingY = 0;
+    const cliffTop = makePlayer(14.8, 12);
+    cliffTop.elevation = 1;
+    const mismatchStrikes: number[] = [];
+    const events: WorldEvent[] = [];
+    for (let i = 0; i < 60; i++) {
+      eco.step({
+        dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [cliffTop], events,
+        onStrike: (att) => { if (att.elevation !== cliffTop.elevation) mismatchStrikes.push(att.elevation); },
+      });
+    }
+    expect(mismatchStrikes).toHaveLength(0);
+    expect(events.some((e) => e.kind === "boarCrash")).toBe(false);
   });
 });

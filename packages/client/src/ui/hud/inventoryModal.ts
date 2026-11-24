@@ -60,6 +60,7 @@ export class InventoryModal {
 
   private buildArmorGrid(drag: SlotDragManager): HTMLDivElement {
     const grid = domNode(TAG_DIV, "ow-armor-grid");
+    grid.dataset.dropZone = "armor";
     for (const key of ARMOR_SLOT_KEYS) {
       const btn = domNode(TAG_BTN, CLS_SLOT);
       btn.type = TAG_BTN;
@@ -73,6 +74,7 @@ export class InventoryModal {
 
   private buildBackpackGrid(drag: SlotDragManager): HTMLDivElement {
     const grid = domNode(TAG_DIV, "ow-backpack-grid");
+    grid.dataset.dropZone = "backpack";
     for (let i = 0; i < BACKPACK_SLOT_COUNT; i++) {
       const slotIndex = HOTBAR_SLOT_COUNT + i;
       const btn = domNode(TAG_BTN, CLS_SLOT);
@@ -157,7 +159,7 @@ function formatStatRows(opts: {
   const hp = p?.hp ?? 100;
   const maxHp = p?.maxHp ?? 100;
   const stam = p?.stamina ?? 100;
-  return [`HP: ${Math.round(hp)} / ${Math.round(maxHp)}`, `Stamina: ${Math.round(stam)}`, `Defense: ${defense}`, `Held: ${formatHeldName(opts.heldId)}`];
+  return [`HP: ${Math.round(hp)} / ${Math.round(maxHp)}`, `Stamina: ${Math.round(stam)}`, `Defense: ${defense}`, `Held: ${formatHeldName(opts.heldId)}`, "Drop: Drag out / Q"];
 }
 
 function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void }): HTMLDivElement {

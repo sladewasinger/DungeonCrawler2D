@@ -2,7 +2,7 @@
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import { periodForPhase, type EntityKind } from "@dc2d/engine";
 import type { ConnectionMode } from "../net/worldClient.js";
-import { FpsCounter } from "./fpsCounter.js";
+import { FpsCounter, PingCounter } from "./fpsCounter.js";
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
@@ -54,6 +54,7 @@ export class AtmosphereToolbar {
   private readonly settingsBtn: HTMLButtonElement;
   private readonly compass = new CompassBadge();
   private readonly fps = new FpsCounter();
+  private readonly ping = new PingCounter();
   private readonly drawer: HTMLDivElement;
   private readonly spawnPopover: DebugSpawnPopover | null;
   private readonly slider: HTMLInputElement;
@@ -86,12 +87,16 @@ export class AtmosphereToolbar {
 
     const topRight = el("div", "ow-zoom-controls");
     this.settingsBtn = iconBtn({ svg: GEAR_SVG, label: "Settings", onClick: callbacks.onToggleSettings });
-    topRight.append(this.fps.el, this.compass.el, this.settingsBtn);
+    topRight.append(this.fps.el, this.ping.el, this.compass.el, this.settingsBtn);
     host.append(root, topRight);
   }
 
   setFpsVisible(visible: boolean): void {
     this.fps.setVisible(visible);
+  }
+
+  setPingVisible(visible: boolean): void {
+    this.ping.setVisible(visible);
   }
 
   tickFps(nowMs: number): void {
@@ -100,6 +105,7 @@ export class AtmosphereToolbar {
 
   sync(state: {
     readonly mode: ConnectionMode;
+    readonly pingMs?: number | null | undefined;
     readonly dayPhase: number;
     readonly dayPaused: boolean;
     readonly quality: QualityPresetId;
@@ -110,6 +116,7 @@ export class AtmosphereToolbar {
   }): void {
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.settingsBtn.dataset.active = String(state.settingsOpen);
+    this.ping.sync(state.mode, state.pingMs);
     this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
     if (this.debug) this.syncDebugBar(state);
   }

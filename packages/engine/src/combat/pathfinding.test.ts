@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { WorldChunkCache } from "../world/collision.js";
 import { findChunkPoi } from "../world/poiStamper.js";
-import { GroundKind } from "../world/types.js";
+import { POI_CHEST_OBSTACLE_SHAPE, closestObstacleCorePoint, propFootprintCenter } from "../world/propFootprints.js";
+import { GroundKind, PropKind } from "../world/types.js";
 import { findTilePath } from "./pathfinding.js";
 
 class RiverBarrierCache extends WorldChunkCache {
@@ -49,8 +50,9 @@ describe("pathfinding", () => {
     });
     expect(res.reachedGoal).toBe(true);
     expect(res.waypoints.length).toBeGreaterThan(1);
+    const center = propFootprintCenter(prop);
     for (const wp of res.waypoints) {
-      expect(Math.hypot(wp.x - prop.x, wp.y - prop.y)).toBeGreaterThanOrEqual(prop.radius * 0.9);
+      expect(Math.hypot(wp.x - center.x, wp.y - center.y)).toBeGreaterThanOrEqual(prop.radius * 0.9);
     }
   });
 
@@ -96,14 +98,20 @@ describe("pathfinding", () => {
     const poi = findChunkPoi(1337, 1, 0);
     expect(poi).not.toBeNull();
     if (!poi) return;
-    const campfireY = poi.centerY + 0.8;
+    const fireCenter = propFootprintCenter({ kind: PropKind.Campfire, x: poi.centerX, y: poi.centerY + 0.8 });
     const res = findTilePath({
       cache, startX: poi.centerX, startY: poi.centerY + 2.2, goalX: poi.centerX, goalY: poi.chestY + 1.0, maxRadiusTiles: 12,
     });
     expect(res.reachedGoal).toBe(true);
+    const chestObs = {
+      id: `${poi.id}:chest`, x: poi.chestX, y: poi.chestY + POI_CHEST_OBSTACLE_SHAPE.offsetY,
+      radius: POI_CHEST_OBSTACLE_SHAPE.radius, halfX: POI_CHEST_OBSTACLE_SHAPE.halfX,
+      halfY: POI_CHEST_OBSTACLE_SHAPE.halfY, elevation: poi.elevation,
+    };
     for (const wp of res.waypoints) {
-      expect(Math.hypot(wp.x - poi.centerX, wp.y - campfireY)).toBeGreaterThanOrEqual(0.5);
-      expect(Math.hypot(wp.x - poi.chestX, wp.y - (poi.chestY - 0.14))).toBeGreaterThanOrEqual(0.46);
+      expect(Math.hypot(wp.x - fireCenter.x, wp.y - fireCenter.y)).toBeGreaterThanOrEqual(0.5);
+      const chestCore = closestObstacleCorePoint(chestObs, { x: wp.x, y: wp.y });
+      expect(Math.hypot(wp.x - chestCore.x, wp.y - chestCore.y)).toBeGreaterThanOrEqual(chestObs.radius);
     }
   });
 });

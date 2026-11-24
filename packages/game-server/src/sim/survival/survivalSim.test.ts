@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PropKind, SURVIVAL_BUFF_TUNING, worldToChunkCoord } from "@dc2d/engine";
+import { PropKind, SURVIVAL_BUFF_TUNING, TOTAL_INVENTORY_SLOTS, worldToChunkCoord } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { WorldSim } from "../worldSim.js";
 
@@ -120,5 +120,31 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("stops loot magnetism when inventory is full and supports dropping inventory and armor items", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("Packrat");
+    const fullEntries = Array.from({ length: TOTAL_INVENTORY_SLOTS }, (_, slot) => ({ slot, itemId: "stone", count: 64 }));
+    sim.grantPlayerItems(id, fullEntries);
+
+    const me = sim.snapshots().find((p) => p.id === id)!;
+    sim.combat.ecology.loot.spawnLoot({ itemId: "wood", count: 3, x: me.x + 1.5, y: me.y, vx: 0, vy: 0 });
+    for (let i = 0; i < 15; i++) sim.step();
+    const idleLoot = sim.combatSnapshots().groundLoot[0];
+    expect(idleLoot).toBeDefined();
+    expect(idleLoot?.x).toBeCloseTo(me.x + 1.5, 4);
+
+    sim.dropItem(id, { source: "inv", slotIndex: 35 });
+    expect(sim.inventorySnapshot(id)?.slots[35]).toBeNull();
+    expect(sim.combatSnapshots().groundLoot.some((g) => g.itemId === "stone" && g.count === 64)).toBe(true);
+
+    sim.dropItem(id, { source: "armor", armorSlot: "chest" });
+    expect(sim.inventorySnapshot(id)?.armor.chest).toBeNull();
+    expect(sim.combatSnapshots().groundLoot.some((g) => g.itemId === "leather-tunic")).toBe(true);
+
+    for (let i = 0; i < 20; i++) sim.step();
+    expect(sim.inventorySnapshot(id)?.slots[35]).toEqual({ itemId: "wood", count: 3 });
+    expect(sim.combatSnapshots().groundLoot.some((g) => g.itemId === "stone" && g.count === 64)).toBe(true);
   });
 });

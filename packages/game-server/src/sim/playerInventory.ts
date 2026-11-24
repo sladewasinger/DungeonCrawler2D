@@ -7,10 +7,13 @@ import {
   createEmptyInventoryState,
   equipArmorFromSlot,
   moveOrSwapSlot,
+  removeFromSlot,
   unequipArmorToSlot,
   type ArmorSlotKey,
+  type DropItemRequest,
   type InventorySnapshot,
   type PlayerInventoryState,
+  type SlotItem,
   type WorldChunkCache,
 } from "@dc2d/engine";
 
@@ -72,6 +75,36 @@ export function craftPlayerRecipe(
   const recipe = getRecipeDef(req.recipeId);
   if (!recipe) return null;
   return craftRecipeInState(state, { recipe, nearCampfire: req.nearCampfire, maxStackFor: maxStackForItem });
+}
+
+function takeDroppedInvItem(
+  state: PlayerInventoryState,
+  slotIndex: number,
+  count?: number,
+): { readonly nextState: PlayerInventoryState; readonly item: SlotItem } | null {
+  const nextSlots = state.slots.map((s) => (s ? { ...s } : null));
+  const item = removeFromSlot(nextSlots, slotIndex, count);
+  return item ? { nextState: { slots: nextSlots, armor: state.armor }, item } : null;
+}
+
+function takeDroppedArmorItem(
+  state: PlayerInventoryState,
+  armorSlot: ArmorSlotKey,
+): { readonly nextState: PlayerInventoryState; readonly item: SlotItem } | null {
+  const cur = state.armor[armorSlot];
+  if (!cur) return null;
+  const armor = { ...state.armor, [armorSlot]: null };
+  return { nextState: { slots: state.slots, armor }, item: { itemId: cur, count: 1 } };
+}
+
+export function takeDroppedPlayerItem(
+  state: PlayerInventoryState,
+  req: DropItemRequest,
+): { readonly nextState: PlayerInventoryState; readonly item: SlotItem } | null {
+  if (req.source === "inv" && req.slotIndex !== undefined) {
+    return takeDroppedInvItem(state, req.slotIndex, req.count);
+  }
+  return req.source === "armor" && req.armorSlot ? takeDroppedArmorItem(state, req.armorSlot) : null;
 }
 
 export function buildInventorySnapshot(input: {

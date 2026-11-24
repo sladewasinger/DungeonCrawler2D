@@ -1,7 +1,7 @@
 /** Authoritative swept-segment arrow and arcing pebble simulation, trunk embedding, and recovery. */
 import {
   GroundKind, PARRY_STAGGER_SEC, PropKind, STEALTH_TUNING, WorldChunkCache, isInSanctuary,
-  playerProjectileHurtbox, projectileHurtbox, segmentHitsEllipse,
+  playerProjectileHurtbox, projectileHitsHurtbox, projectileHurtbox, segmentHitsEllipse,
   type ChunkProp, type GoreStyle, type ProjectileSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, type CombatPlayerRef } from "../combatActions.js";
@@ -41,8 +41,8 @@ const PEBBLE_FLIGHT_SEC = 0.48;
 const PEBBLE_Z0 = 0.55;
 
 interface RayHitCtx {
-  readonly pr: SimProjectile; readonly x0: number; readonly y0: number;
-  readonly dx: number; readonly dy: number; readonly events: WorldEvent[];
+  readonly cache: WorldChunkCache; readonly pr: SimProjectile; readonly x0: number; readonly y0: number;
+  readonly dx: number; readonly dy: number; readonly onStairs: boolean; readonly events: WorldEvent[];
 }
 
 export function createArrowProjectile(opts: {
@@ -85,7 +85,11 @@ export function createPebbleProjectile(opts: {
 function hitDummy(ctx: RayHitCtx, dummies: readonly SimEntity[], ecology: WorldEcology): boolean {
   for (const d of dummies) {
     if (d.respawnTimer > 0) continue;
-    const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: projectileHurtbox(d, d.kind) });
+    const t = projectileHitsHurtbox({
+      x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
+      projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
+      box: projectileHurtbox(d, d.kind, ctx.cache),
+    });
     if (t === null) continue;
     damageDummy({ entity: d, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
     ecology.spawnRecoverableArrow({ x: d.x - ctx.dx * 0.35, y: d.y - ctx.dy * 0.35, angle: Math.atan2(ctx.dy, ctx.dx), stuck: true });
@@ -111,7 +115,11 @@ function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: Wild
 function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology): boolean {
   for (const w of ecology.list) {
     if (w.corpse || w.hp <= 0) continue;
-    const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: projectileHurtbox(w, w.kind) });
+    const t = projectileHitsHurtbox({
+      x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
+      projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
+      box: projectileHurtbox(w, w.kind, ctx.cache),
+    });
     if (t === null) continue;
     applyWildlifeArrowHit({ ctx, w, t, ecology });
     return true;
@@ -122,7 +130,12 @@ function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology): boolean {
 function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boolean {
   for (const p of players.values()) {
     if (p.id === ctx.pr.ownerId) continue;
-    if (segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: playerProjectileHurtbox(p) }) === null) continue;
+    const hitT = projectileHitsHurtbox({
+      x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
+      projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
+      box: playerProjectileHurtbox(p, ctx.cache),
+    });
+    if (hitT === null) continue;
     if (isInSanctuary(ctx.pr.originX, ctx.pr.originY) || isInSanctuary(p.x, p.y)) return true;
     applyIncomingPlayerHit({
       target: p, attackerOrigin: { x: ctx.pr.originX, y: ctx.pr.originY }, attackerId: ctx.pr.ownerId,
@@ -143,7 +156,7 @@ function propImpactBox(prop: ChunkProp) {
 function testPropImpact(ctx: RayHitCtx, prop: ChunkProp, ecology: WorldEcology): boolean {
   const isWood = WOOD_PROPS.has(prop.kind);
   const isStone = STONE_PROPS.has(prop.kind);
-  if ((!isWood && !isStone) || prop.elevation > ctx.pr.elevation) return false;
+  if ((!isWood && !isStone) || prop.elevation !== ctx.pr.elevation) return false;
   const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: propImpactBox(prop) });
   if (t === null) return false;
   const hx = ctx.x0 + (ctx.pr.x - ctx.x0) * t;
@@ -180,7 +193,11 @@ function stepPebbleProjectile(opts: {
   if (pr.damage > 0) {
     const spd = Math.max(0.01, Math.hypot(pr.vx, pr.vy));
     const dx = pr.vx / spd; const dy = pr.vy / spd;
-    const hit = ecology.list.find((w) => !w.corpse && w.hp > 0 && segmentHitsEllipse({ x0, y0, x1: pr.x, y1: pr.y, box: projectileHurtbox(w, w.kind) }) !== null);
+    const onStairs = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y)).stairs;
+    const hit = ecology.list.find((w) => !w.corpse && w.hp > 0 && projectileHitsHurtbox({
+      x0, y0, x1: pr.x, y1: pr.y, projectileElevation: pr.elevation, projectileOnStairs: onStairs,
+      box: projectileHurtbox(w, w.kind, cache),
+    }) !== null);
     if (hit) {
       hit.staggerTimer = Math.max(hit.staggerTimer, 0.35);
       ecology.damageEntity({ entity: hit, damage: pr.damage, dirX: dx, dirY: dy, goreStyle: "chunk-spray", actorId: pr.ownerId, events });
@@ -200,11 +217,11 @@ function stepArrowProjectile(opts: {
   const x0 = pr.x; const y0 = pr.y;
   pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.ttl -= dt;
   const spd = Math.max(0.01, Math.hypot(pr.vx, pr.vy));
-  const ctx: RayHitCtx = { pr, x0, y0, dx: pr.vx / spd, dy: pr.vy / spd, events };
+  const tile = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y));
+  if (tile.elevation > pr.elevation) { events.push({ kind: "arrowRicochet", x: x0, y: y0, dirX: -pr.vx / spd, dirY: -pr.vy / spd }); return false; }
+  const ctx: RayHitCtx = { cache, pr, x0, y0, dx: pr.vx / spd, dy: pr.vy / spd, onStairs: tile.stairs, events };
   if (hitDummy(ctx, dummies, ecology) || hitWildlife(ctx, ecology) || hitPlayer(ctx, players)) return false;
   if (cache.propsNear(pr.x, pr.y).some((prop) => testPropImpact(ctx, prop, ecology))) return false;
-  const tile = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y));
-  if (tile.elevation > pr.elevation) { events.push({ kind: "arrowRicochet", x: x0, y: y0, dirX: -ctx.dx, dirY: -ctx.dy }); return false; }
   if (pr.ttl > 0) return true;
   if (tile.ground !== GroundKind.DeepWater) {
     events.push({ kind: "arrowEmbed", x: pr.x, y: pr.y, dirX: ctx.dx, dirY: ctx.dy });

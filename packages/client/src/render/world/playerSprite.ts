@@ -22,6 +22,7 @@ import {
 const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 
 const BACK_BOW_DIRS = new Set<FacingDir>(["north", "ne"]);
+const PLAYER_SOLE_OFFSET_PX = 2.6;
 
 export class PlayerView {
   readonly root = new Container();
@@ -130,7 +131,7 @@ export class PlayerView {
     readonly swimming: boolean; readonly timeSec: number;
   }): void {
     const { fx, jumpZ, jumpPx, swimming, timeSec } = opts;
-    this.actorGroup.position.set(fx.x, -jumpPx + fx.y + computeSwimDip(swimming, timeSec));
+    this.actorGroup.position.set(fx.x, PLAYER_SOLE_OFFSET_PX - jumpPx + fx.y + computeSwimDip(swimming, timeSec));
     this.actorGroup.alpha = fx.alpha; this.actorGroup.rotation = fx.rot;
     syncWaterSubmergeState({ rig: this.waterRig, target: this.actorGroup, shadow: this.groundShadow, swimming, showShadow: !swimming });
     this.body.tint = fx.tint; this.bowOverlaySprite.tint = fx.tint;

@@ -2,11 +2,12 @@
 import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
+import { ClientDropItemSchema, ClientPingSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
 import { ClientPickupLootSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
 import { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema, type CreatureVocalKind, type WorldEvent } from "./worldEventSchemas.js";
 
-export { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema };
-export type { CreatureVocalKind, WorldEvent };
+export { ClientDropItemSchema, ClientPingSchema, GoreStyleSchema, GoreSubstanceSchema, ServerPongSchema, WorldEventSchema };
+export type { CreatureVocalKind, DropItemRequest, WorldEvent };
 
 export const PROTOCOL_VERSION = 1;
 
@@ -98,7 +99,8 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema, ClientSetAppearanceSchema, ClientInputSchema, ClientRespawnSchema, ClientTorchToggleSchema,
   ClientSetDayPhaseSchema, ClientMoveSlotSchema, ClientEquipArmorSchema, ClientUnequipArmorSchema,
   ClientSelectHotbarSchema, ClientCraftSchema, ClientOpenChestSchema, ClientChestTransferSchema,
-  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, ClientPickupLootSchema,
+  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
+  ClientPickupLootSchema, ClientDropItemSchema, ClientPingSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -190,6 +192,7 @@ export const WorldEntitySnapshotSchema = z.object({
   staggerTimer: z.number(),
   bleedTimer: z.number(),
   telegraphProgress: z.number(),
+  attackProgress: z.number().optional(),
   aiState: z.enum(AI_STATES).optional(),
   suspicion: z.number().optional(),
   stunned: z.boolean().optional(),
@@ -264,6 +267,6 @@ export const ServerSnapshotSchema = z.object({
   worldDeltas: WorldDeltaSnapshotSchema.optional(),
 });
 
-export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema]);
+export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema, ServerPongSchema]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

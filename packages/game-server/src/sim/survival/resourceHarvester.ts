@@ -1,7 +1,7 @@
 /** Authoritative harvestable prop HP tracking, tool-gated gathering drops, and stump/node regrowth. */
 import {
-  PropKind, WorldChunkCache, computeHarvestDamage, getHarvestNodeSpec, isWithinSector, rollHarvestDrops,
-  type ChunkProp, type DepletedPropDelta, type HarvestToolKind, type WorldEvent,
+  PropKind, WorldChunkCache, computeHarvestDamage, getHarvestNodeSpec, isWithinSector, propFootprintCenter,
+  rollHarvestDrops, type ChunkProp, type DepletedPropDelta, type HarvestToolKind, type WorldEvent,
 } from "@dc2d/engine";
 import type { LootManager } from "../wildlife/lootManager.js";
 
@@ -29,12 +29,13 @@ export class ResourceHarvester {
     let bestDist = Infinity;
     for (const prop of opts.cache.propsNear(opts.x, opts.y)) {
       if (!getHarvestNodeSpec(prop.kind)) continue;
+      const center = propFootprintCenter(prop);
       const effRange = opts.range + prop.radius + 0.15;
-      const dist = Math.hypot(prop.x - opts.x, prop.y - opts.y);
+      const dist = Math.hypot(center.x - opts.x, center.y - opts.y);
       if (dist > effRange || dist >= bestDist) continue;
       const sectorOk = isWithinSector({
         origin: { x: opts.x, y: opts.y }, dir: { x: opts.dirX, y: opts.dirY },
-        target: prop, range: effRange, halfArcRad: Math.max(opts.halfArcRad, 0.78),
+        target: center, range: effRange, halfArcRad: Math.max(opts.halfArcRad, 0.78),
       });
       if (!sectorOk) continue;
       bestDist = dist;

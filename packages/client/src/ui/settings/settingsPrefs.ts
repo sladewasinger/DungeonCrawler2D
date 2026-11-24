@@ -1,7 +1,10 @@
-/** Persistent client preferences for FPS overlay, mobile auto-aim, and debug hitbox rendering. */
+/** Persistent client preferences for FPS/ping overlays, camera zoom, mobile auto-aim, and debug hitboxes. */
+import { BASE_CAMERA_ZOOM, sanitizeCameraZoom } from "./cameraZoom.js";
 
 export interface SettingsPrefs {
   readonly showFps: boolean;
+  readonly showPing: boolean;
+  readonly cameraZoom: number;
   readonly autoAim: boolean;
   readonly showHitboxes: boolean;
   readonly crouchMode: "toggle" | "hold";
@@ -21,19 +24,25 @@ function isCoarseMobileDefault(): boolean {
 }
 
 export function loadSettingsPrefs(): SettingsPrefs {
-  const defaultFps = !isCoarseMobileDefault();
+  const defaultMetric = !isCoarseMobileDefault();
+  const defaults: SettingsPrefs = {
+    showFps: defaultMetric, showPing: defaultMetric, cameraZoom: BASE_CAMERA_ZOOM,
+    autoAim: true, showHitboxes: false, crouchMode: "toggle",
+  };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { showFps: defaultFps, autoAim: true, showHitboxes: false, crouchMode: "toggle" };
+    if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<SettingsPrefs>;
     return {
-      showFps: typeof parsed.showFps === "boolean" ? parsed.showFps : defaultFps,
+      showFps: typeof parsed.showFps === "boolean" ? parsed.showFps : defaultMetric,
+      showPing: typeof parsed.showPing === "boolean" ? parsed.showPing : defaultMetric,
+      cameraZoom: sanitizeCameraZoom(parsed.cameraZoom),
       autoAim: typeof parsed.autoAim === "boolean" ? parsed.autoAim : true,
       showHitboxes: typeof parsed.showHitboxes === "boolean" ? parsed.showHitboxes : false,
       crouchMode: parsed.crouchMode === "hold" ? "hold" : "toggle",
     };
   } catch {
-    return { showFps: defaultFps, autoAim: true, showHitboxes: false, crouchMode: "toggle" };
+    return defaults;
   }
 }
 

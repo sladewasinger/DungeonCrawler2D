@@ -212,7 +212,7 @@ export class CombatVfxLayer {
     const zPx = (p.z ?? 0) * TILE_PX;
     if (p.kind === "pebble") drawPebbleGraphic(g, zPx);
     else if (p.kind === "web") drawWebOrbGraphic(g);
-    g.position.set(p.x * TILE_PX, p.y * TILE_PX - (p.elevation * ELEVATION_LIFT_PX + 10 + zPx));
+    g.position.set(p.x * TILE_PX, p.y * TILE_PX - (p.elevation * ELEVATION_LIFT_PX + zPx));
     g.rotation = p.kind === "pebble" ? 0 : Math.atan2(p.vy, p.vx);
   }
 

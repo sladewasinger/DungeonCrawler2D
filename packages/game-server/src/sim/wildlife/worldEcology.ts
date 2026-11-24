@@ -196,7 +196,7 @@ export class WorldEcology {
     readonly slamAoeRadius?: number | undefined; readonly events: WorldEvent[];
   }): void {
     for (const e of this.list) {
-      if (!isSectorTargetHit({ e, ...opts })) continue;
+      if (!isSectorTargetHit({ cache: this.cache, e, ...opts })) continue;
       opts.hitTargetIds?.add(e.id);
       const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: opts.backstabMult, armorCrushMult: opts.armorCrushMult });
       applyBackstabEvent({ e, attackerId: opts.attacker.id, damage, sneakHit, events: opts.events });

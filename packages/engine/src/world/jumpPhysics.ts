@@ -23,12 +23,16 @@ export function stepJumpArc(state: JumpState, jumpPressed: boolean, dtSeconds: n
 }
 
 export function forEachFootTile(
-  pos: { readonly x: number; readonly y: number; readonly radius: number },
+  pos: {
+    readonly x: number; readonly y: number; readonly radius: number;
+    readonly footHalfX?: number | undefined; readonly footSegX?: number | undefined; readonly footSegY?: number | undefined;
+  },
   fn: (tx: number, ty: number) => boolean,
 ): boolean {
-  const footDepth = Math.min(pos.radius, 0.14);
-  const minTx = Math.floor(pos.x - pos.radius);
-  const maxTx = Math.floor(pos.x + pos.radius);
+  const rx = Math.abs(pos.footSegX ?? pos.footHalfX ?? 0) + pos.radius;
+  const footDepth = pos.footSegY ? Math.min(Math.abs(pos.footSegY) + pos.radius, 0.24) : Math.min(pos.radius, 0.14);
+  const minTx = Math.floor(pos.x - rx);
+  const maxTx = Math.floor(pos.x + rx);
   const minTy = Math.floor(pos.y - footDepth);
   const maxTy = Math.floor(pos.y + footDepth);
   for (let ty = minTy; ty <= maxTy; ty++) {
@@ -43,6 +47,7 @@ export function resolveDestElevation(
   sampleElevation: (tx: number, ty: number) => number,
   dest: {
     readonly x: number; readonly y: number; readonly radius: number;
+    readonly footHalfX?: number | undefined; readonly footSegX?: number | undefined; readonly footSegY?: number | undefined;
     readonly elevation: number; readonly airborne: boolean; readonly stairs: boolean;
   },
 ): { readonly nextElevation: number; readonly elevationDrop: number } {

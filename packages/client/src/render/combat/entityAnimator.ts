@@ -121,13 +121,15 @@ function resolveEightDir(
   return { dir, flipX: sideFlip };
 }
 
+function isAttackTimeline(snap: WorldEntitySnapshot): boolean {
+  return snap.telegraphProgress > 0 || (snap.attackProgress ?? 0) > 0;
+}
+
 export function resolveAnimState(input: {
-  readonly snap: WorldEntitySnapshot;
-  readonly dead: boolean;
-  readonly moving: boolean;
+  readonly snap: WorldEntitySnapshot; readonly dead: boolean; readonly moving: boolean;
 }): SpriteAnimState {
   if (input.dead) return STATE_CORPSE;
-  if (input.snap.telegraphProgress > 0 || input.snap.aiState === "charge") return STATE_ATTACK;
+  if (isAttackTimeline(input.snap) || input.snap.aiState === "charge") return STATE_ATTACK;
   if (!input.moving) return STATE_IDLE;
   if (input.snap.inDeepWater) return STATE_WALK;
   return input.snap.aiState === "chase" || input.snap.aiState === "flank" ? STATE_RUN : STATE_WALK;
@@ -160,18 +162,18 @@ function resolvePlaybackFps(clip: LoadedSpriteClip, state: SpriteAnimState, deep
   return deepWater && state === STATE_WALK ? clip.fps * 0.65 : clip.fps;
 }
 
+function resolveAttackFrameIndex(snap: WorldEntitySnapshot, clip: LoadedSpriteClip, len: number): number {
+  if ((snap.attackProgress ?? 0) > 0) return len - 1;
+  const introLen = clip.loopStart && clip.loopStart > 0 ? Math.min(len, clip.loopStart) : len;
+  return Math.min(introLen - 1, Math.floor(Math.max(0, snap.telegraphProgress) * introLen));
+}
+
 function resolveFrameIndex(input: {
-  readonly state: SpriteAnimState;
-  readonly snap: WorldEntitySnapshot;
-  readonly clip: LoadedSpriteClip;
-  readonly timeSec: number;
+  readonly state: SpriteAnimState; readonly snap: WorldEntitySnapshot; readonly clip: LoadedSpriteClip; readonly timeSec: number;
 }): number {
   const len = input.clip.frames.length;
   if (len <= 1) return 0;
-  if (input.state === STATE_ATTACK && input.snap.telegraphProgress > 0) {
-    const introLen = input.clip.loopStart && input.clip.loopStart > 0 ? Math.min(len, input.clip.loopStart) : len;
-    return Math.min(introLen - 1, Math.floor(Math.max(0, input.snap.telegraphProgress) * introLen));
-  }
+  if (input.state === STATE_ATTACK && isAttackTimeline(input.snap)) return resolveAttackFrameIndex(input.snap, input.clip, len);
   const { start, count } = resolveLoopSpan(input.clip, len);
   const phase = hashIdPhase(input.snap.id);
   const fps = resolvePlaybackFps(input.clip, input.state, input.snap.inDeepWater);
@@ -259,17 +261,13 @@ function trackFacing(opts: {
 }
 
 export function sampleAnimatedFrame(input: {
-  readonly animations: LoadedSpriteAnimations;
-  readonly track?: AnimatorTrackState | undefined;
-  readonly snap: WorldEntitySnapshot;
-  readonly dead: boolean;
-  readonly moving: boolean;
-  readonly timeSec: number;
+  readonly animations: LoadedSpriteAnimations; readonly track?: AnimatorTrackState | undefined;
+  readonly snap: WorldEntitySnapshot; readonly dead: boolean; readonly moving: boolean; readonly timeSec: number;
 }): SampledSpriteFrame | null {
   const state = resolveAnimState({ snap: input.snap, dead: input.dead, moving: input.moving });
   const { dir, flipX } = trackFacing({ track: input.track, snap: input.snap, eightDir: supportsEightDir(input.animations, state) });
   const clip = pickClipForState(input.animations, state, dir);
-  const isCharge = input.snap.telegraphProgress <= 0 && input.snap.aiState === "charge";
+  const isCharge = !isAttackTimeline(input.snap) && input.snap.aiState === "charge";
   const outro = resolveTrackOutro(input.track, { state, isCharge, clip, flipX, timeSec: input.timeSec });
   if (outro) return outro;
   if (!clip || clip.frames.length === 0) return null;

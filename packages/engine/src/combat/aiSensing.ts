@@ -1,6 +1,7 @@
 /** Pure cognitive AI sensing, elevation-aware line of sight, and ecological tuning constants. */
-import type { WorldChunkCache } from "../world/collision.js";
-import { PropKind } from "../world/types.js";
+import type { BlockingObstacle, WorldChunkCache } from "../world/collision.js";
+import { closestObstacleCorePoint } from "../world/propFootprints.js";
+import { GroundKind, PropKind } from "../world/types.js";
 
 export const ENTITY_KINDS = [
   "dummy", "slime-dummy", "spar-dummy",
@@ -158,4 +159,85 @@ export function computeFlankRingSlot(opts: {
     x: opts.centerX + Math.cos(angle) * opts.ringRadius,
     y: opts.centerY + Math.sin(angle) * opts.ringRadius,
   };
+}
+
+export interface ChargeLaneQuery {
+  readonly cache: WorldChunkCache;
+  readonly from: { readonly x: number; readonly y: number; readonly elevation: number };
+  readonly to: { readonly x: number; readonly y: number; readonly elevation: number };
+  readonly radius?: number | undefined;
+}
+
+function isLaneTerrainBlocked(
+  cache: WorldChunkCache,
+  pt: { readonly x: number; readonly y: number; readonly elev: number },
+): boolean {
+  const tile = cache.tileAt(Math.floor(pt.x), Math.floor(pt.y));
+  return tile.elevation !== pt.elev || tile.ground === GroundKind.DeepWater;
+}
+
+function isSamplePointClear(opts: {
+  readonly cache: WorldChunkCache;
+  readonly x: number;
+  readonly y: number;
+  readonly px: number;
+  readonly py: number;
+  readonly elev: number;
+  readonly radius: number;
+}): boolean {
+  const { cache, x, y, px, py, elev, radius } = opts;
+  const probes = [
+    { x, y },
+    { x: x + px * radius, y: y + py * radius },
+    { x: x - px * radius, y: y - py * radius },
+    { x, y: y - 0.14 },
+    { x, y: y + 0.14 },
+  ];
+  return probes.every((p) => !isLaneTerrainBlocked(cache, { ...p, elev }));
+}
+
+function isSampleObstacleClear(
+  obstacles: readonly BlockingObstacle[],
+  pt: { readonly x: number; readonly y: number },
+  radius: number,
+): boolean {
+  for (const obs of obstacles) {
+    const core = closestObstacleCorePoint(obs, pt);
+    if (Math.hypot(pt.x - core.x, pt.y - core.y) < obs.radius + radius) return false;
+  }
+  return true;
+}
+
+function isSampleStepClear(opts: {
+  readonly cache: WorldChunkCache;
+  readonly obstacles: readonly BlockingObstacle[];
+  readonly x: number;
+  readonly y: number;
+  readonly px: number;
+  readonly py: number;
+  readonly elev: number;
+  readonly radius: number;
+}): boolean {
+  return isSamplePointClear(opts) && isSampleObstacleClear(opts.obstacles, { x: opts.x, y: opts.y }, opts.radius);
+}
+
+export function hasClearChargeLane(q: ChargeLaneQuery): boolean {
+  if (q.from.elevation !== q.to.elevation) return false;
+  const dx = q.to.x - q.from.x;
+  const dy = q.to.y - q.from.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.6) return false;
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const radius = q.radius ?? 0.3;
+  const endD = Math.max(0.65, dist - 0.35);
+  const steps = Math.max(2, Math.ceil((endD - 0.32) / 0.35));
+  const obstacles = q.cache.blockingObstaclesNear((q.from.x + q.to.x) * 0.5, (q.from.y + q.to.y) * 0.5);
+  for (let i = 0; i <= steps; i++) {
+    const d = 0.32 + ((endD - 0.32) * i) / steps;
+    if (!isSampleStepClear({ cache: q.cache, obstacles, x: q.from.x + ux * d, y: q.from.y + uy * d, px: -uy, py: ux, elev: q.from.elevation, radius })) {
+      return false;
+    }
+  }
+  return true;
 }

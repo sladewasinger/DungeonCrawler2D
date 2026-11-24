@@ -1,14 +1,17 @@
 /** Extracted combat movement multipliers, active swing pass dispatch, and input buffer helpers. */
 import { getItemDef } from "@dc2d/content";
 import {
-  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache,
-  isInSanctuary, isSharpWeapon, resolveWeaponArchetype, type GoreStyle, type WorldEvent,
+  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
+  evaluateBowShot, isInSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
+  type GoreStyle, type WorldEvent,
 } from "@dc2d/engine";
-import { resolveMeleeHits, type CombatPlayerRef } from "../combatActions.js";
+import { applyIncomingPlayerHit, resolveMeleeHits, type CombatPlayerRef } from "../combatActions.js";
 import type { SimEntity } from "../dummySim.js";
 import type { ResourceHarvester } from "../survival/resourceHarvester.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
 import { tryCutOrIgniteCocoon } from "../webs/webCocoon.js";
+import { CREATURE_SPECS, type WildlifeEntity } from "../wildlife/creatureSpecs.js";
+import { createArrowProjectile, type SimProjectile } from "../wildlife/projectileSim.js";
 import type { WorldEcology } from "../wildlife/worldEcology.js";
 import { buildPendingSwing, computeSwingNoiseRadius, type PendingMeleeSwing } from "./meleeTimeline.js";
 
@@ -141,7 +144,7 @@ export function runSwingActivePass(opts: {
   const impactCenter = sw.spec.slamAoeRadius ? { x: p.x + sw.aimX * sw.range * 0.72, y: p.y + sw.aimY * sw.range * 0.72 } : undefined;
   maybeEmitSlamImpact({ p, sw, impactCenter, events });
   const { rawDamage, knockbackMult, shared } = buildSwingPayload(sw, impactCenter, events);
-  resolveMeleeHits({ attacker: p, players: players.values(), dummies, rawDamage, ...shared, webs });
+  resolveMeleeHits({ cache, attacker: p, players: players.values(), dummies, rawDamage, ...shared, webs });
   ecology.hitSector({
     attacker: p, dir: { x: sw.aimX, y: sw.aimY }, damage: rawDamage, backstabMult: sw.moveset.backstabMult,
     armorCrushMult: sw.spec.armorCrushMult, knockbackMult, ...shared,
@@ -161,4 +164,59 @@ export function runSwingActivePass(opts: {
     cache, loot: ecology.loot, attacker: p, range: sw.range, halfArcRad: sw.halfArcRad,
     toolKind: sw.moveset.harvestKind, toolPower: sw.moveset.harvestPower, timeSec, events,
   });
+}
+
+export function applyCreatureStrikeToPlayer(opts: {
+  readonly hitPlayer: CombatPlayerRef | undefined; readonly entity: WildlifeEntity; readonly events: WorldEvent[];
+}): void {
+  if (!opts.hitPlayer) return;
+  const spec = CREATURE_SPECS[opts.entity.kind];
+  applyIncomingPlayerHit({
+    target: opts.hitPlayer, attackerOrigin: opts.entity, attackerId: opts.entity.id, rawDamage: spec.damage,
+    goreStyle: spec.goreStyle, attackerIsPlayer: false, events: opts.events, appliesPoison: opts.entity.kind === "spider",
+    shakePx: opts.entity.kind === "golem" ? 3.5 : undefined,
+    onParry: () => {
+      opts.entity.staggerTimer = PARRY_STAGGER_SEC;
+      opts.entity.parried = true;
+      opts.entity.telegraphTimer = 0;
+      opts.entity.strikeTimer = 0;
+    },
+  });
+}
+
+export function spawnChargedBowArrow(opts: {
+  readonly p: CombatPlayerRef & { attackFlashTimer?: number }; readonly chargeSec: number;
+  readonly projId: string; readonly projectiles: SimProjectile[];
+  readonly ecology: WorldEcology; readonly events: WorldEvent[];
+}): void {
+  const { p, chargeSec, projId, projectiles, ecology, events } = opts;
+  const c = p.combat;
+  if (!c.godMode) c.stamina -= 10;
+  c.actionCooldown = 0.25;
+  p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
+  const shot = evaluateBowShot(chargeSec);
+  projectiles.push(createArrowProjectile({
+    id: projId, p, speed: shot.speedTilesPerSec, charge: shot.ratio,
+    damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult),
+  }));
+  events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
+  ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 3.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
+}
+
+export function stepStationaryPlayerTurn(opts: {
+  readonly cache: WorldChunkCache; readonly p: {
+    x: number; y: number; readonly elevation: number; readonly jumpZ: number;
+    readonly facingX: number; readonly facingY: number; readonly aimX: number; readonly aimY: number;
+    readonly heldItem?: string | null | undefined; readonly bowCharge: number; readonly heavyCharge: number;
+  };
+}): void {
+  const { p } = opts;
+  if (p.jumpZ > 0.02) return;
+  const seg = playerFootSegment(p);
+  const res = resolveMovement({
+    cache: opts.cache, x: p.x, y: p.y, dx: 0, dy: 0,
+    radius: COMBAT_TUNING.movement.collisionRadiusTiles,
+    footSegX: seg.segX, footSegY: seg.segY, elevation: p.elevation, airborne: false, jumpZ: 0,
+  });
+  p.x = res.x; p.y = res.y;
 }

@@ -1,8 +1,8 @@
 /** Authoritative persistent 27-slot POI chests and magnetic dropped enemy/wildlife loot. */
 import { maxStackForItem } from "@dc2d/content";
 import {
-  AI_TUNING, WorldChunkCache, createEmptyChestSlots, insertIntoSlots,
-  quickTransferChestSlot, takeAllFromChest, transferChestSlot,
+  AI_TUNING, WorldChunkCache, canInsertSlotItem, createEmptyChestSlots, insertIntoSlots,
+  quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
   type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -11,8 +11,9 @@ import {
 } from "./creatureSpecs.js";
 
 interface GroundLootItem {
-  readonly id: string; readonly itemId: string; readonly count: number;
+  readonly id: string; readonly itemId: string; count: number;
   x: number; y: number; vx: number; vy: number; readonly elevation: number; ageSec: number;
+  readonly pickupDelaySec: number;
   readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
 }
 
@@ -88,16 +89,43 @@ export class LootManager {
 
   spawnLoot(opts: {
     readonly itemId: string; readonly count: number; readonly x: number; readonly y: number;
-    readonly vx: number; readonly vy: number; readonly manualPickup?: boolean | undefined;
-    readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
+    readonly vx: number; readonly vy: number; readonly pickupDelaySec?: number | undefined;
+    readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
   }): void {
     this.groundLoot.push({
       id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count, x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
       elevation: this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation, ageSec: 0,
+      pickupDelaySec: opts.pickupDelaySec ?? 0.25,
       ...(opts.manualPickup ? { manualPickup: true } : {}),
       ...(opts.angle !== undefined ? { angle: opts.angle } : {}),
       ...(opts.stuck ? { stuck: true } : {}),
     });
+  }
+
+  spawnPlayerDrop(
+    player: { readonly x: number; readonly y: number; readonly aimX: number; readonly aimY: number },
+    item: { readonly itemId: string; readonly count: number },
+  ): void {
+    const mag = Math.hypot(player.aimX, player.aimY);
+    const dx = mag > 0.05 ? player.aimX / mag : 0;
+    const dy = mag > 0.05 ? player.aimY / mag : 1;
+    this.spawnLoot({
+      itemId: item.itemId, count: item.count, x: player.x + dx * 0.7, y: player.y + dy * 0.7,
+      vx: dx * 2.5, vy: dy * 2.5, pickupDelaySec: 1.8,
+    });
+  }
+
+  dropFromChest(
+    player: CombatPlayerRef,
+    req: { readonly chestId: string; readonly slotIndex: number; readonly count?: number | undefined },
+  ): boolean {
+    const chest = this.findChestInReach(player, req.chestId, 1.35);
+    if (!chest) return false;
+    chest.opened = true;
+    const removed = removeFromSlot(chest.slots, req.slotIndex, req.count);
+    if (!removed) return false;
+    this.spawnPlayerDrop(player, removed);
+    return true;
   }
 
   private findChestInReach(player: { readonly x: number; readonly y: number }, chestId?: string, radiusPad = 0): StoredChest | null {
@@ -182,7 +210,9 @@ export class LootManager {
       g.ageSec += dt;
       g.x += g.vx * dt; g.y += g.vy * dt;
       g.vx *= Math.max(0, 1 - dt * 6); g.vy *= Math.max(0, 1 - dt * 6);
-      if (!g.manualPickup && g.ageSec >= 0.25 && this.pullOrCollectLoot({ g, players, events, dt })) this.groundLoot.splice(i, 1);
+      if (!g.manualPickup && g.ageSec >= g.pickupDelaySec && this.pullOrCollectLoot({ g, players, events, dt })) {
+        this.groundLoot.splice(i, 1);
+      }
     }
   }
 
@@ -191,7 +221,7 @@ export class LootManager {
     let dist: number = AI_TUNING.lootMagnetRadiusTiles;
     for (const cand of players) {
       const d = Math.hypot(cand.x - g.x, cand.y - g.y);
-      if (d < dist) { dist = d; p = cand; }
+      if (d < dist && canInsertSlotItem(cand.inventory.slots, g.itemId, maxStackForItem)) { dist = d; p = cand; }
     }
     return p ? { p, dist } : null;
   }
@@ -201,8 +231,11 @@ export class LootManager {
     if (!match) return false;
     if (match.dist <= AI_TUNING.lootPickupRadiusTiles) {
       const added = insertIntoSlots(match.p.inventory.slots, { itemId: opts.g.itemId, count: opts.g.count }, maxStackForItem);
-      if (added > 0) opts.events.push({ kind: "loot", x: opts.g.x, y: opts.g.y, actorId: match.p.id, value: added });
-      return added >= opts.g.count;
+      if (added <= 0) return false;
+      opts.events.push({ kind: "loot", x: opts.g.x, y: opts.g.y, actorId: match.p.id, value: added });
+      if (added >= opts.g.count) return true;
+      opts.g.count -= added;
+      return false;
     }
     const pull = Math.min(match.dist, 5.4 * opts.dt);
     opts.g.x += ((match.p.x - opts.g.x) / match.dist) * pull;

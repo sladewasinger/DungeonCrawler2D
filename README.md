@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.7** (South-East Hero Portraits, Solid Sculpted Player Bodies & Hair, & Blender Editing Tutorial — 3/4 South-East hero portraits on Title Screen & Character Panel, voxel-sculpted Male/Female bodies and fitted leather armor bound with Blender Automatic Weights + weight-synced armor, sculpted stylized lock-ribbon hairstyles, and colocated `PLAYER_EDITING_TUTORIAL.md` — shipped on `feature/se-portrait-sculpted-hero` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.8** (8-Way Foot Colliders, Directional Timed Hitboxes, Elevation Combat, Inventory UX, Ping & Relative Zoom — Prop & rounded-box structure footprints, 8-way rotating player foot capsule + sole alignment, sprite-fitted hurtboxes & active-frame directional enemy/player attack hitboxes, unified engine-driven `?debug=1` layer, cross-elevation melee/projectile/boar-charge gating, stack size 64, full-inventory magnetism stop, forgiving slot/world item drops, RTT ping toggle, relative 4× camera zoom, & Canvas2D `willReadFrequently` fix — shipped on `feature/hitboxes-inventory-ux-zoom` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 
@@ -68,19 +68,19 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 ### Controls
 
 - **Movement, Jump & Zoom**:
-  - **Desktop**: `W A S D` or Arrow keys walk cleanly (`Shift` held to sprint/run); `Space` jumps and lets you leap off raised cliffs; scroll wheel or top-right `−`/`+` buttons adjust camera zoom.
-  - **Touch / Mobile**: Touch anywhere outside HUD panels to summon the floating analog thumbstick (gentle inner drags walk slowly; pushing out to the rim runs at full speed), tap `JUMP` to leap across terrain or off cliffs, and use top-right `−`/`+` buttons to adjust camera zoom.
+  - **Desktop**: `W A S D` or Arrow keys walk cleanly (`Shift` held to sprint/run); `Space` jumps and lets you leap off raised cliffs; scroll wheel or Settings `−`/`+` zoom buttons scale camera zoom relative to the `1.0×` (`4×`) default (`0.5×–2.0×`).
+  - **Touch / Mobile**: Touch anywhere outside HUD panels to summon the floating analog thumbstick (gentle inner drags walk slowly; pushing out to the rim runs at full speed), tap `JUMP` to leap across terrain or off cliffs, and use Settings `−`/`+` zoom buttons to adjust camera zoom.
 - **Combat, Shield & Healing**:
-  - **Desktop**: Left-click to swing melee 3-hit combos (`Sword`, `Axe`, `Pickaxe`, `Torch`) or heal (`Bandage`, `Cooked Meat`); hold-and-release Left-click to draw & loose the `Hunter Bow`; hold Right-click with an off-hand shield equipped to block (time it within `220ms` of an attack to **Parry** and stagger attackers); `Ctrl` to dodge-roll; `E` to interact.
+  - **Desktop**: Left-click to swing melee 3-hit combos (`Sword`, `Axe`, `Pickaxe`, `Torch`) or heal (`Bandage`, `Cooked Meat`); hold-and-release Left-click to draw & loose the `Hunter Bow`; hold Right-click with an off-hand shield equipped to block (time it within `220ms` of an attack to **Parry** and stagger attackers); `Ctrl` to dodge-roll; `E` to interact; `X` to toss a distraction pebble.
   - **Touch / Mobile**: Tap `ATK` for melee/heal or hold-and-drag `ATK` for 360° aimed bow shots; tap `ROLL` to dodge; hold `BLOCK` when wearing a shield.
 - **Inventory, Character & Hotbar**:
-  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand), plus the built-in glowing **Lantern** toggle icon (`F` shortcut) right beside slot 9 (auto-clips to waist with bow or shield).
+  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand), plus the built-in glowing **Lantern** toggle icon (`F` shortcut) right beside slot 9 (auto-clips to waist with bow or shield). Drag any stack outside the HUD panels or press `Q` (`Delete`/`Backspace`) to drop items on the ground.
   - **`Tab` or `Bag` button**: Open minimalist Inventory (`27`-slot Backpack + `5` Armor/Shield slots + live Stats + **`Craft`** header button). Equipped gear (`Leather Hood`, `Tunic`, `Leggings`, `Boots`, `Wooden Shield`) renders visibly on your character for all players; drag items or tap-to-swap between Backpack, Armor/Shield, and bottom hotbar.
   - **`H` or `Hero` button**: Open Hero Appearance creator (name, `Male`/`Female` body silhouette, skin tone, eye color, hair style, and hair pigment; auto-saved in `localStorage` and synced over WebSocket).
   - **`C` or `Bag -> Craft`**: Open Crafting panel (craftable recipes only by default, with optional `Show Locked` toggle and **`Bag`** header button back).
   - **`Esc`**: Close open panels.
-- **Audio, Debug Toolbar & Fullscreen**:
-  - **`Audio` button**: Adjust independent `Music` and `SFX` sliders or `Mute All`. Tuning levers live in `packages/client/src/audio/audioTuning.ts`, `packages/client/src/render/combat/combatVisualTuning.ts`, and `packages/engine/src/combat/combatRules.ts`.
+- **Audio, Telemetry, Debug Toolbar & Fullscreen**:
+  - **Settings gear (`Esc` / top-right)**: Adjust independent `Music` and `SFX` sliders or `Mute All`, toggle **`Show FPS`**, **`Show Ping`**, camera zoom, and crouch mode (`Toggle`/`Hold`). Tuning levers live in `packages/client/src/audio/audioTuning.ts`, `packages/client/src/render/combat/combatVisualTuning.ts`, and `packages/engine/src/combat/combatRules.ts`.
   - **`FS` & `−`/`+` buttons**: Manual fullscreen toggle (touch devices also auto-request fullscreen on first touch gesture) and camera zoom.
   - **`?debug=1` / `?admin=1`**: Reveals the admin status pill (`Server · Day`), `FX` quality cycler, and `Atmosphere ▾` clock/preset drawer.
 

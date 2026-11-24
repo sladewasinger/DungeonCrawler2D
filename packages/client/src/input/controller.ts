@@ -15,6 +15,7 @@ export interface InputCallbacks {
   readonly onToggleCharacter: () => void;
   readonly onToggleMap?: () => void;
   readonly onInteract?: () => void;
+  readonly onDropItem?: () => void;
   readonly onWorldTap?: (clientX: number, clientY: number) => void;
   readonly onClosePanels: () => void;
 }
@@ -163,7 +164,10 @@ export class InputController {
     const actions: Readonly<Record<string, () => void>> = {
       KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
       KeyC: () => this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "press")),
-      KeyQ: () => { this.throwPebbleQueued = true; },
+      KeyQ: () => { callbacks.onDropItem?.(); },
+      Delete: () => { callbacks.onDropItem?.(); },
+      Backspace: () => { callbacks.onDropItem?.(); },
+      KeyX: () => { this.throwPebbleQueued = true; },
       KeyH: callbacks.onToggleCharacter,
       KeyF: callbacks.onToggleTorch,
       KeyM: () => { callbacks.onToggleMap?.(); },

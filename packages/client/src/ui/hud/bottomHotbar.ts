@@ -30,6 +30,7 @@ export class BottomHotbar {
 
   constructor(host: HTMLElement, drag: SlotDragManager, onToggleTorch: () => void) {
     this.el = domNode("div", "ow-hotbar");
+    this.el.dataset.dropZone = "hotbar";
     this.el.setAttribute("role", "toolbar");
     this.el.setAttribute(ATTR_ARIA_LABEL, "Hotbar");
     for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) {
