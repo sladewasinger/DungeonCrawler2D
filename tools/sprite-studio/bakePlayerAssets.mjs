@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, measureSpriteBounds, shiftSpriteFrame } from "./pixelPost.mjs";
-import { decodePng, encodePng } from "./pngCodec.mjs";
+import { decodePng, encodeLosslessWebp } from "./pngCodec.mjs";
 
 const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
 const RIG_META_PATH = path.join(OUT_DIR, "player-rig.json");
@@ -157,7 +157,7 @@ function packLayerSheet({ rawDir, layer, anchors }) {
   }
   packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: PORTRAIT_ROW, ext });
   if (ext) console.log(`Layer ${layer.id} cell bounds (@${CELL}px):`, ext);
-  fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.png`), encodePng(sheetW, sheetH, rgba));
+  fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.webp`), encodeLosslessWebp(sheetW, sheetH, rgba));
 }
 
 function convertSocketPoint(pt, shift) {
@@ -213,8 +213,8 @@ function packBowOverlaySheet({ rawDir, anchors }) {
       blitIntoSheet({ sheetRgba: rgba, sheetW, frame: aligned, col: f - 1, row: dIdx });
     }
   }
-  fs.writeFileSync(path.join(OUT_DIR, "weapon-bow.png"), encodePng(sheetW, sheetH, rgba));
-  return { path: "/assets/player/weapon-bow.png", cols, rows, frameWidth: CELL, frameHeight: CELL };
+  fs.writeFileSync(path.join(OUT_DIR, "weapon-bow.webp"), encodeLosslessWebp(sheetW, sheetH, rgba));
+  return { path: "/assets/player/weapon-bow.webp", cols, rows, frameWidth: CELL, frameHeight: CELL };
 }
 
 function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay }) {

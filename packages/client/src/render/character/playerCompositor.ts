@@ -4,7 +4,7 @@ import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Rectangle, Texture, type TextureSource } from "pixi.js";
 import { createPixelCanvas } from "../textures/pixelCanvas.js";
 import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
-import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
+import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
 
 export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
@@ -66,15 +66,94 @@ function sliceAllDirs(source: TextureSource, meta: PlayerRigMeta): Readonly<Reco
   return { south: byDir("south"), se: byDir("se"), side: byDir("side"), ne: byDir("ne"), north: byDir("north") };
 }
 
-function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
+export interface PortraitCropRect {
+  readonly cw: number;
+  readonly ch: number;
+  readonly localX: number;
+  readonly localY: number;
+}
+
+interface ScratchSurface {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+}
+
+let portraitCellScratch: ScratchSurface | null = null;
+let portraitCropScratch: ScratchSurface | null = null;
+
+function acquireScratch(
+  current: ScratchSurface | null,
+  w: number,
+  h: number,
+): ScratchSurface {
+  if (current && current.canvas.width === w && current.canvas.height === h) {
+    current.ctx.clearRect(0, 0, w, h);
+    return current;
+  }
+  return createPixelCanvas(w, h);
+}
+
+export function computePortraitCropRect(
+  meta: Pick<PlayerRigMeta, "frameWidth" | "frameHeight" | "groundY" | "scale">,
+): PortraitCropRect {
   const resMul = (1 / 3) / meta.scale;
   const cw = Math.round(64 * resMul);
   const ch = Math.round(82 * resMul);
-  const { canvas, ctx } = createPixelCanvas(cw, ch);
-  const sx = meta.portraitCol * meta.frameWidth + Math.floor((meta.frameWidth - cw) * 0.5);
-  const sy = meta.portraitRow * meta.frameHeight + meta.groundY - ch + Math.round(8 * resMul);
-  ctx.drawImage(srcCanvas, sx, sy, cw, ch, 0, 0, cw, ch);
+  return {
+    cw,
+    ch,
+    localX: Math.floor((meta.frameWidth - cw) * 0.5),
+    localY: meta.groundY - ch + Math.round(8 * resMul),
+  };
+}
+
+function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
+  const crop = computePortraitCropRect(meta);
+  const { canvas, ctx } = createPixelCanvas(crop.cw, crop.ch);
+  const sx = meta.portraitCol * meta.frameWidth + crop.localX;
+  const sy = meta.portraitRow * meta.frameHeight + crop.localY;
+  ctx.drawImage(srcCanvas, sx, sy, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
   return canvas.toDataURL();
+}
+
+function drawPortraitLayers(opts: {
+  readonly ctx: CanvasRenderingContext2D; readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta;
+}): void {
+  const { ctx, layerIds, meta } = opts;
+  const fw = meta.frameWidth;
+  const fh = meta.frameHeight;
+  const sx = meta.portraitCol * fw;
+  const sy = meta.portraitRow * fh;
+  for (const id of layerIds) {
+    const sliced = getPlayerPortraitLayer(id);
+    if (sliced) { ctx.drawImage(sliced, 0, 0); continue; }
+    const fullImg = getPlayerLayerImage(id);
+    if (fullImg) ctx.drawImage(fullImg, sx, sy, fw, fh, 0, 0, fw, fh);
+  }
+}
+
+export function build3dCharacterPortraitUrl(
+  appearance: CharacterAppearance,
+  armor: ArmorEquipment,
+): string | null {
+  if (typeof document === "undefined") return null;
+  const meta = getPlayerRigMeta();
+  if (!meta) return null;
+  const fw = meta.frameWidth;
+  const fh = meta.frameHeight;
+  portraitCellScratch = acquireScratch(portraitCellScratch, fw, fh);
+  drawPortraitLayers({ ctx: portraitCellScratch.ctx, layerIds: resolveLayerStack(appearance, armor, true), meta });
+  const imgData = portraitCellScratch.ctx.getImageData(0, 0, fw, fh);
+  applyRecolorPass({
+    data: imgData.data, width: fw, height: fh, palettes: resolveSentinelPalettes(appearance), cellW: fw, cellH: fh,
+  });
+  const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, (1 / 3) / meta.scale);
+  applyUnifiedSelOut({ data: imgData.data, width: fw, height: fh, solidRadiusPx });
+  portraitCellScratch.ctx.putImageData(imgData, 0, 0);
+  const crop = computePortraitCropRect(meta);
+  portraitCropScratch = acquireScratch(portraitCropScratch, crop.cw, crop.ch);
+  portraitCropScratch.ctx.drawImage(portraitCellScratch.canvas, crop.localX, crop.localY, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
+  return portraitCropScratch.canvas.toDataURL();
 }
 
 function compositeSheetCanvas(opts: {

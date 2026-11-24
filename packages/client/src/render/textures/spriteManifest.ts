@@ -1,6 +1,11 @@
-/** Preloads pixel-art PNG sprites and sliced spritesheet animations from sprite-manifest.json. */
+/** Preloads lossless WebP/PNG sprites and sliced spritesheet animations from sprite-manifest.json. */
 import { Assets, Rectangle, Texture } from "pixi.js";
-import { preloadPlayerAssets } from "../character/playerAssets.js";
+import { preloadPlayerAssets, type AssetProgressCallback } from "../character/playerAssets.js";
+
+export interface PreloadManifestOptions {
+  readonly includePlayer?: boolean | undefined;
+  readonly onProgress?: AssetProgressCallback | undefined;
+}
 
 export type SpriteDirection = "south" | "se" | "side" | "ne" | "north";
 export type SpriteAnimState = "idle" | "walk" | "run" | "attack" | "corpse";
@@ -59,6 +64,13 @@ const MANIFEST_URL = "/assets/sprite-manifest.json";
 const registry = new Map<string, LoadedSpriteAsset>();
 let inflightLoad: Promise<void> | null = null;
 let loadedOnce = false;
+const progressListeners = new Set<AssetProgressCallback>();
+let lastProgress = { loaded: 0, total: 0 };
+
+function emitManifestProgress(loaded: number, total: number): void {
+  lastProgress = { loaded, total };
+  for (const listener of progressListeners) listener(loaded, total);
+}
 
 function sliceDirectionClips(
   sheet: Texture,
@@ -76,10 +88,11 @@ function sliceDirectionClips(
   return out;
 }
 
-async function loadSheetAnimations(spec: SpriteSheetAnimSpec): Promise<LoadedSpriteAnimations> {
+async function loadSheetAnimations(spec: SpriteSheetAnimSpec, onStep?: () => void): Promise<LoadedSpriteAnimations> {
   const sheet = await Assets.load<Texture>(spec.sheetPath);
   sheet.source.scaleMode = "nearest";
   sheet.source.update();
+  onStep?.();
   const clips: LoadedSpriteAnimations["clips"] = {};
   for (const [state, dirClips] of Object.entries(spec.clips) as [
     SpriteAnimState,
@@ -90,34 +103,57 @@ async function loadSheetAnimations(spec: SpriteSheetAnimSpec): Promise<LoadedSpr
   return { frameWidth: spec.frameWidth, frameHeight: spec.frameHeight, clips };
 }
 
-async function loadManifestEntry(id: string, entry: SpriteManifestEntry): Promise<void> {
+async function loadManifestEntry(
+  id: string,
+  entry: SpriteManifestEntry,
+  onStep?: () => void,
+): Promise<void> {
   const texture = await Assets.load<Texture>(entry.path);
   texture.source.scaleMode = "nearest";
   texture.source.update();
-  const loadedAnimations = entry.animations ? await loadSheetAnimations(entry.animations) : undefined;
+  onStep?.();
+  const loadedAnimations = entry.animations ? await loadSheetAnimations(entry.animations, onStep) : undefined;
   registry.set(id, { ...entry, id, texture, loadedAnimations });
 }
 
-async function fetchAndLoadManifest(): Promise<void> {
+async function fetchAndLoadManifest(includePlayer: boolean): Promise<void> {
   if (typeof fetch !== "function") return;
   try {
     const res = await fetch(MANIFEST_URL);
     if (!res.ok) return;
     const data = (await res.json()) as ManifestFile;
     const entries = Object.entries(data.assets ?? {});
-    await Promise.all([
-      ...entries.map(([id, entry]) => loadManifestEntry(id, entry)),
-      preloadPlayerAssets(),
-    ]);
+    const sheetCount = entries.filter(([, e]) => Boolean(e.animations)).length;
+    const total = entries.length + sheetCount + (includePlayer ? 1 : 0);
+    let done = 0;
+    emitManifestProgress(0, total);
+    const bump = (): void => emitManifestProgress(++done, total);
+    const jobs = entries.map(([id, entry]) => loadManifestEntry(id, entry, bump));
+    if (includePlayer) jobs.push(preloadPlayerAssets().then(bump));
+    await Promise.all(jobs);
     loadedOnce = registry.size > 0;
   } catch (err) {
     console.warn("Sprite manifest preload skipped:", err);
   }
 }
 
-export function preloadSpriteManifest(): Promise<void> {
-  if (loadedOnce) return Promise.resolve();
-  inflightLoad ??= fetchAndLoadManifest().finally(() => { inflightLoad = null; });
+function attachProgressListener(cb: AssetProgressCallback | undefined): void {
+  if (!cb) return;
+  progressListeners.add(cb);
+  if (lastProgress.total > 0) cb(lastProgress.loaded, lastProgress.total);
+}
+
+export function preloadSpriteManifest(opts?: PreloadManifestOptions): Promise<void> {
+  const cb = opts?.onProgress;
+  if (loadedOnce) {
+    if (cb && lastProgress.total > 0) cb(lastProgress.total, lastProgress.total);
+    return Promise.resolve();
+  }
+  attachProgressListener(cb);
+  inflightLoad ??= fetchAndLoadManifest(opts?.includePlayer ?? true).finally(() => {
+    inflightLoad = null;
+    progressListeners.clear();
+  });
   return inflightLoad;
 }
 

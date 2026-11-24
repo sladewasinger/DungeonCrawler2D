@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { updateCreatureManifest } from "./manifestSync.mjs";
 import { postProcessFrame, measureSpriteBounds } from "./pixelPost.mjs";
-import { decodePng, encodePng } from "./pngCodec.mjs";
+import { decodePng, encodeLosslessWebp, encodePng } from "./pngCodec.mjs";
 
 const DEFAULT_CREATURES_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/creatures";
 const DEFAULT_MANIFEST = "D:/repos/dungeoncrawler2D/packages/client/public/assets/sprite-manifest.json";
@@ -167,8 +167,8 @@ function run() {
   const cellH = postRows[0][0].height;
   const sheet = packRows(postRows, cellW, cellH);
   fs.mkdirSync(args.outCreatures, { recursive: true });
-  fs.writeFileSync(path.join(args.outCreatures, `${args.creature}-sheet.png`), encodePng(sheet.width, sheet.height, sheet.rgba));
-  fs.writeFileSync(path.join(args.outCreatures, `${args.creature}.png`), encodePng(cellW, cellH, postRows[0][0].rgba));
+  fs.writeFileSync(path.join(args.outCreatures, `${args.creature}-sheet.webp`), encodeLosslessWebp(sheet.width, sheet.height, sheet.rgba));
+  fs.writeFileSync(path.join(args.outCreatures, `${args.creature}.webp`), encodeLosslessWebp(cellW, cellH, postRows[0][0].rgba));
   writeReviewContactSheet({ rows: postRows, cellW, cellH, groundY: resolvedGroundY, reviewPath: args.reviewPath });
   const idleBounds = measureSpriteBounds(postRows[0][0]);
   updateCreatureManifest({

@@ -33,7 +33,7 @@ export function updateCreatureManifest(opts) {
   if (!manifestPath) return;
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   manifest.assets[creature] = {
-    path: `/assets/creatures/${creature}.png`,
+    path: `/assets/creatures/${creature}.webp`,
     width: cellW,
     height: cellH,
     contentWidth: idleBounds.contentWidth,
@@ -42,7 +42,7 @@ export function updateCreatureManifest(opts) {
     anchorX: 0.5,
     anchorY: Number((groundY / cellH).toFixed(4)),
     animations: {
-      sheetPath: `/assets/creatures/${creature}-sheet.png`,
+      sheetPath: `/assets/creatures/${creature}-sheet.webp`,
       frameWidth: cellW,
       frameHeight: cellH,
       clips: buildManifestClips(clipEntries, directions),

@@ -1,4 +1,5 @@
-/** Pure Node PNG decoder and encoder for 8-bit RGB/RGBA pixel buffers. */
+/** Pure Node PNG decoder/encoder and lossless WebP converter via ffmpeg. */
+import { execFileSync } from "node:child_process";
 import zlib from "node:zlib";
 
 function paethPredictor(a, b, c) {
@@ -115,4 +116,16 @@ export function encodePng(width, height, rgba) {
   }
   const idat = zlib.deflateSync(raw, { level: 9 });
   return Buffer.concat([sig, buildPngChunk("IHDR", ihdr), buildPngChunk("IDAT", idat), buildPngChunk("IEND", Buffer.alloc(0))]);
+}
+
+export function convertPngBufferToLosslessWebp(pngBuf) {
+  return execFileSync(
+    "ffmpeg",
+    ["-v", "error", "-f", "png_pipe", "-i", "pipe:0", "-c:v", "libwebp", "-lossless", "1", "-compression_level", "6", "-f", "webp", "pipe:1"],
+    { input: pngBuf, maxBuffer: 32 * 1024 * 1024 },
+  );
+}
+
+export function encodeLosslessWebp(width, height, rgba) {
+  return convertPngBufferToLosslessWebp(encodePng(width, height, rgba));
 }

@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, measureSpriteBounds } from "./pixelPost.mjs";
-import { decodePng, encodePng } from "./pngCodec.mjs";
+import { decodePng, encodeLosslessWebp, encodePng } from "./pngCodec.mjs";
 
 const RAW_DIR = process.argv[2];
 const GEAR_OUT = "D:/repos/dungeoncrawler2D/packages/client/public/assets/gear";
@@ -101,9 +101,9 @@ function run() {
   const rendered = [];
   for (const spec of GEAR_SPECS) {
     const img = processGearFrame(spec.file);
-    fs.writeFileSync(path.join(GEAR_OUT, `${spec.file}.png`), encodePng(img.width, img.height, img.rgba));
+    fs.writeFileSync(path.join(GEAR_OUT, `${spec.file}.webp`), encodeLosslessWebp(img.width, img.height, img.rgba));
     manifest.assets[spec.id] = {
-      path: `/assets/gear/${spec.file}.png`,
+      path: `/assets/gear/${spec.file}.webp`,
       width: img.width,
       height: img.height,
       contentWidth: img.width - 4,

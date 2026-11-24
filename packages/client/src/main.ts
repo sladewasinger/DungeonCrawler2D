@@ -2,19 +2,17 @@
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
 import { installAdminConsole } from "./admin/adminConsole.js";
 import { AudioEngine } from "./audio/audioEngine.js";
-import {
-  EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim,
-} from "./input/autoAim.js";
+import { EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim } from "./input/autoAim.js";
 import { InputController, type CombatInputsFrame } from "./input/controller.js";
+import { saveCharacterPrefs } from "./net/characterPrefs.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { findManualLootInReach, resolveTapInteractTarget } from "./render/combat/lootViewHelpers.js";
-import { preloadSpriteManifest } from "./render/textures/spriteManifest.js";
 import { WorldScene } from "./render/world/worldScene.js";
-import { bootAssetSandbox } from "./sandbox/sandboxMode.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import type { HudActions } from "./ui/hud/slotRenderer.js";
+import { runBootPreloadFlow } from "./ui/loading/bootPreloader.js";
 import { CombatFeedbackOverlay } from "./ui/overlays/combatFeedbackOverlay.js";
 import { SettingsMenu } from "./ui/settings/settingsMenu.js";
 import { isLocalDebugOrigin } from "./ui/settings/settingsPrefs.js";
@@ -72,9 +70,8 @@ function resolveAimForTick(opts: {
 }
 
 function syncUiAndAudio(opts: {
-  readonly ctx: AppCtx; readonly view: WorldViewState;
-  readonly events: WorldViewState["events"]; readonly dt: number;
-  readonly dists: { readonly campfireDist: number; readonly waterDist: number };
+  readonly ctx: AppCtx; readonly view: WorldViewState; readonly events: WorldViewState["events"];
+  readonly dt: number; readonly dists: { readonly campfireDist: number; readonly waterDist: number };
 }): void {
   const { ctx, view, events, dists } = opts;
   const local = view.players.find((p) => p.id === view.localPlayerId);
@@ -147,8 +144,7 @@ function tryTapWorldInteract(opts: {
   const hit = resolveTapInteractTarget({ chests: snap.chests, groundLoot: snap.groundLoot, world: opts.scene.screenToWorldTile(opts.clientX, opts.clientY), me });
   if (!hit) return;
   if (hit.kind === "chest") {
-    opts.client.openChest(hit.id); opts.hud.openChest(hit.id); opts.audio.playUi("open");
-    return;
+    opts.client.openChest(hit.id); opts.hud.openChest(hit.id); opts.audio.playUi("open"); return;
   }
   opts.client.pickupLoot(hit.id); opts.audio.playUi("equip");
 }
@@ -168,8 +164,7 @@ function mountSettingsForUi(opts: {
     onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
     onPrefsChange: (p) => { toolbar.setFpsVisible(p.showFps); scene.setShowHitboxes(p.showHitboxes && isLocalDebugOrigin()); onCrouchMode?.(p.crouchMode); },
   });
-  toolbar.setFpsVisible(settings.currentPrefs().showFps);
-  scene.setShowHitboxes(settings.currentPrefs().showHitboxes && isLocalDebugOrigin());
+  toolbar.setFpsVisible(settings.currentPrefs().showFps); scene.setShowHitboxes(settings.currentPrefs().showHitboxes && isLocalDebugOrigin());
   onCrouchMode?.(settings.currentPrefs().crouchMode);
   return settings;
 }
@@ -199,8 +194,7 @@ function handleWorldInteract(opts: { readonly client: WorldClient; readonly hud:
   if (lootId) { client.pickupLoot(lootId); audio.playUi("equip"); return; }
   const near = client.nearestChest();
   if (near) {
-    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open");
-    return;
+    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open"); return;
   }
   const snap = client.snapshot();
   const me = snap.players.find((p) => p.id === snap.localPlayerId);
@@ -227,19 +221,11 @@ function mountUiControllers(opts: {
   const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m) });
   settingsRef.current = settings;
   const input = createInputHooks({ host, scene, client, hud, audio, onInteractWorld, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
-  inputRef = input;
-  input.setCrouchMode(settings.currentPrefs().crouchMode);
+  inputRef = input; input.setCrouchMode(settings.currentPrefs().crouchMode);
   return { hud, feedback, input, toolbar, settings, onInteractWorld };
 }
 
-async function bootOverworldClient(): Promise<void> {
-  const host = document.getElementById("app");
-  if (!host) throw new Error("Missing #app mount node");
-  installMobileAutoFullscreen();
-  await preloadSpriteManifest();
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("sandbox") === "1" && isLocalhostOrigin()) { await bootAssetSandbox(host); return; }
-  const skipTitle = params.get("skipTitle") === "1";
+async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise<AppCtx> {
   const scene = await WorldScene.mount(host);
   const client = new WorldClient(undefined, { autoConnect: skipTitle });
   installAdminConsole(client, { silent: !isLocalDebugOrigin() });
@@ -249,18 +235,34 @@ async function bootOverworldClient(): Promise<void> {
   const onReturnToTitle = () => { client.disconnect(); ui.input.setEnabled(false); titleRef.current?.reopen(client.snapshot().localName, client.snapshot().localAppearance); };
   const ui = mountUiControllers({ host, scene, client, audio, onReturnToTitle });
   const titleScreen = new TitleScreen(host, {
-    initialName: client.snapshot().localName, initialAppearance: client.snapshot().localAppearance,
-    onPreviewChange: (req) => client.setCharacter(req),
+    initialName: client.snapshot().localName, initialAppearance: client.snapshot().localAppearance, onPreviewChange: saveCharacterPrefs,
     onEnterWorld: (req) => {
       client.setCharacter(req); audio.playUi("open");
       client.connect(); ui.input.setEnabled(true); titleScreen.dismiss();
     },
   });
   titleRef.current = titleScreen;
-  if (skipTitle) titleScreen.dismiss();
-  else ui.input.setEnabled(false);
+  if (skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
   scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
-  startRenderLoop({ scene, client, audio, velTracker, titleScreen, ...ui });
+  return { scene, client, audio, velTracker, titleScreen, ...ui };
+}
+
+async function bootOverworldClient(): Promise<void> {
+  const host = document.getElementById("app");
+  if (!host) throw new Error("Missing #app mount node");
+  installMobileAutoFullscreen();
+  const params = new URLSearchParams(window.location.search);
+  let ctx: AppCtx | null = null;
+  await runBootPreloadFlow({
+    host,
+    isSandbox: params.get("sandbox") === "1" && isLocalhostOrigin(),
+    onSandbox: async () => { const { bootAssetSandbox } = await import("./sandbox/sandboxMode.js"); await bootAssetSandbox(host); },
+    onMountWorld: async () => {
+      ctx = await mountOverworldApp(host, params.get("skipTitle") === "1");
+      return { appearance: ctx.client.snapshot().localAppearance, onBeforeReveal: () => renderTick({ ...ctx!, nowMs: performance.now(), dt: 0.016 }) };
+    },
+  });
+  if (ctx) startRenderLoop(ctx);
 }
 
 void bootOverworldClient();
