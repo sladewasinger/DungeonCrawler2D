@@ -1,7 +1,7 @@
 import { DEFAULT_APPEARANCE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { resolvePortraitCell } from "../character/playerAssets.js";
-import { computePortraitCropRect, resolveSentinelPalettes } from "../character/playerCompositor.js";
+import { MAX_PLAYER_ATLAS_DIM, computePackedAtlasLayout, computePortraitCropRect, mapSheetCellToAtlas, resolveSentinelPalettes } from "../character/playerCompositor.js";
 import { applyRecolorPass, applyUnifiedSelOut, computeSelOutRgb } from "../character/playerRecolor.js";
 
 describe("3D portrait crop and fast in-place recolor/sel-out passes", () => {
@@ -72,5 +72,22 @@ describe("3D portrait crop and fast in-place recolor/sel-out passes", () => {
       portraitRow: 60,
       portraitCol: 0,
     })).toEqual({ row: 60, col: 0 });
+  });
+
+  it("repacks tall 61-row player sheets into <= 4096px mobile-safe strips and maps cell coords", () => {
+    const layout = computePackedAtlasLayout({ cols: 6, rows: 61, frameWidth: 192, frameHeight: 192 });
+    expect(layout).toEqual({
+      rowsPerStrip: 21,
+      stripCount: 3,
+      stripW: 1152,
+      width: 3456,
+      height: 4032,
+    });
+    expect(layout.width).toBeLessThanOrEqual(MAX_PLAYER_ATLAS_DIM);
+    expect(layout.height).toBeLessThanOrEqual(MAX_PLAYER_ATLAS_DIM);
+    expect(mapSheetCellToAtlas({ layout, frameWidth: 192, frameHeight: 192, row: 0, col: 0 })).toEqual({ x: 0, y: 0 });
+    expect(mapSheetCellToAtlas({ layout, frameWidth: 192, frameHeight: 192, row: 20, col: 5 })).toEqual({ x: 960, y: 3840 });
+    expect(mapSheetCellToAtlas({ layout, frameWidth: 192, frameHeight: 192, row: 21, col: 0 })).toEqual({ x: 1152, y: 0 });
+    expect(mapSheetCellToAtlas({ layout, frameWidth: 192, frameHeight: 192, row: 60, col: 0 })).toEqual({ x: 2304, y: 3456 });
   });
 });

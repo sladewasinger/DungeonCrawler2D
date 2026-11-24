@@ -13,8 +13,48 @@ import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from ".
 export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
 
 const BODY_FEMALE = "female";
+export const MAX_PLAYER_ATLAS_DIM = 4096;
 
 interface OrderedLayer { readonly id: string; readonly zOrder: number; }
+
+export interface PackedAtlasLayout {
+  readonly rowsPerStrip: number;
+  readonly stripCount: number;
+  readonly stripW: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export function computePackedAtlasLayout(
+  meta: Pick<PlayerRigMeta, "cols" | "rows" | "frameWidth" | "frameHeight">,
+  maxDim = MAX_PLAYER_ATLAS_DIM,
+): PackedAtlasLayout {
+  const stripW = meta.cols * meta.frameWidth;
+  const rowsPerStrip = Math.max(1, Math.min(meta.rows, Math.floor(maxDim / meta.frameHeight)));
+  const stripCount = Math.ceil(meta.rows / rowsPerStrip);
+  return {
+    rowsPerStrip,
+    stripCount,
+    stripW,
+    width: stripCount * stripW,
+    height: rowsPerStrip * meta.frameHeight,
+  };
+}
+
+export function mapSheetCellToAtlas(opts: {
+  readonly layout: PackedAtlasLayout;
+  readonly frameWidth: number;
+  readonly frameHeight: number;
+  readonly row: number;
+  readonly col: number;
+}): { readonly x: number; readonly y: number } {
+  const strip = Math.floor(opts.row / opts.layout.rowsPerStrip);
+  const localRow = opts.row % opts.layout.rowsPerStrip;
+  return {
+    x: strip * opts.layout.stripW + opts.col * opts.frameWidth,
+    y: localRow * opts.frameHeight,
+  };
+}
 
 function pushSingleItemLayer(opts: {
   readonly itemId: string | null; readonly gTag: string; readonly includeArms: boolean; readonly list: OrderedLayer[];
@@ -48,14 +88,19 @@ export function resolveLayerStack(appearance: CharacterAppearance, armor: ArmorE
   return list.map((e) => e.id);
 }
 
-function sliceDirAnim(opts: { readonly source: TextureSource; readonly meta: PlayerRigMeta; readonly dirIdx: number }): DirectionAnim {
-  const { source, meta, dirIdx } = opts;
+function sliceDirAnim(opts: {
+  readonly source: TextureSource; readonly meta: PlayerRigMeta; readonly layout: PackedAtlasLayout; readonly dirIdx: number;
+}): DirectionAnim {
+  const { source, meta, layout, dirIdx } = opts;
   const fw = meta.frameWidth; const fh = meta.frameHeight;
   const grab = (state: string): Texture[] => {
     const clip = meta.clips[state];
     if (!clip) return [];
     const row = clip.startRow + dirIdx;
-    return Array.from({ length: clip.frames }, (_, c) => new Texture({ source, frame: new Rectangle(c * fw, row * fh, fw, fh) }));
+    return Array.from({ length: clip.frames }, (_, col) => {
+      const pos = mapSheetCellToAtlas({ layout, frameWidth: fw, frameHeight: fh, row, col });
+      return new Texture({ source, frame: new Rectangle(pos.x, pos.y, fw, fh) });
+    });
   };
   return {
     idle: grab("idle"), walk: grab("walk"), run: grab("run"), jump: grab("jump"), fall: grab("fall"),
@@ -64,8 +109,8 @@ function sliceDirAnim(opts: { readonly source: TextureSource; readonly meta: Pla
   };
 }
 
-function sliceAllDirs(source: TextureSource, meta: PlayerRigMeta): Readonly<Record<FacingDir, DirectionAnim>> {
-  const byDir = (d: FacingDir) => sliceDirAnim({ source, meta, dirIdx: Math.max(0, meta.directions.indexOf(d)) });
+function sliceAllDirs(source: TextureSource, meta: PlayerRigMeta, layout: PackedAtlasLayout): Readonly<Record<FacingDir, DirectionAnim>> {
+  const byDir = (d: FacingDir) => sliceDirAnim({ source, meta, layout, dirIdx: Math.max(0, meta.directions.indexOf(d)) });
   return { south: byDir("south"), se: byDir("se"), side: byDir("side"), ne: byDir("ne"), north: byDir("north") };
 }
 
@@ -110,13 +155,12 @@ export function computePortraitCropRect(
   };
 }
 
-function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
+function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta, layout: PackedAtlasLayout): string {
   const crop = computePortraitCropRect(meta);
   const cell = resolvePortraitCell(meta);
+  const pos = mapSheetCellToAtlas({ layout, frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, row: cell.row, col: cell.col });
   const { canvas, ctx } = createPixelCanvas(crop.cw, crop.ch);
-  const sx = cell.col * meta.frameWidth + crop.localX;
-  const sy = cell.row * meta.frameHeight + crop.localY;
-  ctx.drawImage(srcCanvas, sx, sy, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
+  ctx.drawImage(srcCanvas, pos.x + crop.localX, pos.y + crop.localY, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
   return canvas.toDataURL();
 }
 
@@ -161,26 +205,41 @@ export function build3dCharacterPortraitUrl(
   return portraitCropScratch.canvas.toDataURL();
 }
 
+function drawPackedLayer(opts: {
+  readonly ctx: CanvasRenderingContext2D; readonly img: HTMLImageElement;
+  readonly meta: PlayerRigMeta; readonly layout: PackedAtlasLayout;
+}): void {
+  const { ctx, img, meta, layout } = opts;
+  const fh = meta.frameHeight;
+  for (let s = 0; s < layout.stripCount; s++) {
+    const startRow = s * layout.rowsPerStrip;
+    const rowCount = Math.min(layout.rowsPerStrip, meta.rows - startRow);
+    if (rowCount <= 0) break;
+    const sh = rowCount * fh;
+    ctx.drawImage(img, 0, startRow * fh, layout.stripW, sh, s * layout.stripW, 0, layout.stripW, sh);
+  }
+}
+
 function compositeSheetCanvas(opts: {
   readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta; readonly appearance: CharacterAppearance;
-}): { readonly canvas: HTMLCanvasElement; readonly source: TextureSource } {
+}): { readonly canvas: HTMLCanvasElement; readonly source: TextureSource; readonly layout: PackedAtlasLayout } {
   const { layerIds, meta, appearance } = opts;
-  const w = meta.cols * meta.frameWidth; const h = meta.rows * meta.frameHeight;
-  const { canvas, ctx } = createPixelCanvas(w, h);
+  const layout = computePackedAtlasLayout(meta);
+  const { canvas, ctx } = createPixelCanvas(layout.width, layout.height);
   for (const id of layerIds) {
     const img = getPlayerLayerImage(id);
-    if (img) ctx.drawImage(img, 0, 0);
+    if (img) drawPackedLayer({ ctx, img, meta, layout });
   }
-  const imgData = ctx.getImageData(0, 0, w, h);
+  const imgData = ctx.getImageData(0, 0, layout.width, layout.height);
   applyRecolorPass({
-    data: imgData.data, width: w, height: h, palettes: resolveSentinelPalettes(appearance),
+    data: imgData.data, width: layout.width, height: layout.height, palettes: resolveSentinelPalettes(appearance),
     cellW: meta.frameWidth, cellH: meta.frameHeight,
   });
   const resMul = (1 / 3) / meta.scale;
   const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, resMul);
-  applyUnifiedSelOut({ data: imgData.data, width: w, height: h, solidRadiusPx });
+  applyUnifiedSelOut({ data: imgData.data, width: layout.width, height: layout.height, solidRadiusPx });
   ctx.putImageData(imgData, 0, 0);
-  return { canvas, source: Texture.from({ resource: canvas, scaleMode: "nearest" }).source };
+  return { canvas, source: Texture.from({ resource: canvas, scaleMode: "nearest" }).source, layout };
 }
 
 export function build3dCharacterSpriteSet(
@@ -194,8 +253,8 @@ export function build3dCharacterSpriteSet(
   if (onLazyReady) ensurePlayerLayersLoaded(fullIds, onLazyReady);
   const full = compositeSheetCanvas({ layerIds: fullIds, meta, appearance });
   return {
-    ...sliceAllDirs(full.source, meta),
+    ...sliceAllDirs(full.source, meta, full.layout),
     frontArm: Texture.EMPTY, backArm: Texture.EMPTY,
-    worldScale: meta.scale, anchorY: meta.anchorY, is3d: true, previewUrl: extractPortraitUrl(full.canvas, meta),
+    worldScale: meta.scale, anchorY: meta.anchorY, is3d: true, previewUrl: extractPortraitUrl(full.canvas, meta, full.layout),
   };
 }
