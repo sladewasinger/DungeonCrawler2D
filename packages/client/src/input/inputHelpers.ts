@@ -78,13 +78,3 @@ export function nextCrouchState(mode: "toggle" | "hold", current: boolean, actio
   if (mode === "hold") return action === "press";
   return action === "press" ? !current : current;
 }
-
-export function createJumpButton(onPress: () => void): HTMLButtonElement {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "ow-jump-btn";
-  btn.textContent = "JUMP";
-  btn.setAttribute("aria-label", "Jump");
-  btn.addEventListener("pointerdown", (e) => { e.stopPropagation(); onPress(); });
-  return btn;
-}

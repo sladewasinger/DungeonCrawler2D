@@ -45,6 +45,13 @@ export function isBowActivelyAiming(snap: PlayerSnapshot): boolean {
   return snap.heldItem === "bow" && (snap.bowCharge ?? 0) > 0.001;
 }
 
+export function needsSecondaryAnimTier(snap: PlayerSnapshot): boolean {
+  return Boolean(
+    snap.crouching || snap.inDeepWater || (snap.jumpZ ?? 0) > 0.01
+    || (snap.respawnTimer ?? 0) > 0 || isBowActivelyAiming(snap),
+  );
+}
+
 function pickFacingVector(snap: PlayerSnapshot): { readonly dx: number; readonly dy: number } {
   if (!isBowActivelyAiming(snap) && (snap.heavyCharge ?? 0) <= 0) return { dx: snap.facingX, dy: snap.facingY };
   return { dx: snap.aimX ?? snap.facingX, dy: snap.aimY ?? snap.facingY };

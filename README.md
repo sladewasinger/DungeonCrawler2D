@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.10** (Mobile WebGL2 Player Atlas Hotfix — repacks `1152×11712` composited player sheets into `3456×4032` `<= 4096×4096` strip grids to fix black-square players on Android/mobile GPUs, plus v0.11.9 realistic sight, animal-only scent tracking, cold-trail river search & animated backstab dagger — shipped on `fix/mobile-player-atlas-limit` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.10** (Mobile WebGL2 VRAM Optimization & Compact 2-Row Touch Controls — tight-packs active player frames with per-clip transparent-margin trimming into `<= 1536×1536` 2-tier GPU atlases (`~9.0 MiB` Core + lazy `~6.3 MiB` Secondary vs `53.2 MiB` before) with a `32`-entry LRU cache to eliminate Pixel/Android black-square glitches and VRAM bloat, plus compact 2-row bottom-right touch combat controls (`right: 16px`, `bottom: 16px`) placing `JUMP` beside `ATK` above `SNEAK`/`ROLL`, plus v0.11.9 realistic sight, animal-only scent tracking, cold-trail river search & animated backstab dagger — shipped on `fix/mobile-player-atlas-limit` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 

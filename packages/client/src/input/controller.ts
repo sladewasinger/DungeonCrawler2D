@@ -2,7 +2,7 @@
 import { resolveBlockMode } from "@dc2d/content";
 import { COMBAT_TUNING } from "@dc2d/engine";
 import {
-  HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, createJumpButton, isEditingText, isGuardedBrowserCombo,
+  HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, isEditingText, isGuardedBrowserCombo,
   isUiTarget, nextCrouchState,
 } from "./inputHelpers.js";
 import { MobileCombatControls } from "./mobileCombatControls.js";
@@ -67,18 +67,16 @@ export class InputController {
     const { ring, knob } = createJoystickDom();
     this.stickEl = ring;
     this.knobEl = knob;
-    const jumpBtn = createJumpButton(() => { this.jumpQueued = true; });
-    host.append(ring, jumpBtn);
+    host.append(ring);
     this.mobileCombat = new MobileCombatControls(host, {
       onMapTap: () => callbacks.onToggleMap?.(),
-      onToggleTorch: () => callbacks.onToggleTorch(),
+      onJump: () => { this.jumpQueued = true; this.syncCrouch(false); },
     });
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
   }
 
   setCrouchMode(mode: "toggle" | "hold"): void { this.crouchMode = mode; }
-  setTorchLit(lit: boolean): void { this.mobileCombat.setTorchLit(lit); }
   setGearState(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
     this.isBowHeld = gear.heldItem === "bow";
     this.canBlock = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null) !== "none";

@@ -1,7 +1,7 @@
 /** Packs exported Blender Holdout player layers + sockets into game-ready sheets & player-rig.json. */
 import fs from "node:fs";
 import path from "node:path";
-import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, measureSpriteBounds, shiftSpriteFrame } from "./pixelPost.mjs";
+import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, finalizeTrimRect, shiftSpriteFrame, updateBoundsExtremes } from "./pixelPost.mjs";
 import { decodePng, encodeLosslessWebp } from "./pngCodec.mjs";
 
 const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
@@ -117,19 +117,16 @@ function blitIntoSheet({ sheetRgba, sheetW, frame, col, row }) {
   }
 }
 
-function updateSheetExtremes(ext, bounds) {
-  if (bounds.contentWidth === 0) return;
-  ext.minX = Math.min(ext.minX, bounds.minX);
-  ext.minY = Math.min(ext.minY, bounds.minY);
-  ext.maxX = Math.max(ext.maxX, bounds.maxX);
-  ext.maxY = Math.max(ext.maxY, bounds.maxY);
+function getClipExtremes(trimByClip, state) {
+  trimByClip[state] ??= { minX: CELL, minY: CELL, maxX: -1, maxY: -1 };
+  return trimByClip[state];
 }
 
 function packFrameCell(opts) {
   const processed = loadCleanedFrame({ rawDir: opts.rawDir, layerId: opts.layerId, clip: opts.clip, dir: opts.dir, frameNum: opts.frameNum });
   if (!processed) return;
   const aligned = shiftSpriteFrame(processed, opts.shift.dx, opts.shift.dy);
-  if (opts.ext) updateSheetExtremes(opts.ext, measureSpriteBounds(aligned));
+  if (opts.ext) updateBoundsExtremes(opts.ext, aligned);
   blitIntoSheet({ sheetRgba: opts.rgba, sheetW: opts.sheetW, frame: aligned, col: opts.col, row: opts.row });
 }
 
@@ -142,21 +139,19 @@ function packClipDir(opts) {
   }
 }
 
-function packLayerSheet({ rawDir, layer, anchors }) {
+function packLayerSheet({ rawDir, layer, anchors, trimByClip }) {
   const sheetW = SHEET_COLS * CELL;
   const sheetH = SHEET_ROWS * CELL;
   const rgba = new Uint8Array(sheetW * sheetH * 4);
-  const trackBounds = layer.id === "body-male" || layer.id === "hair-ponytail";
-  const ext = trackBounds ? { minX: CELL, minY: CELL, maxX: -1, maxY: -1 } : null;
   let row = 0;
   for (const clip of CLIPS) {
+    const ext = trimByClip ? getClipExtremes(trimByClip, clip.state) : null;
     for (const dir of DIRS) {
       packClipDir({ rawDir, rgba, sheetW, layerId: layer.id, clip, dir, shift: anchors[dir], row, ext });
       row++;
     }
   }
-  packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: PORTRAIT_ROW, ext });
-  if (ext) console.log(`Layer ${layer.id} cell bounds (@${CELL}px):`, ext);
+  packFrameCell({ rawDir, rgba, sheetW, layerId: layer.id, clip: "portrait", dir: "south", frameNum: 1, shift: anchors.south, col: 0, row: PORTRAIT_ROW, ext: null });
   fs.writeFileSync(path.join(OUT_DIR, `${layer.id}.webp`), encodeLosslessWebp(sheetW, sheetH, rgba));
 }
 
@@ -217,13 +212,18 @@ function packBowOverlaySheet({ rawDir, anchors }) {
   return { path: "/assets/player/weapon-bow.webp", cols, rows, frameWidth: CELL, frameHeight: CELL };
 }
 
-function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay }) {
+function buildClipMetaEntry(c, idx, trimByClip) {
+  const trim = finalizeTrimRect(trimByClip?.[c.state], CELL, 4);
+  return [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps, ...(trim ? { trim } : {}) }];
+}
+
+function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay, trimByClip }) {
   const rawSockets = JSON.parse(fs.readFileSync(path.join(rawDir, "raw_sockets.json"), "utf8"));
   return {
     frameWidth: CELL, frameHeight: CELL, cols: SHEET_COLS, rows: SHEET_ROWS, groundY: GROUND_Y,
     anchorX: 0.5, anchorY: Number((GROUND_Y / CELL).toFixed(4)), scale: Number(WORLD_SCALE.toFixed(4)),
     portraitRow: PORTRAIT_ROW, portraitCol: 0, directions: DIRS,
-    clips: Object.fromEntries(CLIPS.map((c, idx) => [c.state, { startRow: idx * 5, frames: c.frames, fps: c.fps }])),
+    clips: Object.fromEntries(CLIPS.map((c, idx) => buildClipMetaEntry(c, idx, trimByClip))),
     layers: LAYERS.map((l) => l.id),
     ...(bowOverlay ? { bowOverlay } : {}),
     bakeVersion: Date.now(),
@@ -233,9 +233,9 @@ function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay }) {
   };
 }
 
-function packTargetLayer({ rawDir, layer, anchors }) {
+function packTargetLayer({ rawDir, layer, anchors, trimByClip }) {
   if (!anchors) throw new Error(`Missing anchors for ${layer.gender}; export body-${layer.gender} or run full bake.`);
-  packLayerSheet({ rawDir, layer, anchors });
+  packLayerSheet({ rawDir, layer, anchors, trimByClip });
 }
 
 function runBowOnlyBake({ rawDir, anchorsByGender, prevMeta }) {
@@ -248,11 +248,11 @@ function runBowOnlyBake({ rawDir, anchorsByGender, prevMeta }) {
   return updated;
 }
 
-function resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta }) {
+function resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta, trimByClip }) {
   if (onlyLayers && prevMeta) {
     return { ...prevMeta, anchorsByGender, ...(bowOverlay ? { bowOverlay } : {}), bakeVersion: Date.now() };
   }
-  return buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay });
+  return buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay, trimByClip });
 }
 
 function resolveBowOverlay({ rawDir, anchorsByGender, prevMeta }) {
@@ -267,8 +267,9 @@ function run() {
   if (bowOnly && runBowOnlyBake({ rawDir, anchorsByGender, prevMeta })) return;
   const bowOverlay = resolveBowOverlay({ rawDir, anchorsByGender, prevMeta });
   const targets = onlyLayers ? LAYERS.filter((l) => onlyLayers.has(l.id)) : LAYERS;
-  for (const layer of targets) packTargetLayer({ rawDir, layer, anchors: anchorsByGender[layer.gender] });
-  const rigMeta = resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta });
+  const trimByClip = onlyLayers ? null : {};
+  for (const layer of targets) packTargetLayer({ rawDir, layer, anchors: anchorsByGender[layer.gender], trimByClip });
+  const rigMeta = resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta, trimByClip });
   fs.writeFileSync(RIG_META_PATH, JSON.stringify(rigMeta, null, 2) + "\n");
   console.log("Baked player assets:", { outDir: OUT_DIR, bakedLayers: targets.length, bakeVersion: rigMeta.bakeVersion });
 }

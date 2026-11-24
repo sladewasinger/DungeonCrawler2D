@@ -14,9 +14,9 @@ import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
 import { PlayerHpBar, createPlayerNameLabel } from "./playerHpBar.js";
 import {
   PLAYER_WATERLINE, attachToSlot, computePlayerCombatFx, computeSwimDip, createWaterSubmergeRig, gearLayoutFor,
-  makeArmSprite, makeGroundShadow, makeHandSprite, makeShieldSprite, nextDodgeStart, resolveHeroAnimTrack,
-  resolvePlayerFacing, resolvePoseSnapshot, resolveWeaponChargeTint, skinTint, solveLegacyArmRigForSnap,
-  syncBowAimGuide, syncSubmergedSprite, syncWaterSubmergeState, type ActivePose,
+  makeArmSprite, makeGroundShadow, makeHandSprite, makeShieldSprite, needsSecondaryAnimTier, nextDodgeStart,
+  resolveHeroAnimTrack, resolvePlayerFacing, resolvePoseSnapshot, resolveWeaponChargeTint, skinTint,
+  solveLegacyArmRigForSnap, syncBowAimGuide, syncSubmergedSprite, syncWaterSubmergeState, type ActivePose,
 } from "./playerPoseHelpers.js";
 
 const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
@@ -84,6 +84,7 @@ export class PlayerView {
     this.root.position.set(snap.x * TILE_PX, snap.y * TILE_PX - elev * ELEVATION_LIFT_PX);
     this.root.zIndex = Math.round(snap.y * TILE_PX) + (input.sortBoost ?? snap.elevation * 2);
     this.syncAppearanceSet(snap);
+    if (this.sprites.ensureSecondary && needsSecondaryAnimTier(snap)) this.sprites.ensureSecondary();
     this.syncBodyTransform(snap, timeSec);
     const gait = advanceGaitClock(this.gaitClock, { x: snap.x, y: snap.y, moving: snap.moving, sprinting: Boolean(snap.sprinting), airborne: (snap.jumpZ ?? 0) > 0.03 });
     const activePose = this.syncPose(snap, timeSec, gait.phase);
@@ -121,7 +122,9 @@ export class PlayerView {
   }
 
   private applyCrouchScaleAndAlpha(snap: PlayerSnapshot, baseAlpha: number): void {
-    const hasCrouchClip = Boolean(this.sprites.is3d && this.sprites.south.crouchIdle?.length);
+    const hasCrouchClip = Boolean(
+      this.sprites.is3d && (this.sprites.hasSecondaryTracks || this.sprites.south.crouchIdle?.length),
+    );
     this.actorGroup.scale.set(1, snap.crouching && !hasCrouchClip ? 0.88 : 1);
     if (snap.crouching && snap.inCover) this.actorGroup.alpha = baseAlpha * 0.68;
   }
