@@ -97,6 +97,8 @@ export interface CharacterSpriteSet {
   readonly worldScale?: number;
   readonly anchorY?: number;
   readonly is3d?: boolean;
+  readonly hasSecondaryTracks?: boolean;
+  readonly ensureSecondary?: () => void;
   readonly previewUrl: string;
 }
 

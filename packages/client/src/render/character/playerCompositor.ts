@@ -1,186 +1,135 @@
-/** Data-driven 3D Hero compositor building baked-arm layer sheets + bold Borderlands outlines. */
-import { ACTIVE_OUTLINE_STYLE, getItemDef } from "@dc2d/content";
+/** 2-tier tight-packed, per-clip trimmed 3D Hero compositor with Sentinel recoloring & Borderlands outlines. */
+import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Rectangle, Texture, type TextureSource } from "pixi.js";
 import { createPixelCanvas } from "../textures/pixelCanvas.js";
-import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 import {
-  ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, resolvePortraitCell,
-  type PlayerRigMeta,
-} from "./playerAssets.js";
+  CORE_CLIP_NAMES, SECONDARY_CLIP_NAMES, buildTierAtlasPlan,
+  type AtlasFrameSlot, type PackedTierAtlas,
+} from "./atlas/playerAtlasPacker.js";
+import { extractPortraitUrlFromCore, resolveLayerStack } from "./atlas/playerPortraitBake.js";
+import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
+import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
 
 export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
+export {
+  CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES, TARGET_PLAYER_ATLAS_WIDTH,
+  buildTierAtlasPlan, findSlotInPlan, resolveClipTrim,
+  type AtlasFrameSlot, type FrameTrimRect, type PackedTierAtlas,
+} from "./atlas/playerAtlasPacker.js";
+export { build3dCharacterPortraitUrl, computePortraitCropRect, resolveLayerStack, type PortraitCropRect } from "./atlas/playerPortraitBake.js";
 
-const BODY_FEMALE = "female";
-
-interface OrderedLayer { readonly id: string; readonly zOrder: number; }
-
-function pushSingleItemLayer(opts: {
-  readonly itemId: string | null; readonly gTag: string; readonly includeArms: boolean; readonly list: OrderedLayer[];
-}): boolean {
-  const spec = opts.itemId ? getItemDef(opts.itemId)?.visualLayer : undefined;
-  if (!spec) return false;
-  opts.list.push({ id: spec.gendered ? `${spec.assetId}-${opts.gTag}` : spec.assetId, zOrder: spec.zOrder });
-  if (opts.includeArms && spec.sleeveAssetId) {
-    opts.list.push({ id: `${spec.sleeveAssetId}-${opts.gTag}`, zOrder: spec.zOrder + 5 });
-  }
-  return Boolean(spec.hidesHair);
+interface MutableDirAnim {
+  idle: Texture[];
+  walk?: Texture[];
+  run: Texture[];
+  jump: Texture[];
+  fall: Texture[];
+  dodge?: Texture[];
+  downed?: Texture[];
+  swim?: Texture[];
+  bow?: Texture[];
+  crouchIdle?: Texture[];
+  crouchWalk?: Texture[];
+  attack?: Texture[];
 }
 
-function pushEquipmentLayers(opts: {
-  readonly armor: ArmorEquipment; readonly gTag: string; readonly includeArms: boolean; readonly list: OrderedLayer[];
-}): boolean {
-  let hidesHair = false;
-  for (const itemId of Object.values(opts.armor)) {
-    if (pushSingleItemLayer({ itemId, gTag: opts.gTag, includeArms: opts.includeArms, list: opts.list })) hidesHair = true;
-  }
-  return hidesHair;
+const CLIP_TO_PROP: Readonly<Record<string, keyof MutableDirAnim>> = {
+  idle: "idle",
+  walk: "walk",
+  run: "run",
+  jump: "jump",
+  fall: "fall",
+  dodge: "dodge",
+  downed: "downed",
+  swim: "swim",
+  bow: "bow",
+  crouch_idle: "crouchIdle",
+  crouch_walk: "crouchWalk",
+  attack: "attack",
+};
+
+function createEmptyDirAnim(): MutableDirAnim {
+  return { idle: [], run: [], jump: [], fall: [] };
 }
 
-export function resolveLayerStack(appearance: CharacterAppearance, armor: ArmorEquipment, includeArms = true): string[] {
-  const gTag = appearance.body === BODY_FEMALE ? BODY_FEMALE : "male";
-  const list: OrderedLayer[] = [{ id: `body-${gTag}`, zOrder: 0 }];
-  if (includeArms) list.push({ id: `body-${gTag}-arms`, zOrder: 5 });
-  const hidesHair = pushEquipmentLayers({ armor, gTag, includeArms, list });
-  if (!hidesHair && appearance.hairStyle !== "bald") list.push({ id: `hair-${appearance.hairStyle}`, zOrder: 45 });
-  list.sort((a, b) => a.zOrder - b.zOrder);
-  return list.map((e) => e.id);
-}
-
-function sliceDirAnim(opts: { readonly source: TextureSource; readonly meta: PlayerRigMeta; readonly dirIdx: number }): DirectionAnim {
-  const { source, meta, dirIdx } = opts;
-  const fw = meta.frameWidth; const fh = meta.frameHeight;
-  const grab = (state: string): Texture[] => {
-    const clip = meta.clips[state];
-    if (!clip) return [];
-    const row = clip.startRow + dirIdx;
-    return Array.from({ length: clip.frames }, (_, c) => new Texture({ source, frame: new Rectangle(c * fw, row * fh, fw, fh) }));
-  };
+function createDirAnimMap(): Record<FacingDir, MutableDirAnim> {
   return {
-    idle: grab("idle"), walk: grab("walk"), run: grab("run"), jump: grab("jump"), fall: grab("fall"),
-    dodge: grab("dodge"), downed: grab("downed"), swim: grab("swim"), bow: grab("bow"),
-    crouchIdle: grab("crouch_idle"), crouchWalk: grab("crouch_walk"), attack: grab("attack"),
+    south: createEmptyDirAnim(),
+    se: createEmptyDirAnim(),
+    side: createEmptyDirAnim(),
+    ne: createEmptyDirAnim(),
+    north: createEmptyDirAnim(),
   };
 }
 
-function sliceAllDirs(source: TextureSource, meta: PlayerRigMeta): Readonly<Record<FacingDir, DirectionAnim>> {
-  const byDir = (d: FacingDir) => sliceDirAnim({ source, meta, dirIdx: Math.max(0, meta.directions.indexOf(d)) });
-  return { south: byDir("south"), se: byDir("se"), side: byDir("side"), ne: byDir("ne"), north: byDir("north") };
-}
-
-export interface PortraitCropRect {
-  readonly cw: number;
-  readonly ch: number;
-  readonly localX: number;
-  readonly localY: number;
-}
-
-interface ScratchSurface {
-  readonly canvas: HTMLCanvasElement;
-  readonly ctx: CanvasRenderingContext2D;
-}
-
-let portraitCellScratch: ScratchSurface | null = null;
-let portraitCropScratch: ScratchSurface | null = null;
-
-function acquireScratch(
-  current: ScratchSurface | null,
-  w: number,
-  h: number,
-): ScratchSurface {
-  if (current && current.canvas.width === w && current.canvas.height === h) {
-    current.ctx.clearRect(0, 0, w, h);
-    return current;
-  }
-  return createPixelCanvas(w, h);
-}
-
-export function computePortraitCropRect(
-  meta: Pick<PlayerRigMeta, "frameWidth" | "frameHeight" | "groundY" | "scale">,
-): PortraitCropRect {
-  const resMul = (1 / 3) / meta.scale;
-  const cw = Math.round(64 * resMul);
-  const ch = Math.round(82 * resMul);
-  return {
-    cw,
-    ch,
-    localX: Math.floor((meta.frameWidth - cw) * 0.5),
-    localY: meta.groundY - ch + Math.round(8 * resMul),
-  };
-}
-
-function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
-  const crop = computePortraitCropRect(meta);
-  const cell = resolvePortraitCell(meta);
-  const { canvas, ctx } = createPixelCanvas(crop.cw, crop.ch);
-  const sx = cell.col * meta.frameWidth + crop.localX;
-  const sy = cell.row * meta.frameHeight + crop.localY;
-  ctx.drawImage(srcCanvas, sx, sy, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
-  return canvas.toDataURL();
-}
-
-function drawPortraitLayers(opts: {
-  readonly ctx: CanvasRenderingContext2D; readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta;
+function sliceTierIntoDirs(opts: {
+  readonly source: TextureSource;
+  readonly plan: PackedTierAtlas;
+  readonly dirAnims: Readonly<Record<FacingDir, MutableDirAnim>>;
+  readonly directions: readonly FacingDir[];
 }): void {
-  const { ctx, layerIds, meta } = opts;
-  const fw = meta.frameWidth;
-  const fh = meta.frameHeight;
-  const cell = resolvePortraitCell(meta);
-  const sx = cell.col * fw;
-  const sy = cell.row * fh;
-  for (const id of layerIds) {
-    const sliced = getPlayerPortraitLayer(id);
-    if (sliced) { ctx.drawImage(sliced, 0, 0); continue; }
-    const fullImg = getPlayerLayerImage(id);
-    if (fullImg) ctx.drawImage(fullImg, sx, sy, fw, fh, 0, 0, fw, fh);
+  const { source, plan, dirAnims, directions } = opts;
+  const orig = new Rectangle(0, 0, plan.frameWidth, plan.frameHeight);
+  for (const slot of plan.slots) {
+    const dirName = directions[slot.dirIdx];
+    const prop = dirName ? CLIP_TO_PROP[slot.clip] : undefined;
+    if (!dirName || !prop) continue;
+    const list = (dirAnims[dirName][prop] ??= []);
+    list[slot.col] = new Texture({
+      source,
+      frame: new Rectangle(slot.dstX, slot.dstY, slot.w, slot.h),
+      orig,
+      trim: new Rectangle(slot.trimX, slot.trimY, slot.w, slot.h),
+    });
   }
 }
 
-export function build3dCharacterPortraitUrl(
-  appearance: CharacterAppearance,
-  armor: ArmorEquipment,
-): string | null {
-  if (typeof document === "undefined") return null;
-  const meta = getPlayerRigMeta();
-  if (!meta) return null;
-  const fw = meta.frameWidth;
-  const fh = meta.frameHeight;
-  portraitCellScratch = acquireScratch(portraitCellScratch, fw, fh);
-  drawPortraitLayers({ ctx: portraitCellScratch.ctx, layerIds: resolveLayerStack(appearance, armor, true), meta });
-  const imgData = portraitCellScratch.ctx.getImageData(0, 0, fw, fh);
-  applyRecolorPass({
-    data: imgData.data, width: fw, height: fh, palettes: resolveSentinelPalettes(appearance), cellW: fw, cellH: fh,
-  });
-  const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, (1 / 3) / meta.scale);
-  applyUnifiedSelOut({ data: imgData.data, width: fw, height: fh, solidRadiusPx });
-  portraitCellScratch.ctx.putImageData(imgData, 0, 0);
-  const crop = computePortraitCropRect(meta);
-  portraitCropScratch = acquireScratch(portraitCropScratch, crop.cw, crop.ch);
-  portraitCropScratch.ctx.drawImage(portraitCellScratch.canvas, crop.localX, crop.localY, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
-  return portraitCropScratch.canvas.toDataURL();
+function drawPackedSlots(opts: {
+  readonly ctx: CanvasRenderingContext2D; readonly img: HTMLImageElement; readonly slots: readonly AtlasFrameSlot[];
+}): void {
+  for (const s of opts.slots) {
+    opts.ctx.drawImage(opts.img, s.srcX, s.srcY, s.w, s.h, s.dstX, s.dstY, s.w, s.h);
+  }
 }
 
-function compositeSheetCanvas(opts: {
-  readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta; readonly appearance: CharacterAppearance;
+function compositeTierCanvas(opts: {
+  readonly layerIds: readonly string[]; readonly plan: PackedTierAtlas;
+  readonly scale: number; readonly appearance: CharacterAppearance;
 }): { readonly canvas: HTMLCanvasElement; readonly source: TextureSource } {
-  const { layerIds, meta, appearance } = opts;
-  const w = meta.cols * meta.frameWidth; const h = meta.rows * meta.frameHeight;
-  const { canvas, ctx } = createPixelCanvas(w, h);
+  const { layerIds, plan, scale, appearance } = opts;
+  const { canvas, ctx } = createPixelCanvas(plan.width, plan.height);
   for (const id of layerIds) {
     const img = getPlayerLayerImage(id);
-    if (img) ctx.drawImage(img, 0, 0);
+    if (img) drawPackedSlots({ ctx, img, slots: plan.slots });
   }
-  const imgData = ctx.getImageData(0, 0, w, h);
+  const imgData = ctx.getImageData(0, 0, plan.width, plan.height);
   applyRecolorPass({
-    data: imgData.data, width: w, height: h, palettes: resolveSentinelPalettes(appearance),
-    cellW: meta.frameWidth, cellH: meta.frameHeight,
+    data: imgData.data, width: plan.width, height: plan.height,
+    palettes: resolveSentinelPalettes(appearance),
+    cells: plan.slots.map((s) => ({ x: s.dstX, y: s.dstY, w: s.w, h: s.h })),
   });
-  const resMul = (1 / 3) / meta.scale;
-  const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, resMul);
-  applyUnifiedSelOut({ data: imgData.data, width: w, height: h, solidRadiusPx });
+  const solidRadiusPx = ACTIVE_OUTLINE_STYLE.actorSolidPx * Math.min(1.65, (1 / 3) / scale);
+  applyUnifiedSelOut({ data: imgData.data, width: plan.width, height: plan.height, solidRadiusPx });
   ctx.putImageData(imgData, 0, 0);
   return { canvas, source: Texture.from({ resource: canvas, scaleMode: "nearest" }).source };
+}
+
+function createSecondaryLoader(opts: {
+  readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta;
+  readonly appearance: CharacterAppearance; readonly secondaryPlan: PackedTierAtlas;
+  readonly dirAnims: Readonly<Record<FacingDir, MutableDirAnim>>;
+}): () => void {
+  let built = false;
+  return (): void => {
+    if (built || opts.secondaryPlan.slots.length === 0) return;
+    built = true;
+    const secondary = compositeTierCanvas({
+      layerIds: opts.layerIds, plan: opts.secondaryPlan, scale: opts.meta.scale, appearance: opts.appearance,
+    });
+    sliceTierIntoDirs({ source: secondary.source, plan: opts.secondaryPlan, dirAnims: opts.dirAnims, directions: opts.meta.directions });
+  };
 }
 
 export function build3dCharacterSpriteSet(
@@ -192,10 +141,19 @@ export function build3dCharacterSpriteSet(
   if (!meta) return null;
   const fullIds = resolveLayerStack(appearance, armor, true);
   if (onLazyReady) ensurePlayerLayersLoaded(fullIds, onLazyReady);
-  const full = compositeSheetCanvas({ layerIds: fullIds, meta, appearance });
+  const corePlan = buildTierAtlasPlan(meta, CORE_CLIP_NAMES);
+  if (corePlan.slots.length === 0) return null;
+  const secondaryPlan = buildTierAtlasPlan(meta, SECONDARY_CLIP_NAMES);
+  const dirAnims = createDirAnimMap();
+  const core = compositeTierCanvas({ layerIds: fullIds, plan: corePlan, scale: meta.scale, appearance });
+  sliceTierIntoDirs({ source: core.source, plan: corePlan, dirAnims, directions: meta.directions });
+  const ensureSecondary = createSecondaryLoader({ layerIds: fullIds, meta, appearance, secondaryPlan, dirAnims });
+  const dirs = dirAnims as unknown as Readonly<Record<FacingDir, DirectionAnim>>;
   return {
-    ...sliceAllDirs(full.source, meta),
+    ...dirs,
     frontArm: Texture.EMPTY, backArm: Texture.EMPTY,
-    worldScale: meta.scale, anchorY: meta.anchorY, is3d: true, previewUrl: extractPortraitUrl(full.canvas, meta),
+    worldScale: meta.scale, anchorY: meta.anchorY, is3d: true,
+    hasSecondaryTracks: secondaryPlan.slots.length > 0, ensureSecondary,
+    previewUrl: extractPortraitUrlFromCore({ coreCanvas: core.canvas, meta, corePlan, appearance, armor }),
   };
 }

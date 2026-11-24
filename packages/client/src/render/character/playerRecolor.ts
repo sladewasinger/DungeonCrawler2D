@@ -151,32 +151,37 @@ function recolorCell(opts: {
   }
 }
 
-function runRecolorGrid(opts: {
+export interface RecolorCellRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
+
+function runRecolorPass(opts: {
   readonly data: Uint8ClampedArray; readonly u32: Uint32Array; readonly width: number; readonly height: number;
-  readonly palettes: SentinelPalettes; readonly cw: number; readonly ch: number;
+  readonly palettes: SentinelPalettes; readonly cw: number; readonly ch: number; readonly cells?: readonly RecolorCellRect[] | undefined;
 }): void {
-  const { data, u32, width, height, palettes, cw, ch } = opts;
+  const { data, u32, width, height, palettes, cw, ch, cells } = opts;
+  if (cells) {
+    for (const c of cells) recolorCell({ data, u32, sheetW: width, palettes, x0: c.x, y0: c.y, cellW: c.w, cellH: c.h });
+    return;
+  }
   for (let y0 = 0; y0 < height; y0 += ch) {
     const cellH = Math.min(ch, height - y0);
-    for (let x0 = 0; x0 < width; x0 += cw) {
-      recolorCell({ data, u32, sheetW: width, palettes, x0, y0, cellW: Math.min(cw, width - x0), cellH });
-    }
+    for (let x0 = 0; x0 < width; x0 += cw) recolorCell({ data, u32, sheetW: width, palettes, x0, y0, cellW: Math.min(cw, width - x0), cellH });
   }
 }
 
 export function applyRecolorPass(opts: {
   readonly data: Uint8ClampedArray; readonly width: number; readonly height: number;
   readonly palettes: SentinelPalettes; readonly cellW?: number | undefined; readonly cellH?: number | undefined;
+  readonly cells?: readonly RecolorCellRect[] | undefined;
 }): void {
-  const { data, width, height, palettes } = opts;
+  const { data, width, height, palettes, cells } = opts;
   const cw = opts.cellW ?? width;
   const ch = opts.cellH ?? height;
   if ((data.byteOffset & 3) === 0 && data.byteLength >= width * height * 4) {
-    runRecolorGrid({ data, u32: new Uint32Array(data.buffer, data.byteOffset, width * height), width, height, palettes, cw, ch });
+    runRecolorPass({ data, u32: new Uint32Array(data.buffer, data.byteOffset, width * height), width, height, palettes, cw, ch, cells });
     return;
   }
   const aligned = new Uint8ClampedArray(data);
-  runRecolorGrid({ data: aligned, u32: new Uint32Array(aligned.buffer), width, height, palettes, cw, ch });
+  runRecolorPass({ data: aligned, u32: new Uint32Array(aligned.buffer), width, height, palettes, cw, ch, cells });
   data.set(aligned);
 }
 

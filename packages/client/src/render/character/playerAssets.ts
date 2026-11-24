@@ -1,37 +1,18 @@
 /** Async loader, bounded LRU image cache, pre-sliced portrait cells, 8-dir 3D bow overlay, and socket samplers. */
 import { Rectangle, Texture } from "pixi.js";
 import { createPixelCanvas } from "../textures/pixelCanvas.js";
+import type { FrameTrimRect } from "./atlas/playerAtlasPacker.js";
 import type { FacingDir } from "./characterTypes.js";
 
 export type AssetProgressCallback = (loaded: number, total: number) => void;
 
-export interface ShoulderSocket {
-  readonly x: number;
-  readonly y: number;
-  readonly behind: boolean;
-}
-
-export interface FrameSockets {
-  readonly left: ShoulderSocket;
-  readonly right: ShoulderSocket;
-}
-
-export interface HandSocket {
-  readonly x: number;
-  readonly y: number;
-  readonly angle: number;
-  readonly behind: boolean;
-}
-
-export interface FrameHandSockets {
-  readonly left: HandSocket;
-  readonly right: HandSocket;
-}
-
+export interface ShoulderSocket { readonly x: number; readonly y: number; readonly behind: boolean; }
+export interface FrameSockets { readonly left: ShoulderSocket; readonly right: ShoulderSocket; }
+export interface HandSocket { readonly x: number; readonly y: number; readonly angle: number; readonly behind: boolean; }
+export interface FrameHandSockets { readonly left: HandSocket; readonly right: HandSocket; }
 export interface PlayerClipLayout {
-  readonly startRow: number;
-  readonly frames: number;
-  readonly fps: number;
+  readonly startRow: number; readonly frames: number; readonly fps: number;
+  readonly trim?: FrameTrimRect | undefined;
 }
 
 export interface PlayerRigMeta {

@@ -221,6 +221,24 @@ function captureOpaqueMask(img) {
   return mask;
 }
 
+export function finalizeTrimRect(ext, cellSize, pad = 4) {
+  if (!ext || ext.maxX < ext.minX || ext.maxY < ext.minY) return null;
+  const x = Math.max(0, ext.minX - pad);
+  const y = Math.max(0, ext.minY - pad);
+  const x2 = Math.min(cellSize, ext.maxX + 1 + pad);
+  const y2 = Math.min(cellSize, ext.maxY + 1 + pad);
+  return { x, y, w: x2 - x, h: y2 - y };
+}
+
+export function updateBoundsExtremes(ext, img) {
+  const b = measureSpriteBounds(img);
+  if (b.contentWidth === 0) return;
+  ext.minX = Math.min(ext.minX, b.minX);
+  ext.minY = Math.min(ext.minY, b.minY);
+  ext.maxX = Math.max(ext.maxX, b.maxX);
+  ext.maxY = Math.max(ext.maxY, b.maxY);
+}
+
 export function postProcessFrame(opts) {
   const clean = binarizeAndClean(opts.colorImg, opts.minIslandArea ?? 4);
   const creased = opts.depthImg ? applyInternalDepthCreases(clean, opts.depthImg) : clean;

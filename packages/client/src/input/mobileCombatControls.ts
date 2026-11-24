@@ -1,4 +1,4 @@
-/** Touch-only right-hand combat action cluster: dynamic primary action, SNEAK, ROLL, TORCH, and BLOCK. */
+/** Touch-only right-hand 2-row combat cluster: primary (BLOCK/ATK/JUMP) over secondary (SNEAK/ROLL). */
 import { getItemDef, resolveBlockMode } from "@dc2d/content";
 
 export interface MobileCombatState {
@@ -14,7 +14,7 @@ export interface MobileCombatState {
 
 export interface MobileCombatHandlers {
   readonly onMapTap?: () => void;
-  readonly onToggleTorch?: () => void;
+  readonly onJump?: () => void;
 }
 
 const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -50,9 +50,9 @@ function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElem
 
 export class MobileCombatControls {
   private readonly atkBtn: HTMLButtonElement;
+  private readonly jumpBtn: HTMLButtonElement;
   private readonly rollBtn: HTMLButtonElement;
   private readonly sneakBtn: HTMLButtonElement;
-  private readonly torchBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
   private readonly handlers: MobileCombatHandlers;
   private heldItem: string | null = null;
@@ -71,12 +71,18 @@ export class MobileCombatControls {
     const cluster = document.createElement("div");
     cluster.className = "ow-combat-cluster";
     this.atkBtn = makeCombatBtn("ow-atk-btn", "ATK", "Use held item or draw bow");
+    this.jumpBtn = makeCombatBtn("ow-jump-btn", "JUMP", "Jump");
     this.rollBtn = makeCombatBtn("ow-roll-btn", "ROLL", "Dodge roll");
     this.sneakBtn = makeCombatBtn("ow-roll-btn ow-sneak-btn", "SNEAK", "Toggle crouch sneak");
-    this.torchBtn = makeCombatBtn("ow-roll-btn ow-torch-btn", "TORCH", "Toggle torch flame");
     this.blockBtn = makeCombatBtn("ow-block-btn", "BLOCK", "Raise shield block");
     this.blockBtn.hidden = true;
-    cluster.append(this.blockBtn, this.torchBtn, this.sneakBtn, this.rollBtn, this.atkBtn);
+    const primaryRow = document.createElement("div");
+    primaryRow.className = "ow-combat-row ow-combat-row-primary";
+    primaryRow.append(this.blockBtn, this.atkBtn, this.jumpBtn);
+    const utilityRow = document.createElement("div");
+    utilityRow.className = "ow-combat-row ow-combat-row-utility";
+    utilityRow.append(this.sneakBtn, this.rollBtn);
+    cluster.append(primaryRow, utilityRow);
     host.append(cluster);
     this.bindAtk();
     this.bindRollAndBlock();
@@ -85,10 +91,6 @@ export class MobileCombatControls {
   setCrouching(next: boolean): void {
     this.crouching = next;
     this.sneakBtn.dataset.active = String(next);
-  }
-
-  setTorchLit(lit: boolean): void {
-    this.torchBtn.dataset.active = String(lit);
   }
 
   setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
@@ -146,9 +148,9 @@ export class MobileCombatControls {
   }
 
   private bindRollAndBlock(): void {
+    this.jumpBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onJump?.(); });
     this.rollBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.dodgeQueued = true; });
     this.sneakBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.setCrouching(!this.crouching); });
-    this.torchBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onToggleTorch?.(); });
     this.blockBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.blockBtn.setPointerCapture?.(e.pointerId); this.setBlockHeld(true); });
     const endBlock = (): void => this.setBlockHeld(false);
     this.blockBtn.addEventListener("pointerup", endBlock);

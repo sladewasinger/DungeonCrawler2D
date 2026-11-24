@@ -1,6 +1,6 @@
-/** Cached 32x32 4-directional procedural character sprite builder with 64-entry LRU cache. */
+/** Cached 32x32 / 3D hero character sprite builder with 32-entry LRU GPU atlas cache. */
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
-import { Texture } from "pixi.js";
+import { Texture, type TextureSource } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline } from "../textures/pixelCanvas.js";
 import { armCanvasSize, buildArmRects } from "./armRig.js";
 import { buildArmorRects } from "./characterArmorLayers.js";
@@ -16,7 +16,7 @@ import { build3dCharacterPortraitUrl, build3dCharacterSpriteSet } from "./player
 export type { CharacterAnimState, CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./characterTypes.js";
 
-const MAX_CACHED_SETS = 64;
+const MAX_CACHED_SETS = 32;
 const MAX_CACHED_PORTRAITS = 256;
 const spriteCache = new Map<string, CharacterSpriteSet>();
 const portraitCache = new Map<string, string>();
@@ -102,11 +102,23 @@ function collectDirTextures(dirAnim: DirectionAnim | undefined, unique: Set<Text
   }
 }
 
-function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
-  if (!set) return;
+function collectSpriteTextures(set: CharacterSpriteSet): Set<Texture> {
   const unique = new Set<Texture>([set.frontArm, set.backArm]);
   for (const dirAnim of [set.south, set.se, set.north, set.ne, set.side]) collectDirTextures(dirAnim, unique);
-  for (const tex of unique) if (tex !== Texture.EMPTY) tex.destroy(true);
+  unique.delete(Texture.EMPTY);
+  return unique;
+}
+
+function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
+  if (!set) return;
+  const sources = new Set<TextureSource>();
+  for (const tex of collectSpriteTextures(set)) {
+    sources.add(tex.source);
+    tex.destroy(false);
+  }
+  for (const source of sources) {
+    if (source !== Texture.EMPTY.source) source.destroy();
+  }
 }
 
 function evictOldestIfFull(): void {

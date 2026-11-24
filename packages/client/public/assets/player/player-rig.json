@@ -20,62 +20,74 @@
     "idle": {
       "startRow": 0,
       "frames": 4,
-      "fps": 6
+      "fps": 6,
+      "trim": { "x": 47, "y": 24, "w": 76, "h": 131 }
     },
     "walk": {
       "startRow": 5,
       "frames": 6,
-      "fps": 7
+      "fps": 7,
+      "trim": { "x": 50, "y": 26, "w": 77, "h": 136 }
     },
     "run": {
       "startRow": 10,
       "frames": 6,
-      "fps": 11
+      "fps": 11,
+      "trim": { "x": 45, "y": 25, "w": 97, "h": 139 }
     },
     "jump": {
       "startRow": 15,
       "frames": 2,
-      "fps": 8
+      "fps": 8,
+      "trim": { "x": 51, "y": 10, "w": 95, "h": 148 }
     },
     "fall": {
       "startRow": 20,
       "frames": 2,
-      "fps": 8
+      "fps": 8,
+      "trim": { "x": 50, "y": 19, "w": 95, "h": 132 }
     },
     "dodge": {
       "startRow": 25,
       "frames": 6,
-      "fps": 16
+      "fps": 16,
+      "trim": { "x": 6, "y": 23, "w": 171, "h": 169 }
     },
     "downed": {
       "startRow": 30,
       "frames": 2,
-      "fps": 4
+      "fps": 4,
+      "trim": { "x": 20, "y": 68, "w": 156, "h": 122 }
     },
     "swim": {
       "startRow": 35,
       "frames": 4,
-      "fps": 6
+      "fps": 6,
+      "trim": { "x": 46, "y": 35, "w": 107, "h": 141 }
     },
     "bow": {
       "startRow": 40,
       "frames": 3,
-      "fps": 8
+      "fps": 8,
+      "trim": { "x": 48, "y": 26, "w": 91, "h": 136 }
     },
     "crouch_idle": {
       "startRow": 45,
       "frames": 4,
-      "fps": 5
+      "fps": 5,
+      "trim": { "x": 66, "y": 41, "w": 73, "h": 119 }
     },
     "crouch_walk": {
       "startRow": 50,
       "frames": 6,
-      "fps": 7
+      "fps": 7,
+      "trim": { "x": 61, "y": 41, "w": 79, "h": 124 }
     },
     "attack": {
       "startRow": 55,
       "frames": 3,
-      "fps": 10
+      "fps": 10,
+      "trim": { "x": 41, "y": 21, "w": 109, "h": 143 }
     }
   },
   "layers": [

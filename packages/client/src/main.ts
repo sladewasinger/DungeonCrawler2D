@@ -98,7 +98,6 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   ctx.velTracker.update(pre.entities, ctx.nowMs);
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
   ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, hasShield: pre.inventory.armor.offhand === "wooden-shield" });
-  ctx.input.setTorchLit(Boolean(preLocal?.torchLit));
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const aim = resolveAimForTick({ ctx, combat, move, local: preLocal, entities: pre.entities });

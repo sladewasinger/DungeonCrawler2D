@@ -135,31 +135,17 @@ const TOOLBAR_CSS = `
 .ow-audio-head, .ow-audio-row-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
 .ow-audio-row { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #cbd5e1; }
 .ow-audio-pct { font-variant-numeric: tabular-nums; color: #94a3b8; }
-.ow-jump-btn, .ow-combat-cluster {
+.ow-combat-cluster {
   display: none;
   position: fixed;
-  right: max(46px, calc(env(safe-area-inset-right) + 38px));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 35;
-}
-.ow-jump-btn {
-  bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 114px);
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  border: 2px solid rgba(248, 250, 252, 0.35);
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(8px);
-  color: #f8fafc;
-  font-size: 11px;
-  font-weight: 800;
-  touch-action: none;
-  cursor: pointer;
-}
-.ow-combat-cluster {
-  bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 46px);
+  flex-direction: column;
   align-items: flex-end;
   gap: 8px;
 }
+.ow-combat-row { display: flex; align-items: flex-end; gap: 8px; }
 .ow-touch-btn {
   display: inline-flex;
   align-items: center;
@@ -174,14 +160,14 @@ const TOOLBAR_CSS = `
   cursor: pointer;
 }
 .ow-touch-btn[hidden] { display: none; }
-.ow-atk-btn { width: 60px; height: 60px; font-size: 13px; border-color: rgba(248, 113, 113, 0.55); }
+.ow-atk-btn { width: 58px; height: 58px; font-size: 13px; border-color: rgba(248, 113, 113, 0.55); }
 .ow-atk-btn[data-role="heal"] { border-color: rgba(74, 222, 128, 0.65); color: #bbf7d0; }
 .ow-atk-btn[data-role="bow"] { border-color: rgba(251, 191, 36, 0.65); color: #fef08a; }
 .ow-atk-btn[data-role="map"] { border-color: rgba(56, 189, 248, 0.65); color: #bae6fd; }
-.ow-roll-btn, .ow-block-btn { width: 50px; height: 50px; font-size: 9px; padding: 0; }
+.ow-jump-btn { width: 48px; height: 48px; font-size: 11px; padding: 0; }
+.ow-roll-btn, .ow-block-btn { width: 46px; height: 46px; font-size: 9px; padding: 0; }
 .ow-sneak-btn[data-active="true"] { background: rgba(6, 95, 70, 0.88); border-color: #34d399; color: #a7f3d0; }
-.ow-torch-btn[data-active="true"] { background: rgba(180, 83, 9, 0.88); border-color: #fbbf24; color: #fef08a; }
-.ow-jump-btn:active, .ow-touch-btn:active, .ow-touch-btn[data-active="true"] {
+.ow-touch-btn:active, .ow-touch-btn[data-active="true"] {
   background: rgba(180, 83, 9, 0.85);
   border-color: #f59e0b;
 }
@@ -196,7 +182,6 @@ const TOOLBAR_CSS = `
 .ow-fps-pill[data-tier="warn"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.45); }
 .ow-fps-pill[data-tier="low"] { color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
-  .ow-jump-btn { display: flex; align-items: center; justify-content: center; }
   .ow-combat-cluster { display: flex; }
 }
 `;
