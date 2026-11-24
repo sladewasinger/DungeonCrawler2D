@@ -3,7 +3,7 @@ import { EYE_PALETTES, HAIR_PALETTES, SKIN_PALETTES } from "@dc2d/content";
 import {
   BODY_STYLES, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, SKIN_TONES, type CharacterAppearance,
 } from "@dc2d/engine";
-import { getCharacterCacheRevision, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
+import { getCharacterCacheRevision, getCharacterPortraitUrl } from "../../render/character/characterSprites.js";
 import { domNode } from "../hud/slotRenderer.js";
 import { ensureTitleStyles } from "./titleStyles.js";
 
@@ -173,7 +173,7 @@ export class TitleScreen {
 
   private refreshPreview(): void {
     this.lastCacheRev = getCharacterCacheRevision();
-    this.portrait.src = getCharacterSpriteSet(this.appearance, EMPTY_ARMOR).previewUrl;
+    this.portrait.src = getCharacterPortraitUrl(this.appearance, EMPTY_ARMOR);
     const fields = ["body", "skin", "eyeColor", "hairStyle", "hairColor"] as const;
     for (const field of fields) {
       for (const e of this.groups[field]) e.btn.dataset.active = String(e.key === this.appearance[field]);

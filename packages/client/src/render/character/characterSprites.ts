@@ -11,13 +11,15 @@ import {
   type CharacterPose, type CharacterSpriteSet, type DirectionAnim, type FacingDir,
 } from "./characterTypes.js";
 import { isPlayer3dReady } from "./playerAssets.js";
-import { build3dCharacterSpriteSet } from "./playerCompositor.js";
+import { build3dCharacterPortraitUrl, build3dCharacterSpriteSet } from "./playerCompositor.js";
 
 export type { CharacterAnimState, CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./characterTypes.js";
 
 const MAX_CACHED_SETS = 64;
+const MAX_CACHED_PORTRAITS = 256;
 const spriteCache = new Map<string, CharacterSpriteSet>();
+const portraitCache = new Map<string, string>();
 let cacheRevision = 0;
 
 export function getCharacterCacheRevision(): number {
@@ -30,6 +32,7 @@ export function invalidateCharacterCacheKey(key: string): void {
     spriteCache.delete(key);
     destroySpriteSet(evicted);
   }
+  portraitCache.delete(key);
   cacheRevision += 1;
 }
 
@@ -40,13 +43,13 @@ export function characterCacheKey(appearance: CharacterAppearance, armor: ArmorE
   ].join("|");
 }
 
-function renderPoseFrame(input: {
+function renderPoseCanvas(input: {
   readonly appearance: CharacterAppearance;
   readonly armor: ArmorEquipment;
   readonly dir: FacingDir;
   readonly pose: CharacterPose;
   readonly includeArms?: boolean | undefined;
-}): { readonly canvas: HTMLCanvasElement; readonly texture: DirectionAnim["idle"][number] } {
+}): HTMLCanvasElement {
   const { canvas, ctx } = createPixelCanvas(FRAME_SIZE.w, FRAME_SIZE.h);
   const { appearance, armor, dir, pose, includeArms } = input;
   const rects = [
@@ -56,6 +59,17 @@ function renderPoseFrame(input: {
   ];
   drawRects(ctx, rects);
   stampDarkOutline(ctx, FRAME_SIZE, OUTLINE_RGB);
+  return canvas;
+}
+
+function renderPoseFrame(input: {
+  readonly appearance: CharacterAppearance;
+  readonly armor: ArmorEquipment;
+  readonly dir: FacingDir;
+  readonly pose: CharacterPose;
+  readonly includeArms?: boolean | undefined;
+}): { readonly canvas: HTMLCanvasElement; readonly texture: DirectionAnim["idle"][number] } {
+  const canvas = renderPoseCanvas(input);
   return { canvas, texture: canvasToNearestTexture(canvas) };
 }
 
@@ -118,6 +132,27 @@ function buildFallbackSpriteSet(appearance: CharacterAppearance, armor: ArmorEqu
   return created;
 }
 
+function storePortraitLru(key: string, url: string): string {
+  portraitCache.delete(key);
+  portraitCache.set(key, url);
+  while (portraitCache.size > MAX_CACHED_PORTRAITS) {
+    const oldest = portraitCache.keys().next().value;
+    if (oldest !== undefined) portraitCache.delete(oldest);
+  }
+  return url;
+}
+
+export function getCharacterPortraitUrl(appearance: CharacterAppearance, armor: ArmorEquipment): string {
+  const key = characterCacheKey(appearance, armor);
+  const cached = portraitCache.get(key);
+  if (cached) return storePortraitLru(key, cached);
+  const full = spriteCache.get(key);
+  if (full) return storePortraitLru(key, full.previewUrl);
+  const url = (isPlayer3dReady() ? build3dCharacterPortraitUrl(appearance, armor) : null)
+    ?? renderPoseCanvas({ appearance, armor, dir: "south", pose: IDLE_POSES[0]!, includeArms: true }).toDataURL();
+  return storePortraitLru(key, url);
+}
+
 export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
   const key = characterCacheKey(appearance, armor);
   const existing = spriteCache.get(key);
@@ -131,5 +166,6 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     (isPlayer3dReady() ? build3dCharacterSpriteSet(appearance, armor, () => invalidateCharacterCacheKey(key)) : null)
     ?? buildFallbackSpriteSet(appearance, armor);
   spriteCache.set(key, created);
+  storePortraitLru(key, created.previewUrl);
   return created;
 }

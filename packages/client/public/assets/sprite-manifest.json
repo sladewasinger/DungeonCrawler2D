@@ -2,7 +2,7 @@
   "tilePx": 16,
   "assets": {
     "slime": {
-      "path": "/assets/creatures/slime.png",
+      "path": "/assets/creatures/slime.webp",
       "width": 96,
       "height": 96,
       "contentWidth": 52,
@@ -11,7 +11,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8125,
       "animations": {
-        "sheetPath": "/assets/creatures/slime-sheet.png",
+        "sheetPath": "/assets/creatures/slime-sheet.webp",
         "frameWidth": 96,
         "frameHeight": 96,
         "clips": {
@@ -664,7 +664,7 @@
       }
     },
     "wolf": {
-      "path": "/assets/creatures/wolf.png",
+      "path": "/assets/creatures/wolf.webp",
       "width": 120,
       "height": 120,
       "contentWidth": 24,
@@ -673,7 +673,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8,
       "animations": {
-        "sheetPath": "/assets/creatures/wolf-sheet.png",
+        "sheetPath": "/assets/creatures/wolf-sheet.webp",
         "frameWidth": 120,
         "frameHeight": 120,
         "clips": {
@@ -1326,7 +1326,7 @@
       }
     },
     "boar": {
-      "path": "/assets/creatures/boar.png",
+      "path": "/assets/creatures/boar.webp",
       "width": 120,
       "height": 120,
       "contentWidth": 30,
@@ -1335,7 +1335,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8,
       "animations": {
-        "sheetPath": "/assets/creatures/boar-sheet.png",
+        "sheetPath": "/assets/creatures/boar-sheet.webp",
         "frameWidth": 120,
         "frameHeight": 120,
         "clips": {
@@ -2028,7 +2028,7 @@
       }
     },
     "spider": {
-      "path": "/assets/creatures/spider.png",
+      "path": "/assets/creatures/spider.webp",
       "width": 120,
       "height": 120,
       "contentWidth": 68,
@@ -2037,7 +2037,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8,
       "animations": {
-        "sheetPath": "/assets/creatures/spider-sheet.png",
+        "sheetPath": "/assets/creatures/spider-sheet.webp",
         "frameWidth": 120,
         "frameHeight": 120,
         "clips": {
@@ -2690,7 +2690,7 @@
       }
     },
     "goblin": {
-      "path": "/assets/creatures/goblin.png",
+      "path": "/assets/creatures/goblin.webp",
       "width": 96,
       "height": 96,
       "contentWidth": 42,
@@ -2699,7 +2699,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8125,
       "animations": {
-        "sheetPath": "/assets/creatures/goblin-sheet.png",
+        "sheetPath": "/assets/creatures/goblin-sheet.webp",
         "frameWidth": 96,
         "frameHeight": 96,
         "clips": {
@@ -3352,7 +3352,7 @@
       }
     },
     "skeleton": {
-      "path": "/assets/creatures/skeleton.png",
+      "path": "/assets/creatures/skeleton.webp",
       "width": 144,
       "height": 144,
       "contentWidth": 36,
@@ -3361,7 +3361,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8333,
       "animations": {
-        "sheetPath": "/assets/creatures/skeleton-sheet.png",
+        "sheetPath": "/assets/creatures/skeleton-sheet.webp",
         "frameWidth": 144,
         "frameHeight": 144,
         "clips": {
@@ -4014,7 +4014,7 @@
       }
     },
     "orc": {
-      "path": "/assets/creatures/orc.png",
+      "path": "/assets/creatures/orc.webp",
       "width": 168,
       "height": 168,
       "contentWidth": 80,
@@ -4023,7 +4023,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8393,
       "animations": {
-        "sheetPath": "/assets/creatures/orc-sheet.png",
+        "sheetPath": "/assets/creatures/orc-sheet.webp",
         "frameWidth": 168,
         "frameHeight": 168,
         "clips": {
@@ -4676,7 +4676,7 @@
       }
     },
     "bear": {
-      "path": "/assets/creatures/bear.png",
+      "path": "/assets/creatures/bear.webp",
       "width": 168,
       "height": 168,
       "contentWidth": 44,
@@ -4685,7 +4685,7 @@
       "anchorX": 0.5,
       "anchorY": 0.8214,
       "animations": {
-        "sheetPath": "/assets/creatures/bear-sheet.png",
+        "sheetPath": "/assets/creatures/bear-sheet.webp",
         "frameWidth": 168,
         "frameHeight": 168,
         "clips": {
@@ -5338,7 +5338,7 @@
       }
     },
     "golem": {
-      "path": "/assets/creatures/golem.png",
+      "path": "/assets/creatures/golem.webp",
       "width": 192,
       "height": 192,
       "contentWidth": 116,
@@ -5347,7 +5347,7 @@
       "anchorX": 0.5,
       "anchorY": 0.875,
       "animations": {
-        "sheetPath": "/assets/creatures/golem-sheet.png",
+        "sheetPath": "/assets/creatures/golem-sheet.webp",
         "frameWidth": 192,
         "frameHeight": 192,
         "clips": {
@@ -6000,7 +6000,7 @@
       }
     },
     "palisade": {
-      "path": "/assets/pois/palisade.png",
+      "path": "/assets/pois/palisade.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 34,
@@ -6010,7 +6010,7 @@
       "anchorY": 0.94
     },
     "bandit-tent": {
-      "path": "/assets/pois/bandit-tent.png",
+      "path": "/assets/pois/bandit-tent.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 60,
@@ -6020,7 +6020,7 @@
       "anchorY": 0.94
     },
     "ruin-pillar": {
-      "path": "/assets/pois/ruin-pillar.png",
+      "path": "/assets/pois/ruin-pillar.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 35,
@@ -6030,7 +6030,7 @@
       "anchorY": 0.94
     },
     "chest-wood-closed": {
-      "path": "/assets/pois/chest-wood-closed.png",
+      "path": "/assets/pois/chest-wood-closed.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 34,
@@ -6040,7 +6040,7 @@
       "anchorY": 0.93
     },
     "chest-wood-open": {
-      "path": "/assets/pois/chest-wood-open.png",
+      "path": "/assets/pois/chest-wood-open.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 34,
@@ -6050,7 +6050,7 @@
       "anchorY": 0.93
     },
     "chest-stone-closed": {
-      "path": "/assets/pois/chest-stone-closed.png",
+      "path": "/assets/pois/chest-stone-closed.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 34,
@@ -6060,7 +6060,7 @@
       "anchorY": 0.93
     },
     "chest-stone-open": {
-      "path": "/assets/pois/chest-stone-open.png",
+      "path": "/assets/pois/chest-stone-open.webp",
       "width": 64,
       "height": 64,
       "contentWidth": 34,
@@ -6070,7 +6070,7 @@
       "anchorY": 0.93
     },
     "gear-sword": {
-      "path": "/assets/gear/sword.png",
+      "path": "/assets/gear/sword.webp",
       "width": 50,
       "height": 18,
       "contentWidth": 46,
@@ -6080,7 +6080,7 @@
       "anchorY": 0.5
     },
     "gear-axe": {
-      "path": "/assets/gear/axe.png",
+      "path": "/assets/gear/axe.webp",
       "width": 40,
       "height": 22,
       "contentWidth": 36,
@@ -6090,7 +6090,7 @@
       "anchorY": 0.42
     },
     "gear-pickaxe": {
-      "path": "/assets/gear/pickaxe.png",
+      "path": "/assets/gear/pickaxe.webp",
       "width": 37,
       "height": 36,
       "contentWidth": 33,
@@ -6100,7 +6100,7 @@
       "anchorY": 0.5
     },
     "gear-bow": {
-      "path": "/assets/gear/bow.png",
+      "path": "/assets/gear/bow.webp",
       "width": 32,
       "height": 50,
       "contentWidth": 28,
@@ -6110,7 +6110,7 @@
       "anchorY": 0.5
     },
     "gear-bow-drawn": {
-      "path": "/assets/gear/bow-drawn.png",
+      "path": "/assets/gear/bow-drawn.webp",
       "width": 32,
       "height": 48,
       "contentWidth": 28,
@@ -6120,7 +6120,7 @@
       "anchorY": 0.5
     },
     "gear-shield": {
-      "path": "/assets/gear/wooden-shield.png",
+      "path": "/assets/gear/wooden-shield.webp",
       "width": 26,
       "height": 28,
       "contentWidth": 22,
@@ -6130,7 +6130,7 @@
       "anchorY": 0.5
     },
     "gear-torch-0": {
-      "path": "/assets/gear/torch-0.png",
+      "path": "/assets/gear/torch-0.webp",
       "width": 14,
       "height": 38,
       "contentWidth": 10,
@@ -6140,7 +6140,7 @@
       "anchorY": 0.72
     },
     "gear-torch-1": {
-      "path": "/assets/gear/torch-1.png",
+      "path": "/assets/gear/torch-1.webp",
       "width": 14,
       "height": 40,
       "contentWidth": 10,
@@ -6150,7 +6150,7 @@
       "anchorY": 0.72
     },
     "gear-torch-2": {
-      "path": "/assets/gear/torch-2.png",
+      "path": "/assets/gear/torch-2.webp",
       "width": 14,
       "height": 38,
       "contentWidth": 10,
@@ -6160,7 +6160,7 @@
       "anchorY": 0.72
     },
     "gear-torch-3": {
-      "path": "/assets/gear/torch-3.png",
+      "path": "/assets/gear/torch-3.webp",
       "width": 14,
       "height": 40,
       "contentWidth": 10,
@@ -6170,7 +6170,7 @@
       "anchorY": 0.72
     },
     "gear-lantern-0": {
-      "path": "/assets/gear/lantern-0.png",
+      "path": "/assets/gear/lantern-0.webp",
       "width": 16,
       "height": 28,
       "contentWidth": 12,
@@ -6180,7 +6180,7 @@
       "anchorY": 0.5
     },
     "gear-lantern-1": {
-      "path": "/assets/gear/lantern-1.png",
+      "path": "/assets/gear/lantern-1.webp",
       "width": 14,
       "height": 28,
       "contentWidth": 10,
@@ -6190,7 +6190,7 @@
       "anchorY": 0.5
     },
     "gear-flint-dagger": {
-      "path": "/assets/gear/flint-dagger.png",
+      "path": "/assets/gear/flint-dagger.webp",
       "width": 34,
       "height": 14,
       "contentWidth": 30,
@@ -6200,7 +6200,7 @@
       "anchorY": 0.5
     },
     "gear-wooden-spear": {
-      "path": "/assets/gear/wooden-spear.png",
+      "path": "/assets/gear/wooden-spear.webp",
       "width": 66,
       "height": 12,
       "contentWidth": 62,
@@ -6210,7 +6210,7 @@
       "anchorY": 0.5
     },
     "gear-iron-greatsword": {
-      "path": "/assets/gear/iron-greatsword.png",
+      "path": "/assets/gear/iron-greatsword.webp",
       "width": 67,
       "height": 22,
       "contentWidth": 63,

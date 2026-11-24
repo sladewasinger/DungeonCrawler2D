@@ -17,7 +17,7 @@ Repeatable Blender EEVEE -> Cainos-style pixel art pipeline generating cleanly s
    npm run sprite:bake -- orc
    npm run sprite:bake -- goblin --pxPerMeter 64
    ```
-   This runs headless Blender (`export_blend.py`), scales cell resolution cleanly around `StudioCam.ortho_scale` at `48 px/m` by default (override with `--pxPerMeter <n>`), discovers every matching Action (`idle`, `walk`, `run`, `attack`, `corpse`) plus optional `fps` / `loopStart` / `loopEnd` custom properties, renders color + depth turntable frames (`South`, `Side`, `North`), applies Cainos hue-shifted sel-out post-processing (`bakeSpriteSheet.mjs`), writes `<creature>-sheet.png` + `<creature>.png`, and updates `sprite-manifest.json`.
+   This runs headless Blender (`export_blend.py`), scales cell resolution cleanly around `StudioCam.ortho_scale` at `48 px/m` by default (override with `--pxPerMeter <n>`), discovers every matching Action (`idle`, `walk`, `run`, `attack`, `corpse`) plus optional `fps` / `loopStart` / `loopEnd` custom properties, renders color + depth turntable frames (`South`, `Side`, `North`), applies Cainos hue-shifted sel-out post-processing (`bakeSpriteSheet.mjs`), writes lossless WebP `<creature>-sheet.webp` + `<creature>.webp`, and updates `sprite-manifest.json`.
 3. Refresh `http://localhost:5174/?sandbox=1` to preview live.
 
 ## Editing & Re-Exporting the 3D Player (`player.blend`)
@@ -45,7 +45,7 @@ npm run player:bake -- player_v2.blend body-female body-female-arms hair-short h
 # Re-export ONLY shoulder/hand sockets (if only Rig_Hero / Socket_* empties moved)
 npm run player:bake -- player_v2.blend sockets-only
 
-# Re-export ONLY the 3D 8-direction held bow overlay (`weapon-bow.png` + `player-rig.json` `bowOverlay`)
+# Re-export ONLY the 3D 8-direction held bow overlay (`weapon-bow.webp` + `player-rig.json` `bowOverlay`)
 npm run player:bake -- player_v2.blend bow-only
 ```
 
@@ -55,7 +55,7 @@ node tools/sprite-studio/runPlayerBake.mjs --blend player_v2.blend --layers body
 node tools/sprite-studio/runPlayerBake.mjs --blend player_v2.blend --sockets-only
 ```
 
-After baking completes, press **`F5`** in your browser (`bakeVersion` in `player-rig.json` automatically cache-busts the PNG sheets). Note: run a **full** bake of a body (`body-female` / `body-male`) at least once before baking only accessories (`hair-*` / `armor-*`) for that gender so `anchorsByGender` is cached in `player-rig.json`.
+After baking completes, press **`F5`** in your browser (`bakeVersion` in `player-rig.json` automatically cache-busts the WebP sheets). Note: run a **full** bake of a body (`body-female` / `body-male`) at least once before baking only accessories (`hair-*` / `armor-*`) for that gender so `anchorsByGender` is cached in `player-rig.json`.
 
 ### 2. All 16 Valid Layer IDs
 - **Body**: `body-male`, `body-female`, `body-male-arms`, `body-female-arms`
@@ -93,10 +93,10 @@ After baking completes, press **`F5`** in your browser (`bakeVersion` in `player
 - `build_skeleton.py` / `skeleton_actions.py` / `skeleton.blend`: `Rig_SkeletonHumanoid` bare creepy Skeleton (`96px` base / `144x144` default export, `groundY = 120`, hollow cranium/sockets, hinged jaw chatter, open ribcage, claw hands, collapsed bone-pile `Corpse`, zero weapons/cape/horns).
 - `build_orc.py` / `orc_actions.py` / `orc.blend`: `Rig_OrcBrute` Orc Warrior (`112px` base / `168x168` default export, `groundY = 141`, olive musculature, spiked steel pauldron, leather baldric/war-belt, tusks, double-bladed steel battleaxe).
 - `build_player.py` / `player_actions.py` / `export_player_layers.py` / `bakePlayerAssets.mjs` / `runPlayerBake.mjs` / `player.blend`: Stylized Chibi-Heroic Player (`Rig_Hero`, `192×192` at `80 px/m`, `scale = 0.20`, `groundY = 148`, `46` sheet rows, `portraitRow = 45`, `Socket_Shoulder_L/R`, `Socket_Hand_L/R`, `Socket_Head`, `Socket_Back`) organized into modular collections for bare-skin underwear `Male`/`Female` cores & arms, 4 hairs (`Short`, `Long`, `Spiky`, `Ponytail`), and 4 leather armor slots (`LeatherHood`, `LeatherTunic`, `LeatherLeggings`, `LeatherBoots`), plus 9 Actions (`Hero_Idle`, `Hero_Walk`, `Hero_Run`, `Hero_Jump`, `Hero_Fall`, 6-frame dive-roll `Hero_Dodge`, `Hero_Downed`, `Hero_Swim`, and 3-frame ready/half-draw/full-draw `Hero_Bow`, which `export_player_layers.py` auto-synthesizes in memory if absent from an older `.blend` without modifying the `.blend` file). Run `npm run player:bake` (or `npm run player:bake -- player_v2.blend body-female body-female-arms` / `sockets-only`) after saving edits in `player.blend` to export `ShaderNodeHoldout`-masked 8-dir sheets and sync `packages/client/public/assets/player/player-rig.json` (`bakeVersion` cache-busting).
-- `build_gear.py` / `bakeGearAssets.mjs`: Renders and packs all 12 `48 px/m` (`scale = 0.3333`) 3D weapons/gear (`sword`, `axe`, `pickaxe`, `bow`, `bow-drawn`, `wooden-shield`, `torch-0..3`, `lantern-0..1`) into `packages/client/public/assets/gear/` and syncs `sprite-manifest.json`.
+- `build_gear.py` / `bakeGearAssets.mjs`: Renders and packs `48 px/m` (`scale = 0.3333`) 3D weapons/gear (`sword`, `flint-dagger`, `wooden-spear`, `iron-greatsword`, `axe`, `pickaxe`, `bow`, `bow-drawn`, `wooden-shield`, `torch-0..3`, `lantern-0..1`) as lossless `.webp` into `packages/client/public/assets/gear/` and syncs `sprite-manifest.json`.
 - `render_player_preview.py`: Renders quick turntable, animation contact sheet, and scale lineup previews from `player.blend`.
 - `export_blend.py`: Headless Blender CLI script rendering all canonical Actions cleanly without modifying `.blend`, including optional scene `sprite_body_alpha` translucency metadata.
-- `pngCodec.mjs`: Pure Node 8-bit PNG decoder and encoder.
+- `pngCodec.mjs`: Pure Node 8-bit PNG decoder/encoder and lossless WebP encoder (`encodeLosslessWebp` via `ffmpeg`).
 - `pixelPost.mjs`: Binary alpha cleanup, internal depth-crease separation, hue-shifted opaque crisp solid outlines (`applyOuterSelOut`, default `radiusPx = 2.0`), optional translucent gelatin body alpha (`applyTranslucentBodyAlpha`), horizontal centering, and foot grounding.
 - `bakeSpriteSheet.mjs` & `manifestSync.mjs`: Multi-clip spritesheet packer and `sprite-manifest.json` updater (`scale = 16 / pxPerMeter`).
 - `runBake.mjs`: Cross-platform wrapper backing `npm run sprite:bake -- <creature> [reviewPath] [--pxPerMeter <n>]`.

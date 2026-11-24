@@ -165,6 +165,11 @@ export function getItemIconUrl(itemId: string): string {
   return url;
 }
 
+export function prebakeAllItemIcons(): void {
+  if (typeof document === "undefined") return;
+  for (const itemId of Object.keys(PAINTERS)) getItemIconUrl(itemId);
+}
+
 export function getItemHeldTexture(itemId: string | null | undefined): Texture | null {
   if (!itemId) return null;
   const cached = heldTextureCache.get(itemId);

@@ -4,7 +4,7 @@ import {
   BODY_STYLES, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, SKIN_TONES,
   type ArmorEquipment, type CharacterAppearance,
 } from "@dc2d/engine";
-import { characterCacheKey, getCharacterCacheRevision, getCharacterSpriteSet } from "../../render/character/characterSprites.js";
+import { characterCacheKey, getCharacterCacheRevision, getCharacterPortraitUrl } from "../../render/character/characterSprites.js";
 import { domNode } from "./slotRenderer.js";
 
 const TAG_BTN = "button";
@@ -122,7 +122,7 @@ export class CharacterPanel {
     if (fp === this.lastFp) return;
     this.lastFp = fp;
     if (document.activeElement !== this.nameInput) this.nameInput.value = opts.name;
-    this.previewEl.src = getCharacterSpriteSet(opts.appearance, opts.armor).previewUrl;
+    this.previewEl.src = getCharacterPortraitUrl(opts.appearance, opts.armor);
     const keys = ["body", "skin", "eyeColor", "hairStyle", "hairColor"] as const;
     for (const field of keys) syncButtonGroup(this.buttons[field], opts.appearance[field]);
   }
