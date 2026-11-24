@@ -1,5 +1,6 @@
 import { DEFAULT_APPEARANCE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import { resolvePortraitCell } from "../character/playerAssets.js";
 import { computePortraitCropRect, resolveSentinelPalettes } from "../character/playerCompositor.js";
 import { applyRecolorPass, applyUnifiedSelOut, computeSelOutRgb } from "../character/playerRecolor.js";
 
@@ -55,5 +56,21 @@ describe("3D portrait crop and fast in-place recolor/sel-out passes", () => {
     expect(computePortraitCropRect({ frameWidth: 192, frameHeight: 192, groundY: 148, scale: 0.2 })).toEqual({
       cw: 107, ch: 137, localX: 42, localY: 24,
     });
+  });
+
+  it("picks south-east idle cell for portraits and falls back to portraitRow/Col when absent", () => {
+    expect(resolvePortraitCell({
+      directions: ["south", "se", "side", "ne", "north"],
+      clips: { idle: { startRow: 0, frames: 4, fps: 6 } },
+      portraitRow: 60,
+      portraitCol: 0,
+    })).toEqual({ row: 1, col: 0 });
+
+    expect(resolvePortraitCell({
+      directions: ["south", "side", "north"],
+      clips: {},
+      portraitRow: 60,
+      portraitCol: 0,
+    })).toEqual({ row: 60, col: 0 });
   });
 });

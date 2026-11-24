@@ -4,7 +4,7 @@ A mobile-first, server-authoritative 2D action-RPG & light-survival overworld bu
 
 The long-term signature architecture keeps a flexible, composable effects system in `@dc2d/engine` so AI-crafted items, status interactions, and custom abilities can be invented and validated safely at runtime (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
-**Current version**: **v0.11.6** (Startup Loading Screen, Instant Hero Customization & Lossless WebP Sprites — First-byte inline boot loading overlay, upfront asset/icon/hero pre-baking, fast 192×192 portrait compositor, optimized in-place recolor/sel-out passes, lazy-loaded Asset Sandbox, & 55.5% smaller lossless WebP runtime spritesheets — shipped on `feature/loading-screen-asset-bake` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
+**Current version**: **v0.11.7** (South-East Hero Portraits, Solid Sculpted Player Bodies & Hair, & Blender Editing Tutorial — 3/4 South-East hero portraits on Title Screen & Character Panel, voxel-sculpted Male/Female bodies and fitted leather armor bound with Blender Automatic Weights + weight-synced armor, sculpted stylized lock-ribbon hairstyles, and colocated `PLAYER_EDITING_TUTORIAL.md` — shipped on `feature/se-portrait-sculpted-hero` -> `develop` -> `main`, deployed at <https://dungeoncrawl2d.austinwasinger.com>). Legacy pre-rewrite code is preserved on branch `archive/v1`.
 
 ## Austin's F-Bomb Counter
 

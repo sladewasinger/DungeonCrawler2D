@@ -86,8 +86,8 @@ def build_idle_action(arm_obj, prefix="Hero"):
         set_world_rot(pb["Head"], -2.5 * heave, 0.0, 1.5 * sway)
 
         for sign, side in ((1.0, "L"), (-1.0, "R")):
-            set_world_rot(pb[f"UpperArm_{side}"], -6.0 - 3.0 * heave, -sign * 7.0, 0.0)
-            set_world_rot(pb[f"Forearm_{side}"], -16.0 - 4.0 * heave, 0.0, 0.0)
+            set_world_rot(pb[f"UpperArm_{side}"], -6.0 - 3.0 * heave, sign * 11.5, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -16.0 - 4.0 * heave, sign * 4.0, 0.0)
             set_world_rot(pb[f"Thigh_{side}"], -4.0 * heave, -sign * 3.0, 0.0)
             set_world_rot(pb[f"Shin_{side}"], 8.0 * heave, 0.0, 0.0)
             set_world_rot(pb[f"Foot_{side}"], -4.0 * heave, 0.0, 0.0)
@@ -114,8 +114,8 @@ def build_walk_action(arm_obj, prefix="Hero"):
         set_world_rot(pb["Head"], -2.0, 0.0, -2.5 * s)
 
         for sign, side, ls in ((1.0, "L", s), (-1.0, "R", -s)):
-            set_world_rot(pb[f"UpperArm_{side}"], 14.0 * ls - 4.0, -sign * 7.0, 0.0)
-            set_world_rot(pb[f"Forearm_{side}"], -14.0 - 5.0 * max(0.0, -ls), 0.0, 0.0)
+            set_world_rot(pb[f"UpperArm_{side}"], 14.0 * ls - 4.0, sign * 11.5, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -14.0 - 5.0 * max(0.0, -ls), sign * 4.0, 0.0)
             lift = max(0.0, -c if side == "L" else c)
             set_world_rot(pb[f"Thigh_{side}"], -20.0 * ls - 4.0 * lift, -sign * 3.0, 0.0)
             set_world_rot(pb[f"Shin_{side}"], 24.0 * lift + 6.0 * max(0.0, -ls), 0.0, 0.0)
@@ -143,8 +143,8 @@ def build_run_action(arm_obj, prefix="Hero"):
         set_world_rot(pb["Head"], -10.0, 0.0, -6.0 * s)
 
         for sign, side, ls in ((1.0, "L", s), (-1.0, "R", -s)):
-            set_world_rot(pb[f"UpperArm_{side}"], 34.0 * ls - 10.0, -sign * 8.0, 0.0)
-            set_world_rot(pb[f"Forearm_{side}"], -48.0 - 18.0 * max(0.0, -ls), 0.0, 0.0)
+            set_world_rot(pb[f"UpperArm_{side}"], 34.0 * ls - 10.0, sign * 11.5, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -48.0 - 18.0 * max(0.0, -ls), sign * 4.0, 0.0)
             lift = max(0.0, -c if side == "L" else c)
             set_world_rot(pb[f"Thigh_{side}"], -42.0 * ls - 10.0 * lift, -sign * 3.0, 0.0)
             set_world_rot(pb[f"Shin_{side}"], 54.0 * lift + 18.0 * max(0.0, -ls), 0.0, 0.0)
@@ -378,8 +378,8 @@ def build_crouch_idle_action(arm_obj, prefix="Hero"):
         set_world_rot(pb["Torso"], 24.0 + 2.5 * heave, 0.0, 0.0)
         set_world_rot(pb["Head"], -20.0 - 2.0 * heave, 0.0, 0.0)
         for sign, side in ((1.0, "L"), (-1.0, "R")):
-            set_world_rot(pb[f"UpperArm_{side}"], -22.0 - 2.0 * heave, -sign * 9.0, 0.0)
-            set_world_rot(pb[f"Forearm_{side}"], -52.0, 0.0, 0.0)
+            set_world_rot(pb[f"UpperArm_{side}"], -22.0 - 2.0 * heave, sign * 9.0, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -52.0, sign * 3.0, 0.0)
             set_world_rot(pb[f"Thigh_{side}"], -48.0 - 2.0 * heave, -sign * 5.0, 0.0)
             set_world_rot(pb[f"Shin_{side}"], 78.0 + 3.0 * heave, 0.0, 0.0)
             set_world_rot(pb[f"Foot_{side}"], -30.0, 0.0, 0.0)
@@ -404,8 +404,8 @@ def build_crouch_walk_action(arm_obj, prefix="Hero"):
         set_world_rot(pb["Torso"], 26.0, -1.5 * s, 4.5 * s)
         set_world_rot(pb["Head"], -22.0, 0.0, -2.5 * s)
         for sign, side, ls in ((1.0, "L", s), (-1.0, "R", -s)):
-            set_world_rot(pb[f"UpperArm_{side}"], 12.0 * ls - 24.0, -sign * 9.0, 0.0)
-            set_world_rot(pb[f"Forearm_{side}"], -50.0, 0.0, 0.0)
+            set_world_rot(pb[f"UpperArm_{side}"], 12.0 * ls - 24.0, sign * 9.0, 0.0)
+            set_world_rot(pb[f"Forearm_{side}"], -50.0, sign * 3.0, 0.0)
             lift = max(0.0, -c if side == "L" else c)
             set_world_rot(pb[f"Thigh_{side}"], -46.0 - 16.0 * ls - 5.0 * lift, -sign * 5.0, 0.0)
             set_world_rot(pb[f"Shin_{side}"], 74.0 + 18.0 * lift + 4.0 * max(0.0, -ls), 0.0, 0.0)
