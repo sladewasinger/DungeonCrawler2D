@@ -15,8 +15,8 @@ import {
 import { LocalSwingTracker } from "./localSwingTracker.js";
 import { RemotePlayerSmoother } from "./remoteInterp.js";
 import {
-  applyLocalAtmosphere, applyOfflineAdminPreview, bindPageDisconnect, buildInputMessage,
-  mergeStreamEvents, resetDisconnectedPlayer, type ConnectionMode, type StepInputFrame, type WorldViewState,
+  applyLocalAtmosphere, bindPageDisconnect, buildInputMessage, mergeStreamEvents,
+  prepareAdminDispatch, resetDisconnectedPlayer, type AdminSendRequest, type ConnectionMode, type StepInputFrame, type WorldViewState,
 } from "./worldClientHelpers.js";
 import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
@@ -52,6 +52,7 @@ export class WorldClient {
   private localBowDrawing = false;
   private attackFlashTimer = 0;
   private inventory: InventorySnapshot = createStarterInventorySnapshot();
+  private selfAdmin = false;
   private readonly autoReconnect: boolean;
   private manualDisconnect = false;
   private connectTimer: number | null = null;
@@ -107,7 +108,7 @@ export class WorldClient {
 
   private resetStreamState(resetId: boolean): void {
     this.mode = "local"; this.entities = []; this.projectiles = [];
-    this.webs = undefined; this.localBowDrawing = false;
+    this.webs = undefined; this.localBowDrawing = false; this.selfAdmin = false;
     this.localPlayer = resetDisconnectedPlayer(this.localPlayer, resetId);
   }
 
@@ -141,6 +142,7 @@ export class WorldClient {
     const dayRes = resolvePendingGate(this.dayGate, { serverAck, nowMs });
     this.dayGate = dayRes.nextGate;
     if (dayRes.accept) { this.dayPhase = msg.dayPhase; this.dayPaused = msg.dayPaused; }
+    this.selfAdmin = Boolean(msg.selfAdmin);
     if (msg.selfInventory) this.reconcileServerInventory(msg.selfInventory, serverAck, nowMs);
     this.reconcileServerPlayers({ players: msg.players, serverAck, nowMs });
     this.applyWorldStream(msg, nowMs, serverAck);
@@ -245,10 +247,9 @@ export class WorldClient {
     this.send({ t: "chestTakeAll", chestId, seq: this.armChestSeq() });
   }
   debugSpawn(kind: EntityKind, count = 1): void { this.send({ t: "debugSpawn", kind, count, seq: this.nextSeq() }); }
-  sendAdmin(req: { readonly action: "godMode" | "heal" | "give" | "clearWebs"; readonly enabled?: boolean | undefined; readonly itemId?: string | undefined; readonly count?: number | undefined }): void {
-    const enabled = req.action === "godMode" ? (req.enabled ?? !this.localPlayer.godMode) : req.enabled;
-    if (this.mode !== "server" || req.action === "godMode") this.localPlayer = applyOfflineAdminPreview(this.localPlayer, { action: req.action, ...(enabled !== undefined ? { enabled } : {}) });
-    this.send({ t: "admin", ...req, ...(enabled !== undefined ? { enabled } : {}), seq: this.nextSeq() });
+  sendAdmin(req: AdminSendRequest): void {
+    const out = prepareAdminDispatch({ req, localPlayer: this.localPlayer, isServer: this.mode === "server", isAdmin: this.selfAdmin, seq: this.nextSeq() });
+    this.localPlayer = out.nextPlayer; this.send(out.message);
   }
   placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number }): void { this.send({ t: "placeStructure", ...req, seq: this.armInvSeq() }); }
   setRespawnBed(structureId: string): void { this.send({ t: "setRespawnBed", structureId, seq: this.nextSeq() }); }
@@ -257,9 +258,8 @@ export class WorldClient {
   snapshot(): WorldViewState {
     const localWithGear: PlayerSnapshot = { ...this.localPlayer, heldItem: heldItemForInventory(this.inventory), armor: this.inventory.armor, ...this.swing.snapshotOverride() };
     const players = this.mode === "server" ? this.remotePlayers.map((p) => (p.id === this.localPlayerId ? localWithGear : this.remoteSmoother.resolve(p))) : [localWithGear];
-    const events = this.queuedEvents;
-    this.queuedEvents = [];
-    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events };
+    const events = this.queuedEvents; this.queuedEvents = [];
+    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, selfAdmin: this.selfAdmin };
   }
 
   private nextSeq(): number { return this.mode === "server" ? ++this.actionSeq : 0; }
