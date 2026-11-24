@@ -2,30 +2,31 @@
 import { getItemDef, isMeleeItem } from "@dc2d/content";
 import {
   COMBAT_TUNING, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC, DODGE_IFRAME_SEC, DODGE_STAMINA_COST,
-  MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  consumeItemFromSlots, evaluateBowShot, type WorldEvent,
+  MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache,
+  consumeItemFromSlots, type DropItemRequest, type WorldEvent,
 } from "@dc2d/engine";
 import {
-  applyIncomingPlayerHit, forceRespawnPlayer, resolveDummyStrikeOnPlayer,
+  forceRespawnPlayer, resolveDummyStrikeOnPlayer,
   stepCombatTimers, stepPlayerBurnTimer, stepPlayerPoisonTimer, stepPlayerRespawn, tryHealConsumable,
   type CombatPlayerRef, type RespawnSpot,
 } from "./combatActions.js";
 import { applyAdminAction, type AdminActionRequest } from "./combat/adminActions.js";
 import {
-  buildPlayerCombatExtras, clearSwingOnCancel, clearSwingOnStagger, computePlayerMoveMultiplier,
-  runSwingActivePass, startTrackedMeleeSwing,
+  applyCreatureStrikeToPlayer, buildPlayerCombatExtras, clearSwingOnCancel, clearSwingOnStagger,
+  computePlayerMoveMultiplier, runSwingActivePass, spawnChargedBowArrow, startTrackedMeleeSwing,
 } from "./combat/combatSimHelpers.js";
 import {
   advanceHeavyCharge, canDodgeCancelSwing, shouldHoldHeavyWindup, swingOverlapsActive,
 } from "./combat/meleeTimeline.js";
 import { createTrainingDummies, serializeDummies, stepTrainingDummies, type SimEntity } from "./dummySim.js";
+import { takeDroppedPlayerItem } from "./playerInventory.js";
 import { CampStructureManager } from "./survival/campStructures.js";
 import { ResourceHarvester } from "./survival/resourceHarvester.js";
 import { WorldWebNetwork } from "./webs/webNetwork.js";
 import { stepPlayerWebAndCocoonTimers } from "./webs/webCocoon.js";
-import { CREATURE_SPECS, type WildlifeEntity } from "./wildlife/creatureSpecs.js";
+import { type WildlifeEntity } from "./wildlife/creatureSpecs.js";
 import {
-  createArrowProjectile, createPebbleProjectile, createWebProjectile, serializeProjectiles, stepProjectileList, type SimProjectile,
+  createPebbleProjectile, createWebProjectile, serializeProjectiles, stepProjectileList, type SimProjectile,
 } from "./wildlife/projectileSim.js";
 import { WorldEcology } from "./wildlife/worldEcology.js";
 
@@ -91,6 +92,18 @@ export class CombatWorld {
   }
 
   pickupLoot(p: CombatPlayerRef, lootId?: string): boolean { return this.ecology.pickupManualLoot(p, lootId, this.events); }
+
+  dropPlayerItem(p: CombatPlayerRef, req: DropItemRequest): boolean {
+    if (req.source === "chest") {
+      if (!req.chestId || req.slotIndex === undefined) return false;
+      return this.ecology.loot.dropFromChest(p, { chestId: req.chestId, slotIndex: req.slotIndex, count: req.count });
+    }
+    const res = takeDroppedPlayerItem(p.inventory, req);
+    if (!res) return false;
+    p.inventory = res.nextState;
+    this.ecology.loot.spawnPlayerDrop(p, res.item);
+    return true;
+  }
 
   private handleDodgeOrBuffer(p: CombatPlayerRef, input: CombatInputFlags): void {
     if (!input.dodgeQueued || isTrappedOrDrowning(p)) return;
@@ -214,15 +227,7 @@ export class CombatWorld {
   }
 
   private handleCreatureStrike(players: Map<string, CombatPlayerRef>, entity: WildlifeEntity, targetId: string): void {
-    const hitPlayer = players.get(targetId);
-    if (!hitPlayer) return;
-    const spec = CREATURE_SPECS[entity.kind];
-    applyIncomingPlayerHit({
-      target: hitPlayer, attackerOrigin: entity, attackerId: entity.id, rawDamage: spec.damage,
-      goreStyle: spec.goreStyle, attackerIsPlayer: false, events: this.events, appliesPoison: entity.kind === "spider",
-      shakePx: entity.kind === "golem" ? 3.5 : undefined,
-      onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.parried = true; entity.telegraphTimer = 0; },
-    });
+    applyCreatureStrikeToPlayer({ hitPlayer: players.get(targetId), entity, events: this.events });
   }
 
   moveMultiplier(p: CombatPlayerRef): number { return computePlayerMoveMultiplier(p); }
@@ -262,12 +267,7 @@ export class CombatWorld {
   }
 
   private fireArrow(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {
-    const c = p.combat;
-    if ((!c.godMode && c.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
-    if (!c.godMode) c.stamina -= 10; c.actionCooldown = 0.25; p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
-    const shot = evaluateBowShot(chargeSec);
-    this.projectiles.push(createArrowProjectile({ id: `p${this.nextProjId++}`, p, speed: shot.speedTilesPerSec, charge: shot.ratio, damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult) }));
-    this.events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
-    this.ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 3.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
+    if ((!p.combat.godMode && p.combat.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
+    spawnChargedBowArrow({ p, chargeSec, projId: `p${this.nextProjId++}`, projectiles: this.projectiles, ecology: this.ecology, events: this.events });
   }
 }

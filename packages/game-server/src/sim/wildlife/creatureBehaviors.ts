@@ -1,10 +1,8 @@
 /** Specialized archetype steering, separation, boar wall-stun, bear bluff, spider pounce, and slime cohesion. */
-import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, hashUnit2d, isInSanctuary, resolveMovement, type AiState, type WorldEvent } from "@dc2d/engine";
-import {
-  CREATURE_SPECS, ITEM_RAW_MEAT, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_FEED, ST_IDLE, ST_PATROL,
-  type WildlifeEntity,
-} from "./creatureSpecs.js";
+import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, canReachMeleeTarget, entityHurtbox, hasClearChargeLane, hashUnit2d, isInSanctuary, playerHurtbox, resolveMovement, type AiState, type WorldEvent } from "@dc2d/engine";
+import { CREATURE_SPECS, ITEM_RAW_MEAT, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_FEED, ST_IDLE, ST_PATROL, type WildlifeEntity } from "./creatureSpecs.js";
 import { applyEntityMoveResult, creatureWaterSpeedMult, faceTarget, isClearSpot, moveCreatureToward } from "./creatureNavigation.js";
+import type { CombatTarget } from "./factionTargeting.js";
 
 const SPIDER_COVER_PROPS = new Set<PropKind>([PropKind.TallGrass, PropKind.Bush, PropKind.OakTree, PropKind.PineTree]);
 
@@ -17,10 +15,7 @@ export interface CombatPlayerCandidate {
   readonly visibility?: number | undefined; readonly noiseRadius?: number | undefined;
   readonly combat?: { readonly cocoonProgress?: number } | undefined;
 }
-export interface EcologyFoodSource {
-  readonly x: number; readonly y: number; readonly isMeatLoot?: boolean;
-  readonly lootId?: string; readonly entityId?: string;
-}
+export interface EcologyFoodSource { readonly x: number; readonly y: number; readonly isMeatLoot?: boolean; readonly lootId?: string; readonly entityId?: string; }
 export type StrikePlayerFn = (entity: WildlifeEntity, target: CombatPlayerCandidate) => void;
 export type BoarAction = { readonly mode: "done" } | { readonly mode: "melee" } | { readonly mode: "steer"; readonly steer: SteerTarget };
 
@@ -107,10 +102,9 @@ export function stepBearScavenge(opts: {
   return { x: hit.food.x, y: hit.food.y, speedMult: 0.85 };
 }
 
-function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate, events: WorldEvent[]): void {
-  const dx = target.x - e.x; const dy = target.y - e.y;
-  const mag = Math.max(0.01, Math.hypot(dx, dy));
-  e.facingX = dx / mag; e.facingY = dy / mag;
+function beginBoarCharge(e: WildlifeEntity, events: WorldEvent[]): void {
+  const mag = Math.max(0.01, Math.hypot(e.facingX, e.facingY));
+  e.facingX /= mag; e.facingY /= mag;
   e.chargeVx = e.facingX * CREATURE_SPECS.boar.speed * AI_TUNING.boarChargeSpeedMult;
   e.chargeVy = e.facingY * CREATURE_SPECS.boar.speed * AI_TUNING.boarChargeSpeedMult;
   e.chargeTimer = AI_TUNING.boarChargeDurationSec; e.chargeHitDealt = false; e.aiState = ST_CHARGE;
@@ -118,29 +112,32 @@ function beginBoarCharge(e: WildlifeEntity, target: CombatPlayerCandidate, event
 }
 
 function stunBoarOnWall(e: WildlifeEntity, events: WorldEvent[]): void {
+  const mag = Math.max(0.01, Math.hypot(e.chargeVx, e.chargeVy));
+  e.kbVx = -(e.chargeVx / mag) * 2.6; e.kbVy = -(e.chargeVy / mag) * 2.6;
   e.stunnedTimer = 1.5; e.staggerTimer = 1.5; e.chargeTimer = 0; e.chargeRecoverTimer = 0.25;
-  e.aiState = ST_IDLE; e.attackCooldown = CREATURE_SPECS.boar.cooldownSec;
+  e.aiState = ST_IDLE; e.attackCooldown = 1.5 + CREATURE_SPECS.boar.cooldownSec;
   events.push({ kind: "boarCrash", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
 }
 
-function tryBoarChargeHit(e: WildlifeEntity, target: CombatPlayerCandidate | null, onStrike: StrikePlayerFn): void {
-  if (!target || e.chargeHitDealt || Math.hypot(target.x - e.x, target.y - e.y) > CREATURE_SPECS.boar.range) return;
+function tryBoarChargeHit(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly onStrike: StrikePlayerFn }): void {
+  const { cache, e, target, onStrike } = opts;
+  if (!target || e.chargeHitDealt) return;
+  const entityTarget = (target as CombatTarget).targetKind === "entity" ? (target as CombatTarget).entityRef : undefined;
+  const hurtbox = entityTarget ? entityHurtbox(target, entityTarget.kind, cache) : playerHurtbox(target, cache);
+  if (!attackHitboxHitsHurtbox(buildEntityAttackHitbox(e, cache), hurtbox)) return;
   e.chargeHitDealt = true; onStrike(e, target);
 }
 
-function advanceActiveBoarCharge(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null;
-  readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[];
-}): void {
+function advanceActiveBoarCharge(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[] }): void {
   const { cache, e, target, dt, onStrike, events } = opts;
   e.chargeTimer = Math.max(0, e.chargeTimer - dt); e.aiState = ST_CHARGE;
   const prevX = e.x; const prevY = e.y;
   const stepScale = creatureWaterSpeedMult(e) * dt;
   const intended = Math.hypot(e.chargeVx * stepScale, e.chargeVy * stepScale);
-  const res = resolveMovement({ cache, x: e.x, y: e.y, dx: e.chargeVx * stepScale, dy: e.chargeVy * stepScale, radius: 0.3, elevation: e.elevation, airborne: false });
+  const res = resolveMovement({ cache, x: e.x, y: e.y, dx: e.chargeVx * stepScale, dy: e.chargeVy * stepScale, radius: 0.28, elevation: e.elevation, airborne: false });
   applyEntityMoveResult(e, res);
   if (intended > 0.04 && Math.hypot(res.x - prevX, res.y - prevY) < intended * 0.35) { stunBoarOnWall(e, events); return; }
-  tryBoarChargeHit(e, target, onStrike);
+  tryBoarChargeHit({ cache, e, target, onStrike });
   if (e.chargeTimer === 0) { e.chargeRecoverTimer = 1.15; e.aiState = ST_IDLE; e.attackCooldown = CREATURE_SPECS.boar.cooldownSec; }
 }
 
@@ -148,7 +145,7 @@ function advanceBoarRecovery(e: WildlifeEntity, cache: WorldChunkCache, dt: numb
   e.chargeRecoverTimer = Math.max(0, e.chargeRecoverTimer - dt); e.aiState = ST_IDLE;
   if (e.chargeRecoverTimer <= 0.85) return;
   const scale = 0.45 * ((e.chargeRecoverTimer - 0.85) / 0.3) * creatureWaterSpeedMult(e);
-  const res = resolveMovement({ cache, x: e.x, y: e.y, dx: e.chargeVx * scale * dt, dy: e.chargeVy * scale * dt, radius: 0.3, elevation: e.elevation, airborne: false });
+  const res = resolveMovement({ cache, x: e.x, y: e.y, dx: e.chargeVx * scale * dt, dy: e.chargeVy * scale * dt, radius: 0.28, elevation: e.elevation, airborne: false });
   applyEntityMoveResult(e, res);
 }
 
@@ -157,40 +154,37 @@ function holdOrChaseBoarSteer(e: WildlifeEntity, target: CombatPlayerCandidate, 
   return { x: target.x, y: target.y, speedMult: 1.0 };
 }
 
-function resolveBoarMoveOrCharge(e: WildlifeEntity, target: CombatPlayerCandidate, events: WorldEvent[]): BoarAction {
+function resolveBoarMoveOrCharge(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate; readonly events: WorldEvent[] }): BoarAction {
+  const { cache, e, target, events } = opts;
   const dist = Math.hypot(target.x - e.x, target.y - e.y);
-  if (e.telegraphTimer > 0 || dist <= 1.55) return { mode: "melee" };
-  if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 10.0) {
-    e.telegraphTimer = AI_TUNING.boarWindupSec; e.windupDuration = AI_TUNING.boarWindupSec; e.aiState = ST_CHARGE;
+  if ((e.telegraphTimer > 0 || dist <= 1.55) && canReachMeleeTarget(cache, e, target)) return { mode: "melee" };
+  if (e.attackCooldown <= 0 && dist >= 1.9 && dist <= 10.0 && hasClearChargeLane({ cache, from: e, to: target, radius: 0.3 })) {
+    faceTarget(e, target); e.telegraphTimer = AI_TUNING.boarWindupSec; e.windupDuration = AI_TUNING.boarWindupSec; e.aiState = ST_CHARGE;
     events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
     return { mode: "done" };
   }
   return { mode: "steer", steer: holdOrChaseBoarSteer(e, target, dist) };
 }
 
-export function stepBoarCommittedCharge(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null;
-  readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[];
-}): boolean {
+export function stepBoarCommittedCharge(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[] }): boolean {
   if (opts.e.kind !== "boar") return false;
   if (opts.e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return true; }
   if (opts.e.chargeRecoverTimer > 0) { advanceBoarRecovery(opts.e, opts.cache, opts.dt); return true; }
   return false;
 }
 
-export function stepBoarBehavior(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate;
-  readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[];
-}): BoarAction {
+function advanceBoarChargeWindup(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate; readonly dt: number; readonly events: WorldEvent[] }): void {
   const { cache, e, target, dt, events } = opts;
-  if (e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return { mode: "done" }; }
-  if (e.chargeRecoverTimer > 0) { advanceBoarRecovery(e, cache, dt); return { mode: "done" }; }
-  if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) {
-    faceTarget(e, target); e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
-    if (e.telegraphTimer === 0) beginBoarCharge(e, target, events);
-    return { mode: "done" };
-  }
-  return resolveBoarMoveOrCharge(e, target, events);
+  if (hasClearChargeLane({ cache, from: e, to: target, radius: 0.3 })) faceTarget(e, target);
+  e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
+  if (e.telegraphTimer === 0) beginBoarCharge(e, events);
+}
+
+export function stepBoarBehavior(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate; readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[] }): BoarAction {
+  const { cache, e, target, dt, events } = opts;
+  if (stepBoarCommittedCharge(opts)) return { mode: "done" };
+  if (e.telegraphTimer > 0 && e.aiState === ST_CHARGE) { advanceBoarChargeWindup({ cache, e, target, dt, events }); return { mode: "done" }; }
+  return resolveBoarMoveOrCharge({ cache, e, target, events });
 }
 
 const isNightPhase = (dayPhase: number): boolean => dayPhase < 0.24 || dayPhase > 0.76;

@@ -2,7 +2,7 @@
 import { PropKind, STEALTH_TUNING, WorldChunkCache, computeFlankRingSlot, hashUnit2d, isBackstabAngle, type WorldEvent } from "@dc2d/engine";
 import { CREATURE_SPECS, ST_ALERT, ST_CHASE, ST_FLANK, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
 import type { CombatTarget } from "./factionTargeting.js";
-import type { CombatPlayerCandidate, SteerTarget, StrikePlayerFn } from "./creatureBehaviors.js";
+import type { CombatPlayerCandidate, SteerTarget } from "./creatureBehaviors.js";
 
 const WOLF_RALLY_RADIUS = 18.0;
 
@@ -63,14 +63,13 @@ function facingOf(target: CombatPlayerCandidate): { readonly x: number; readonly
 }
 
 function tryDartBite(opts: {
-  readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate; readonly dist: number; readonly onStrike: StrikePlayerFn;
+  readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate; readonly dist: number;
 }): SteerTarget | null {
-  const { e, target, dist, onStrike } = opts;
+  const { e, target, dist } = opts;
   if (e.attackCooldown > 0) return null;
   const spec = CREATURE_SPECS.wolf;
   const behind = isBackstabAngle({ attacker: e, target, targetFacing: facingOf(target) });
   if (dist > (behind ? 3.6 : spec.range + 0.35)) return null;
-  if (dist <= spec.range) { onStrike(e, target); if (behind) e.peelTimer = 0.85; }
   e.aiState = ST_CHASE;
   return { x: target.x, y: target.y, speedMult: behind ? 1.28 : 1.15 };
 }
@@ -99,14 +98,14 @@ function steerAwayOrFlee(opts: {
 
 export function stepWolfHiveMind(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatTarget;
-  readonly entities: readonly WildlifeEntity[]; readonly timeSec: number; readonly onStrike: StrikePlayerFn;
+  readonly entities: readonly WildlifeEntity[]; readonly timeSec: number;
 }): SteerTarget {
-  const { cache, e, target, entities, timeSec, onStrike } = opts;
+  const { cache, e, target, entities, timeSec } = opts;
   const peers = resolvePackPeers(e, target.id, entities);
   const special = steerAwayOrFlee({ cache, e, target, peers });
   if (special) return special;
   const dist = Math.hypot(target.x - e.x, target.y - e.y);
-  if (e.peelTimer <= 0) { const dart = tryDartBite({ e, target, dist, onStrike }); if (dart) return dart; }
+  if (e.peelTimer <= 0) { const dart = tryDartBite({ e, target, dist }); if (dart) return dart; }
   const slotIdx = Math.max(0, peers.indexOf(e));
   const jSeed = e.packSlot * 37 + Math.round(e.homeX + e.homeY);
   const radJitter = (hashUnit2d(jSeed, slotIdx, 1) - 0.5) * 0.65;

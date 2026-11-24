@@ -2,8 +2,9 @@
 import { getItemDef, resolveBlockMode } from "@dc2d/content";
 import {
   BLEED_DURATION_SEC, HIT_IFRAME_SEC, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
-  computeArmorDefense, computeMitigatedDamage, isInSanctuary, isSharpWeapon, isWithinSector,
-  type GoreStyle, type WeaponArchetype, type WorldEvent,
+  attackHitboxHitsHurtbox, buildPlayerAttackHitbox, computeArmorDefense, computeMitigatedDamage,
+  entityHurtbox, isInSanctuary, isSharpWeapon, isWithinSector, playerHurtbox,
+  type EllipseHurtbox, type GoreStyle, type WeaponArchetype, type WorldChunkCache, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { damageDummy, type SimEntity } from "../dummySim.js";
@@ -180,6 +181,7 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
 }
 
 export interface MeleePassInput {
+  readonly cache?: WorldChunkCache | undefined;
   readonly attacker: CombatPlayerRef;
   readonly players: Iterable<CombatPlayerRef>;
   readonly dummies: readonly SimEntity[];
@@ -201,16 +203,22 @@ export interface MeleePassInput {
   readonly events: WorldEvent[];
 }
 
-function hitsMeleeOrSlam(input: MeleePassInput, target: { readonly x: number; readonly y: number }, dir: { readonly x: number; readonly y: number }): boolean {
-  if (isWithinSector({ origin: input.attacker, dir, target, range: input.range, halfArcRad: input.halfArcRad })) return true;
-  if (!input.impactCenter || !input.slamAoeRadius) return false;
-  return Math.hypot(target.x - input.impactCenter.x, target.y - input.impactCenter.y) <= input.slamAoeRadius;
+function hitsMeleeOrSlam(
+  input: MeleePassInput,
+  box: EllipseHurtbox,
+  dir: { readonly x: number; readonly y: number },
+): boolean {
+  return attackHitboxHitsHurtbox(buildPlayerAttackHitbox({
+    cache: input.cache, x: input.attacker.x, y: input.attacker.y, elevation: input.attacker.elevation,
+    dir, range: input.range, halfArcRad: input.halfArcRad,
+    impactCenter: input.impactCenter, slamAoeRadius: input.slamAoeRadius,
+  }), box);
 }
 
 function hitDummyTargets(input: MeleePassInput, dir: { readonly x: number; readonly y: number }): void {
   for (const entity of input.dummies) {
     if (entity.respawnTimer > 0 || input.hitTargetIds?.has(entity.id)) continue;
-    if (!hitsMeleeOrSlam(input, entity, dir)) continue;
+    if (!hitsMeleeOrSlam(input, entityHurtbox(entity, entity.kind, input.cache), dir)) continue;
     input.hitTargetIds?.add(entity.id);
     damageDummy({
       entity, damage: input.rawDamage, dirX: dir.x, dirY: dir.y, goreStyle: input.goreStyle,
@@ -224,7 +232,7 @@ function hitDummyTargets(input: MeleePassInput, dir: { readonly x: number; reado
 function hitPlayerTargets(input: MeleePassInput, dir: { readonly x: number; readonly y: number }): void {
   for (const other of input.players) {
     if (other.id === input.attacker.id || input.hitTargetIds?.has(other.id)) continue;
-    if (!hitsMeleeOrSlam(input, other, dir)) continue;
+    if (!hitsMeleeOrSlam(input, playerHurtbox(other, input.cache), dir)) continue;
     input.hitTargetIds?.add(other.id);
     applyIncomingPlayerHit({
       target: other, attackerOrigin: input.attacker, attackerId: input.attacker.id,
@@ -250,6 +258,6 @@ export function resolveDummyStrikeOnPlayer(opts: {
   applyIncomingPlayerHit({
     target, attackerOrigin: entity, attackerId: entity.id, rawDamage: damage,
     goreStyle: "splatter", attackerIsPlayer: false, events,
-    onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.parried = true; entity.telegraphTimer = 0; },
+    onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.parried = true; entity.telegraphTimer = 0; entity.strikeTimer = 0; },
   });
 }

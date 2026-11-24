@@ -47,6 +47,7 @@ export class ChestModal {
     readonly drag: SlotDragManager; readonly out: HTMLButtonElement[];
   }): HTMLDivElement {
     const pane = domNode(TAG_DIV, "ow-chest-pane");
+    pane.dataset.dropZone = opts.kind === "chest" ? "chest" : "backpack";
     const lbl = domNode(TAG_DIV, "ow-chest-lbl");
     lbl.textContent = opts.title;
     const grid = domNode(TAG_DIV, "ow-backpack-grid");

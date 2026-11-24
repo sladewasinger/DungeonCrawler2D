@@ -26,6 +26,12 @@ export interface WorldViewState {
   readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
   readonly groundLoot: readonly GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined;
   readonly events: readonly WorldEvent[]; readonly selfAdmin?: boolean | undefined;
+  readonly pingMs?: number | null | undefined;
+}
+
+export function smoothPingRtt(prevMs: number | null, sampleMs: number): number {
+  const clamped = Math.max(0, Math.round(sampleMs));
+  return prevMs === null ? clamped : Math.round(prevMs * 0.7 + clamped * 0.3);
 }
 
 export function buildInputMessage(opts: {

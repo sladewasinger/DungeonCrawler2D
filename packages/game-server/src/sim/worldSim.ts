@@ -1,11 +1,12 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache, resolveMovement,
-  sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
+  COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache,
+  playerFootSegment, resolveMovement, sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
+  type ArmorSlotKey, type CharacterAppearance, type DropItemRequest, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
   type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { createCombatState, type PlayerCombatState } from "./combatActions.js";
+import { stepStationaryPlayerTurn } from "./combat/combatSimHelpers.js";
 import { CombatWorld, playerCombatExtras } from "./combatSim.js";
 import {
   applyLoadoutEntries, buildInventorySnapshot, craftPlayerRecipe, createStarterInventory, equipPlayerArmor,
@@ -168,6 +169,7 @@ export class WorldSim {
   handleAdminAction(playerId: string, req: Parameters<CombatWorld["handleAdminAction"]>[1]): void { const p = this.players.get(playerId); if (p && this.combat.handleAdminAction(p, req)) this.persistence.markDirty(); }
   handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void { const p = this.players.get(playerId); if (p) { this.combat.handleChestRequest(p, req); this.persistence.markDirty(); } }
   pickupLoot(playerId: string, lootId?: string): void { const p = this.players.get(playerId); if (p && this.combat.pickupLoot(p, lootId)) this.persistence.markDirty(); }
+  dropItem(playerId: string, req: DropItemRequest): void { const p = this.players.get(playerId); if (p && this.combat.dropPlayerItem(p, req)) this.persistence.markDirty(); }
   inventorySnapshot(playerId: string): InventorySnapshot | undefined { const p = this.players.get(playerId); return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq }) : undefined; }
 
   step(dtSeconds = 1 / TICK_RATE): void {
@@ -209,49 +211,46 @@ export class WorldSim {
 
   private movePlayer(p: SimPlayer, dtSeconds: number): void {
     const dir = desiredPlayerDir(p);
-    if (!dir) { p.moving = false; p.sprinting = false; return; }
-    const { nx, ny, mag } = dir;
-    if (!p.hasExplicitAim && p.combat.dodgeTimer <= 0) setPlayerAim(p, dir.ux, dir.uy);
+    const heldItem = p.inventory.slots[p.selectedHotbar]?.itemId;
+    const combat = p.combat;
+    if (!dir) {
+      p.moving = false; p.sprinting = false;
+      stepStationaryPlayerTurn({ cache: this.cache, p: { ...p, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge } });
+      return;
+    }
+    if (!p.hasExplicitAim && combat.dodgeTimer <= 0) setPlayerAim(p, dir.ux, dir.uy);
+    const seg = playerFootSegment({ facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge });
     const mult = this.combat.moveMultiplier(p);
     const step = PLAYER_SPEED_TILES_PER_SEC * mult * dtSeconds;
-    const res = resolveMovement({
-      cache: this.cache, x: p.x, y: p.y, dx: nx * step, dy: ny * step,
-      radius: PLAYER_RADIUS, elevation: p.elevation, airborne: p.jumpZ > 0.02, jumpZ: p.jumpZ,
-    });
+    const res = resolveMovement({ cache: this.cache, x: p.x, y: p.y, dx: dir.nx * step, dy: dir.ny * step, radius: PLAYER_RADIUS, footSegX: seg.segX, footSegY: seg.segY, elevation: p.elevation, airborne: p.jumpZ > 0.02, jumpZ: p.jumpZ });
     p.x = res.x; p.y = res.y; p.elevation = res.elevation;
-    p.inWater = res.inWater; p.inDeepWater = res.inDeepWater; p.moving = true;
-    p.sprinting = isSprintingMove({ mag, mult, inWater: res.inWater, dodging: p.combat.dodgeTimer > 0 });
+    p.inWater = res.inWater; p.inDeepWater = res.inDeepWater;
+    p.moving = true; p.sprinting = isSprintingMove({ mag: dir.mag, mult, inWater: res.inWater, dodging: combat.dodgeTimer > 0 });
     if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   }
 
   combatSnapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(); }
-
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
 
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => ({
-      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation,
-      facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
-      jumpZ: p.jumpZ, jumpVz: p.jumpVz,
-      moving: p.moving, sprinting: p.sprinting, crouching: p.crouching, stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0,
-      torchLit: p.torchLit, inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
-      heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
-      appearance: p.appearance, armor: { ...p.inventory.armor },
-      hasBedRespawn: this.combat.structures.hasBedFor(p.name),
-      ...playerCombatExtras(p),
+      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
+      jumpZ: p.jumpZ, jumpVz: p.jumpVz, moving: p.moving, sprinting: p.sprinting, crouching: p.crouching,
+      stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0, torchLit: p.torchLit,
+      inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
+      heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null, appearance: p.appearance, armor: { ...p.inventory.armor },
+      hasBedRespawn: this.combat.structures.hasBedFor(p.name), ...playerCombatExtras(p),
     }));
   }
 }
 
-function isSprintingMove(opts: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean {
-  return opts.mag > 0.82 && opts.mult >= 0.99 && !opts.inWater && !opts.dodging;
-}
+const isSprintingMove = (o: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean =>
+  o.mag > 0.82 && o.mult >= 0.99 && !o.inWater && !o.dodging;
 
 function desiredPlayerDir(p: SimPlayer): { readonly ux: number; readonly uy: number; readonly nx: number; readonly ny: number; readonly mag: number } | null {
   if (p.combat.staggerTimer > 0 || p.combat.respawnTimer > 0) return null;
   const dodging = p.combat.dodgeTimer > 0;
-  const rawX = dodging ? p.combat.dodgeDirX : p.moveX;
-  const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
+  const rawX = dodging ? p.combat.dodgeDirX : p.moveX; const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
   const rawMag = Math.hypot(rawX, rawY);
   if (rawMag < 0.05) return null;
   const ux = rawX / rawMag; const uy = rawY / rawMag;

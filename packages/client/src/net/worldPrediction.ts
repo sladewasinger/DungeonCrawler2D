@@ -2,7 +2,7 @@
 import { STARTER_ARMOR } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, MELEE_FEEL_TUNING, STEALTH_TUNING,
-  WorldChunkCache, resolveMovement, stepJumpArc, type CharacterAppearance, type PlayerSnapshot,
+  WorldChunkCache, playerFootSegment, resolveMovement, stepJumpArc, type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
 const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
@@ -158,6 +158,17 @@ function resolveMoveVector(opts: {
   return { moveX: opts.nx * scale, moveY: opts.ny * scale, mag: cap };
 }
 
+function stationaryTurnPos(opts: {
+  readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
+  readonly seg: { readonly segX: number; readonly segY: number }; readonly jumpZ: number;
+}): { readonly x: number; readonly y: number } {
+  if (opts.jumpZ > 0.02) return opts.player;
+  return resolveMovement({
+    cache: opts.cache, x: opts.player.x, y: opts.player.y, dx: 0, dy: 0, radius: PLAYER_RADIUS,
+    footSegX: opts.seg.segX, footSegY: opts.seg.segY, elevation: opts.player.elevation, airborne: false, jumpZ: 0,
+  });
+}
+
 export function predictLocalPlayerMove(input: {
   readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
   readonly nx: number; readonly ny: number; readonly dt: number;
@@ -172,12 +183,17 @@ export function predictLocalPlayerMove(input: {
   const arc = stepJumpArc({ jumpZ: curPlayer.jumpZ ?? 0, jumpVz: curPlayer.jumpVz ?? 0 }, wantsJump, input.dt);
   const { moveX, moveY, mag } = resolveMoveVector({ nx: input.nx, ny: input.ny, player: curPlayer });
   const aimVec = resolveAim({ ...input, player: curPlayer });
-  if (mag <= 0.05) return { ...curPlayer, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  const seg = playerFootSegment({ ...curPlayer, ...aimVec });
+  if (mag <= 0.05) {
+    const turn = stationaryTurnPos({ cache: input.cache, player: curPlayer, seg, jumpZ: arc.jumpZ });
+    return { ...curPlayer, x: turn.x, y: turn.y, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  }
   const mult = movementMultiplier(curPlayer);
   const step = PLAYER_SPEED * mult * input.dt;
   const moved = resolveMovement({
     cache: input.cache, x: curPlayer.x, y: curPlayer.y, dx: moveX * step, dy: moveY * step,
-    radius: PLAYER_RADIUS, elevation: curPlayer.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
+    radius: PLAYER_RADIUS, footSegX: seg.segX, footSegY: seg.segY,
+    elevation: curPlayer.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
   const nextJumpZ = Math.max(0, arc.jumpZ + moved.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
   const sprinting = isSprintingPrediction({ mag, mult, inWater: moved.inWater, dodging: Boolean(curPlayer.dodging) });

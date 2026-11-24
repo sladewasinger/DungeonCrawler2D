@@ -10,7 +10,13 @@ export type GoreStyle = (typeof GORE_STYLES)[number];
 export const COMBAT_TUNING = {
   sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 7.5 },
   vitals: { maxHp: 100, maxStamina: 100, staminaRegenPerSec: 24, blockStaminaRegenMult: 0.45 },
-  movement: { runSpeedTilesPerSec: 5.6, walkSpeedRatio: 0.5, joystickDeadzone: 0.14, collisionRadiusTiles: 0.28 },
+  movement: {
+    runSpeedTilesPerSec: 5.6,
+    walkSpeedRatio: 0.5,
+    joystickDeadzone: 0.14,
+    collisionRadiusTiles: 0.17,
+    footHalfWidthTiles: 0.11,
+  },
   movementMults: { dodge: 1.9, swing: 0.55, block: 0.6, bowDraw: 0.78, shallowWater: 0.78, deepWater: 0.56, exhaustedSwim: 0.36 },
   swim: { staminaDrainPerSec: 7, idleTreadRegenPerSec: 4 },
   dodge: { staminaCost: 22, durationSec: 0.30, iframeSec: 0.24, cooldownSec: 0.55 },
@@ -94,11 +100,15 @@ export function isWithinSector(input: {
   return cosAngle >= Math.cos(input.halfArcRad);
 }
 
+export const ELEVATION_LIFT_TILES = 0.625;
+
 export interface EllipseHurtbox {
   readonly cx: number;
   readonly cy: number;
   readonly rx: number;
   readonly ry: number;
+  readonly elevation?: number | undefined;
+  readonly onStairs?: boolean | undefined;
 }
 
 const FOOT_RADIUS_BY_KIND: Readonly<Record<EntityKind, number>> = {
@@ -118,16 +128,6 @@ const FOOT_RADIUS_BY_KIND: Readonly<Record<EntityKind, number>> = {
 
 export function entityFootRadius(kind?: EntityKind): number {
   return kind ? FOOT_RADIUS_BY_KIND[kind] : 0.38;
-}
-
-export function projectileHurtbox(pos: Vec2Like, kind?: EntityKind): EllipseHurtbox {
-  const foot = kind ? FOOT_RADIUS_BY_KIND[kind] : COMBAT_TUNING.movement.collisionRadiusTiles;
-  return { cx: pos.x, cy: pos.y - 0.1, rx: foot + 0.34, ry: foot + 0.54 };
-}
-
-export function playerProjectileHurtbox(pos: Vec2Like): EllipseHurtbox {
-  const foot = COMBAT_TUNING.movement.collisionRadiusTiles;
-  return { cx: pos.x, cy: pos.y - 0.1, rx: foot + 0.24, ry: foot + 0.4 };
 }
 
 export function segmentHitsEllipse(seg: {

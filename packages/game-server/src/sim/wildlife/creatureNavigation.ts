@@ -1,5 +1,5 @@
 /** A* waypoint following, prop avoidance, true-velocity facing sync, and knockback physics. */
-import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, findTilePath, hasElevationLineOfSight, isInSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
+import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, closestObstacleCorePoint, findTilePath, hasElevationLineOfSight, isInSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 
 export interface MoveCreatureOpts {
@@ -235,7 +235,8 @@ export function isClearSpot(
   const ground = cache.tileAt(pos.x, pos.y).ground;
   if (ground === GroundKind.DeepWater || ground === GroundKind.ShallowWater) return false;
   for (const obs of cache.blockingObstaclesNear(pos.x, pos.y)) {
-    if (Math.hypot(pos.x - obs.x, pos.y - obs.y) < obs.radius + pos.pad) return false;
+    const core = closestObstacleCorePoint(obs, { x: pos.x, y: pos.y });
+    if (Math.hypot(pos.x - core.x, pos.y - core.y) < obs.radius + pos.pad) return false;
   }
   return true;
 }
@@ -260,7 +261,8 @@ function computeObstacleAvoidance(
   let ax = 0; let ay = 0;
   const tieSign = e.packSlot % 2 === 0 ? 1 : -1;
   for (const obs of cache.blockingObstaclesNear(e.x, e.y)) {
-    const dx = e.x - obs.x; const dy = e.y - obs.y;
+    const core = closestObstacleCorePoint(obs, { x: e.x, y: e.y });
+    const dx = e.x - core.x; const dy = e.y - core.y;
     const d = Math.hypot(dx, dy);
     const thresh = obs.radius + 0.64;
     if (d <= 0.01 || d >= thresh) continue;

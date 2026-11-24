@@ -1,5 +1,5 @@
 /** Shared wildlife perception, sanctuary leash, locked windups, multi-faction targeting, and combat loop. */
-import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, isWithinSector, type WorldEvent } from "@dc2d/engine";
+import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, canReachMeleeTarget, type WorldEvent } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { stepBurnTarget } from "../combat/statusEffects.js";
 import { holdsSpiderConcealedAmbush, stepSpiderPursuitActions } from "../webs/webCocoon.js";
@@ -13,7 +13,7 @@ import {
   stepBearBluff, stepBearScavenge, stepBoarBehavior, stepBoarCommittedCharge, stepHomePatrol,
   type CombatPlayerCandidate, type EcologyFoodSource,
 } from "./creatureBehaviors.js";
-import { steerGoblinAllyRetreat, sweepInvestigateFacing } from "./ecologyHelpers.js";
+import { beginCreatureStrike, stepCreatureStrikeWindow, steerGoblinAllyRetreat, sweepInvestigateFacing } from "./ecologyHelpers.js";
 import {
   findBestHostileTarget, isCreatureAggro, resolveLockedTarget, scanAlliesAndCorpses, stepSuspicionForTarget, type CombatTarget,
 } from "./factionTargeting.js";
@@ -44,25 +44,19 @@ function decayTimers(e: WildlifeEntity, dt: number): void {
   e.webShotCooldown = Math.max(0, e.webShotCooldown - dt);
 }
 
-function finishWindupStrike(opts: {
-  readonly e: WildlifeEntity; readonly target: CombatTarget; readonly events: WorldEvent[]; readonly dt: number; readonly onStrike: StrikeTargetFn;
-}): void {
-  const { e, target, events, dt, onStrike } = opts;
-  const spec = CREATURE_SPECS[e.kind];
+function finishWindupStrike(input: StepCreatureInput): void {
+  const { cache, e, players, allEntities, events, dt, onStrike } = input;
   e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
   if (e.telegraphTimer > 0) return;
-  e.attackCooldown = spec.cooldownSec;
-  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id, entityKind: e.kind, ...(e.kind === "golem" ? { shakePx: 3.5 } : {}) });
-  if (isWithinSector({ origin: e, dir: { x: e.facingX, y: e.facingY }, target, range: spec.range + 0.38, halfArcRad: 1.05 })) onStrike(e, target);
+  beginCreatureStrike({ cache, e, players, allEntities, events, onStrike });
 }
 
-function stepMeleeAttack(opts: {
-  readonly e: WildlifeEntity; readonly target: CombatTarget; readonly events: WorldEvent[]; readonly dt: number; readonly onStrike: StrikeTargetFn;
-}): boolean {
-  const { e, target, events } = opts;
-  if (e.telegraphTimer > 0) { finishWindupStrike(opts); return true; }
+function stepMeleeAttack(input: StepCreatureInput, target: CombatTarget): boolean {
+  const { cache, e, events } = input;
+  if (e.telegraphTimer > 0) { finishWindupStrike(input); return true; }
+  if (e.strikeTimer > 0) return true;
   const spec = CREATURE_SPECS[e.kind];
-  if (e.attackCooldown > 0 || Math.hypot(target.x - e.x, target.y - e.y) > spec.range) return false;
+  if (e.attackCooldown > 0 || Math.hypot(target.x - e.x, target.y - e.y) > spec.range || !canReachMeleeTarget(cache, e, target)) return false;
   faceTarget(e, target); e.aiState = ST_CHASE;
   e.telegraphTimer = spec.windupSec; e.windupDuration = spec.windupSec;
   events.push({ kind: "telegraph", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind });
@@ -108,7 +102,7 @@ function stepBoarEngage(input: StepCreatureInput, target: CombatTarget): void {
   const boar = stepBoarBehavior({ cache, e, target, dt, onStrike: (ent, tgt) => onStrike(ent, tgt as CombatTarget), events });
   if (boar.mode === "done") return;
   if (boar.mode === "melee") {
-    if (!stepMeleeAttack({ e, target, events, dt, onStrike })) {
+    if (!stepMeleeAttack(input, target)) {
       moveCreatureToward({ cache, e, tx: target.x, ty: target.y, speed: CREATURE_SPECS.boar.speed, dt, stopRadius: 1.0, sep });
     }
     return;
@@ -117,20 +111,20 @@ function stepBoarEngage(input: StepCreatureInput, target: CombatTarget): void {
 }
 
 function steerOrChargeTarget(input: StepCreatureInput, target: CombatTarget): void {
-  const { cache, e, allEntities, timeSec, events, dt, onStrike } = input;
+  const { cache, e, allEntities, timeSec, dt } = input;
   if (e.kind === "boar") { stepBoarEngage(input, target); return; }
   const goblinSteer = steerGoblinAllyRetreat(e, target, allEntities);
   if (goblinSteer) { moveCreatureToward({ cache, e, tx: goblinSteer.x, ty: goblinSteer.y, speed: CREATURE_SPECS.goblin.speed * goblinSteer.speedMult, dt }); return; }
-  if (stepMeleeAttack({ e, target, events, dt, onStrike })) return;
+  if (stepMeleeAttack(input, target)) return;
   const spec = CREATURE_SPECS[e.kind];
-  const emit = (ent: WildlifeEntity, tgt: CombatPlayerCandidate) => onStrike(ent, tgt as CombatTarget);
-  const steer = e.kind === "wolf" ? stepWolfHiveMind({ cache, e, target, entities: allEntities, timeSec, onStrike: emit }) : (e.aiState = ST_CHASE, { x: target.x, y: target.y, speedMult: 1.0 });
+  const steer = e.kind === "wolf" ? stepWolfHiveMind({ cache, e, target, entities: allEntities, timeSec }) : (e.aiState = ST_CHASE, { x: target.x, y: target.y, speedMult: 1.0 });
   const stopRadius = e.kind === "wolf" && e.aiState === "flank" ? 0.16 : Math.max(0.75, spec.range * 0.68);
   moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult, dt, stopRadius, sep: combineSepCohesion(e, allEntities) });
 }
 
 function enterReturnState(e: WildlifeEntity): void {
-  e.aiState = ST_RETURN; e.investigateTimer = 0; e.telegraphTimer = 0; e.chargeTimer = 0;
+  e.aiState = ST_RETURN; e.investigateTimer = 0; e.telegraphTimer = 0;
+  e.strikeTimer = 0; e.strikeHitIds.clear(); e.chargeTimer = 0;
   e.suspicion = 0; e.unreachableTimer = 0; e.provokedTimer = 0;
   e.targetPlayerId = null; e.targetKind = null; e.spottedPopTimer = 0;
   clearNavPath(e);
@@ -242,6 +236,7 @@ function stepChargeOrForage(input: StepCreatureInput): boolean {
 
 function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   const { cache, e, allEntities, players, dayPhase, dt } = input;
+  stepCreatureStrikeWindow({ cache, e, players, allEntities, dt, onStrike: input.onStrike });
   if (e.aiState === ST_RETURN) { stepCommittedReturn(input); return; }
   if (stepChargeOrForage(input)) return;
   scanAlliesAndCorpses({ cache, e, allEntities, players });
@@ -256,7 +251,8 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   const { e, dt } = input;
   e.jumpStepped = false;
   if (e.hp <= 0 || e.corpse) {
-    e.aiState = ST_DEAD; e.telegraphTimer = 0; e.spottedPopTimer = 0; e.howlTimer = 0;
+    e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
+    e.spottedPopTimer = 0; e.howlTimer = 0;
     e.corpseTimer = Math.max(0, e.corpseTimer - dt);
     return e.corpseTimer > 0;
   }
@@ -265,7 +261,10 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   stepBurnTarget({ target: e, dt, kind: e.kind, x: e.x, y: e.y, targetId: e.id, events: input.events, onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) input.onBurnKill?.(e); } });
   if (e.hp <= 0 || e.corpse) return true;
   stepKnockbackVelocity(input.cache, e, dt);
-  if (e.staggerTimer > 0) { e.telegraphTimer = 0; stepIdleJumpArc(e, dt); return true; }
+  if (e.staggerTimer > 0) {
+    e.telegraphTimer = 0; e.strikeTimer = 0;
+    stepIdleJumpArc(e, dt); return true;
+  }
   stepActiveWildlifeTurn(input);
   stepIdleJumpArc(e, dt);
   return true;

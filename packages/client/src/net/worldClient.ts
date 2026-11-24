@@ -1,23 +1,11 @@
 /** Multiplayer WebSocket client with holistic action-ack gating, chest ops, and offline preview fallback. */
-import {
-  AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, STEALTH_TUNING,
-  ServerMessageSchema, WorldChunkCache, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type EntityKind, type GroundLootSnapshot,
-  type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage,
-  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
-} from "@dc2d/engine";
+import { AI_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, STEALTH_TUNING, ServerMessageSchema, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ClientMessage, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
 import { IDLE_GATE, resolvePendingGate, type PendingGate } from "./actionGate.js";
 import { loadCharacterPrefs, sanitizeCharacterName, saveCharacterPrefs } from "./characterPrefs.js";
-import {
-  applyChestTakeAll, applyChestTransfer, applyCraftRecipe, applyEquipArmor, applyMoveSlot, applySelectHotbar,
-  applyUnequipArmor, createStarterInventorySnapshot, findNearestChest, heldItemForInventory, isNearCampfire, reconcileInventorySnapshot,
-} from "./clientInventory.js";
+import { applyChestTakeAll, applyChestTransfer, applyCraftRecipe, applyDropToClientState, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor, createStarterInventorySnapshot, findNearestChest, heldItemForInventory, isNearCampfire, reconcileInventorySnapshot } from "./clientInventory.js";
 import { LocalSwingTracker } from "./localSwingTracker.js";
 import { RemotePlayerSmoother } from "./remoteInterp.js";
-import {
-  applyLocalAtmosphere, bindPageDisconnect, buildInputMessage, mergeStreamEvents,
-  prepareAdminDispatch, resetDisconnectedPlayer, type AdminSendRequest, type ConnectionMode, type StepInputFrame, type WorldViewState,
-} from "./worldClientHelpers.js";
+import { applyLocalAtmosphere, bindPageDisconnect, buildInputMessage, mergeStreamEvents, prepareAdminDispatch, resetDisconnectedPlayer, smoothPingRtt, type AdminSendRequest, type ConnectionMode, type StepInputFrame, type WorldViewState } from "./worldClientHelpers.js";
 import { createDefaultPlayer, defaultWsUrl, normalizeDirection, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 export type { ConnectionMode, StepInputFrame, WorldViewState } from "./worldClientHelpers.js";
@@ -53,6 +41,8 @@ export class WorldClient {
   private attackFlashTimer = 0;
   private inventory: InventorySnapshot = createStarterInventorySnapshot();
   private selfAdmin = false;
+  private pingMs: number | null = null;
+  private pingTimerSec = 0;
   private readonly autoReconnect: boolean;
   private manualDisconnect = false;
   private connectTimer: number | null = null;
@@ -109,6 +99,7 @@ export class WorldClient {
   private resetStreamState(resetId: boolean): void {
     this.mode = "local"; this.entities = []; this.projectiles = [];
     this.webs = undefined; this.localBowDrawing = false; this.selfAdmin = false;
+    this.pingMs = null; this.pingTimerSec = 0;
     this.localPlayer = resetDisconnectedPlayer(this.localPlayer, resetId);
   }
 
@@ -122,19 +113,19 @@ export class WorldClient {
   }
 
   private handleMessage(raw: string): void {
-    let json: unknown;
-    try { json = JSON.parse(raw); } catch { return; }
+    let json: unknown; try { json = JSON.parse(raw); } catch { return; }
     const parsed = ServerMessageSchema.safeParse(json);
     if (!parsed.success) return;
     if (parsed.data.t === "welcome") { this.applyWelcome(parsed.data); return; }
+    if (parsed.data.t === "pong") { this.pingMs = smoothPingRtt(this.pingMs, performance.now() - parsed.data.t0); return; }
     this.applyServerSnapshot(parsed.data);
   }
 
   private applyWelcome(msg: Extract<ServerMessage, { t: "welcome" }>): void {
     if (this.connectTimer !== null) window.clearTimeout(this.connectTimer);
-    this.mode = "server"; this.localPlayerId = msg.playerId;
-    this.localPlayer = { ...this.localPlayer, id: msg.playerId };
+    this.mode = "server"; this.localPlayerId = msg.playerId; this.localPlayer = { ...this.localPlayer, id: msg.playerId };
     this.cache = new WorldChunkCache(msg.worldSeed); this.dayPhase = msg.dayPhase; this.dayPaused = msg.dayPaused;
+    this.pingTimerSec = 0; this.send({ t: "ping", t0: performance.now() });
   }
 
   private applyServerSnapshot(msg: Extract<ServerMessage, { t: "snapshot" }>): void {
@@ -180,10 +171,19 @@ export class WorldClient {
 
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } { return this.localPlayer; }
 
+  private stepPingHeartbeat(dt: number, isServer: boolean): void {
+    if (!isServer) return;
+    this.pingTimerSec += dt;
+    if (this.pingTimerSec < 1.0) return;
+    this.pingTimerSec = 0;
+    this.send({ t: "ping", t0: performance.now() });
+  }
+
   private stepLocalAtmosphere(dt: number): void {
     this.attackFlashTimer = Math.max(0, this.attackFlashTimer - dt);
     const attackFlash = Boolean(this.localPlayer.attackFlash) || this.attackFlashTimer > 0;
     const isServer = this.mode === "server";
+    this.stepPingHeartbeat(dt, isServer);
     if (!isServer && !this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dt / DAY_DURATION_SECONDS);
     this.localPlayer = applyLocalAtmosphere({ cache: this.cache, player: this.localPlayer, dayPhase: this.dayPhase, attackFlash, isServer });
     if (!isServer) this.inventory = { ...this.inventory, nearCampfire: isNearCampfire(this.cache, this.localPlayer.x, this.localPlayer.y) };
@@ -254,12 +254,17 @@ export class WorldClient {
   placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number }): void { this.send({ t: "placeStructure", ...req, seq: this.armInvSeq() }); }
   setRespawnBed(structureId: string): void { this.send({ t: "setRespawnBed", structureId, seq: this.nextSeq() }); }
   pickupLoot(lootId?: string): void { this.send({ t: "pickupLoot", ...(lootId ? { lootId } : {}), seq: this.armInvSeq() }); }
+  dropItem(req: DropItemRequest): void {
+    const next = applyDropToClientState({ inv: this.inventory, chests: this.chests, req });
+    this.updateInventory(next.inv); this.chests = [...next.chests];
+    this.send({ t: "dropItem", ...req, seq: req.source === "chest" ? this.armChestSeq() : this.armInvSeq() });
+  }
 
   snapshot(): WorldViewState {
     const localWithGear: PlayerSnapshot = { ...this.localPlayer, heldItem: heldItemForInventory(this.inventory), armor: this.inventory.armor, ...this.swing.snapshotOverride() };
     const players = this.mode === "server" ? this.remotePlayers.map((p) => (p.id === this.localPlayerId ? localWithGear : this.remoteSmoother.resolve(p))) : [localWithGear];
     const events = this.queuedEvents; this.queuedEvents = [];
-    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, selfAdmin: this.selfAdmin };
+    return { mode: this.mode, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name, localAppearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, selfAdmin: this.selfAdmin, pingMs: this.pingMs };
   }
 
   private nextSeq(): number { return this.mode === "server" ? ++this.actionSeq : 0; }

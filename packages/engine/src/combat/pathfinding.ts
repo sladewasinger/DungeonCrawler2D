@@ -1,6 +1,7 @@
 /** Bounded tile-grid A* pathfinding over chunk terrain, stairs, and blocking props/chests. */
 import { GroundKind } from "../world/types.js";
 import { WorldChunkCache, type BlockingObstacle } from "../world/collision.js";
+import { closestObstacleCorePoint } from "../world/propFootprints.js";
 import { createOpenHeap, popOpen, pushOpen, type OpenHeap } from "./pathHeap.js";
 
 export interface TileWaypoint { readonly x: number; readonly y: number; }
@@ -106,7 +107,8 @@ function singlePropPenalty(q: {
   readonly cx: number; readonly cy: number; readonly p: BlockingObstacle;
   readonly isGoal: boolean; readonly hardThresh: number; readonly softThresh: number;
 }): number {
-  const d = Math.hypot(q.cx - q.p.x, q.cy - q.p.y);
+  const core = closestObstacleCorePoint(q.p, { x: q.cx, y: q.cy });
+  const d = Math.hypot(q.cx - core.x, q.cy - core.y);
   if (!q.isGoal && d < q.p.radius + q.hardThresh) return -1;
   return d < q.p.radius + q.softThresh ? 1.35 : 0;
 }

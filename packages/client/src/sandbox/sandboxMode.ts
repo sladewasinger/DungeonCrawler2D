@@ -51,6 +51,7 @@ function buildSandboxHudActions(sim: SandboxSim, audio: AudioEngine): HudActions
     onCraft: () => {},
     onSetCharacter: () => {},
     onToggleTorch: () => { sim.toggleTorch(); audio.playUi("click"); },
+    onDropItem: (req) => { sim.dropItem(req); audio.playUi("click"); },
   };
 }
 
@@ -216,6 +217,7 @@ function createSandboxControls(opts: {
     onToggleTorch: () => sim.toggleTorch(), onZoom: setZoom,
     onSelectHotbar: (s) => sim.selectHotbar(s), onToggleInventory: () => hud.toggleInventory(),
     onToggleCharacter: () => hud.toggleCharacter(),
+    onDropItem: () => hud.dropShortcutItem(),
     onInteract, onClosePanels: () => hud.closePanels(),
   });
   const toolbar = new SandboxToolbar(host, {

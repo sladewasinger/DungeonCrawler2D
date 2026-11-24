@@ -1,6 +1,7 @@
 /** Authoritative interactive training targets (straw dummy, burst slime target, sparring dummy). */
 import {
-  BLEED_DURATION_SEC, MELEE_FEEL_TUNING, WorldChunkCache, isWithinSector,
+  BLEED_DURATION_SEC, MELEE_FEEL_TUNING, WorldChunkCache, attackHitboxHitsHurtbox,
+  buildEntityAttackHitbox, getEntityAttackSpec, playerHurtbox,
   type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { igniteBurnable, stepBurnTarget } from "./combat/statusEffects.js";
@@ -27,32 +28,23 @@ export interface SimEntity {
   blocking: boolean;
   idleResetTimer: number;
   telegraphTimer: number;
+  strikeTimer: number;
+  readonly strikeHitIds: Set<string>;
   attackCooldown: number;
   respawnTimer: number;
 }
 
 export interface CombatActorTarget {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly facingX: number;
-  readonly facingY: number;
+  readonly id: string; readonly x: number; readonly y: number; readonly elevation?: number | undefined; readonly facingX: number; readonly facingY: number;
 }
 
 const KIND_SLIME = "slime-dummy" as const;
 const KIND_SPAR = "spar-dummy" as const;
 
 export const TRAINING_DUMMY_TUNING = {
-  strawHp: 100,
-  slimeHp: 45,
-  slimeRespawnSec: 3.5,
-  sparHp: 120,
-  sparWindupSec: 0.85,
-  sparCooldownSec: 1.85,
-  sparRangeTiles: 2.35,
-  sparDamage: 12,
-  idleResetSec: 4.2,
-  defaultRespawnSec: 2.0,
+  strawHp: 100, slimeHp: 45, slimeRespawnSec: 3.5, sparHp: 120,
+  sparWindupSec: 0.85, sparCooldownSec: 1.85, sparRangeTiles: 2.35,
+  sparDamage: 12, idleResetSec: 4.2, defaultRespawnSec: 2.0,
 } as const;
 
 function makeTarget(cache: WorldChunkCache, opts: {
@@ -64,7 +56,7 @@ function makeTarget(cache: WorldChunkCache, opts: {
     x: opts.x, y: opts.y, elevation: cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation,
     facingX: -1, facingY: 0, hp: opts.hp, maxHp: opts.hp,
     hitTimer: 0, staggerTimer: 0, bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, parried: false, blocking: false, idleResetTimer: 0,
-    telegraphTimer: 0, attackCooldown: 0.8, respawnTimer: 0,
+    telegraphTimer: 0, strikeTimer: 0, strikeHitIds: new Set<string>(), attackCooldown: 0.8, respawnTimer: 0,
   };
 }
 
@@ -78,12 +70,9 @@ export function createTrainingDummies(cache: WorldChunkCache): SimEntity[] {
 
 function finalizeDummyKill(e: SimEntity): void {
   e.respawnTimer = e.kind === KIND_SLIME ? TRAINING_DUMMY_TUNING.slimeRespawnSec : TRAINING_DUMMY_TUNING.defaultRespawnSec;
-  e.telegraphTimer = 0;
-  e.bleedTimer = 0;
-  e.burnTimer = 0;
-  e.burnTickAcc = 0;
-  e.parried = false;
-  e.blocking = false;
+  e.telegraphTimer = 0; e.strikeTimer = 0; e.strikeHitIds.clear();
+  e.bleedTimer = 0; e.burnTimer = 0;
+  e.burnTickAcc = 0; e.parried = false; e.blocking = false;
 }
 
 export interface DamageDummyInput {
@@ -167,31 +156,41 @@ function faceNearestTarget(e: SimEntity, players: readonly CombatActorTarget[]):
   return { nearest, dist };
 }
 
-function finishSparSwing(opts: {
-  readonly e: SimEntity; readonly nearest: CombatActorTarget | null;
-  readonly events: WorldEvent[]; readonly onStrike: (entity: SimEntity, target: CombatActorTarget, damage: number) => void;
+function stepSparActiveHit(opts: {
+  readonly e: SimEntity; readonly players: readonly CombatActorTarget[];
+  readonly onStrike: (entity: SimEntity, target: CombatActorTarget, damage: number) => void;
 }): void {
-  const { e, nearest, events, onStrike } = opts;
-  e.attackCooldown = TRAINING_DUMMY_TUNING.sparCooldownSec;
-  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id });
-  if (nearest && isWithinSector({ origin: e, dir: { x: e.facingX, y: e.facingY }, target: nearest, range: TRAINING_DUMMY_TUNING.sparRangeTiles, halfArcRad: 1.0 })) {
-    onStrike(e, nearest, TRAINING_DUMMY_TUNING.sparDamage);
+  const hitbox = buildEntityAttackHitbox(opts.e);
+  for (const t of opts.players) {
+    if (opts.e.strikeHitIds.has(t.id) || !attackHitboxHitsHurtbox(hitbox, playerHurtbox(t))) continue;
+    opts.e.strikeHitIds.add(t.id);
+    opts.onStrike(opts.e, t, TRAINING_DUMMY_TUNING.sparDamage);
   }
 }
 
+function finishSparSwing(opts: {
+  readonly e: SimEntity; readonly players: readonly CombatActorTarget[];
+  readonly events: WorldEvent[]; readonly onStrike: (entity: SimEntity, target: CombatActorTarget, damage: number) => void;
+}): void {
+  const { e, events } = opts;
+  e.attackCooldown = TRAINING_DUMMY_TUNING.sparCooldownSec;
+  e.strikeTimer = getEntityAttackSpec(KIND_SPAR).activeSec;
+  e.strikeHitIds.clear();
+  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id });
+  stepSparActiveHit(opts);
+}
+
 function stepSparDummy(input: {
-  readonly e: SimEntity;
-  readonly dt: number;
-  readonly players: readonly CombatActorTarget[];
-  readonly events: WorldEvent[];
-  readonly onStrike: (entity: SimEntity, target: CombatActorTarget, damage: number) => void;
+  readonly e: SimEntity; readonly dt: number; readonly players: readonly CombatActorTarget[];
+  readonly events: WorldEvent[]; readonly onStrike: (entity: SimEntity, target: CombatActorTarget, damage: number) => void;
 }): void {
   const { e, dt, players, events, onStrike } = input;
-  if (e.kind !== KIND_SPAR || e.staggerTimer > 0) { e.telegraphTimer = 0; return; }
-  const { nearest, dist } = faceNearestTarget(e, players);
+  if (e.kind !== KIND_SPAR || e.staggerTimer > 0) { e.telegraphTimer = 0; e.strikeTimer = 0; return; }
+  if (e.strikeTimer > 0) { e.strikeTimer = Math.max(0, e.strikeTimer - dt); stepSparActiveHit({ e, players, onStrike }); return; }
+  const { dist } = faceNearestTarget(e, players);
   if (e.telegraphTimer > 0) {
     e.telegraphTimer = Math.max(0, e.telegraphTimer - dt);
-    if (e.telegraphTimer === 0) finishSparSwing({ e, nearest, events, onStrike });
+    if (e.telegraphTimer === 0) finishSparSwing({ e, players, events, onStrike });
     return;
   }
   if (e.attackCooldown <= 0 && dist <= TRAINING_DUMMY_TUNING.sparRangeTiles) {
@@ -237,14 +236,19 @@ export function stepTrainingDummies(input: {
 }
 
 export function serializeDummies(dummies: readonly SimEntity[]): WorldEntitySnapshot[] {
+  const activeSec = Math.max(0.05, getEntityAttackSpec(KIND_SPAR).activeSec);
   return dummies
     .filter((e) => e.respawnTimer <= 0)
-    .map((e) => ({
-      id: e.id, kind: e.kind, substance: e.substance, x: e.x, y: e.y, elevation: e.elevation,
-      facingX: e.facingX, facingY: e.facingY, hp: e.hp, maxHp: e.maxHp,
-      hitTimer: e.hitTimer, staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer,
-      ...(e.burnTimer > 0 ? { burning: true } : {}),
-      ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
-      telegraphProgress: e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / TRAINING_DUMMY_TUNING.sparWindupSec) : 0,
-    }));
+    .map((e) => {
+      const atkProg = e.strikeTimer > 0 ? Math.min(1, Math.max(0.05, 1 - e.strikeTimer / activeSec)) : 0;
+      return {
+        id: e.id, kind: e.kind, substance: e.substance, x: e.x, y: e.y, elevation: e.elevation,
+        facingX: e.facingX, facingY: e.facingY, hp: e.hp, maxHp: e.maxHp,
+        hitTimer: e.hitTimer, staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer,
+        ...(e.burnTimer > 0 ? { burning: true } : {}),
+        ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
+        ...(atkProg > 0 ? { attackProgress: atkProg } : {}),
+        telegraphProgress: e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / TRAINING_DUMMY_TUNING.sparWindupSec) : 0,
+      };
+    });
 }

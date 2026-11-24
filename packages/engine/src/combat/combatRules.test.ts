@@ -6,9 +6,9 @@ import {
   evaluateBowShot,
   isInSanctuary,
   isWithinSector,
-  projectileHurtbox,
   segmentHitsEllipse,
 } from "./combatRules.js";
+import { projectileHurtbox } from "./hitboxes/combatShapes.js";
 
 describe("combatRules", () => {
   it("detects safe spawn campfire sanctuary and scales defense mitigation", () => {

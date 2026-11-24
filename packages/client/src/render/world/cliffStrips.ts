@@ -159,7 +159,7 @@ function bakeSingleElevationRow(input: {
     const tile = input.cache.tileAt(wx, wy);
     const isStair = input.elev === 1 && tile.stairs;
     if (!isStair && tile.elevation < input.elev) continue;
-    canvasData ??= createPixelCanvas(stripArtW, TERRAIN_TEX_PX + LIFT_TEX_PX);
+    canvasData ??= createPixelCanvas(stripArtW, TERRAIN_TEX_PX + LIFT_TEX_PX, { willReadFrequently: false });
     paintRowCell({ canvasData, cache: input.cache, atlas: input.atlas, variant: input.variant, wx, wy, lx, ly: input.ly, elev: input.elev, isStair });
   }
   if (!canvasData) return null;

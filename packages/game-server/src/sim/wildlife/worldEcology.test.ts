@@ -1,42 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { AI_TUNING, GroundKind, WorldChunkCache, findChunkPoi, findTilePath, isInSanctuary, type WorldEvent } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, POI_CHEST_OBSTACLE_SHAPE, PropKind, WorldChunkCache, closestObstacleCorePoint, findChunkPoi, findTilePath, isInSanctuary, propCollisionOffsetY, type WorldEvent } from "@dc2d/engine";
 import { createCombatState, type CombatPlayerRef } from "../combatActions.js";
 import { createStarterInventory } from "../playerInventory.js";
 import { WorldEcology } from "./worldEcology.js";
 
 class ForestCoverCache extends WorldChunkCache {
-  override tileAt(wx: number) {
-    return { ground: Math.floor(wx) < 15 ? GroundKind.ForestFloor : GroundKind.Grass, elevation: 0, stairs: false };
-  }
+  override tileAt(wx: number) { return { ground: Math.floor(wx) < 15 ? GroundKind.ForestFloor : GroundKind.Grass, elevation: 0, stairs: false }; }
   override propsNear() { return []; }
 }
 
 class SheerCliffBarrierCache extends WorldChunkCache {
-  override tileAt(wx: number) {
-    if (Math.floor(wx) >= 28) return { ground: GroundKind.CliffStone, elevation: 2, stairs: false };
-    return { ground: GroundKind.Grass, elevation: 0, stairs: false };
-  }
+  override tileAt(wx: number) { return { ground: Math.floor(wx) >= 28 ? GroundKind.CliffStone : GroundKind.Grass, elevation: Math.floor(wx) >= 28 ? 2 : 0, stairs: false }; }
   override propsNear() { return []; }
 }
 
 function makePlayer(x: number, y: number): CombatPlayerRef & { moving: boolean } {
-  return {
-    id: "p1", x, y, elevation: 0, facingX: 1, facingY: 0, aimX: 1, aimY: 0,
-    selectedHotbar: 0, inventory: createStarterInventory(), combat: createCombatState(), moving: false,
-  };
+  return { id: "p1", x, y, elevation: 0, facingX: 1, facingY: 0, aimX: 1, aimY: 0, selectedHotbar: 0, inventory: createStarterInventory(), combat: createCombatState(), moving: false };
 }
 
-function stepEco(opts: {
-  readonly eco: WorldEcology; readonly players: readonly (CombatPlayerRef & { moving: boolean })[];
-  readonly ticks: number; readonly dayPhase?: number; readonly onStrike?: () => void;
-}): void {
+function stepEco(opts: { readonly eco: WorldEcology; readonly players: readonly (CombatPlayerRef & { moving: boolean })[]; readonly ticks: number; readonly dayPhase?: number; readonly onStrike?: () => void }): void {
   const events: WorldEvent[] = [];
-  for (let i = 0; i < opts.ticks; i++) {
-    opts.eco.step({
-      dt: 0.05, timeSec: i * 0.05, dayPhase: opts.dayPhase ?? 0.5,
-      players: opts.players, events, onStrike: opts.onStrike ?? (() => {}),
-    });
-  }
+  for (let i = 0; i < opts.ticks; i++) opts.eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: opts.dayPhase ?? 0.5, players: opts.players, events, onStrike: opts.onStrike ?? (() => {}) });
 }
 
 describe("WorldEcology & POIs", () => {
@@ -261,7 +245,8 @@ describe("WorldEcology & POIs", () => {
     expect(guards.length).toBeGreaterThanOrEqual(4);
     for (const g of guards) {
       for (const obs of cache.blockingObstaclesNear(g.x, g.y)) {
-        expect(Math.hypot(g.x - obs.x, g.y - obs.y)).toBeGreaterThanOrEqual(obs.radius + 0.3);
+        const core = closestObstacleCorePoint(obs, { x: g.x, y: g.y });
+        expect(Math.hypot(g.x - core.x, g.y - core.y)).toBeGreaterThanOrEqual(obs.radius + 0.3);
       }
       const exitPath = findTilePath({ cache, startX: g.x, startY: g.y, goalX: poi.centerX, goalY: poi.centerY + poi.radiusY - 0.4, maxRadiusTiles: 12 });
       expect(exitPath.reachedGoal).toBe(true);
@@ -269,10 +254,17 @@ describe("WorldEcology & POIs", () => {
     const runner = eco.spawnEntity({ kind: "goblin", x: poi.centerX, y: poi.centerY + 2.0, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
     runner.facingY = -1;
     const target = makePlayer(poi.centerX, poi.centerY - 0.3);
+    const fireY = poi.centerY + 0.8 + propCollisionOffsetY(PropKind.Campfire);
+    const chestObs = {
+      id: `${poi.id}:chest`, x: poi.chestX, y: poi.chestY + POI_CHEST_OBSTACLE_SHAPE.offsetY,
+      radius: POI_CHEST_OBSTACLE_SHAPE.radius, halfX: POI_CHEST_OBSTACLE_SHAPE.halfX,
+      halfY: POI_CHEST_OBSTACLE_SHAPE.halfY, elevation: poi.elevation,
+    };
     for (let i = 0; i < 45; i++) {
       eco.step({ dt: 0.05, timeSec: i * 0.05, dayPhase: 0.5, players: [target], events: [], onStrike: () => {} });
-      expect(Math.hypot(runner.x - poi.centerX, runner.y - (poi.centerY + 0.8))).toBeGreaterThanOrEqual(0.72);
-      expect(Math.hypot(runner.x - poi.chestX, runner.y - (poi.chestY - 0.14))).toBeGreaterThanOrEqual(0.7);
+      expect(Math.hypot(runner.x - poi.centerX, runner.y - fireY)).toBeGreaterThanOrEqual(0.72);
+      const chestCore = closestObstacleCorePoint(chestObs, { x: runner.x, y: runner.y });
+      expect(Math.hypot(runner.x - chestCore.x, runner.y - chestCore.y)).toBeGreaterThanOrEqual(chestObs.radius + 0.24);
     }
   });
 });

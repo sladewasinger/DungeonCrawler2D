@@ -16,7 +16,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot", "admin",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot", "dropItem", "admin",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -91,21 +91,19 @@ function handleAdminPacket(opts: {
   return true;
 }
 
-function dispatchMessage(ctx: {
+function buildMessageHandlers(ctx: {
   readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim;
-  readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>; readonly authConfig: AdminAuthConfig;
-}): void {
-  const { msg, session, sim, ws, clients, authConfig } = ctx;
+  readonly authConfig: AdminAuthConfig; readonly onSkipBroadcast: () => void;
+}): Record<ClientMessage["t"], () => void> {
+  const { msg, session, sim, authConfig, onSkipBroadcast } = ctx;
   const { playerId } = session;
-  if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(playerId, msg.seq);
-  let shouldBroadcast = BROADCAST_ACTIONS.has(msg.t);
-  const handlers: Record<ClientMessage["t"], () => void> = {
+  return {
     hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
     setAppearance: () => msg.t === "setAppearance" && sim.setAppearance(playerId, msg),
     input: () => msg.t === "input" && sim.queueInput(playerId, msg),
     respawn: () => sim.respawnPlayer(playerId),
     toggleTorch: () => sim.toggleTorch(playerId),
-    setDayPhase: () => { if (msg.t === "setDayPhase" && session.isAdmin) sim.setDayPhase(msg.dayPhase, msg.paused); else shouldBroadcast = false; },
+    setDayPhase: () => { if (msg.t === "setDayPhase" && session.isAdmin) sim.setDayPhase(msg.dayPhase, msg.paused); else onSkipBroadcast(); },
     selectHotbar: () => msg.t === "selectHotbar" && sim.selectHotbar(playerId, msg.slot),
     moveSlot: () => msg.t === "moveSlot" && sim.moveSlot(playerId, msg),
     equipArmor: () => msg.t === "equipArmor" && sim.equipArmor(playerId, msg),
@@ -117,9 +115,22 @@ function dispatchMessage(ctx: {
     placeStructure: () => msg.t === "placeStructure" && sim.placeStructure(playerId, msg),
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
+    dropItem: () => msg.t === "dropItem" && sim.dropItem(playerId, msg),
+    ping: () => {},
     debugSpawn: () => msg.t === "debugSpawn" && session.isAdmin && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
-    admin: () => { if (msg.t === "admin") shouldBroadcast = handleAdminPacket({ msg, session, sim, authConfig }); },
+    admin: () => { if (msg.t === "admin" && !handleAdminPacket({ msg, session, sim, authConfig })) onSkipBroadcast(); },
   };
+}
+
+function dispatchMessage(ctx: {
+  readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim;
+  readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>; readonly authConfig: AdminAuthConfig;
+}): void {
+  const { msg, session, sim, ws, clients, authConfig } = ctx;
+  if (msg.t === "ping") { sendJson(ws, { t: "pong", t0: msg.t0 }); return; }
+  if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(session.playerId, msg.seq);
+  let shouldBroadcast = BROADCAST_ACTIONS.has(msg.t);
+  const handlers = buildMessageHandlers({ msg, session, sim, authConfig, onSkipBroadcast: () => { shouldBroadcast = false; } });
   handlers[msg.t]();
   if (shouldBroadcast) broadcastTickSnapshots({ clients, sim, includeEvents: false });
   else if (msg.t !== "input") sendJson(ws, buildClientSnapshot({ sim, session, data: makeTickBroadcastData(sim, false) }));

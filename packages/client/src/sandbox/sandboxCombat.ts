@@ -1,30 +1,16 @@
 /** Pure local player movement, jump arc, melee sector cleave, and projectile step helpers for SandboxSim. */
 import { getItemDef, isMeleeItem } from "@dc2d/content";
-import {
-  BLEED_DURATION_SEC, COMBO_SWING_SEC, COMBAT_TUNING, DODGE_DURATION_SEC, DODGE_IFRAME_SEC, DODGE_SPEED_MULT,
-  HIT_IFRAME_SEC, JUMP_GRAVITY_TILES_PER_SEC2, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, STAMINA_REGEN_PER_SEC, clamp,
-  evaluateBowShot, isWithinSector, resolveMovement, resolveWeaponArchetype, resolveWeaponAttackStep,
-  type GoreStyle, type GoreSubstance, type PlayerSnapshot, type ProjectileSnapshot, type WorldChunkCache, type WorldEvent,
-} from "@dc2d/engine";
+import { BLEED_DURATION_SEC, COMBO_SWING_SEC, COMBAT_TUNING, DODGE_DURATION_SEC, DODGE_IFRAME_SEC, DODGE_SPEED_MULT, HIT_IFRAME_SEC, JUMP_GRAVITY_TILES_PER_SEC2, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, STAMINA_REGEN_PER_SEC, attackHitboxHitsHurtbox, buildPlayerAttackHitbox, clamp, entityHurtbox, evaluateBowShot, playerFootSegment, projectileHitsHurtbox, resolveMovement, resolveWeaponArchetype, resolveWeaponAttackStep, type GoreStyle, type GoreSubstance, type PlayerSnapshot, type ProjectileSnapshot, type WorldChunkCache, type WorldEvent } from "@dc2d/engine";
 import { isDummyKind, type SandboxActor } from "./sandboxAi.js";
 
 export interface SandboxProjectile { readonly snap: ProjectileSnapshot; readonly ttlSec: number }
-
-export interface PlayerMoveTimers {
-  dodgeTimer: number; swingTimer: number; swingDuration?: number;
-  comboResetTimer: number; bowChargeSec: number; invulnTimer: number;
-}
-
-const STYLE_DRIP: GoreStyle = "drip";
-const STYLE_CHUNK: GoreStyle = "chunk-spray";
-const STYLE_SPLATTER: GoreStyle = "splatter";
+export interface PlayerMoveTimers { dodgeTimer: number; swingTimer: number; swingDuration?: number; comboResetTimer: number; bowChargeSec: number; invulnTimer: number; }
+const STYLE_DRIP: GoreStyle = "drip"; const STYLE_CHUNK: GoreStyle = "chunk-spray"; const STYLE_SPLATTER: GoreStyle = "splatter";
 const BLEED_SUBSTANCES = new Set<GoreSubstance>(["blood", "slime", "ichor"]);
 
 export interface SandboxPlayerInput {
-  readonly dt: number; readonly move: { readonly x: number; readonly y: number };
-  readonly aim?: { readonly x: number; readonly y: number } | undefined;
-  readonly attack: boolean; readonly block: boolean; readonly dodge: boolean;
-  readonly jump: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean;
+  readonly dt: number; readonly move: { readonly x: number; readonly y: number }; readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  readonly attack: boolean; readonly block: boolean; readonly dodge: boolean; readonly jump: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean;
 }
 
 function advanceJump(opts: { readonly z: number; readonly vz: number; readonly pressed: boolean; readonly dt: number }): { readonly jumpZ: number; readonly jumpVz: number } {
@@ -99,12 +85,10 @@ export function advanceSandboxPlayer(opts: {
   const { nx, ny, mag, moving } = normalizedMove(input.move);
   const { baseSpeed, effMag, drawingBow } = resolveSandboxMoveSpeed({ player, bowDraw: input.bowDraw, timers, mag });
   const jump = advanceJump({ z: player.jumpZ ?? 0, vz: player.jumpVz ?? 0, pressed: input.jump, dt: input.dt });
-  const moved = resolveMovement({
-    cache, x: player.x, y: player.y, dx: nx * baseSpeed * input.dt, dy: ny * baseSpeed * input.dt,
-    radius: 0.28, elevation: player.elevation, airborne: jump.jumpZ > 0.05,
-  });
-  const swingProgress = timers.swingTimer > 0 ? 1 - timers.swingTimer / Math.max(0.01, timers.swingDuration ?? COMBO_SWING_SEC) : 0;
   const facing = resolveSandboxFacing({ aim: input.aim, nx, ny, moving, player });
+  const seg = playerFootSegment({ ...player, ...facing });
+  const moved = resolveMovement({ cache, x: player.x, y: player.y, dx: nx * baseSpeed * input.dt, dy: ny * baseSpeed * input.dt, radius: COMBAT_TUNING.movement.collisionRadiusTiles, footSegX: seg.segX, footSegY: seg.segY, elevation: player.elevation, airborne: jump.jumpZ > 0.05 });
+  const swingProgress = timers.swingTimer > 0 ? 1 - timers.swingTimer / Math.max(0.01, timers.swingDuration ?? COMBO_SWING_SEC) : 0;
   const sprinting = isSandboxSprinting({ moving, mag: effMag, inWater: moved.inWater, block: input.block, timers, drawingBow });
   return {
     ...player,
@@ -138,7 +122,7 @@ export function advanceSandboxBow(opts: {
     const shot = evaluateBowShot(timers.bowChargeSec);
     projectiles.push({
       ttlSec: 1.5,
-      snap: { id: nextProjId(), ownerId: player.id, kind: "arrow", x: player.x, y: player.y, elevation: 0, vx: aim.x * shot.speedTilesPerSec, vy: aim.y * shot.speedTilesPerSec, charge: shot.ratio },
+      snap: { id: nextProjId(), ownerId: player.id, kind: "arrow", x: player.x, y: player.y, elevation: player.elevation, vx: aim.x * shot.speedTilesPerSec, vy: aim.y * shot.speedTilesPerSec, charge: shot.ratio },
     });
     events.push({ kind: "arrowFire", actorId: player.id, x: player.x, y: player.y });
   }
@@ -180,12 +164,18 @@ export function applyActorDamage(opts: {
 function cleaveActors(opts: {
   readonly player: PlayerSnapshot; readonly aim: { readonly x: number; readonly y: number };
   readonly actors: SandboxActor[]; readonly dmg: number; readonly goreStyle: GoreStyle;
-  readonly range: number; readonly halfArcRad: number;
+  readonly range: number; readonly halfArcRad: number; readonly slamAoeRadius?: number | undefined;
   readonly comboStep: number; readonly sweepDir: number; readonly events: WorldEvent[];
 }): void {
+  const impactCenter = opts.slamAoeRadius
+    ? { x: opts.player.x + opts.aim.x * opts.range * 0.72, y: opts.player.y + opts.aim.y * opts.range * 0.72 }
+    : undefined;
+  const hitbox = buildPlayerAttackHitbox({
+    x: opts.player.x, y: opts.player.y, elevation: opts.player.elevation,
+    dir: opts.aim, range: opts.range, halfArcRad: opts.halfArcRad, impactCenter, slamAoeRadius: opts.slamAoeRadius,
+  });
   for (const actor of opts.actors) {
-    if (actor.snap.hp <= 0) continue;
-    if (!isWithinSector({ origin: opts.player, dir: opts.aim, target: actor.snap, range: opts.range, halfArcRad: opts.halfArcRad })) continue;
+    if (actor.snap.hp <= 0 || !attackHitboxHitsHurtbox(hitbox, entityHurtbox(actor.snap, actor.snap.kind))) continue;
     opts.events.push(applyActorDamage({
       actor, dmg: opts.dmg, attackerId: opts.player.id, dirX: opts.aim.x, dirY: opts.aim.y,
       goreStyle: opts.goreStyle, comboStep: opts.comboStep, sweepDir: opts.sweepDir,
@@ -230,7 +220,10 @@ export function advanceSandboxMelee(opts: {
   timers.swingDuration = spec.swingDurationSec; timers.swingTimer = spec.swingDurationSec;
   timers.comboResetTimer = moveset.comboWindowSec;
   events.push({ kind: "swing", actorId: player.id, x: player.x, y: player.y, dirX: aim.x, dirY: aim.y, comboStep: stepIndex, weaponArchetype: archetype, sweepDir: spec.sweepDir });
-  cleaveActors({ player, aim, actors, dmg, goreStyle: gore, range, halfArcRad, comboStep: stepIndex, sweepDir: spec.sweepDir, events });
+  cleaveActors({
+    player, aim, actors, dmg, goreStyle: gore, range, halfArcRad,
+    slamAoeRadius: spec.slamAoeRadius, comboStep: stepIndex, sweepDir: spec.sweepDir, events,
+  });
   return { ...player, comboStep: stepIndex, swingProgress: 0.02 };
 }
 
@@ -245,7 +238,9 @@ export function stepSandboxProjectiles(projectiles: SandboxProjectile[], actors:
     if (ttlSec <= 0) continue;
     const nx = pr.snap.x + pr.snap.vx * dt;
     const ny = pr.snap.y + pr.snap.vy * dt;
-    const hit = actors.find((a) => a.snap.hp > 0 && Math.hypot(a.snap.x - nx, a.snap.y - ny) < 0.7);
+    const hit = actors.find((a) => a.snap.hp > 0 && projectileHitsHurtbox({
+      x0: pr.snap.x, y0: pr.snap.y, x1: nx, y1: ny, projectileElevation: pr.snap.elevation, box: entityHurtbox(a.snap, a.snap.kind),
+    }) !== null);
     if (hit) {
       const dmg = Math.round(18 + pr.snap.charge * 18);
       ev.push(applyActorDamage({ actor: hit, dmg, attackerId: pr.snap.ownerId, dirX: pr.snap.vx, dirY: pr.snap.vy, goreStyle: STYLE_DRIP }));

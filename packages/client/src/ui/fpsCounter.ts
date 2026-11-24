@@ -1,8 +1,14 @@
-/** Lightweight top-right FPS & frame-time pill for desktop/mobile performance profiling. */
+/** Lightweight top-right FPS & RTT ping pills for desktop/mobile performance profiling. */
+import type { ConnectionMode } from "../net/worldClientHelpers.js";
 
 function tierForFps(fps: number): "good" | "warn" | "low" {
   if (fps >= 55) return "good";
   return fps >= 35 ? "warn" : "low";
+}
+
+function tierForPing(ms: number): "good" | "warn" | "low" {
+  if (ms <= 60) return "good";
+  return ms <= 130 ? "warn" : "low";
 }
 
 export class FpsCounter {
@@ -42,5 +48,39 @@ export class FpsCounter {
     this.windowStartMs = nowMs;
     this.frames = 0;
     this.maxFrameMs = 0;
+  }
+}
+
+export class PingCounter {
+  readonly el: HTMLDivElement;
+
+  constructor() {
+    this.el = document.createElement("div");
+    this.el.className = "ow-pill ow-fps-pill ow-ping-pill";
+    this.el.textContent = "-- ms";
+    this.el.title = "Measuring latency...";
+  }
+
+  setVisible(visible: boolean): void {
+    this.el.hidden = !visible;
+  }
+
+  sync(mode: ConnectionMode, pingMs: number | null | undefined): void {
+    if (mode === "local") {
+      this.el.textContent = "Local";
+      delete this.el.dataset.tier;
+      this.el.title = "Offline local preview";
+      return;
+    }
+    if (pingMs === null || pingMs === undefined) {
+      this.el.textContent = "-- ms";
+      delete this.el.dataset.tier;
+      this.el.title = "Measuring latency...";
+      return;
+    }
+    const ms = Math.round(pingMs);
+    this.el.textContent = `${ms} ms`;
+    this.el.dataset.tier = tierForPing(ms);
+    this.el.title = `Round-trip latency: ${ms} ms`;
   }
 }

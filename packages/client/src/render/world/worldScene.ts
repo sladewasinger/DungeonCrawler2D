@@ -1,11 +1,12 @@
 /** Top-level PixiJS v8 overworld scene coordinating shaders, camera, and quality scaling. */
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import {
-  TILE_PX, WorldChunkCache, clamp, sampleDayNight,
+  TILE_PX, WorldChunkCache, sampleDayNight,
   type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
   type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
+import { BASE_CAMERA_ZOOM, sanitizeCameraZoom, stepCameraZoom } from "../../ui/settings/cameraZoom.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
 import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js";
 import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
@@ -39,14 +40,7 @@ export interface SceneFrameInput {
   readonly webs?: WorldWebSnapshot | undefined; readonly events?: readonly WorldEvent[];
 }
 
-const ZOOM_STOPS = [1.5, 2.0, 3.0, 4.0, 6.0] as const;
-
-function isMobileViewport(): boolean {
-  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(hover: none), (pointer: coarse), (max-width: 900px)")?.matches);
-}
-const resolveDefaultZoom = (): number => (isMobileViewport() ? ZOOM_STOPS[1] : ZOOM_STOPS[3]);
-
-export const CAMERA_TUNING = { defaultZoom: 4.0, minZoom: 1.5, maxZoom: 6.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
+export const CAMERA_TUNING = { defaultZoom: BASE_CAMERA_ZOOM, minZoom: 2.0, maxZoom: 8.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
 
 export class WorldScene {
   private readonly sceneRoot = new Container();
@@ -71,7 +65,7 @@ export class WorldScene {
   private camY = 0.5;
   private shakeMag = 0;
   private shakeTime = 0;
-  private zoom: number = resolveDefaultZoom();
+  private zoom: number = BASE_CAMERA_ZOOM;
 
   private constructor(private readonly app: Application, host: HTMLElement) {
     const [groundCam, waterCam, shadowCam, goreCam, grassCam, ysortCam, canopyCam, emissiveCam] =
@@ -137,14 +131,8 @@ export class WorldScene {
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
   currentZoom(): number { return this.zoom; }
-  adjustZoom(factor: number): void {
-    let best = 0;
-    for (let i = 1; i < ZOOM_STOPS.length; i++) {
-      if (Math.abs(ZOOM_STOPS[i]! - this.zoom) < Math.abs(ZOOM_STOPS[best]! - this.zoom)) best = i;
-    }
-    const next = clamp(best + (factor > 1 ? 1 : -1), 0, ZOOM_STOPS.length - 1);
-    this.zoom = ZOOM_STOPS[next]!;
-  }
+  setZoom(zoom: number): void { this.zoom = sanitizeCameraZoom(zoom); }
+  adjustZoom(factor: number): void { this.zoom = stepCameraZoom(this.zoom, factor); }
 
   screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
     const rect = this.app.canvas.getBoundingClientRect();

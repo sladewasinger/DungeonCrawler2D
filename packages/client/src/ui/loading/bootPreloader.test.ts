@@ -43,24 +43,20 @@ function makeMockElement(tag: string): MockElement {
 }
 
 function createMockDom(onToDataUrl: () => void): {
-  readonly doc: Document; readonly host: MockElement & HTMLElement; readonly fills: MockElement[];
+  readonly doc: Document; readonly host: MockElement & HTMLElement; readonly fills: MockElement[]; readonly contextOpts: unknown[];
 } {
   const fills: MockElement[] = [];
+  const contextOpts: unknown[] = [];
   const fakeCtx = {
-    imageSmoothingEnabled: false,
-    fillStyle: "",
-    fillRect: () => {},
-    getImageData: (...args: number[]) => {
-      const w = args[2] ?? 0; const h = args[3] ?? 0;
-      return { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
-    },
+    imageSmoothingEnabled: false, fillStyle: "", fillRect: () => {},
+    getImageData: (...args: number[]) => ({ data: new Uint8ClampedArray((args[2] ?? 0) * (args[3] ?? 0) * 4), width: args[2] ?? 0, height: args[3] ?? 0 }),
     putImageData: () => {},
   };
   const createElement = (tag: string): unknown => {
     if (tag === "canvas") {
       return {
         width: 0, height: 0,
-        getContext: () => fakeCtx,
+        getContext: (_k: string, opts?: unknown) => { contextOpts.push(opts); return fakeCtx; },
         toDataURL: () => { onToDataUrl(); return "data:image/png;base64,MOCK"; },
       };
     }
@@ -74,7 +70,7 @@ function createMockDom(onToDataUrl: () => void): {
   const head = makeMockElement("head");
   const host = makeMockElement("div") as unknown as MockElement & HTMLElement;
   const doc = { createElement, getElementById: () => null, head } as unknown as Document;
-  return { doc, host, fills };
+  return { doc, host, fills, contextOpts };
 }
 
 describe("bootPreloader helpers", () => {
@@ -90,7 +86,7 @@ describe("bootPreloader helpers", () => {
     const prevDoc = globalThis.document;
     const prevImageData = (globalThis as { ImageData?: unknown }).ImageData;
     let dataUrlCalls = 0;
-    const { doc } = createMockDom(() => { dataUrlCalls += 1; });
+    const { doc, contextOpts } = createMockDom(() => { dataUrlCalls += 1; });
     (globalThis as { document?: Document }).document = doc;
     (globalThis as { ImageData?: unknown }).ImageData = class MockImageData {
       constructor(public readonly data: Uint8ClampedArray, public readonly width: number, public readonly height: number) {}
@@ -103,6 +99,8 @@ describe("bootPreloader helpers", () => {
       expect(first).toBe("data:image/png;base64,MOCK");
       expect(second).toBe(first);
       expect(dataUrlCalls).toBe(1);
+      expect(contextOpts.length).toBeGreaterThan(0);
+      expect(contextOpts.every((o) => (o as { willReadFrequently?: boolean } | undefined)?.willReadFrequently === true)).toBe(true);
 
       invalidateCharacterCacheKey(characterCacheKey(heroA, EMPTY_ARMOR));
       getCharacterPortraitUrl(heroA, EMPTY_ARMOR);

@@ -20,6 +20,15 @@ export { getPoiGuardRoster } from "./world/poiLayouts.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { BlockingObstacle, MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
 export {
+  POI_CHEST_OBSTACLE_SHAPE,
+  closestObstacleCorePoint,
+  obstacleToColliderShape,
+  propCollisionOffsetY,
+  propFootprintCenter,
+  propStructureShape,
+} from "./world/propFootprints.js";
+export type { GroundColliderShape } from "./world/propFootprints.js";
+export {
   ELEVATION_DROP_TO_JUMP_Z,
   JUMP_GRAVITY_TILES_PER_SEC2,
   JUMP_VELOCITY_TILES_PER_SEC,
@@ -33,10 +42,12 @@ export {
   BACKPACK_SLOT_COUNT,
   HOTBAR_SLOT_COUNT,
   TOTAL_INVENTORY_SLOTS,
+  canInsertSlotItem,
   consumeItemFromSlots,
   createEmptyInventoryState,
   insertIntoSlots,
   moveOrSwapSlot,
+  removeFromSlot,
 } from "./inventory/slotModel.js";
 export type {
   ArmorEquipment,
@@ -89,7 +100,9 @@ export type {
 export {
   ArmorSlotKeySchema,
   ClientAdminSchema,
+  ClientDropItemSchema,
   ClientMessageSchema,
+  ClientPingSchema,
   GoreStyleSchema,
   GoreSubstanceSchema,
   GroundLootSnapshotSchema,
@@ -97,6 +110,7 @@ export {
   PROTOCOL_VERSION,
   ProjectileSnapshotSchema,
   ServerMessageSchema,
+  ServerPongSchema,
   WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema,
   WorldEventSchema,
@@ -105,6 +119,7 @@ export {
 export type {
   ClientMessage,
   CreatureVocalKind,
+  DropItemRequest,
   GroundLootSnapshot,
   InventorySnapshot,
   PlayerSnapshot,
@@ -129,6 +144,7 @@ export {
   DODGE_IFRAME_SEC,
   DODGE_SPEED_MULT,
   DODGE_STAMINA_COST,
+  ELEVATION_LIFT_TILES,
   GORE_STYLES,
   GORE_SUBSTANCES,
   HIT_IFRAME_SEC,
@@ -145,11 +161,39 @@ export {
   evaluateBowShot,
   isInSanctuary,
   isWithinSector,
-  playerProjectileHurtbox,
-  projectileHurtbox,
   segmentHitsEllipse,
 } from "./combat/combatRules.js";
 export type { EllipseHurtbox, GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export {
+  ENTITY_ATTACK_SPECS,
+  ENTITY_HURTBOX_SPECS,
+  PLAYER_FOOT_FORESHORTEN_Y,
+  attackHitboxHitsHurtbox,
+  buildEntityAttackHitbox,
+  buildPlayerAttackHitbox,
+  canAttackReachElevation,
+  canReachMeleeTarget,
+  entityFootCollider,
+  entityHurtbox,
+  getEntityAttackSpec,
+  playerFootCollider,
+  playerFootSegment,
+  playerHurtbox,
+  playerProjectileHurtbox,
+  projectileHitsHurtbox,
+  projectileHurtbox,
+  resolveEntityAttackHitbox,
+  resolvePlayerAttackHitbox,
+} from "./combat/hitboxes/combatShapes.js";
+export type {
+  ActorPositionInput,
+  AttackHitbox,
+  EntityAttackSpec,
+  HurtboxSpec,
+  PlayerStanceInput,
+  PlayerWeaponHitboxStats,
+  ProjectileHitQuery,
+} from "./combat/hitboxes/combatShapes.js";
 export { WALK_CYCLE_TILES, RUN_CYCLE_TILES, createGaitClock, advanceGaitClock, gaitFrameIndex } from "./combat/gaitClock.js";
 export type { GaitClock, GaitStepInput, GaitStepResult } from "./combat/gaitClock.js";
 export {
@@ -158,9 +202,10 @@ export {
   ENTITY_KINDS,
   canPerceiveTarget,
   computeFlankRingSlot,
+  hasClearChargeLane,
   hasElevationLineOfSight,
 } from "./combat/aiSensing.js";
-export type { AiState, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";
+export type { AiState, ChargeLaneQuery, EntityKind, LosQuery, PerceptionQuery } from "./combat/aiSensing.js";
 export { findTilePath } from "./combat/pathfinding.js";
 export type { PathQuery, PathResult, TileWaypoint } from "./combat/pathfinding.js";
 export { STEALTH_TUNING, isBackstabAngle, sampleStealthExposure } from "./combat/stealthRules.js";

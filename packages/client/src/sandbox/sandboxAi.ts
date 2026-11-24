@@ -1,5 +1,8 @@
 /** Local client-side sandbox entity lineup, pose preview, and non-jitter combat AI. */
-import type { WorldEntitySnapshot, WorldEvent } from "@dc2d/engine";
+import {
+  attackHitboxHitsHurtbox, buildEntityAttackHitbox, getEntityAttackSpec, playerHurtbox,
+  type WorldEntitySnapshot, type WorldEvent,
+} from "@dc2d/engine";
 import {
   LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y,
   applyFrozenPose, isDummyKind,
@@ -15,6 +18,8 @@ export interface SandboxActor {
   readonly temporary: boolean;
   awake: boolean;
   windupSec: number;
+  strikeSec: number;
+  strikeHit: boolean;
   chargeSec: number;
   recoverSec: number;
   cooldownSec: number;
@@ -26,7 +31,7 @@ export interface SandboxActor {
 function makeActor(opts: { readonly id: string; readonly spec: LineupSpec; readonly x: number; readonly y: number; readonly temporary: boolean }): SandboxActor {
   return {
     homeX: opts.x, homeY: opts.y, temporary: opts.temporary, awake: opts.temporary,
-    windupSec: 0, chargeSec: 0, recoverSec: 0, cooldownSec: 0, chargeDx: 0, chargeDy: 1,
+    windupSec: 0, strikeSec: 0, strikeHit: false, chargeSec: 0, recoverSec: 0, cooldownSec: 0, chargeDx: 0, chargeDy: 1,
     snap: {
       id: opts.id, kind: opts.spec.kind, substance: opts.spec.substance,
       x: opts.x, y: opts.y, elevation: 0, hp: opts.spec.maxHp, maxHp: opts.spec.maxHp,
@@ -64,19 +69,39 @@ function separationVector(actor: SandboxActor, allActors: readonly SandboxActor[
   return { x: sx, y: sy };
 }
 
-function stepActorDash(actor: SandboxActor, dt: number): boolean {
+function setActorAttackProgress(actor: SandboxActor, prog: number): void {
+  const rest: { -readonly [K in keyof WorldEntitySnapshot]: WorldEntitySnapshot[K] } = { ...actor.snap };
+  delete rest.attackProgress;
+  actor.snap = prog > 0 ? { ...rest, attackProgress: prog, telegraphProgress: 0 } : rest;
+}
+
+function checkActorStrikeHit(opts: {
+  readonly actor: SandboxActor; readonly px: number; readonly py: number; readonly pe: number;
+  readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
+}): void {
+  const { actor, px, py, pe, onHitPlayer, events } = opts;
+  if (actor.strikeHit || !attackHitboxHitsHurtbox(buildEntityAttackHitbox(actor.snap), playerHurtbox({ x: px, y: py, elevation: pe }))) return;
+  actor.strikeHit = true;
+  const ev = onHitPlayer();
+  if (ev) events.push(ev);
+}
+
+function stepActorDash(opts: {
+  readonly actor: SandboxActor; readonly px: number; readonly py: number; readonly pe: number; readonly dt: number;
+  readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
+}): boolean {
+  const { actor, px, py, pe, dt, onHitPlayer, events } = opts;
   if (actor.chargeSec <= 0) return false;
   actor.chargeSec = Math.max(0, actor.chargeSec - dt);
-  const spd = 7.4;
-  const s = actor.snap;
-  const done = actor.chargeSec === 0;
+  const spd = 7.4; const s = actor.snap; const done = actor.chargeSec === 0;
   actor.snap = {
     ...s, x: Math.max(2, Math.min(94, s.x + actor.chargeDx * spd * dt)),
     y: Math.max(2, Math.min(30, s.y + actor.chargeDy * spd * dt)),
     facingX: actor.chargeDx, facingY: actor.chargeDy,
     aiState: done ? "idle" : "charge", telegraphProgress: 0,
   };
-  if (done) { actor.recoverSec = BOAR_RECOVER_SEC; actor.cooldownSec = 1.45; }
+  checkActorStrikeHit({ actor, px, py, pe, onHitPlayer, events });
+  if (done) { actor.recoverSec = BOAR_RECOVER_SEC; actor.cooldownSec = 1.45; actor.strikeHit = false; }
   return true;
 }
 
@@ -94,22 +119,35 @@ function stepActorRecovery(actor: SandboxActor, dt: number): boolean {
   return true;
 }
 
+function stepActorStrikeWindow(opts: {
+  readonly actor: SandboxActor; readonly px: number; readonly py: number; readonly pe: number; readonly dt: number;
+  readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
+}): boolean {
+  const { actor, px, py, pe, dt, onHitPlayer, events } = opts;
+  if (actor.strikeSec <= 0) return false;
+  actor.strikeSec = Math.max(0, actor.strikeSec - dt);
+  const activeSec = Math.max(0.05, getEntityAttackSpec(actor.snap.kind).activeSec);
+  setActorAttackProgress(actor, actor.strikeSec > 0 ? Math.min(1, Math.max(0.05, 1 - actor.strikeSec / activeSec)) : 0);
+  checkActorStrikeHit({ actor, px, py, pe, onHitPlayer, events });
+  return true;
+}
+
 function triggerLiveStrike(opts: {
   readonly actor: SandboxActor; readonly nx: number; readonly ny: number; readonly dist: number;
-  readonly stopDist: number; readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
+  readonly px: number; readonly py: number; readonly pe: number; readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
 }): void {
-  const { actor, nx, ny, dist, stopDist, onHitPlayer, events } = opts;
+  const { actor, nx, ny, dist, px, py, pe, onHitPlayer, events } = opts;
   if (actor.snap.kind === "boar" && dist > 1.7) {
-    actor.chargeDx = nx; actor.chargeDy = ny; actor.chargeSec = 1.55;
+    actor.chargeDx = nx; actor.chargeDy = ny; actor.chargeSec = 1.55; actor.strikeHit = false;
     events.push({ kind: "creatureVocal", x: actor.snap.x, y: actor.snap.y, dirX: nx, dirY: ny, actorId: actor.snap.id, entityKind: actor.snap.kind, vocalKind: "charge" });
     return;
   }
-  events.push({ kind: "swing", x: actor.snap.x, y: actor.snap.y, dirX: nx, dirY: ny, actorId: actor.snap.id, entityKind: actor.snap.kind });
-  if (dist <= stopDist + 0.55) {
-    const ev = onHitPlayer();
-    if (ev) events.push(ev);
-  }
+  actor.strikeSec = getEntityAttackSpec(actor.snap.kind).activeSec;
+  actor.strikeHit = false;
   actor.cooldownSec = 1.05;
+  setActorAttackProgress(actor, 0.05);
+  events.push({ kind: "swing", x: actor.snap.x, y: actor.snap.y, dirX: actor.snap.facingX, dirY: actor.snap.facingY, actorId: actor.snap.id, entityKind: actor.snap.kind });
+  checkActorStrikeHit({ actor, px, py, pe, onHitPlayer, events });
 }
 
 const CHASE_SPEEDS: Readonly<Record<string, number>> = { spider: 3.4, wolf: 3.2, golem: 1.9 };
@@ -133,14 +171,16 @@ function advanceLiveChase(opts: {
 
 function advanceWindupPhase(opts: {
   readonly actor: SandboxActor; readonly nx: number; readonly ny: number; readonly dist: number;
-  readonly stopDist: number; readonly dt: number; readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
+  readonly px: number; readonly py: number; readonly pe: number; readonly dt: number;
+  readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
 }): boolean {
-  const { actor, nx, ny, dist, stopDist, dt, onHitPlayer, events } = opts;
+  const { actor, nx, ny, dist, px, py, pe, dt, onHitPlayer, events } = opts;
   if (actor.windupSec <= 0) return false;
   actor.windupSec = Math.max(0, actor.windupSec - dt);
   const aiState = actor.snap.kind === "boar" ? "charge" : "idle";
-  actor.snap = { ...actor.snap, facingX: nx, facingY: ny, aiState, telegraphProgress: Math.min(1, 1 - actor.windupSec / 0.55) };
-  if (actor.windupSec === 0) triggerLiveStrike({ actor, nx, ny, dist, stopDist, onHitPlayer, events });
+  const facing = actor.snap.kind === "boar" ? { facingX: nx, facingY: ny } : {};
+  actor.snap = { ...actor.snap, ...facing, aiState, telegraphProgress: Math.min(1, 1 - actor.windupSec / 0.55) };
+  if (actor.windupSec === 0) triggerLiveStrike({ actor, nx, ny, dist, px, py, pe, onHitPlayer, events });
   return true;
 }
 
@@ -164,25 +204,25 @@ function tryStartWindup(opts: {
 
 function stepLiveActor(opts: {
   readonly actor: SandboxActor; readonly allActors: readonly SandboxActor[];
-  readonly px: number; readonly py: number; readonly dt: number;
+  readonly px: number; readonly py: number; readonly pe: number; readonly dt: number;
   readonly onHitPlayer: () => WorldEvent | null; readonly events: WorldEvent[];
 }): void {
-  const { actor, allActors, px, py, dt, onHitPlayer, events } = opts;
+  const { actor, allActors, px, py, pe, dt, onHitPlayer, events } = opts;
   const s = actor.snap;
-  if (s.hp <= 0 || stepActorDash(actor, dt) || stepActorRecovery(actor, dt)) return;
-  const dx = px - s.x;
-  const dy = py - s.y;
+  if (s.hp <= 0 || stepActorDash({ actor, px, py, pe, dt, onHitPlayer, events }) || stepActorRecovery(actor, dt)) return;
+  if (stepActorStrikeWindow({ actor, px, py, pe, dt, onHitPlayer, events })) return;
+  const dx = px - s.x; const dy = py - s.y;
   const dist = Math.hypot(dx, dy);
   const { x: nx, y: ny } = unitDir(dx, dy, dist);
   const stopDist = s.kind === "golem" ? 1.55 : 1.18;
-  if (advanceWindupPhase({ actor, nx, ny, dist, stopDist, dt, onHitPlayer, events })) return;
+  if (advanceWindupPhase({ actor, nx, ny, dist, px, py, pe, dt, onHitPlayer, events })) return;
   if (tryStartWindup({ actor, nx, ny, dist, stopDist, events })) return;
   advanceLiveChase({ actor, allActors, nx, ny, dist, stopDist, dt });
 }
 
 export function stepSandboxActors(opts: {
   readonly actors: SandboxActor[];
-  readonly player: { readonly x: number; readonly y: number };
+  readonly player: { readonly x: number; readonly y: number; readonly elevation: number };
   readonly pose: SandboxPose;
   readonly facing: SandboxFacing;
   readonly aiLive: boolean;
@@ -201,7 +241,7 @@ export function stepSandboxActors(opts: {
     actor.cooldownSec = Math.max(0, actor.cooldownSec - opts.dt);
     const active = !isDummyKind(actor.snap.kind) && (opts.aiLive || actor.awake);
     if (active) {
-      stepLiveActor({ actor, allActors: opts.actors, px: opts.player.x, py: opts.player.y, dt: opts.dt, onHitPlayer: opts.onHitPlayer, events });
+      stepLiveActor({ actor, allActors: opts.actors, px: opts.player.x, py: opts.player.y, pe: opts.player.elevation, dt: opts.dt, onHitPlayer: opts.onHitPlayer, events });
     } else {
       applyFrozenPose(actor, { pose: opts.pose, facing: opts.facing, timeSec: opts.timeSec });
     }

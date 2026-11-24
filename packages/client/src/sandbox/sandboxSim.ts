@@ -4,31 +4,20 @@ import {
   CHEST_SLOT_COUNT, DEFAULT_APPEARANCE, MAX_PLAYER_HP, MAX_PLAYER_STAMINA,
   createEmptyChestSlots, createEmptyInventoryState, equipArmorFromSlot,
   moveOrSwapSlot, quickTransferChestSlot, takeAllFromChest, transferChestSlot, unequipArmorToSlot,
-  type ArmorSlotKey, type InventorySlot, type InventorySnapshot,
+  type ArmorSlotKey, type DropItemRequest, type InventorySlot, type InventorySnapshot,
   type PlayerInventoryState, type PlayerSnapshot, type ProjectileSnapshot,
   type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
+import { applyDropToClientState } from "../net/clientInventory.js";
 import { SandboxChunkCache } from "./sandboxTerrain.js";
-import {
-  createLineupActors, createWolfPackActors, isDummyKind, stepSandboxActors,
-  type SandboxActor, type SandboxFacing, type SandboxPose,
-} from "./sandboxAi.js";
-import {
-  advanceSandboxBow, advanceSandboxMelee, advanceSandboxPlayer, applySandboxPlayerHit,
-  stepSandboxProjectiles, type PlayerMoveTimers, type SandboxProjectile,
-} from "./sandboxCombat.js";
+import { createLineupActors, createWolfPackActors, isDummyKind, stepSandboxActors, type SandboxActor, type SandboxFacing, type SandboxPose } from "./sandboxAi.js";
+import { advanceSandboxBow, advanceSandboxMelee, advanceSandboxPlayer, applySandboxPlayerHit, stepSandboxProjectiles, type PlayerMoveTimers, type SandboxProjectile } from "./sandboxCombat.js";
 
 export interface SandboxStepInput {
-  readonly dt: number;
-  readonly timeSec: number;
-  readonly move: { readonly x: number; readonly y: number };
+  readonly dt: number; readonly timeSec: number; readonly move: { readonly x: number; readonly y: number };
   readonly aim?: { readonly x: number; readonly y: number } | undefined;
-  readonly attack: boolean;
-  readonly block: boolean;
-  readonly dodge: boolean;
-  readonly jump: boolean;
-  readonly bowDraw: boolean;
-  readonly bowRelease: boolean;
+  readonly attack: boolean; readonly block: boolean; readonly dodge: boolean;
+  readonly jump: boolean; readonly bowDraw: boolean; readonly bowRelease: boolean;
 }
 
 export interface SandboxChestTransferReq {
@@ -228,6 +217,14 @@ export class SandboxSim {
     takeAllFromChest({ chestSlots, invSlots, maxStackFor: maxStackForItem });
     this.inv = { ...this.inv, slots: invSlots };
     this.chests = this.chests.map((c) => (c.id === chestId ? { ...c, opened: true, slots: chestSlots.slice(0, CHEST_SLOT_COUNT) } : c));
+  }
+
+  dropItem(req: DropItemRequest): void {
+    const next = applyDropToClientState({
+      inv: { ...this.inv, selectedHotbar: this.selectedHotbar, nearCampfire: true }, chests: this.chests, req,
+    });
+    this.inv = { ...this.inv, slots: next.inv.slots, armor: next.inv.armor };
+    this.chests = [...next.chests];
   }
 
   nearestChest(): WorldChestSnapshot | null {

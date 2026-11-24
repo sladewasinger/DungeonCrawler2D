@@ -1,8 +1,5 @@
 /** Pure overworld ecology combat math, POI placement helpers, and entity snapshot serialization. */
-import {
-  BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, findTilePath, isArmorCrushTarget, isBackstabAngle, isWithinSector,
-  type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent,
-} from "@dc2d/engine";
+import { BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, buildPlayerAttackHitbox, entityHurtbox, findTilePath, getEntityAttackSpec, isArmorCrushTarget, isBackstabAngle, isInSanctuary, playerHurtbox, type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent } from "@dc2d/engine";
 import { igniteBurnable } from "../combat/statusEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
 import type { CombatPlayerCandidate, EcologyFoodSource, SteerTarget } from "./creatureBehaviors.js";
@@ -48,15 +45,10 @@ export function steerGoblinAllyRetreat(e: WildlifeEntity, target: CombatTarget, 
   return { x: orc.x + (dx / mag) * 1.8, y: orc.y + (dy / mag) * 1.8, speedMult: 1.22 };
 }
 
-export function applyBackstabEvent(opts: {
-  readonly e: WildlifeEntity; readonly attackerId: string; readonly damage: number; readonly sneakHit: boolean; readonly events: WorldEvent[];
-}): void {
+export function applyBackstabEvent(opts: { readonly e: WildlifeEntity; readonly attackerId: string; readonly damage: number; readonly sneakHit: boolean; readonly events: WorldEvent[] }): void {
   if (!opts.sneakHit) return;
   opts.e.staggerTimer = Math.max(opts.e.staggerTimer, 0.85);
-  opts.events.push({
-    kind: "backstab", x: opts.e.x, y: opts.e.y, value: opts.damage, actorId: opts.attackerId,
-    targetId: opts.e.id, hitstopSec: MELEE_FEEL_TUNING.backstabHitstopSec, shakePx: MELEE_FEEL_TUNING.backstabShakePx,
-  });
+  opts.events.push({ kind: "backstab", x: opts.e.x, y: opts.e.y, value: opts.damage, actorId: opts.attackerId, targetId: opts.e.id, hitstopSec: MELEE_FEEL_TUNING.backstabHitstopSec, shakePx: MELEE_FEEL_TUNING.backstabShakePx });
 }
 
 export function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
@@ -135,14 +127,72 @@ function applyNonFatalStatuses(opts: {
 }
 
 export function isSectorTargetHit(opts: {
-  readonly e: WildlifeEntity; readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly attacker: CombatPlayerRef; readonly dir: { readonly x: number; readonly y: number };
   readonly range: number; readonly halfArcRad: number; readonly hitTargetIds?: Set<string> | undefined;
   readonly impactCenter?: { readonly x: number; readonly y: number } | undefined; readonly slamAoeRadius?: number | undefined;
 }): boolean {
-  const { e, attacker, dir, range, halfArcRad, hitTargetIds, impactCenter, slamAoeRadius } = opts;
+  const { cache, e, attacker, dir, range, halfArcRad, hitTargetIds, impactCenter, slamAoeRadius } = opts;
   if (e.corpse || e.hp <= 0 || hitTargetIds?.has(e.id)) return false;
-  if (isWithinSector({ origin: attacker, dir, target: e, range, halfArcRad })) return true;
-  return Boolean(impactCenter && slamAoeRadius && Math.hypot(e.x - impactCenter.x, e.y - impactCenter.y) <= slamAoeRadius);
+  const hitbox = buildPlayerAttackHitbox({
+    cache, x: attacker.x, y: attacker.y, elevation: attacker.elevation, dir, range, halfArcRad, impactCenter, slamAoeRadius,
+  });
+  return attackHitboxHitsHurtbox(hitbox, entityHurtbox(e, e.kind, cache));
+}
+
+function strikeCandidatePlayers(opts: {
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
+  readonly hitbox: ReturnType<typeof buildEntityAttackHitbox>; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
+}): void {
+  const { cache, e, players, hitbox, onStrike } = opts;
+  for (const p of players) {
+    if (e.strikeHitIds.has(p.id) || isInSanctuary(p.x, p.y)) continue;
+    if (!attackHitboxHitsHurtbox(hitbox, playerHurtbox(p, cache))) continue;
+    e.strikeHitIds.add(p.id);
+    onStrike(e, { ...p, targetKind: "player" });
+    if (e.kind === "wolf") e.peelTimer = 0.85;
+  }
+}
+
+function strikeLockedRival(opts: {
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly allEntities: readonly WildlifeEntity[];
+  readonly hitbox: ReturnType<typeof buildEntityAttackHitbox>; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
+}): void {
+  const { cache, e, allEntities, hitbox, onStrike } = opts;
+  if (e.targetKind !== "entity" || !e.targetPlayerId || e.strikeHitIds.has(e.targetPlayerId)) return;
+  const rival = allEntities.find((m) => m.id === e.targetPlayerId && !m.corpse && m.hp > 0);
+  if (!rival || !attackHitboxHitsHurtbox(hitbox, entityHurtbox(rival, rival.kind, cache))) return;
+  e.strikeHitIds.add(rival.id);
+  onStrike(e, { id: rival.id, x: rival.x, y: rival.y, elevation: rival.elevation, moving: false, targetKind: "entity", entityRef: rival });
+}
+
+export function evaluateActiveCreatureStrike(opts: {
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
+  readonly allEntities: readonly WildlifeEntity[]; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
+}): void {
+  const hitbox = buildEntityAttackHitbox(opts.e, opts.cache);
+  strikeCandidatePlayers({ cache: opts.cache, e: opts.e, players: opts.players, hitbox, onStrike: opts.onStrike });
+  strikeLockedRival({ cache: opts.cache, e: opts.e, allEntities: opts.allEntities, hitbox, onStrike: opts.onStrike });
+}
+
+export function beginCreatureStrike(opts: {
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[]; readonly allEntities: readonly WildlifeEntity[];
+  readonly events: WorldEvent[]; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
+}): void {
+  const { e, events } = opts;
+  const atk = getEntityAttackSpec(e.kind);
+  e.attackCooldown = CREATURE_SPECS[e.kind].cooldownSec;
+  e.strikeTimer = atk.activeSec; e.strikeDuration = atk.activeSec; e.strikeHitIds.clear();
+  events.push({ kind: "swing", x: e.x, y: e.y, dirX: e.facingX, dirY: e.facingY, actorId: e.id, entityKind: e.kind, ...(e.kind === "golem" ? { shakePx: 3.5 } : {}) });
+  evaluateActiveCreatureStrike(opts);
+}
+
+export function stepCreatureStrikeWindow(opts: {
+  readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[]; readonly allEntities: readonly WildlifeEntity[];
+  readonly dt: number; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
+}): void {
+  if (opts.e.strikeTimer <= 0) return;
+  opts.e.strikeTimer = Math.max(0, opts.e.strikeTimer - opts.dt);
+  evaluateActiveCreatureStrike(opts);
 }
 
 function finalizeCreatureDamageStatus(opts: {
@@ -188,6 +238,24 @@ export function sweepInvestigateFacing(e: WildlifeEntity, dt: number): void {
   e.facingY = Math.sin(baseAng + delta);
 }
 
+function resolveSnapshotAttackProgress(e: WildlifeEntity): number {
+  if (e.chargeTimer > 0 && !e.chargeHitDealt) return 1;
+  if (e.strikeTimer <= 0) return 0;
+  return Math.min(1, Math.max(0.05, 1 - e.strikeTimer / Math.max(0.05, e.strikeDuration)));
+}
+
+function serializeEntityFlags(e: WildlifeEntity) {
+  const atkProg = resolveSnapshotAttackProgress(e);
+  return {
+    ...(e.stunnedTimer > 0 ? { stunned: true } : {}),
+    ...(e.howlTimer > 0 ? { howling: true } : {}),
+    ...(e.bluffTimer > 0 ? { bluffing: true } : {}),
+    ...(e.burnTimer > 0 ? { burning: true } : {}),
+    ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
+    ...(atkProg > 0 ? { attackProgress: atkProg } : {}),
+  };
+}
+
 export function serializeEntitySnapshot(e: WildlifeEntity): WorldEntitySnapshot {
   const prog = e.telegraphTimer > 0 ? Math.min(1, 1 - e.telegraphTimer / Math.max(0.05, e.windupDuration)) : 0;
   return {
@@ -196,10 +264,6 @@ export function serializeEntitySnapshot(e: WildlifeEntity): WorldEntitySnapshot 
     staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer, aiState: e.aiState, spottedPop: e.spottedPopTimer > 0,
     corpse: e.corpse, inWater: e.inWater, inDeepWater: e.inDeepWater, telegraphProgress: prog,
     suspicion: Number(e.suspicion.toFixed(2)),
-    ...(e.stunnedTimer > 0 ? { stunned: true } : {}),
-    ...(e.howlTimer > 0 ? { howling: true } : {}),
-    ...(e.bluffTimer > 0 ? { bluffing: true } : {}),
-    ...(e.burnTimer > 0 ? { burning: true } : {}),
-    ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
+    ...serializeEntityFlags(e),
   };
 }

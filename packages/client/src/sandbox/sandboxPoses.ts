@@ -52,37 +52,41 @@ function resolveFrozenFacing(facing: SandboxFacing, timeSec: number): { readonly
 function resolveFrozenWindup(kind: EntityKind, timeSec: number): {
   readonly aiState: AiState;
   readonly telegraphProgress: number;
+  readonly attackProgress: number;
 } {
   const period = kind === "boar" ? 3.2 : 2.0;
   const cyc = timeSec % period;
   const telegraphProgress = cyc < 0.55 ? Math.max(0.01, cyc / 0.55) : 0;
-  if (kind === "boar") return { aiState: cyc < 2.05 ? "charge" : "idle", telegraphProgress };
-  return { aiState: "idle", telegraphProgress };
+  const attackProgress = cyc >= 0.55 && cyc < 0.78 ? Math.max(0.05, (cyc - 0.55) / 0.23) : 0;
+  if (kind === "boar") return { aiState: cyc < 2.05 ? "charge" : "idle", telegraphProgress, attackProgress };
+  return { aiState: "idle", telegraphProgress, attackProgress };
 }
 
 function resolveFrozenState(kind: EntityKind, pose: SandboxPose, timeSec: number): {
   readonly aiState: AiState;
   readonly telegraphProgress: number;
+  readonly attackProgress: number;
 } {
   if (pose === "windup") return resolveFrozenWindup(kind, timeSec);
-  if (pose === "walk") return { aiState: "patrol", telegraphProgress: 0 };
-  if (pose === "run") return { aiState: "chase", telegraphProgress: 0 };
-  return { aiState: "idle", telegraphProgress: 0 };
+  if (pose === "walk") return { aiState: "patrol", telegraphProgress: 0, attackProgress: 0 };
+  if (pose === "run") return { aiState: "chase", telegraphProgress: 0, attackProgress: 0 };
+  return { aiState: "idle", telegraphProgress: 0, attackProgress: 0 };
 }
 
 export function applyFrozenPose(
   actor: { readonly homeX: number; readonly homeY: number; snap: WorldEntitySnapshot },
   opts: { readonly pose: SandboxPose; readonly facing: SandboxFacing; readonly timeSec: number },
 ): void {
-  const s = actor.snap;
+  const base: { -readonly [K in keyof WorldEntitySnapshot]: WorldEntitySnapshot[K] } = { ...actor.snap };
+  delete base.attackProgress;
   if (opts.pose === "corpse") {
-    actor.snap = { ...s, x: actor.homeX, y: actor.homeY, hp: 0, corpse: true, aiState: "dead", telegraphProgress: 0 };
+    actor.snap = { ...base, x: actor.homeX, y: actor.homeY, hp: 0, corpse: true, aiState: "dead", telegraphProgress: 0 };
     return;
   }
   const { facingX, facingY } = resolveFrozenFacing(opts.facing, opts.timeSec);
-  const { aiState, telegraphProgress } = resolveFrozenState(s.kind, opts.pose, opts.timeSec);
+  const { aiState, telegraphProgress, attackProgress } = resolveFrozenState(base.kind, opts.pose, opts.timeSec);
   actor.snap = {
-    ...s, x: actor.homeX, y: actor.homeY, hp: s.maxHp, corpse: false,
-    facingX, facingY, aiState, telegraphProgress,
+    ...base, x: actor.homeX, y: actor.homeY, hp: base.maxHp, corpse: false,
+    facingX, facingY, aiState, telegraphProgress, ...(attackProgress > 0 ? { attackProgress } : {}),
   };
 }

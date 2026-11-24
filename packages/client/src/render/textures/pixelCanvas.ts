@@ -9,14 +9,18 @@ export interface OutlineOptions {
   readonly thickness?: 1;
 }
 
-export function createPixelCanvas(width: number, height: number): {
+export function createPixelCanvas(
+  width: number,
+  height: number,
+  opts?: { readonly willReadFrequently?: boolean },
+): {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
 } {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: opts?.willReadFrequently ?? true });
   if (!ctx) throw new Error("2D canvas context unavailable");
   ctx.imageSmoothingEnabled = false;
   return { canvas, ctx };

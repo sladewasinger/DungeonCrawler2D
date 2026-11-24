@@ -1,6 +1,6 @@
 /** Spider ranged web spit AI, stuck-victim silk cocoon wrapping, locked poison bite, and escape cuts/burns. */
 import {
-  MELEE_FEEL_TUNING, WorldChunkCache, hasElevationLineOfSight, playerProjectileHurtbox, segmentHitsEllipse,
+  MELEE_FEEL_TUNING, WorldChunkCache, canReachMeleeTarget, hasElevationLineOfSight, playerProjectileHurtbox, projectileHitsHurtbox,
   type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -107,7 +107,7 @@ export function stepSpiderWebAndCocoon(opts: {
   const victim = players.find((p) => p.id === target.id);
   if (needsCocoonWrap(victim)) {
     faceTarget(spider, victim); spider.aiState = ST_CHASE;
-    if (Math.hypot(victim.x - spider.x, victim.y - spider.y) > 1.18) {
+    if (Math.hypot(victim.x - spider.x, victim.y - spider.y) > 1.18 || !canReachMeleeTarget(cache, spider, victim)) {
       moveCreatureToward({ cache, e: spider, tx: victim.x, ty: victim.y, speed: CREATURE_SPECS.spider.speed * 1.15, dt, stopRadius: 0.95 });
     } else advanceCocoonWrap({ spider, victim, dt, events });
     return true;
@@ -157,13 +157,17 @@ export function createWebProjectile(opts: {
 }
 
 function findWebPlayerHit(opts: {
-  readonly players: Map<string, CombatPlayerRef>; readonly x0: number; readonly y0: number; readonly pr: SimProjectile;
+  readonly cache: WorldChunkCache; readonly players: Map<string, CombatPlayerRef>;
+  readonly x0: number; readonly y0: number; readonly pr: SimProjectile; readonly onStairs: boolean;
 }): CombatPlayerRef | undefined {
   for (const p of opts.players.values()) {
     if (p.combat.respawnTimer > 0) continue;
-    if (segmentHitsEllipse({ x0: opts.x0, y0: opts.y0, x1: opts.pr.x, y1: opts.pr.y, box: playerProjectileHurtbox(p) }) !== null) {
-      return p;
-    }
+    const hitT = projectileHitsHurtbox({
+      x0: opts.x0, y0: opts.y0, x1: opts.pr.x, y1: opts.pr.y,
+      projectileElevation: opts.pr.elevation, projectileOnStairs: opts.onStairs,
+      box: playerProjectileHurtbox(p, opts.cache),
+    });
+    if (hitT !== null) return p;
   }
   return undefined;
 }
@@ -185,8 +189,9 @@ export function stepWebProjectile(opts: {
   pr.x += pr.vx * dt;
   pr.y += pr.vy * dt;
   pr.ttl -= dt;
-  const hitP = findWebPlayerHit({ players, x0, y0, pr });
-  const blocked = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y)).elevation > pr.elevation;
+  const destTile = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y));
+  const blocked = destTile.elevation > pr.elevation;
+  const hitP = blocked ? undefined : findWebPlayerHit({ cache, players, x0, y0, pr, onStairs: destTile.stairs });
   if (!hitP && !blocked && pr.ttl > 0) return true;
   const landing = resolveWebLanding({ hitP, blocked, x0, y0, pr });
   if (!webs) return false;

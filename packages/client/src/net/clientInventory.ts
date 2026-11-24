@@ -9,10 +9,12 @@ import {
   equipArmorFromSlot,
   moveOrSwapSlot,
   quickTransferChestSlot,
+  removeFromSlot,
   takeAllFromChest,
   transferChestSlot,
   unequipArmorToSlot,
   type ArmorSlotKey,
+  type DropItemRequest,
   type InventorySnapshot,
   type WorldChestSnapshot,
   type WorldChunkCache,
@@ -113,6 +115,48 @@ export function applyChestTakeAll(opts: {
   const nextChestSlots = opts.chest.slots.map((s) => (s ? { ...s } : null));
   takeAllFromChest({ chestSlots: nextChestSlots, invSlots: nextSlots, maxStackFor: maxStackForItem });
   return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots } };
+}
+
+function dropFromChestSlot(opts: { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest }) {
+  if (!opts.chest || opts.req.slotIndex === undefined) return { inv: opts.inv, chest: opts.chest };
+  const nextChest = opts.chest.slots.map((s) => (s ? { ...s } : null));
+  if (!removeFromSlot(nextChest, opts.req.slotIndex, opts.req.count)) return { inv: opts.inv, chest: opts.chest };
+  return { inv: opts.inv, chest: { ...opts.chest, opened: true, slots: nextChest } };
+}
+
+function dropFromInvSlot(opts: { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest }) {
+  if (opts.req.slotIndex === undefined) return { inv: opts.inv, chest: opts.chest };
+  const nextSlots = opts.inv.slots.map((s) => (s ? { ...s } : null));
+  if (!removeFromSlot(nextSlots, opts.req.slotIndex, opts.req.count)) return { inv: opts.inv, chest: opts.chest };
+  return { inv: { ...opts.inv, slots: nextSlots }, chest: opts.chest };
+}
+
+export function applyClientDropItem(opts: {
+  readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest;
+}): { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined } {
+  if (opts.req.source === "chest") return dropFromChestSlot(opts);
+  if (opts.req.source === "inv") return dropFromInvSlot(opts);
+  const slot = opts.req.armorSlot;
+  if (opts.req.source === "armor" && slot && opts.inv.armor[slot]) {
+    return { inv: { ...opts.inv, armor: { ...opts.inv.armor, [slot]: null } }, chest: opts.chest };
+  }
+  return { inv: opts.inv, chest: opts.chest };
+}
+
+export function applyDropToClientState(opts: {
+  readonly inv: InventorySnapshot;
+  readonly chests: readonly WorldChestSnapshot[];
+  readonly req: DropItemRequest;
+}): { readonly inv: InventorySnapshot; readonly chests: readonly WorldChestSnapshot[] } {
+  const chest = opts.req.source === "chest" && opts.req.chestId
+    ? opts.chests.find((c) => c.id === opts.req.chestId)
+    : undefined;
+  const next = applyClientDropItem({ inv: opts.inv, chest, req: opts.req });
+  const nextChest = next.chest;
+  return {
+    inv: next.inv,
+    chests: nextChest ? opts.chests.map((c) => (c.id === nextChest.id ? nextChest : c)) : opts.chests,
+  };
 }
 
 export function reconcileInventorySnapshot(input: {

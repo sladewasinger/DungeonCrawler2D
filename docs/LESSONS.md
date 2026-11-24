@@ -22,3 +22,7 @@ Concise, durable technical gotchas discovered in this repository. Keep architect
 - **Reset preview state atomically**: Clear prior generation preview state before starting/failing a generation attempt, and recompute stationary hover metadata whenever preview stages switch.
 - **Test invariants, not magic tuning literals or coordinates**: Assert behavioral invariants (reachability, feature counts, bounds) with fixture configs instead of hard-coding tuning constants or world cell coordinates.
 - **Watch sibling workspace sources in Vite**: Add `packages/engine/src` and `packages/content/src` to `server.watcher` (with `optimizeDeps.exclude` and `server.fs.allow`) in [vite.config.ts](file:///d:/repos/dungeoncrawler2D/packages/client/vite.config.ts) so edits to shared workspace exports invalidate `/@fs/...` HMR modules reliably.
+
+## Rendering & PixiJS v8
+
+- **Call `.beginPath()` before standalone `.arc()` or `.moveTo()` subpaths on shared `Graphics`**: PixiJS v8 `GraphicsContext._initNextPathLocation()` reseeds `_activePath` with `moveTo(lastX, lastY)` after each `.stroke()`/`.fill()`, and primitives like `.circle()`, `.ellipse()`, and `.roundRect()` leave `(0, 0)` as the last subpath point. Calling `.arc()` without `.beginPath()` connects `(0, 0)` into the subsequent polygon.

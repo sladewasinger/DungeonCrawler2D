@@ -36,6 +36,7 @@ export class HudRoot {
   private readonly craftingPanel: CraftingPanel;
   private readonly characterPanel: CharacterPanel;
   private readonly minimap: MinimapOverlay;
+  private readonly actions: HudActions;
   private openPanel: ActiveHudPanel = "none";
   private openChestId: string | null = null;
   private mapOpen = false;
@@ -43,9 +44,11 @@ export class HudRoot {
 
   constructor(host: HTMLElement, actions: HudActions) {
     ensureHudStyles();
+    this.actions = actions;
     this.drag = new SlotDragManager({
       ...actions,
       onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
+      onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
     });
     this.hotbar = new BottomHotbar(host, this.drag, actions.onToggleTorch);
     this.vitals = new VitalsBar(host);
@@ -64,6 +67,22 @@ export class HudRoot {
   }
 
   activePanel(): ActiveHudPanel { return this.openPanel; }
+  private dropHoveredSource(hovered: NonNullable<ReturnType<SlotDragManager["hoveredFilledSource"]>>): void {
+    if (hovered.kind === "slot") this.actions.onDropItem({ source: "inv", slotIndex: hovered.index });
+    else if (hovered.kind === "armor") this.actions.onDropItem({ source: "armor", armorSlot: hovered.armorSlot });
+    else if (this.openChestId) this.actions.onDropItem({ source: "chest", slotIndex: hovered.index, chestId: this.openChestId });
+  }
+
+  dropShortcutItem(): boolean {
+    if (!this.lastState) return false;
+    const hovered = this.drag.hoveredFilledSource();
+    if (hovered) { this.dropHoveredSource(hovered); return true; }
+    if (this.openPanel !== "none") return false;
+    const idx = this.lastState.inventory.selectedHotbar;
+    if (!this.lastState.inventory.slots[idx]) return false;
+    this.actions.onDropItem({ source: "inv", slotIndex: idx });
+    return true;
+  }
   toggleInventory(): void { this.togglePanel("inventory"); }
   toggleCrafting(): void { this.togglePanel("crafting"); }
   toggleCharacter(): void { this.togglePanel("character"); }
