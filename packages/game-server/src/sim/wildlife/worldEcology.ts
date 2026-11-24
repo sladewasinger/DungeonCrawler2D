@@ -1,6 +1,6 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, worldToChunkCoord,
+  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, worldToChunkCoord,
   type ChunkPoi, type GoreStyle, type GroundLootSnapshot, type WeaponArchetype, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -14,6 +14,7 @@ import {
 import { factionOfKind, isCreatureAggro, type CombatTarget } from "./factionTargeting.js";
 import { LootManager } from "./lootManager.js";
 import { ScentTrail } from "./scentTrail.js";
+import { beginInvestigation } from "./tracking/searchTracking.js";
 import { rallyWolfPack } from "./wolfPackAi.js";
 
 const KIND_SLIME: WildlifeKind = "slime";
@@ -123,31 +124,28 @@ export class WorldEcology {
   }
 
   private shouldIgnoreNoise(e: WildlifeEntity, sourceId: string | undefined): boolean {
-    return e.corpse || e.hp <= 0 || e.id === sourceId || isCreatureAggro(e) || e.provokedTimer > 0;
+    return e.corpse || e.hp <= 0 || e.id === sourceId || isCreatureAggro(e) || (e.provokedTimer > 0 && e.aiState !== ST_INVESTIGATE);
   }
-
   emitNoise(opts: { readonly x: number; readonly y: number; readonly radius: number; readonly sourceId?: string }): void {
     for (const e of this.list) {
       if (this.shouldIgnoreNoise(e, opts.sourceId) || !UNAWARE_STATES.has(e.aiState)) continue;
       if (Math.hypot(e.x - opts.x, e.y - opts.y) > opts.radius) continue;
-      e.lastKnownX = opts.x; e.lastKnownY = opts.y; e.investigateTimer = 5.5; e.aiState = ST_INVESTIGATE;
+      beginInvestigation({ cache: this.cache, e, x: opts.x, y: opts.y, durationSec: CREATURE_SPECS[e.kind].sensory.searchDurationSec + 0.5, minSuspicion: 0.45, preserveScentSeq: true });
     }
   }
-
   private isAllyMatch(source: WildlifeEntity, o: WildlifeEntity, myFaction: ReturnType<typeof factionOfKind>): boolean {
     if (o.corpse || o.id === source.id) return false;
     if ((source.packId && o.packId === source.packId) || (source.poiId && o.poiId === source.poiId)) return true;
     return factionOfKind(o.kind) === myFaction && Math.hypot(o.x - source.x, o.y - source.y) <= 9.0;
   }
-
   private alertAllies(source: WildlifeEntity): void {
     const myFaction = factionOfKind(source.kind);
     for (const o of this.list) {
       if (!this.isAllyMatch(source, o, myFaction)) continue;
-      o.alertedTimer = 6.0; o.suspicion = 1.0;
-      o.targetPlayerId = source.targetPlayerId; o.targetKind = source.targetKind;
-      o.lastKnownX = source.lastKnownX; o.lastKnownY = source.lastKnownY;
-      o.investigateTimer = Math.max(o.investigateTimer, 6.0);
+      const newlyAlerted = Boolean(source.targetPlayerId) && o.targetPlayerId !== source.targetPlayerId;
+      o.alertedTimer = 6.0; o.suspicion = 1.0; o.targetPlayerId = source.targetPlayerId; o.targetKind = source.targetKind;
+      o.lastKnownX = source.lastKnownX; o.lastKnownY = source.lastKnownY; o.investigateTimer = Math.max(o.investigateTimer, 6.0);
+      if (newlyAlerted) o.spottedPopTimer = STEALTH_TUNING.spottedPopDurationSec;
     }
   }
 
@@ -250,7 +248,10 @@ export class WorldEcology {
     this.pruneDistantEntities(opts.players);
     this.ensureAroundPlayers(opts.players);
     this.scent.step(opts.dt);
-    this.scent.samplePlayers(opts.players.map((p) => ({ id: p.id, x: p.x, y: p.y, moving: p.moving, bleedTimer: p.combat.bleedTimer })));
+    this.scent.samplePlayers(opts.players.map((p) => ({
+      id: p.id, x: p.x, y: p.y, elevation: p.elevation, moving: p.moving,
+      crouching: p.crouching, sprinting: p.sprinting, inWater: p.inWater, inDeepWater: p.inDeepWater, bleedTimer: p.combat.bleedTimer,
+    })), this.cache);
     const foods = collectScavengeFoods(this.list, this.loot.groundLoot, isScavengeLootId);
     const onConsumeFood = (food: EcologyFoodSource) => this.consumeFoodSource(food);
     for (let i = this.list.length - 1; i >= 0; i--) {

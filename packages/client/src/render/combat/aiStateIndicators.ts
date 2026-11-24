@@ -44,9 +44,9 @@ const QUESTION_SEGS: readonly (readonly [number, number, number, number])[] = [
   [-3, -12, 6, 2], [-3, -10, 2, 2], [1, -10, 2, 4], [-1, -7, 3, 2], [-1, -5, 2, 2], [-1, -2, 2, 2],
 ];
 
-function drawQuestionMark(g: Graphics, suspicion: number): void {
+function drawQuestionMark(g: Graphics, suspicion: number, sniffing: boolean): void {
   const fillLineY = -12 * Math.max(0.08, Math.min(1, suspicion));
-  const fillCol = suspicion >= 0.82 ? 0xf97316 : 0xfacc15;
+  const fillCol = suspicion >= 0.82 ? 0xf97316 : (sniffing ? 0xfb923c : 0xfacc15);
   for (const [x, y, w, h] of QUESTION_SEGS) g.rect(x - 1, y - 1, w + 2, h + 2).fill(INK);
   for (const [x, y, w, h] of QUESTION_SEGS) g.rect(x, y, w, h).fill(y + h >= fillLineY ? fillCol : 0x475569);
 }
@@ -105,15 +105,42 @@ function drawRiposteMark(fx: Graphics, timeSec: number): void {
   fx.poly([0, -7 - s, s, -7, 0, -7 + s, -s, -7], true).fill({ color: 0xfef08a, alpha: 0.95 });
 }
 
-function drawBackstabDiamond(fx: Graphics, timeSec: number): void {
-  const pulse = 0.72 + Math.abs(Math.sin(timeSec * 6)) * 0.25;
-  fx.poly([0, 2, 4.5, 6.5, 0, 11, -4.5, 6.5], true).stroke({ color: 0xfacc15, width: 1.4, alpha: pulse });
-  fx.circle(0, 6.5, 1.3).fill({ color: 0xfef08a, alpha: pulse });
+function computeDaggerOffset(timeSec: number): { readonly ox: number; readonly glint: boolean } {
+  const p = (timeSec * 0.95) % 1;
+  if (p < 0.35) return { ox: (p / 0.35) * 2.0, glint: false };
+  if (p < 0.54) return { ox: 2.0 - ((p - 0.35) / 0.19) * 4.6, glint: p >= 0.48 };
+  if (p < 0.72) return { ox: -2.6, glint: true };
+  return { ox: -2.6 * (1 - (p - 0.72) / 0.28), glint: false };
+}
+
+function drawBackstabDagger(g: Graphics, timeSec: number): void {
+  g.clear();
+  const { ox, glint } = computeDaggerOffset(timeSec);
+  g.poly([ox - 5.3, 0, ox - 1.5, -1.8, ox + 1.8, -1.8, ox + 1.8, 1.8, ox - 1.5, 1.8], true).fill({ color: INK, alpha: 0.82 });
+  g.rect(ox + 1.0, -2.5, 1.8, 5.0).fill({ color: INK, alpha: 0.82 });
+  g.rect(ox + 2.2, -1.4, 3.0, 2.8).fill({ color: INK, alpha: 0.82 });
+  g.poly([ox - 4.3, 0, ox - 1.4, -1.1, ox + 1.4, -1.1, ox + 1.4, 1.1, ox - 1.4, 1.1], true).fill({ color: 0xe2e8f0, alpha: 0.88 });
+  g.rect(ox - 3.0, -0.9, 4.2, 0.7).fill({ color: 0xf8fafc, alpha: 0.9 });
+  g.rect(ox + 1.3, -1.8, 1.1, 3.6).fill({ color: 0xd97706, alpha: 0.9 });
+  g.rect(ox + 2.4, -0.7, 2.1, 1.4).fill({ color: 0x78350f, alpha: 0.9 });
+  if (glint) g.rect(ox - 5.2, -0.5, 1.2, 1.0).fill({ color: 0xfef08a, alpha: 0.85 });
+}
+
+function drawSniffWisps(fx: Graphics, timeSec: number): void {
+  for (let i = 0; i < 3; i++) {
+    const phase = (timeSec * 1.1 + i * 0.33) % 1;
+    const wx = 4.5 + Math.sin(phase * Math.PI * 2 + i) * 2.1 + i * 0.8;
+    const wy = -2 - phase * 11;
+    const alpha = Math.max(0, 0.85 * (1 - phase));
+    const size = i === 1 ? 1.5 : 1.2;
+    fx.rect(wx - 0.5, wy - 0.5, size + 1, size + 1).fill({ color: INK, alpha: alpha * 0.65 });
+    fx.rect(wx, wy, size, size).fill({ color: i === 1 ? 0xfef08a : 0xfb923c, alpha });
+  }
 }
 
 interface IndicatorFxFlags {
   readonly stunned: boolean; readonly howling: boolean; readonly bluffing: boolean;
-  readonly parried: boolean; readonly backstabReady: boolean;
+  readonly parried: boolean; readonly sniffing: boolean;
   readonly timeSec: number; readonly hasFx: boolean;
 }
 
@@ -122,7 +149,7 @@ function drawDizzyAndWaves(fx: Graphics, opts: IndicatorFxFlags): void {
   if (opts.stunned) drawDizzyStars(fx, opts.timeSec);
   if (opts.howling || opts.bluffing) drawVocalWaves(fx, opts.howling ? 0x7dd3fc : 0xf97316, opts.timeSec);
   if (opts.parried) drawRiposteMark(fx, opts.timeSec);
-  if (opts.backstabReady) drawBackstabDiamond(fx, opts.timeSec);
+  if (opts.sniffing) drawSniffWisps(fx, opts.timeSec);
 }
 
 export function resolveAiVisualEffects(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): { readonly alpha: number; readonly scaleYMult: number } {
@@ -134,25 +161,27 @@ export function resolveAiVisualEffects(snap: WorldEntitySnapshot, timeSec: numbe
 }
 
 function readFxFlags(opts: {
-  readonly snap: WorldEntitySnapshot; readonly dead: boolean; readonly timeSec: number; readonly localPlayer?: PlayerSnapshot | undefined;
+  readonly snap: WorldEntitySnapshot; readonly dead: boolean; readonly timeSec: number;
 }): IndicatorFxFlags {
-  const { snap, dead, timeSec, localPlayer } = opts;
+  const { snap, dead, timeSec } = opts;
   if (dead) {
-    return { stunned: false, howling: false, bluffing: false, parried: false, backstabReady: false, timeSec, hasFx: false };
+    return { stunned: false, howling: false, bluffing: false, parried: false, sniffing: false, timeSec, hasFx: false };
   }
   const stunned = Boolean(snap.stunned);
   const howling = Boolean(snap.howling);
   const bluffing = Boolean(snap.bluffing);
   const parried = Boolean(snap.parried);
-  const backstabReady = canShowBackstabReticle(snap, localPlayer);
-  const hasFx = [stunned, howling, bluffing, parried, backstabReady].some(Boolean);
-  return { stunned, howling, bluffing, parried, backstabReady, timeSec, hasFx };
+  const sniffing = Boolean(snap.sniffing);
+  const hasFx = [stunned, howling, bluffing, parried, sniffing].some(Boolean);
+  return { stunned, howling, bluffing, parried, sniffing, timeSec, hasFx };
 }
 
 export class AiIndicatorView {
   readonly container = new Container();
+  readonly backstabContainer = new Container();
   private readonly gfx = new Graphics();
   private readonly fxGfx = new Graphics();
+  private readonly backstabGfx = new Graphics();
   private readonly baseY: number;
   private drawnKey = "";
 
@@ -160,15 +189,23 @@ export class AiIndicatorView {
     this.baseY = hpTopY - 2;
     this.container.visible = false;
     this.container.addChild(this.gfx, this.fxGfx);
+    this.backstabContainer.position.set(0, 7);
+    this.backstabContainer.visible = false;
+    this.backstabContainer.addChild(this.backstabGfx);
   }
 
   sync(opts: { readonly snap: WorldEntitySnapshot; readonly timeSec: number; readonly dead: boolean; readonly hpVisible: boolean; readonly localPlayer?: PlayerSnapshot | undefined }): void {
     const { snap, timeSec, dead, hpVisible, localPlayer } = opts;
+    const backstabReady = !dead && canShowBackstabReticle(snap, localPlayer);
+    this.backstabContainer.visible = backstabReady;
+    if (backstabReady) drawBackstabDagger(this.backstabGfx, timeSec);
+    else this.backstabGfx.clear();
+
     const kind = resolveIndicatorKind(snap, dead);
-    const fx = readFxFlags({ snap, dead, timeSec, localPlayer });
+    const fx = readFxFlags({ snap, dead, timeSec });
     this.container.visible = kind !== null || fx.hasFx;
     if (!this.container.visible) { this.drawnKey = ""; return; }
-    this.syncMainMarker(kind, snap.suspicion ?? 0.5);
+    this.syncMainMarker(kind, snap.suspicion ?? 0.5, fx.sniffing);
     this.syncFxAndPos({ kind, fx, hasFx: fx.hasFx, snap, hpVisible });
   }
 
@@ -186,14 +223,14 @@ export class AiIndicatorView {
     this.container.alpha = kind === IND_FEED ? 0.72 + Math.abs(Math.sin(fx.timeSec * 5)) * 0.28 : 1;
   }
 
-  private syncMainMarker(kind: AiIndicatorKind | null, suspicion: number): void {
+  private syncMainMarker(kind: AiIndicatorKind | null, suspicion: number, sniffing: boolean): void {
     const step = kind === IND_INVESTIGATE ? Math.round(suspicion * 12) : 0;
-    const key = `${kind ?? "none"}:${step}`;
+    const key = `${kind ?? "none"}:${step}:${sniffing ? 1 : 0}`;
     if (this.drawnKey === key) return;
     this.drawnKey = key;
     this.gfx.clear();
     if (!kind) return;
-    if (kind === IND_INVESTIGATE) drawQuestionMark(this.gfx, suspicion);
+    if (kind === IND_INVESTIGATE) drawQuestionMark(this.gfx, suspicion, sniffing);
     else STATIC_DRAWERS[kind]?.(this.gfx);
   }
 

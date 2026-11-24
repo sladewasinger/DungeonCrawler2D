@@ -19,9 +19,15 @@ export const AI_TUNING = {
   visionRangeTiles: 9.0,
   halfConeRad: 1.05,
   hearRangeTiles: 3.4,
-  scentRadiusTiles: 6.5,
-  scentMaxAgeSec: 14.0,
-  investigateDurationSec: 5.0,
+  scentRadiusTiles: 3.6,
+  scentMaxAgeSec: 22.0,
+  investigateDurationSec: 8.5,
+  losGraceSec: 0.45,
+  scentPatienceCapSec: 22.0,
+  coldTrailSearchSec: 15.0,
+  bodyScentRadiusTiles: 2.2,
+  waterScentWashSec: 3.0,
+  campfireMaskRadiusTiles: 2.5,
   wolfFlankRadiusTiles: 2.1,
   bearScavengeRadiusTiles: 9.0,
   bearFeedDurationSec: 5.5,
@@ -37,12 +43,7 @@ export const AI_TUNING = {
   maxActiveWildlife: 28,
 } as const;
 
-const LOS_BLOCKING_PROPS = new Set<PropKind>([
-  PropKind.Boulder,
-  PropKind.Palisade,
-  PropKind.RuinPillar,
-  PropKind.Tent,
-]);
+const LOS_BLOCKING_PROPS = new Set<PropKind>([PropKind.Boulder, PropKind.Palisade, PropKind.RuinPillar, PropKind.Tent]);
 
 export interface LosQuery {
   readonly cache: WorldChunkCache;
@@ -54,42 +55,67 @@ export interface LosQuery {
   readonly toElev: number;
 }
 
+const HARD_BLOCK_OCCLUSION = 1.0;
+const FULL_OCCLUSION_CUTOFF = 0.92;
+
+function foliageOcclusionSpec(kind: PropKind): { readonly radius: number; readonly weight: number } | null {
+  if (kind === PropKind.OakTree || kind === PropKind.PineTree) return { radius: 0.9, weight: 0.42 };
+  if (kind === PropKind.Bush) return { radius: 0.68, weight: 0.3 };
+  if (kind === PropKind.TallGrass) return { radius: 0.52, weight: 0.18 };
+  return null;
+}
+
 function propOcclusionRadius(p: { readonly kind: PropKind; readonly radius: number }): number {
   if (p.kind === PropKind.Palisade || p.kind === PropKind.Boulder) return Math.min(0.22, p.radius * 0.46);
   return Math.max(0.24, p.radius * 0.72);
 }
 
-function hasPropOcclusion(cache: WorldChunkCache, ray: { readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number }): boolean {
+function propRayOcclusionWeight(
+  p: { readonly kind: PropKind; readonly x: number; readonly y: number; readonly radius: number },
+  ray: { readonly ax: number; readonly ay: number; readonly rx: number; readonly ry: number; readonly lenSq: number },
+): number {
+  const t = Math.max(0.08, Math.min(0.92, ((p.x - ray.ax) * ray.rx + (p.y - ray.ay) * ray.ry) / ray.lenSq));
+  const dist = Math.hypot(p.x - (ray.ax + ray.rx * t), p.y - (ray.ay + ray.ry * t));
+  if (LOS_BLOCKING_PROPS.has(p.kind)) return dist < propOcclusionRadius(p) ? HARD_BLOCK_OCCLUSION : 0;
+  const foliage = foliageOcclusionSpec(p.kind);
+  return foliage && dist < foliage.radius ? foliage.weight : 0;
+}
+
+function computePropOcclusion(cache: WorldChunkCache, ray: { readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number }): number {
   const rx = ray.bx - ray.ax;
   const ry = ray.by - ray.ay;
   const lenSq = rx * rx + ry * ry;
-  if (lenSq < 0.01) return false;
+  if (lenSq < 0.01) return 0;
   const mx = (ray.ax + ray.bx) * 0.5;
   const my = (ray.ay + ray.by) * 0.5;
+  const seg = { ax: ray.ax, ay: ray.ay, rx, ry, lenSq };
+  let occlusion = 0;
   for (const p of cache.propsNear(mx, my)) {
-    if (!LOS_BLOCKING_PROPS.has(p.kind)) continue;
-    const t = Math.max(0.08, Math.min(0.92, ((p.x - ray.ax) * rx + (p.y - ray.ay) * ry) / lenSq));
-    const cx = ray.ax + rx * t;
-    const cy = ray.ay + ry * t;
-    if (Math.hypot(p.x - cx, p.y - cy) < propOcclusionRadius(p)) return true;
+    occlusion += propRayOcclusionWeight(p, seg);
+    if (occlusion >= FULL_OCCLUSION_CUTOFF) return 1;
   }
-  return false;
+  return occlusion;
 }
 
-export function hasElevationLineOfSight(opts: LosQuery): boolean {
+export function computeLineOfSightClarity(opts: LosQuery): number {
   const dx = opts.toX - opts.fromX;
   const dy = opts.toY - opts.fromY;
   const dist = Math.hypot(dx, dy);
-  if (dist < 0.5) return true;
+  if (dist < 0.5) return 1;
   const ceiling = Math.max(opts.fromElev, opts.toElev);
   const steps = Math.ceil(dist * 2);
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
     const tx = Math.floor(opts.fromX + dx * t);
     const ty = Math.floor(opts.fromY + dy * t);
-    if (opts.cache.tileAt(tx, ty).elevation > ceiling) return false;
+    if (opts.cache.tileAt(tx, ty).elevation > ceiling) return 0;
   }
-  return !hasPropOcclusion(opts.cache, { ax: opts.fromX, ay: opts.fromY, bx: opts.toX, by: opts.toY });
+  const occlusion = computePropOcclusion(opts.cache, { ax: opts.fromX, ay: opts.fromY, bx: opts.toX, by: opts.toY });
+  return occlusion >= FULL_OCCLUSION_CUTOFF ? 0 : Math.max(0, 1 - occlusion);
+}
+
+export function hasElevationLineOfSight(opts: LosQuery): boolean {
+  return computeLineOfSightClarity(opts) > 0.08;
 }
 
 export interface PerceptionQuery {
@@ -128,21 +154,27 @@ function isCloseFrontalSight(opts: {
   return opts.dist <= 2.8 && (opts.target.visibility ?? 1) >= 0.45 && Math.abs(opts.observer.elevation - opts.target.elevation) <= 1;
 }
 
+export function canHearTarget(opts: PerceptionQuery): boolean {
+  const dist = Math.hypot(opts.target.x - opts.observer.x, opts.target.y - opts.observer.y);
+  return dist <= resolveEffectiveHear(opts) && Math.abs(opts.observer.elevation - opts.target.elevation) <= 1;
+}
+
 export function canPerceiveTarget(opts: PerceptionQuery): boolean {
+  if (canHearTarget(opts)) return true;
   const { observer, target } = opts;
   const dx = target.x - observer.x;
   const dy = target.y - observer.y;
   const dist = Math.hypot(dx, dy);
   const effectiveVision = opts.visionRange * (0.32 + 0.68 * (target.visibility ?? 1));
-  if (dist > Math.max(effectiveVision, resolveEffectiveHear(opts))) return false;
-  if (dist <= resolveEffectiveHear(opts)) return Math.abs(observer.elevation - target.elevation) <= 1;
+  if (dist < 0.01 || dist > effectiveVision) return false;
   const dirMag = Math.max(0.01, Math.hypot(observer.facingX, observer.facingY));
   if ((dx * observer.facingX + dy * observer.facingY) / (dist * dirMag) < Math.cos(opts.halfConeRad)) return false;
   if (isCloseFrontalSight({ observer, target, dist })) return true;
-  return hasElevationLineOfSight({
+  const clarity = computeLineOfSightClarity({
     cache: opts.cache, fromX: observer.x, fromY: observer.y, fromElev: observer.elevation,
     toX: target.x, toY: target.y, toElev: target.elevation,
   });
+  return clarity > 0.08 && dist <= effectiveVision * (0.35 + 0.65 * clarity);
 }
 
 export function computeFlankRingSlot(opts: {
@@ -187,11 +219,8 @@ function isSamplePointClear(opts: {
 }): boolean {
   const { cache, x, y, px, py, elev, radius } = opts;
   const probes = [
-    { x, y },
-    { x: x + px * radius, y: y + py * radius },
-    { x: x - px * radius, y: y - py * radius },
-    { x, y: y - 0.14 },
-    { x, y: y + 0.14 },
+    { x, y }, { x: x + px * radius, y: y + py * radius }, { x: x - px * radius, y: y - py * radius },
+    { x, y: y - 0.14 }, { x, y: y + 0.14 },
   ];
   return probes.every((p) => !isLaneTerrainBlocked(cache, { ...p, elev }));
 }

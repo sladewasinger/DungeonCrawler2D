@@ -231,25 +231,25 @@ export function applyDamageToCreature(opts: {
   return { dmg, fatal };
 }
 
-export function sweepInvestigateFacing(e: WildlifeEntity, dt: number): void {
-  const delta = Math.sin(e.investigateTimer * 3.1) * 0.78 * dt * 2.4;
-  const baseAng = Math.atan2(e.facingY, e.facingX);
-  e.facingX = Math.cos(baseAng + delta);
-  e.facingY = Math.sin(baseAng + delta);
-}
-
 function resolveSnapshotAttackProgress(e: WildlifeEntity): number {
   if (e.chargeTimer > 0 && !e.chargeHitDealt) return 1;
   if (e.strikeTimer <= 0) return 0;
   return Math.min(1, Math.max(0.05, 1 - e.strikeTimer / Math.max(0.05, e.strikeDuration)));
 }
 
-function serializeEntityFlags(e: WildlifeEntity) {
-  const atkProg = resolveSnapshotAttackProgress(e);
+function serializeBehaviorFlags(e: WildlifeEntity) {
   return {
     ...(e.stunnedTimer > 0 ? { stunned: true } : {}),
     ...(e.howlTimer > 0 ? { howling: true } : {}),
     ...(e.bluffTimer > 0 ? { bluffing: true } : {}),
+    ...(e.scentTrackTimer > 0 && e.aiState === ST_INVESTIGATE ? { sniffing: true } : {}),
+  };
+}
+
+function serializeEntityFlags(e: WildlifeEntity) {
+  const atkProg = resolveSnapshotAttackProgress(e);
+  return {
+    ...serializeBehaviorFlags(e),
     ...(e.burnTimer > 0 ? { burning: true } : {}),
     ...(e.parried && e.staggerTimer > 0 ? { parried: true } : {}),
     ...(atkProg > 0 ? { attackProgress: atkProg } : {}),

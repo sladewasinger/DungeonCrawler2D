@@ -200,8 +200,10 @@ export {
   AI_STATES,
   AI_TUNING,
   ENTITY_KINDS,
+  canHearTarget,
   canPerceiveTarget,
   computeFlankRingSlot,
+  computeLineOfSightClarity,
   hasClearChargeLane,
   hasElevationLineOfSight,
 } from "./combat/aiSensing.js";
