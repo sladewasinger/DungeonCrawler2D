@@ -6,6 +6,7 @@ import {
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
+import { attemptAdminAuth, resolveAdminAuthConfig, type AdminAuthConfig } from "./adminAuth.js";
 
 export interface RunningGameServer {
   readonly port: number;
@@ -44,7 +45,7 @@ interface TickBroadcastData {
   readonly deltaRev: number;
 }
 
-interface ClientSession { readonly playerId: string; sentDeltaRev: number; alive: boolean; readonly cleanup: () => void }
+export interface ClientSession { readonly playerId: string; sentDeltaRev: number; alive: boolean; isAdmin: boolean; failedAuthAttempts: number; readonly cleanup: () => void }
 
 function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
@@ -55,6 +56,7 @@ function buildClientSnapshot(input: {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
     actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: input.data.players,
     selfInventory: input.sim.inventorySnapshot(input.session.playerId),
+    ...(input.session.isAdmin ? { selfAdmin: true } : {}),
     projectiles: input.data.projectiles, entities: input.data.entities,
     chests: input.data.chests, groundLoot: input.data.groundLoot, events: input.data.events,
     ...(input.data.webs ? { webs: input.data.webs } : {}),
@@ -79,19 +81,31 @@ function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, ClientSe
   }
 }
 
+function handleAdminPacket(opts: {
+  readonly msg: Extract<ClientMessage, { t: "admin" }>;
+  readonly session: ClientSession; readonly sim: WorldSim; readonly authConfig: AdminAuthConfig;
+}): boolean {
+  if (opts.msg.action === "auth") { attemptAdminAuth(opts.session, opts.msg.token, opts.authConfig); return false; }
+  if (!opts.session.isAdmin) return false;
+  opts.sim.handleAdminAction(opts.session.playerId, { ...opts.msg, action: opts.msg.action });
+  return true;
+}
+
 function dispatchMessage(ctx: {
-  readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>;
+  readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim;
+  readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>; readonly authConfig: AdminAuthConfig;
 }): void {
-  const { msg, session, sim, ws, clients } = ctx;
+  const { msg, session, sim, ws, clients, authConfig } = ctx;
   const { playerId } = session;
   if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(playerId, msg.seq);
+  let shouldBroadcast = BROADCAST_ACTIONS.has(msg.t);
   const handlers: Record<ClientMessage["t"], () => void> = {
     hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
     setAppearance: () => msg.t === "setAppearance" && sim.setAppearance(playerId, msg),
     input: () => msg.t === "input" && sim.queueInput(playerId, msg),
     respawn: () => sim.respawnPlayer(playerId),
     toggleTorch: () => sim.toggleTorch(playerId),
-    setDayPhase: () => msg.t === "setDayPhase" && sim.setDayPhase(msg.dayPhase, msg.paused),
+    setDayPhase: () => { if (msg.t === "setDayPhase" && session.isAdmin) sim.setDayPhase(msg.dayPhase, msg.paused); else shouldBroadcast = false; },
     selectHotbar: () => msg.t === "selectHotbar" && sim.selectHotbar(playerId, msg.slot),
     moveSlot: () => msg.t === "moveSlot" && sim.moveSlot(playerId, msg),
     equipArmor: () => msg.t === "equipArmor" && sim.equipArmor(playerId, msg),
@@ -103,16 +117,17 @@ function dispatchMessage(ctx: {
     placeStructure: () => msg.t === "placeStructure" && sim.placeStructure(playerId, msg),
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
-    debugSpawn: () => msg.t === "debugSpawn" && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
-    admin: () => msg.t === "admin" && sim.handleAdminAction(playerId, msg),
+    debugSpawn: () => msg.t === "debugSpawn" && session.isAdmin && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
+    admin: () => { if (msg.t === "admin") shouldBroadcast = handleAdminPacket({ msg, session, sim, authConfig }); },
   };
   handlers[msg.t]();
-  if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });
+  if (shouldBroadcast) broadcastTickSnapshots({ clients, sim, includeEvents: false });
   else if (msg.t !== "input") sendJson(ws, buildClientSnapshot({ sim, session, data: makeTickBroadcastData(sim, false) }));
 }
 
 function handleSocketMessage(ctx: {
-  readonly raw: string; readonly session: ClientSession; readonly sim: WorldSim; readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>;
+  readonly raw: string; readonly session: ClientSession; readonly sim: WorldSim;
+  readonly ws: WebSocket; readonly clients: Map<WebSocket, ClientSession>; readonly authConfig: AdminAuthConfig;
 }): void {
   let parsedJson: unknown;
   try { parsedJson = JSON.parse(ctx.raw); } catch { return; }
@@ -144,13 +159,16 @@ function sweepDeadClients(clients: Map<WebSocket, ClientSession>): void {
   }
 }
 
-export async function startGameServer(options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined } = {}): Promise<RunningGameServer> {
+export async function startGameServer(
+  options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined; readonly adminAuth?: AdminAuthConfig | undefined } = {},
+): Promise<RunningGameServer> {
   const { port, host, worldSeed, savePath } = resolveServerConfig(options);
+  const authConfig = options.adminAuth ?? resolveAdminAuthConfig();
   const sim = new WorldSim(worldSeed, { persistencePath: savePath });
   const httpServer = createServer(handleHealthRequest);
   const wss = new WebSocketServer({ server: httpServer });
   const clients = new Map<WebSocket, ClientSession>();
-  wss.on("connection", (ws) => attachClient({ ws, sim, clients }));
+  wss.on("connection", (ws) => attachClient({ ws, sim, clients, authConfig }));
   const timer = setInterval(() => { sim.step(1 / TICK_RATE); broadcastTickSnapshots({ clients, sim }); }, 1000 / TICK_RATE);
   const heartbeat = setInterval(() => sweepDeadClients(clients), 5000);
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
@@ -166,7 +184,7 @@ export async function startGameServer(options: { readonly port?: number; readonl
   };
 }
 
-function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, ClientSession> }): void {
+export function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; readonly clients: Map<WebSocket, ClientSession>; readonly authConfig: AdminAuthConfig }): void {
   const playerId = ctx.sim.addPlayer("Traveler");
   let cleaned = false;
   const cleanup = (): void => {
@@ -175,13 +193,13 @@ function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldSim; rea
     ctx.clients.delete(ctx.ws);
     ctx.sim.removePlayer(playerId);
   };
-  const session: ClientSession = { playerId, sentDeltaRev: -1, alive: true, cleanup };
+  const session: ClientSession = { playerId, sentDeltaRev: -1, alive: true, isAdmin: ctx.authConfig.allowOpenDevAdmin, failedAuthAttempts: 0, cleanup };
   ctx.clients.set(ctx.ws, session);
   sendJson(ctx.ws, { t: "welcome", playerId, worldSeed: ctx.sim.worldSeed, dayPhase: ctx.sim.dayPhase, dayPaused: ctx.sim.dayPaused, tickRate: TICK_RATE });
   ctx.ws.on("pong", () => { session.alive = true; });
   ctx.ws.on("message", (buf) => {
     session.alive = true;
-    handleSocketMessage({ raw: buf.toString(), session, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients });
+    handleSocketMessage({ raw: buf.toString(), session, sim: ctx.sim, ws: ctx.ws, clients: ctx.clients, authConfig: ctx.authConfig });
   });
   ctx.ws.on("close", cleanup);
   ctx.ws.on("error", cleanup);
