@@ -119,7 +119,7 @@ class EntityView {
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow);
+    this.root.addChild(this.shadow, this.indicator.backstabContainer);
     if (this.waterRig.submergedBody) this.root.addChild(this.waterRig.submergedMask, this.waterRig.submergedBody);
     this.root.addChild(this.waterRig.waterRing, this.waterRig.waterMask, this.body, this.waterRig.waterFrontLip, this.hpBg, this.hpFill, this.indicator.container);
   }

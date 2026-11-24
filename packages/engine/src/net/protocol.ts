@@ -199,6 +199,7 @@ export const WorldEntitySnapshotSchema = z.object({
   howling: z.boolean().optional(),
   bluffing: z.boolean().optional(),
   spottedPop: z.boolean().optional(),
+  sniffing: z.boolean().optional(),
   burning: z.boolean().optional(),
   parried: z.boolean().optional(),
   corpse: z.boolean().optional(),

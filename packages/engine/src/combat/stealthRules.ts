@@ -19,7 +19,7 @@ export const STEALTH_TUNING = {
   stoneThrowDamage: 4,
   sprintNoiseRadiusTiles: 6.5,
   combatNoiseRadiusTiles: 9.5,
-  spottedPopDurationSec: 0.85,
+  spottedPopDurationSec: 1.0,
   attackFlashSec: 0.6,
   attackFlashLightBoost: 0.28,
 } as const;

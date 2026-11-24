@@ -65,6 +65,7 @@ export interface CombatPlayerRef {
   aimY: number;
   selectedHotbar: number;
   moving?: boolean;
+  sprinting?: boolean;
   crouching?: boolean;
   stealthVis?: number;
   inCover?: boolean;

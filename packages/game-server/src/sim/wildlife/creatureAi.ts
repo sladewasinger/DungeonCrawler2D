@@ -3,20 +3,13 @@ import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, canReachMeleeTarget, type W
 import type { CombatPlayerRef } from "../combatActions.js";
 import { stepBurnTarget } from "../combat/statusEffects.js";
 import { holdsSpiderConcealedAmbush, stepSpiderPursuitActions } from "../webs/webCocoon.js";
-import {
-  CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN,
-  type WildlifeEntity,
-} from "./creatureSpecs.js";
+import { CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
 import { clearNavPath, faceTarget, findReturnReaggroPlayer, stepIdleJumpArc, stepKnockbackVelocity, syncCreatureWaterState } from "./creatureNavigation.js";
-import {
-  computeSeparation, computeSlimeCohesion, isSpiderConcealed, moveCreatureToward,
-  stepBearBluff, stepBearScavenge, stepBoarBehavior, stepBoarCommittedCharge, stepHomePatrol,
-  type CombatPlayerCandidate, type EcologyFoodSource,
-} from "./creatureBehaviors.js";
-import { beginCreatureStrike, stepCreatureStrikeWindow, steerGoblinAllyRetreat, sweepInvestigateFacing } from "./ecologyHelpers.js";
-import {
-  findBestHostileTarget, isCreatureAggro, resolveLockedTarget, scanAlliesAndCorpses, stepSuspicionForTarget, type CombatTarget,
-} from "./factionTargeting.js";
+import { computeSeparation, computeSlimeCohesion, isSpiderConcealed, moveCreatureToward, stepBearBluff, stepBearScavenge, stepBoarBehavior, stepBoarCommittedCharge, stepHomePatrol, type CombatPlayerCandidate, type EcologyFoodSource } from "./creatureBehaviors.js";
+import { beginCreatureStrike, stepCreatureStrikeWindow, steerGoblinAllyRetreat } from "./ecologyHelpers.js";
+import { decayUnseenSuspicion, findBestHostileTarget, isCreatureAggro, resolveLockedTarget, scanAlliesAndCorpses, stepSuspicionForTarget, type CombatTarget } from "./factionTargeting.js";
+import { recordTargetPursuitState, redirectSearchByHearing, resetHuntTracking, stepLostSightGrace } from "./tracking/pursuitLoss.js";
+import { stepStructuredInvestigation, tryHungryPassiveScentWhiff } from "./tracking/searchTracking.js";
 import { rallyWolfPack, stepWolfHiveMind, triggerWolfSpotHowl } from "./wolfPackAi.js";
 import type { ScentTrail } from "./scentTrail.js";
 
@@ -25,11 +18,9 @@ export type StrikeTargetFn = (entity: WildlifeEntity, target: CombatTarget) => v
 export interface StepCreatureInput {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly allEntities: readonly WildlifeEntity[];
   readonly players: readonly CombatPlayerCandidate[]; readonly foods: readonly EcologyFoodSource[];
-  readonly onConsumeFood?: (food: EcologyFoodSource) => void;
-  readonly scent: ScentTrail; readonly events: WorldEvent[];
+  readonly onConsumeFood?: (food: EcologyFoodSource) => void; readonly scent: ScentTrail; readonly events: WorldEvent[];
   readonly timeSec: number; readonly dayPhase: number; readonly dt: number; readonly onStrike: StrikeTargetFn;
-  readonly onBurnKill?: (e: WildlifeEntity) => void;
-  readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
+  readonly onBurnKill?: (e: WildlifeEntity) => void; readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
 }
 
 function decayTimers(e: WildlifeEntity, dt: number): void {
@@ -42,6 +33,9 @@ function decayTimers(e: WildlifeEntity, dt: number): void {
   e.peelTimer = Math.max(0, e.peelTimer - dt); e.bluffCooldown = Math.max(0, e.bluffCooldown - dt);
   e.goblinRetreatTimer = Math.max(0, e.goblinRetreatTimer - dt);
   e.webShotCooldown = Math.max(0, e.webShotCooldown - dt);
+  e.scentTrackTimer = Math.max(0, e.scentTrackTimer - dt);
+  e.passiveSniffCooldown = Math.max(0, e.passiveSniffCooldown - dt);
+  if (e.targetPlayerId === null) e.losGraceTimer = Math.max(0, e.losGraceTimer - dt);
 }
 
 function finishWindupStrike(input: StepCreatureInput): void {
@@ -63,31 +57,19 @@ function stepMeleeAttack(input: StepCreatureInput, target: CombatTarget): boolea
   return true;
 }
 
-function stepInvestigateScentSearch(input: StepCreatureInput): void {
-  const { cache, e, scent, dt } = input;
-  const speed = CREATURE_SPECS[e.kind].speed;
-  if (Math.hypot(e.lastKnownX - e.x, e.lastKnownY - e.y) >= 0.75) {
-    moveCreatureToward({ cache, e, tx: e.lastKnownX, ty: e.lastKnownY, speed: speed * 0.78, dt });
-    return;
-  }
-  const crumb = scent.findStrongestNear(e.x, e.y, AI_TUNING.scentRadiusTiles);
-  if (crumb) { e.lastKnownX = crumb.x; e.lastKnownY = crumb.y; return; }
-  sweepInvestigateFacing(e, dt);
-  moveCreatureToward({ cache, e, tx: e.lastKnownX - e.facingY * e.peekSide * 1.4, ty: e.lastKnownY + e.facingX * e.peekSide * 1.4, speed: speed * 0.55, dt });
-}
-
 function stepInvestigateOrPatrol(input: StepCreatureInput): void {
-  const { cache, e, timeSec, dayPhase, dt } = input;
+  const { cache, e, scent, timeSec, dayPhase, dt } = input;
   if (e.kind === "wolf" && e.hp < e.maxHp * 0.25) { enterReturnState(e); return; }
   if (e.investigateTimer <= 0) {
-    e.targetPlayerId = null; e.targetKind = null;
-    stepHomePatrol({ cache, e, timeSec, dt, dayPhase });
+    e.targetPlayerId = null; e.targetKind = null; resetHuntTracking(e);
+    if (!tryHungryPassiveScentWhiff({ cache, e, scent, dt })) stepHomePatrol({ cache, e, timeSec, dt, dayPhase });
     return;
   }
-  if (CREATURE_SPECS[e.kind].territorialGuard && Math.hypot(e.lastKnownX - e.homeX, e.lastKnownY - e.homeY) > e.homeRadius * 1.45) { enterReturnState(e); return; }
-  e.investigateTimer = Math.max(0, e.investigateTimer - dt);
-  if (!e.targetPlayerId || e.investigateTimer < AI_TUNING.investigateDurationSec - 0.5) e.aiState = ST_INVESTIGATE;
-  stepInvestigateScentSearch(input);
+  if (CREATURE_SPECS[e.kind].territorialGuard && Math.hypot(e.lastKnownX - e.homeX, e.lastKnownY - e.homeY) > e.homeRadius * 1.45) {
+    enterReturnState(e); return;
+  }
+  e.investigateTimer = Math.max(0, e.investigateTimer - dt); e.aiState = ST_INVESTIGATE;
+  stepStructuredInvestigation({ cache, e, scent, dt });
 }
 
 function combineSepCohesion(e: WildlifeEntity, entities: readonly WildlifeEntity[]) {
@@ -107,6 +89,7 @@ function stepBoarEngage(input: StepCreatureInput, target: CombatTarget): void {
     }
     return;
   }
+  e.aiState = ST_CHASE;
   moveCreatureToward({ cache, e, tx: boar.steer.x, ty: boar.steer.y, speed: CREATURE_SPECS.boar.speed * boar.steer.speedMult, dt, stopRadius: 1.0, sep });
 }
 
@@ -127,6 +110,7 @@ function enterReturnState(e: WildlifeEntity): void {
   e.strikeTimer = 0; e.strikeHitIds.clear(); e.chargeTimer = 0;
   e.suspicion = 0; e.unreachableTimer = 0; e.provokedTimer = 0;
   e.targetPlayerId = null; e.targetKind = null; e.spottedPopTimer = 0;
+  resetHuntTracking(e);
   clearNavPath(e);
 }
 
@@ -174,12 +158,12 @@ function checkUnreachableGlare(e: WildlifeEntity, dt: number): boolean {
 function triggerSpottedTransition(input: StepCreatureInput, target: CombatTarget): void {
   const { e, allEntities, events } = input;
   if (e.targetPlayerId === target.id) return;
-  e.targetPlayerId = target.id;
-  e.targetKind = target.targetKind;
-  e.suspicion = 1.0;
-  e.spottedPopTimer = STEALTH_TUNING.spottedPopDurationSec;
+  const respot = e.huntedTargetId !== target.id || e.investigateElapsed >= 0.9;
+  e.targetPlayerId = target.id; e.targetKind = target.targetKind;
+  e.suspicion = 1.0; e.scentTrackTimer = 0; e.investigateElapsed = 0;
+  if (respot) e.spottedPopTimer = STEALTH_TUNING.spottedPopDurationSec;
   if (triggerWolfSpotHowl({ e, entities: allEntities, events })) return;
-  if (e.vocalCooldown <= 0) {
+  if (respot && e.vocalCooldown <= 0) {
     e.vocalCooldown = 3.5;
     events.push({ kind: "creatureVocal", x: e.x, y: e.y, actorId: e.id, entityKind: e.kind, vocalKind: "alert" });
   }
@@ -187,7 +171,8 @@ function triggerSpottedTransition(input: StepCreatureInput, target: CombatTarget
 
 function dispatchPursuitBehavior(input: StepCreatureInput, target: CombatTarget): void {
   const { cache, e, players, dayPhase, dt, events, spawnWeb } = input;
-  e.lastKnownX = target.x; e.lastKnownY = target.y; e.investigateTimer = AI_TUNING.investigateDurationSec;
+  e.losGraceTimer = AI_TUNING.losGraceSec;
+  recordTargetPursuitState(e, target, dt);
   if (stepSpiderPursuitActions({ cache, spider: e, target, players: players as readonly CombatPlayerRef[], dayPhase, dt, events, spawnWeb })) return;
   steerOrChargeTarget(input, target);
   const wolfRetreated = e.kind === "wolf" && e.aiState === ST_RETURN && Math.hypot(target.x - e.x, target.y - e.y) >= 8.5;
@@ -234,6 +219,14 @@ function stepChargeOrForage(input: StepCreatureInput): boolean {
   return stepScavengeHold(input);
 }
 
+function handleUnseenTurn(input: StepCreatureInput): void {
+  const unseen = { cache: input.cache, e: input.e, allEntities: input.allEntities, players: input.players, dt: input.dt, enterReturn: enterReturnState };
+  if (stepLostSightGrace(unseen)) return;
+  redirectSearchByHearing(unseen);
+  decayUnseenSuspicion(input.e, input.dt);
+  stepInvestigateOrPatrol(input);
+}
+
 function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   const { cache, e, allEntities, players, dayPhase, dt } = input;
   stepCreatureStrikeWindow({ cache, e, players, allEntities, dt, onStrike: input.onStrike });
@@ -241,7 +234,7 @@ function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   if (stepChargeOrForage(input)) return;
   scanAlliesAndCorpses({ cache, e, allEntities, players });
   const perceived = findBestHostileTarget({ cache, e, players, allEntities });
-  if (!perceived) { e.suspicion = Math.max(0, e.suspicion - dt * 0.35); stepInvestigateOrPatrol(input); return; }
+  if (!perceived) { handleUnseenTurn(input); return; }
   if (holdsSpiderConcealedAmbush({ cache, e, perceived, dayPhase })) return;
   if (stepSuspicionForTarget({ e, perceived, dt }) === "engage") pursueKnownTarget(input, perceived);
   else stepInvestigateOrPatrol(input);

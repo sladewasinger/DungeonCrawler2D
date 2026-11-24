@@ -1,6 +1,7 @@
 /** Multi-faction hostile target sensing, gradual suspicion fill, group/corpse alerting, and hit wakeup. */
 import {
-  AI_TUNING, STEALTH_TUNING, WorldChunkCache, canPerceiveTarget, hasElevationLineOfSight, isInSanctuary,
+  AI_TUNING, STEALTH_TUNING, WorldChunkCache, canHearTarget, canPerceiveTarget,
+  computeLineOfSightClarity, hasElevationLineOfSight, isInSanctuary,
 } from "@dc2d/engine";
 import { clearNavPath } from "./creatureNavigation.js";
 import type { CombatPlayerCandidate } from "./creatureBehaviors.js";
@@ -25,19 +26,42 @@ export function factionOfKind(kind: WildlifeKind): CreatureFaction {
 
 export const areFactionsHostile = (a: CreatureFaction, b: CreatureFaction): boolean => a !== b;
 
+function hasTrackedSight(opts: {
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly cand: CombatTarget; readonly dist: number;
+}, visionRange: number): boolean {
+  const clarity = computeLineOfSightClarity({
+    cache: opts.cache, fromX: opts.e.x, fromY: opts.e.y, fromElev: opts.e.elevation,
+    toX: opts.cand.x, toY: opts.cand.y, toElev: opts.cand.elevation,
+  });
+  if (clarity <= 0.08) return false;
+  if (opts.cand.targetKind === "player") {
+    const effectiveVis = (opts.cand.visibility ?? 1) * (0.4 + 0.6 * clarity);
+    if (effectiveVis <= 0.45 && opts.dist > Math.max(3.2, visionRange * (0.45 + 0.65 * effectiveVis))) return false;
+  }
+  return true;
+}
+
+function canTrackExistingTarget(opts: {
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly cand: CombatTarget; readonly dist: number;
+}, visionRange: number): boolean | null {
+  const { e, cand, dist } = opts;
+  const alertedFocus = cand.targetKind === "player" || e.targetPlayerId === cand.id;
+  if (alertedFocus && e.alertedTimer > 0 && dist <= visionRange * 1.25) {
+    return dist <= 2.4 || hasTrackedSight(opts, visionRange);
+  }
+  if (e.targetPlayerId === cand.id && dist <= visionRange * 1.55) {
+    return hasTrackedSight(opts, visionRange);
+  }
+  return null;
+}
+
 function canSeeCandidate(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly cand: CombatTarget;
   readonly dist: number; readonly rangeMult: number; readonly visOverride?: number;
 }): boolean {
   const spec = CREATURE_SPECS[opts.e.kind];
-  const alertedFocus = opts.cand.targetKind === "player" || opts.e.targetPlayerId === opts.cand.id;
-  if (alertedFocus && opts.e.alertedTimer > 0 && opts.dist <= spec.visionRange * 1.25) return true;
-  if (opts.e.targetPlayerId === opts.cand.id && opts.dist <= spec.visionRange * 1.55) {
-    return hasElevationLineOfSight({
-      cache: opts.cache, fromX: opts.e.x, fromY: opts.e.y, fromElev: opts.e.elevation,
-      toX: opts.cand.x, toY: opts.cand.y, toElev: opts.cand.elevation,
-    });
-  }
+  const tracked = canTrackExistingTarget(opts, spec.visionRange);
+  if (tracked !== null) return tracked;
   const target = opts.visOverride !== undefined ? { ...opts.cand, visibility: opts.visOverride } : opts.cand;
   return canPerceiveTarget({
     cache: opts.cache, observer: opts.e, target,
@@ -56,6 +80,21 @@ export function resolveLockedTarget(opts: {
   if (pl) return { ...pl, targetKind: "player" };
   const ent = opts.allEntities.find((o) => o.id === opts.id && !o.corpse && o.hp > 0 && !isInSanctuary(o.x, o.y));
   return ent ? asEntityTarget(ent) : null;
+}
+
+export function findHeardHostilePlayer(opts: {
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
+}): CombatTarget | null {
+  const spec = CREATURE_SPECS[opts.e.kind];
+  let target: CombatTarget | null = null;
+  let dist = Infinity;
+  for (const p of opts.players) {
+    const d = isCocoonedFromSpider(opts.e, p) || isInSanctuary(p.x, p.y) ? Infinity : Math.hypot(p.x - opts.e.x, p.y - opts.e.y);
+    if (d < dist && canHearTarget({ cache: opts.cache, observer: opts.e, target: p, visionRange: spec.visionRange, halfConeRad: AI_TUNING.halfConeRad, hearRange: spec.hearRange })) {
+      dist = d; target = { ...p, targetKind: "player" };
+    }
+  }
+  return target;
 }
 
 function findBestPlayerTarget(opts: {
@@ -119,18 +158,34 @@ export function findBestHostileTarget(opts: {
   return bestEntity ? bestEntity.target : (bestPlayer?.target ?? null);
 }
 
+function isAlertedOrClose(e: WildlifeEntity, perceived: CombatTarget, dist: number): boolean {
+  const vis = perceived.visibility ?? 1;
+  if (e.targetPlayerId === perceived.id || e.alertedTimer > 0 || e.provokedTimer > 0) return true;
+  return perceived.targetKind === "entity" || (dist <= 3.0 && vis >= 0.65);
+}
+
 function hasInstantSuspicionLock(e: WildlifeEntity, perceived: CombatTarget, dist: number): boolean {
   const vis = perceived.visibility ?? 1;
-  return e.targetPlayerId === perceived.id || e.alertedTimer > 0 || e.provokedTimer > 0
-    || perceived.targetKind === "entity" || (dist <= 3.0 && vis >= 0.65);
+  if (isAlertedOrClose(e, perceived, dist)) return true;
+  return e.huntedTargetId === perceived.id && e.investigateTimer > 0 && (dist <= 5.5 || vis >= 0.55);
 }
 
 function applySuspectState(e: WildlifeEntity, perceived: CombatTarget): void {
   e.aiState = ST_INVESTIGATE;
   e.lastKnownX = perceived.x; e.lastKnownY = perceived.y;
-  e.investigateTimer = Math.max(e.investigateTimer, 4.5);
+  e.searchPhase = "move_to_clue"; e.searchPhaseTimer = 0;
+  e.investigateTimer = Math.max(e.investigateTimer, CREATURE_SPECS[e.kind].sensory.searchDurationSec);
   const mag = Math.max(0.01, Math.hypot(perceived.x - e.x, perceived.y - e.y));
   e.facingX = (perceived.x - e.x) / mag; e.facingY = (perceived.y - e.y) / mag;
+  e.searchAnchorAngle = Math.atan2(e.facingY, e.facingX);
+}
+
+export function decayUnseenSuspicion(e: WildlifeEntity, dt: number): void {
+  if (e.investigateTimer > 0) {
+    const floor = e.scentTrackTimer > 0 ? 0.65 : 0.35;
+    if (e.suspicion >= floor) { e.suspicion = Math.max(floor, e.suspicion - dt * 0.08); return; }
+  }
+  e.suspicion = Math.max(0, e.suspicion - dt * 0.35);
 }
 
 export function stepSuspicionForTarget(opts: {
@@ -153,54 +208,39 @@ const SOCIAL_ALERT_FACTIONS = new Set<CreatureFaction>(["bandit", "ruins", "wolf
 function hasLosToPeer(cache: WorldChunkCache, e: WildlifeEntity, o: WildlifeEntity): boolean {
   return hasElevationLineOfSight({ cache, fromX: e.x, fromY: e.y, fromElev: e.elevation, toX: o.x, toY: o.y, toElev: o.elevation });
 }
-
-interface PeerNoticeCtx {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly o: WildlifeEntity; readonly dist: number;
-}
-
+interface PeerNoticeCtx { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly o: WildlifeEntity; readonly dist: number; }
 function noticeCorpse(ctx: PeerNoticeCtx): boolean {
   const { cache, e, o, dist } = ctx;
   if (!o.corpse || dist > 6.5 || !hasLosToPeer(cache, e, o)) return false;
   e.suspicion = Math.max(e.suspicion, 0.65); e.aiState = ST_INVESTIGATE;
-  e.lastKnownX = o.x; e.lastKnownY = o.y;
-  e.investigateTimer = Math.max(e.investigateTimer, 6.0);
+  e.lastKnownX = o.x; e.lastKnownY = o.y; e.investigateTimer = Math.max(e.investigateTimer, 6.0);
   return true;
 }
-
 function noticeBuddy(ctx: PeerNoticeCtx): boolean {
   const { cache, e, o, dist } = ctx;
   const social = SOCIAL_ALERT_FACTIONS.has(factionOfKind(e.kind)) || (e.packId !== null && e.packId === o.packId);
   if (!social || o.corpse || !o.targetPlayerId || dist > 9.0 || !hasLosToPeer(cache, e, o)) return false;
-  e.targetPlayerId = o.targetPlayerId; e.targetKind = o.targetKind;
-  e.lastKnownX = o.lastKnownX; e.lastKnownY = o.lastKnownY;
-  e.suspicion = 1.0; e.alertedTimer = 5.0;
+  e.targetPlayerId = o.targetPlayerId; e.targetKind = o.targetKind; e.lastKnownX = o.lastKnownX; e.lastKnownY = o.lastKnownY;
+  e.suspicion = 1.0; e.alertedTimer = 5.0; e.spottedPopTimer = STEALTH_TUNING.spottedPopDurationSec;
   return true;
 }
-
-export function isCreatureAggro(e: WildlifeEntity): boolean {
-  return e.targetPlayerId !== null || e.suspicion >= 1 || e.telegraphTimer > 0 || e.chargeTimer > 0;
-}
-
+export function isCreatureAggro(e: WildlifeEntity): boolean { return e.targetPlayerId !== null || e.telegraphTimer > 0 || e.chargeTimer > 0; }
 function scanFactionPeers(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly allEntities: readonly WildlifeEntity[];
   readonly myFaction: CreatureFaction; readonly check: (ctx: PeerNoticeCtx) => boolean;
 }): boolean {
   for (const o of opts.allEntities) {
-    if (o.id === opts.e.id || factionOfKind(o.kind) !== opts.myFaction) continue;
-    if (opts.check({ cache: opts.cache, e: opts.e, o, dist: Math.hypot(o.x - opts.e.x, o.y - opts.e.y) })) return true;
+    if (o.id !== opts.e.id && factionOfKind(o.kind) === opts.myFaction && opts.check({ cache: opts.cache, e: opts.e, o, dist: Math.hypot(o.x - opts.e.x, o.y - opts.e.y) })) return true;
   }
   return false;
 }
-
 export function scanAlliesAndCorpses(opts: {
-  readonly cache: WorldChunkCache; readonly e: WildlifeEntity;
-  readonly allEntities: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
+  readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly allEntities: readonly WildlifeEntity[]; readonly players: readonly CombatPlayerCandidate[];
 }): void {
   const { cache, e, allEntities } = opts;
   if (isCreatureAggro(e) || e.aiState === ST_RETURN || e.provokedTimer > 0) return;
   const myFaction = factionOfKind(e.kind);
-  if (scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeBuddy })) return;
-  scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeCorpse });
+  if (!scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeBuddy })) scanFactionPeers({ cache, e, allEntities, myFaction, check: noticeCorpse });
 }
 
 export function wakeEntityFromHit(opts: {
@@ -212,11 +252,15 @@ export function wakeEntityFromHit(opts: {
   const mag = Math.max(0.01, Math.hypot(dirX, dirY));
   const nx = dirX / mag; const ny = dirY / mag;
   e.suspicion = Math.max(e.suspicion, 0.9);
-  e.investigateTimer = Math.max(e.investigateTimer, 7.5);
+  e.investigateTimer = Math.max(e.investigateTimer, CREATURE_SPECS[e.kind].sensory.searchDurationSec);
   e.aiState = ST_INVESTIGATE;
+  e.searchPhase = "move_to_clue"; e.searchPhaseTimer = 0;
+  e.investigateElapsed = 0; e.scentHuntElapsed = 0;
   e.facingX = -nx; e.facingY = -ny;
+  e.searchAnchorAngle = Math.atan2(-ny, -nx);
   clearNavPath(e);
   const attacker = resolveLockedTarget({ id: actorId, players, allEntities });
+  if (attacker) { e.huntedTargetId = attacker.id; e.huntedTargetKind = attacker.targetKind; }
   if (attacker && Math.hypot(attacker.x - e.x, attacker.y - e.y) <= 14.0) {
     e.targetPlayerId = attacker.id;
     e.targetKind = attacker.targetKind;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WorldChunkCache } from "../world/collision.js";
 import { GroundKind, PropKind, type ChunkProp } from "../world/types.js";
-import { canPerceiveTarget, computeFlankRingSlot, hasClearChargeLane, hasElevationLineOfSight } from "./aiSensing.js";
+import { canHearTarget, canPerceiveTarget, computeFlankRingSlot, computeLineOfSightClarity, hasClearChargeLane, hasElevationLineOfSight } from "./aiSensing.js";
 
 describe("aiSensing", () => {
   it("blocks line of sight across higher cliff ridges", () => {
@@ -68,5 +68,27 @@ describe("aiSensing", () => {
       from: { x: 21, y: 15, elevation: 0 },
       to: { x: 27.3, y: 15, elevation: 0 },
     })).toBe(true);
+  });
+
+  it("attenuates sight gradually across sparse trees and detects audible movers via canHearTarget", () => {
+    const makeTreeCache = (trees: readonly ChunkProp[]) => new (class extends WorldChunkCache {
+      override tileAt() { return { ground: GroundKind.Grass, elevation: 0, stairs: false }; }
+      override propsNear(): readonly ChunkProp[] { return trees; }
+    })(1);
+    const singleTree = makeTreeCache([{ id: "t1", kind: PropKind.OakTree, x: 14, y: 10, variant: 0, elevation: 0, radius: 0.4, blocksMovement: true }]);
+    const denseWoods = makeTreeCache([
+      { id: "t1", kind: PropKind.OakTree, x: 13, y: 10, variant: 0, elevation: 0, radius: 0.4, blocksMovement: true },
+      { id: "t2", kind: PropKind.PineTree, x: 14.5, y: 10, variant: 0, elevation: 0, radius: 0.4, blocksMovement: true },
+      { id: "t3", kind: PropKind.OakTree, x: 16, y: 10, variant: 0, elevation: 0, radius: 0.4, blocksMovement: true },
+    ]);
+    const sparseClarity = computeLineOfSightClarity({ cache: singleTree, fromX: 10, fromY: 10, fromElev: 0, toX: 18, toY: 10, toElev: 0 });
+    expect(sparseClarity).toBeGreaterThan(0.4);
+    expect(sparseClarity).toBeLessThan(0.8);
+    expect(hasElevationLineOfSight({ cache: singleTree, fromX: 10, fromY: 10, fromElev: 0, toX: 18, toY: 10, toElev: 0 })).toBe(true);
+    expect(hasElevationLineOfSight({ cache: denseWoods, fromX: 10, fromY: 10, fromElev: 0, toX: 18, toY: 10, toElev: 0 })).toBe(false);
+
+    const observer = { x: 10, y: 10, elevation: 0, facingX: -1, facingY: 0 };
+    expect(canHearTarget({ cache: denseWoods, observer, target: { x: 14.5, y: 10, elevation: 0, moving: true, noiseRadius: 6.5 }, visionRange: 9, halfConeRad: 1.05, hearRange: 3.4 })).toBe(true);
+    expect(canHearTarget({ cache: denseWoods, observer, target: { x: 14.5, y: 10, elevation: 0, moving: false, noiseRadius: 0.4 }, visionRange: 9, halfConeRad: 1.05, hearRange: 3.4 })).toBe(false);
   });
 });
