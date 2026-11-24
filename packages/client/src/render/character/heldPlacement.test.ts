@@ -236,6 +236,14 @@ function collectArmBoundsCases() {
   );
 }
 
+function findOutOfBoundsRect(rects: readonly PixelRect[], maxX: number, maxY: number): PixelRect | undefined {
+  for (const rect of rects) {
+    const [x, y, w, h] = rect;
+    if (x < 1 || y < 1 || x + w > maxX || y + h > maxY) return rect;
+  }
+  return undefined;
+}
+
 describe("character sprite 32x32 outline-safe bounds", () => {
   it("keeps all body, armor, hair, and arm pixels inside outline-safe bounds across all poses and styles", () => {
     const looks = BODY_STYLES.flatMap((body) =>
@@ -243,23 +251,14 @@ describe("character sprite 32x32 outline-safe bounds", () => {
         HAIR_STYLES.map((hairStyle) => ({ body, skin: "warm", eyeColor, hairStyle, hairColor: "red" }) as const),
       ),
     );
-    const rects = looks.flatMap((app) => TEST_ARMOR_SETS.flatMap((armor) => [
-      ...collectFrameRects(app, armor, false),
-      ...collectFrameRects(app, armor, true),
-    ]));
-    for (const [x, y, w, h] of rects) {
-      expect(x).toBeGreaterThanOrEqual(1);
-      expect(y).toBeGreaterThanOrEqual(1);
-      expect(x + w).toBeLessThanOrEqual(31);
-      expect(y + h).toBeLessThanOrEqual(29);
+    for (const app of looks) {
+      for (const armor of TEST_ARMOR_SETS) {
+        expect(findOutOfBoundsRect(collectFrameRects(app, armor, false), 31, 29)).toBeUndefined();
+        expect(findOutOfBoundsRect(collectFrameRects(app, armor, true), 31, 29)).toBeUndefined();
+      }
     }
     for (const { size, rects: armRects } of collectArmBoundsCases()) {
-      for (const [x, y, w, h] of armRects) {
-        expect(x).toBeGreaterThanOrEqual(1);
-        expect(y).toBeGreaterThanOrEqual(1);
-        expect(x + w).toBeLessThanOrEqual(size.w - 1);
-        expect(y + h).toBeLessThanOrEqual(size.h - 1);
-      }
+      expect(findOutOfBoundsRect(armRects, size.w - 1, size.h - 1)).toBeUndefined();
     }
   });
 });

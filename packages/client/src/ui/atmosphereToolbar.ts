@@ -6,6 +6,7 @@ import { FpsCounter } from "./fpsCounter.js";
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
+import { isLocalDebugOrigin } from "./settings/settingsPrefs.js";
 import { ensureToolbarStyles } from "./toolbarStyles.js";
 
 export interface ToolbarCallbacks {
@@ -17,6 +18,7 @@ export interface ToolbarCallbacks {
 }
 
 function isDebugMode(): boolean {
+  if (!isLocalDebugOrigin()) return false;
   const params = new URLSearchParams(window.location.search);
   return ["1", "true"].includes(params.get("debug") ?? "") || ["1", "true"].includes(params.get("admin") ?? "");
 }

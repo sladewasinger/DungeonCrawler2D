@@ -242,7 +242,7 @@ async function bootOverworldClient(): Promise<void> {
   const skipTitle = params.get("skipTitle") === "1";
   const scene = await WorldScene.mount(host);
   const client = new WorldClient(undefined, { autoConnect: skipTitle });
-  if (isLocalDebugOrigin()) installAdminConsole(client);
+  installAdminConsole(client, { silent: !isLocalDebugOrigin() });
   const audio = new AudioEngine();
   const velTracker = new EntityVelocityTracker();
   const titleRef: { current: TitleScreen | null } = { current: null };

@@ -9,11 +9,8 @@ export interface SettingsPrefs {
 
 const STORAGE_KEY = "dc2d_settings_prefs_v1";
 
-export function isLocalDebugOrigin(): boolean {
-  if (typeof window === "undefined") return false;
-  const h = window.location.hostname;
-  const params = new URLSearchParams(window.location.search);
-  return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || ["1", "true"].includes(params.get("debug") ?? "") || ["1", "true"].includes(params.get("admin") ?? "");
+export function isLocalDebugOrigin(hostname = typeof window === "undefined" ? "" : window.location.hostname): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
 function isCoarseMobileDefault(): boolean {

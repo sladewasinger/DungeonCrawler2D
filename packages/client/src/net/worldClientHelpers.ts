@@ -24,7 +24,8 @@ export interface WorldViewState {
   readonly players: readonly PlayerSnapshot[]; readonly localPlayerId: string; readonly inventory: InventorySnapshot;
   readonly localName: string; readonly localAppearance: CharacterAppearance; readonly projectiles: readonly ProjectileSnapshot[];
   readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
-  readonly groundLoot: readonly GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined; readonly events: readonly WorldEvent[];
+  readonly groundLoot: readonly GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined;
+  readonly events: readonly WorldEvent[]; readonly selfAdmin?: boolean | undefined;
 }
 
 export function buildInputMessage(opts: {
@@ -88,6 +89,30 @@ export function applyOfflineAdminPreview(player: PlayerSnapshot, req: { readonly
   if (req.action === "heal") return applyOfflineHeal(player);
   if (req.action === "clearWebs") return { ...player, webStick: 0, cocoonProgress: 0, poisonLocked: false };
   return player;
+}
+
+export interface AdminSendRequest {
+  readonly action: "auth" | "godMode" | "heal" | "give" | "clearWebs";
+  readonly enabled?: boolean | undefined;
+  readonly itemId?: string | undefined;
+  readonly count?: number | undefined;
+  readonly token?: string | undefined;
+}
+
+function shouldPreviewAdminAction(opts: { readonly action: AdminSendRequest["action"]; readonly isServer: boolean; readonly isAdmin: boolean }): boolean {
+  return !opts.isServer || (opts.action === "godMode" && opts.isAdmin);
+}
+
+export function prepareAdminDispatch(opts: {
+  readonly req: AdminSendRequest; readonly localPlayer: PlayerSnapshot;
+  readonly isServer: boolean; readonly isAdmin: boolean; readonly seq: number;
+}): { readonly nextPlayer: PlayerSnapshot; readonly message: ClientMessage } {
+  const { req, localPlayer, isServer, isAdmin, seq } = opts;
+  if (req.action === "auth") return { nextPlayer: localPlayer, message: { t: "admin", ...req, seq } };
+  const enabled = req.action === "godMode" ? (req.enabled ?? !localPlayer.godMode) : req.enabled;
+  const flag = enabled !== undefined ? { enabled } : {};
+  const nextPlayer = shouldPreviewAdminAction({ action: req.action, isServer, isAdmin }) ? applyOfflineAdminPreview(localPlayer, { action: req.action, ...flag }) : localPlayer;
+  return { nextPlayer, message: { t: "admin", ...req, ...flag, seq } };
 }
 
 export function mergeStreamEvents(opts: {

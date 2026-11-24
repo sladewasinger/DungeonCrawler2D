@@ -89,8 +89,9 @@ export const ClientChestTransferSchema = z.object({
 export const ClientChestTakeAllSchema = z.object({ t: z.literal("chestTakeAll"), chestId: z.string().min(1).max(64), seq: SeqSchema });
 export const ClientDebugSpawnSchema = z.object({ t: z.literal("debugSpawn"), kind: z.enum(ENTITY_KINDS), count: z.number().int().min(1).max(10).optional(), seq: SeqSchema });
 export const ClientAdminSchema = z.object({
-  t: z.literal("admin"), action: z.enum(["godMode", "heal", "give", "clearWebs"]),
-  enabled: z.boolean().optional(), itemId: z.string().min(1).max(48).optional(), count: z.number().int().min(1).max(99).optional(), seq: SeqSchema,
+  t: z.literal("admin"), action: z.enum(["auth", "godMode", "heal", "give", "clearWebs"]),
+  enabled: z.boolean().optional(), itemId: z.string().min(1).max(48).optional(),
+  count: z.number().int().min(1).max(99).optional(), token: z.string().min(1).max(256).optional(), seq: SeqSchema,
 });
 
 export const ClientMessageSchema = z.discriminatedUnion("t", [
@@ -232,12 +233,8 @@ export const GroundLootSnapshotSchema = z.object({
 export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 
 export const ServerWelcomeSchema = z.object({
-  t: z.literal("welcome"),
-  playerId: z.string(),
-  worldSeed: z.number().int(),
-  dayPhase: z.number(),
-  dayPaused: z.boolean(),
-  tickRate: z.number(),
+  t: z.literal("welcome"), playerId: z.string(), worldSeed: z.number().int(),
+  dayPhase: z.number(), dayPaused: z.boolean(), tickRate: z.number(),
 });
 
 export const WebNodeSnapshotSchema = z.object({ id: z.number().int(), x: z.number(), y: z.number(), pinned: z.boolean(), fire: z.number().optional() });
@@ -257,6 +254,7 @@ export const ServerSnapshotSchema = z.object({
   actionAckSeq: SeqSchema,
   players: z.array(PlayerSnapshotSchema),
   selfInventory: InventorySnapshotSchema.optional(),
+  selfAdmin: z.boolean().optional(),
   projectiles: z.array(ProjectileSnapshotSchema).optional(),
   entities: z.array(WorldEntitySnapshotSchema).optional(),
   chests: z.array(WorldChestSnapshotSchema).optional(),
