@@ -151,6 +151,14 @@ def render_frame_pair(out_dir, layer_id, cname, dname, f):
     view_layer.material_override = None
 
 
+def has_mesh_objects(col_names):
+    for cname in col_names:
+        col = bpy.data.collections.get(cname)
+        if col and any(obj.type == "MESH" for obj in col.objects):
+            return True
+    return False
+
+
 def render_layer(out_dir, layer_spec, holdout_mat):
     """Render all clips × 5 dirs + portrait frame for a single modular body/hair/armor layer."""
     arm_obj = bpy.data.objects["Rig_Hero"]
@@ -162,7 +170,7 @@ def render_layer(out_dir, layer_spec, holdout_mat):
     try:
         for act_name, cname, count, _fps, full_arms in CLIPS:
             active_cols = layer_spec["armlessCols"] if not full_arms else layer_spec["fullArmCols"]
-            if not active_cols:
+            if not active_cols or not has_mesh_objects(active_cols):
                 continue
             bind_action(arm_obj, act_name)
             set_visible_collections(active_cols + layer_spec["holdoutCols"])
@@ -172,10 +180,10 @@ def render_layer(out_dir, layer_spec, holdout_mat):
                     bpy.context.scene.frame_set(f)
                     bpy.context.view_layer.update()
                     render_frame_pair(out_dir, layer_id, cname, dname, f)
-        if not layer_spec.get("skipPortrait", False):
+        if not layer_spec.get("skipPortrait", False) and has_mesh_objects(layer_spec["fullArmCols"]):
             bind_action(arm_obj, "Hero_Idle")
             set_visible_collections(layer_spec["fullArmCols"] + layer_spec["holdoutCols"])
-            root.rotation_euler = Euler((0.0, 0.0, 0.0), "XYZ")
+            root.rotation_euler = Euler((0.0, 0.0, math.radians(45.0)), "XYZ")
             bpy.context.scene.frame_set(1)
             bpy.context.view_layer.update()
             render_frame_pair(out_dir, layer_id, "portrait", "south", 1)

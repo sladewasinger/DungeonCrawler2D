@@ -4,7 +4,10 @@ import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Rectangle, Texture, type TextureSource } from "pixi.js";
 import { createPixelCanvas } from "../textures/pixelCanvas.js";
 import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
-import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
+import {
+  ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, resolvePortraitCell,
+  type PlayerRigMeta,
+} from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
 
 export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
@@ -109,9 +112,10 @@ export function computePortraitCropRect(
 
 function extractPortraitUrl(srcCanvas: HTMLCanvasElement, meta: PlayerRigMeta): string {
   const crop = computePortraitCropRect(meta);
+  const cell = resolvePortraitCell(meta);
   const { canvas, ctx } = createPixelCanvas(crop.cw, crop.ch);
-  const sx = meta.portraitCol * meta.frameWidth + crop.localX;
-  const sy = meta.portraitRow * meta.frameHeight + crop.localY;
+  const sx = cell.col * meta.frameWidth + crop.localX;
+  const sy = cell.row * meta.frameHeight + crop.localY;
   ctx.drawImage(srcCanvas, sx, sy, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
   return canvas.toDataURL();
 }
@@ -122,8 +126,9 @@ function drawPortraitLayers(opts: {
   const { ctx, layerIds, meta } = opts;
   const fw = meta.frameWidth;
   const fh = meta.frameHeight;
-  const sx = meta.portraitCol * fw;
-  const sy = meta.portraitRow * fh;
+  const cell = resolvePortraitCell(meta);
+  const sx = cell.col * fw;
+  const sy = cell.row * fh;
   for (const id of layerIds) {
     const sliced = getPlayerPortraitLayer(id);
     if (sliced) { ctx.drawImage(sliced, 0, 0); continue; }

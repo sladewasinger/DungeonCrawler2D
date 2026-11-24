@@ -96,9 +96,24 @@ function prebakePortraitLayer(id: string, img: HTMLImageElement, meta: PlayerRig
   if (typeof document === "undefined") return;
   const fw = meta.frameWidth;
   const fh = meta.frameHeight;
+  const cell = resolvePortraitCell(meta);
   const { canvas, ctx } = createPixelCanvas(fw, fh);
-  ctx.drawImage(img, meta.portraitCol * fw, meta.portraitRow * fh, fw, fh, 0, 0, fw, fh);
+  ctx.drawImage(img, cell.col * fw, cell.row * fh, fw, fh, 0, 0, fw, fh);
   portraitLayerCanvases.set(id, canvas);
+}
+
+export interface PortraitCellCoord {
+  readonly row: number;
+  readonly col: number;
+}
+
+export function resolvePortraitCell(
+  meta: Pick<PlayerRigMeta, "clips" | "directions" | "portraitRow" | "portraitCol">,
+): PortraitCellCoord {
+  const idleClip = meta.clips.idle;
+  const seIdx = meta.directions.indexOf("se");
+  if (idleClip && seIdx >= 0) return { row: idleClip.startRow + seIdx, col: 0 };
+  return { row: meta.portraitRow, col: meta.portraitCol };
 }
 
 function loadSingleLayer(id: string, metaOverride?: PlayerRigMeta): Promise<HTMLImageElement | null> {
