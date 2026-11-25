@@ -149,6 +149,12 @@ export class GoreDecalManager {
 
   stepFootprints(actors: readonly FootprintActor[], cache?: TileSampler): void {
     for (const a of actors) this.updateActorTrack(a, cache);
+    if (this.footTracks.size > actors.length + 8) {
+      const liveIds = new Set(actors.map((a) => a.id));
+      for (const id of this.footTracks.keys()) {
+        if (!liveIds.has(id)) this.footTracks.delete(id);
+      }
+    }
   }
 
   private updateActorTrack(a: FootprintActor, cache?: TileSampler): void {

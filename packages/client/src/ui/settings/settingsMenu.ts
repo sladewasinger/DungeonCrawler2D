@@ -127,7 +127,8 @@ export class SettingsMenu {
   private buildVideoSection() {
     const sec = makeSection("Video & Graphics");
     const qualityChoice = makeChoiceRow({
-      label: "Quality", choices: QUALITY_CHOICES, activeId: this.cb.initialQuality, onSelect: (id) => this.cb.onSetQuality(id),
+      label: "Quality", choices: QUALITY_CHOICES, activeId: this.prefs.quality,
+      onSelect: (id) => { this.updatePrefs({ quality: id }); this.cb.onSetQuality(id); },
     });
     const goreChoice = makeChoiceRow({
       label: "Gore", choices: GORE_CHOICES, activeId: loadGoreLevel(),

@@ -14,13 +14,14 @@ import { HudRoot } from "./ui/hud/hudRoot.js";
 import type { HudActions } from "./ui/hud/slotRenderer.js";
 import { runBootPreloadFlow } from "./ui/loading/bootPreloader.js";
 import { CombatFeedbackOverlay } from "./ui/overlays/combatFeedbackOverlay.js";
+import { ConnectionStatusOverlay } from "./ui/overlays/connectionOverlay.js";
 import { SettingsMenu } from "./ui/settings/settingsMenu.js";
 import { isLocalDebugOrigin, type SettingsPrefs } from "./ui/settings/settingsPrefs.js";
 import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
-  readonly scene: WorldScene; readonly client: WorldClient; readonly input: InputController;
-  readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot; readonly feedback: CombatFeedbackOverlay;
+  readonly scene: WorldScene; readonly client: WorldClient; readonly input: InputController; readonly toolbar: AtmosphereToolbar;
+  readonly hud: HudRoot; readonly feedback: CombatFeedbackOverlay; readonly connOverlay: ConnectionStatusOverlay;
   readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly velTracker: EntityVelocityTracker; readonly titleScreen: TitleScreen;
 }
 
@@ -35,13 +36,10 @@ function resolveMouseAim(ctx: AppCtx & { readonly nowMs: number }): { readonly x
   return mag > 0.05 ? { x: dx / mag, y: dy / mag } : undefined;
 }
 
-function hasPlayerCombatPose(local?: PlayerSnapshot): boolean {
-  return Boolean(local && ((local.swingProgress ?? 0) > 0 || (local.heavyCharge ?? 0) > 0 || (local.bowCharge ?? 0) > 0.001));
-}
-
-function wantsCombatAim(combat: CombatInputsFrame, local?: PlayerSnapshot): boolean {
-  return combat.attack || combat.attackHold || combat.bowDraw || combat.bowRelease || hasPlayerCombatPose(local);
-}
+const hasPlayerCombatPose = (local?: PlayerSnapshot): boolean =>
+  Boolean(local && ((local.swingProgress ?? 0) > 0 || (local.heavyCharge ?? 0) > 0 || (local.bowCharge ?? 0) > 0.001));
+const wantsCombatAim = (combat: CombatInputsFrame, local?: PlayerSnapshot): boolean =>
+  combat.attack || combat.attackHold || combat.bowDraw || combat.bowRelease || hasPlayerCombatPose(local);
 
 function resolveTouchMeleeSnap(opts: {
   readonly combat: CombatInputsFrame; readonly move: { readonly x: number; readonly y: number };
@@ -51,6 +49,13 @@ function resolveTouchMeleeSnap(opts: {
   if (!local || !combat.attack || local.heldItem === "bow" || !isTouchViewport()) return undefined;
   const facing = Math.hypot(move.x, move.y) > 0.05 ? move : { x: local.facingX, y: local.facingY };
   return resolveMobileMeleeAutoAim({ local, entities, facing });
+}
+
+function resolveDesktopAim(opts: {
+  readonly ctx: AppCtx & { readonly nowMs: number }; readonly combat: CombatInputsFrame;
+  readonly move: { readonly x: number; readonly y: number }; readonly local?: PlayerSnapshot | undefined;
+}) {
+  return Math.hypot(opts.move.x, opts.move.y) <= 0.05 || wantsCombatAim(opts.combat, opts.local) ? resolveMouseAim(opts.ctx) : undefined;
 }
 
 function resolveAimForTick(opts: {
@@ -65,8 +70,7 @@ function resolveAimForTick(opts: {
       : opts.combat.mobileAim;
   }
   const snap = autoOn ? resolveTouchMeleeSnap(opts) : undefined;
-  if (snap) return snap;
-  return Math.hypot(opts.move.x, opts.move.y) <= 0.05 || wantsCombatAim(opts.combat, opts.local) ? resolveMouseAim(opts.ctx) : undefined;
+  return isTouchViewport() ? snap : resolveDesktopAim(opts);
 }
 
 function syncUiAndAudio(opts: {
@@ -90,11 +94,15 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   ctx.toolbar.tickFps(ctx.nowMs);
   const pre = ctx.client.snapshot();
   if (ctx.titleScreen.isOpen()) {
+    ctx.connOverlay.sync({ visible: false, mode: pre.mode });
     ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
     const idle = ctx.client.snapshot();
     ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idle.dayPhase, cache: idle.cache, players: idle.players, localPlayerId: idle.localPlayerId });
     return;
   }
+  const connected = pre.mode === "server";
+  ctx.connOverlay.sync({ visible: !connected, mode: pre.mode, attempt: pre.reconnectAttempt });
+  ctx.input.setEnabled(connected);
   ctx.velTracker.update(pre.entities, ctx.nowMs);
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
   ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, hasShield: pre.inventory.armor.offhand === "wooden-shield" });
@@ -145,6 +153,7 @@ function tryTapWorldInteract(opts: { readonly clientX: number; readonly clientY:
 
 function applySettingsPrefs(opts: { readonly prefs: SettingsPrefs; readonly toolbar: AtmosphereToolbar; readonly scene: WorldScene; readonly onCrouchMode?: ((mode: "toggle" | "hold") => void) | undefined }): void {
   opts.toolbar.setFpsVisible(opts.prefs.showFps); opts.toolbar.setPingVisible(opts.prefs.showPing);
+  if (opts.scene.qualityPreset() !== opts.prefs.quality) opts.scene.setQualityPreset(opts.prefs.quality);
   opts.scene.setShowHitboxes(opts.prefs.showHitboxes && isLocalDebugOrigin()); opts.onCrouchMode?.(opts.prefs.crouchMode);
 }
 
@@ -197,6 +206,10 @@ function mountUiControllers(opts: {
   const { host, scene, client, audio, onReturnToTitle } = opts;
   const hud = new HudRoot(host, buildHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
   const feedback = new CombatFeedbackOverlay(host);
+  const connOverlay = new ConnectionStatusOverlay(host, {
+    onReconnectNow: () => client.reconnectNow(),
+    onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
+  });
   const onInteractWorld = (lootId?: string) => handleWorldInteract({ client, hud, audio, lootId });
   const settingsRef: { current: SettingsMenu | null } = { current: null };
   let inputRef: InputController | null = null;
@@ -210,7 +223,7 @@ function mountUiControllers(opts: {
   settingsRef.current = settings;
   const input = createInputHooks({ host, scene, client, hud, audio, settings, onInteractWorld, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
   inputRef = input; input.setCrouchMode(settings.currentPrefs().crouchMode);
-  return { hud, feedback, input, toolbar, settings, onInteractWorld };
+  return { hud, feedback, connOverlay, input, toolbar, settings, onInteractWorld };
 }
 
 async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise<AppCtx> {

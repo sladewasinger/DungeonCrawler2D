@@ -55,13 +55,19 @@ function sendTestInputs(ws) {
   }
 }
 
+function resolveWsUrl(siteUrl, explicitWsUrl) {
+  const override = (explicitWsUrl || process.env.GAME_WS_URL || "").trim();
+  return override || buildWsUrl(siteUrl);
+}
+
 async function main() {
   const siteUrl = process.argv[2];
-  if (!siteUrl) throw new Error("Usage: node tools/smoke-production.mjs <siteUrl>");
+  if (!siteUrl) throw new Error("Usage: node tools/smoke-production.mjs <siteUrl> [wsUrl]");
+  const wsUrl = resolveWsUrl(siteUrl, process.argv[3]);
   const protocolVersion = readProtocolVersion();
   await checkHtml(siteUrl);
-  await verifySocket(buildWsUrl(siteUrl), protocolVersion);
-  console.log(`[smoke] PASS: ${siteUrl} (protocol v${protocolVersion})`);
+  await verifySocket(wsUrl, protocolVersion);
+  console.log(`[smoke] PASS: ${siteUrl} -> ${wsUrl} (protocol v${protocolVersion})`);
 }
 
 main().catch((err) => {

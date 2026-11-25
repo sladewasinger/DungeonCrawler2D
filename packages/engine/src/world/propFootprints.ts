@@ -1,5 +1,5 @@
 /** Ground-footprint center offsets and collision shapes for props and world structures. */
-import { PropKind, type ChunkProp } from "./types.js";
+import { PropKind, type ChunkProp, type WorldChunk } from "./types.js";
 
 export interface BlockingObstacle {
   readonly id: string;
@@ -188,4 +188,19 @@ export function pushPropObstacles(prop: ChunkProp, out: BlockingObstacle[]): voi
   }
   const center = propFootprintCenter(prop);
   out.push({ id: prop.id, x: center.x, y: center.y, radius: prop.radius, elevation: prop.elevation });
+}
+
+const CHUNK_OBSTACLE_CACHE = new WeakMap<WorldChunk, readonly BlockingObstacle[]>();
+
+export function buildChunkObstacles(chunk: WorldChunk): readonly BlockingObstacle[] {
+  const cached = CHUNK_OBSTACLE_CACHE.get(chunk);
+  if (cached) return cached;
+  const out: BlockingObstacle[] = [];
+  for (const prop of chunk.props) pushPropObstacles(prop, out);
+  const s = POI_CHEST_OBSTACLE_SHAPE;
+  for (const poi of chunk.pois) {
+    out.push({ id: `${poi.id}:chest`, x: poi.chestX, y: poi.chestY + s.offsetY, radius: s.radius, halfX: s.halfX, halfY: s.halfY, elevation: poi.elevation });
+  }
+  CHUNK_OBSTACLE_CACHE.set(chunk, out);
+  return out;
 }

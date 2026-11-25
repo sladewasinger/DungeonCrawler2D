@@ -140,7 +140,13 @@ export class AtmosphereToolbar {
     readonly mode: ConnectionMode; readonly dayPhase: number; readonly dayPaused: boolean; readonly quality: QualityPresetId;
   }): void {
     this.dot.dataset.mode = state.mode;
-    this.modeLabel.textContent = state.mode === "server" ? "Server" : state.mode === "local" ? "Local" : "Sync";
+    this.modeLabel.textContent = state.mode === "server"
+      ? "Server"
+      : state.mode === "reconnecting"
+        ? "Reconnecting"
+        : state.mode === "connecting"
+          ? "Connecting"
+          : "Offline";
     this.timeLabel.textContent = `· ${periodForPhase(state.dayPhase)}`;
     this.qualityBtn.textContent = `FX: ${QUALITY_PRESETS[state.quality].label}`;
     this.slider.value = state.dayPhase.toFixed(2);

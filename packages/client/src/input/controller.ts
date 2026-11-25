@@ -1,38 +1,16 @@
-/** Touch joystick + combat buttons, swipe-to-roll, world tap, desktop WASD, and shortcuts. */
+/** Touch joystick + combat buttons, world tap, desktop WASD, and keyboard shortcuts. */
 import { resolveBlockMode } from "@dc2d/content";
 import { COMBAT_TUNING } from "@dc2d/engine";
 import {
   HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, isEditingText, isGuardedBrowserCombo,
-  isUiTarget, nextCrouchState,
+  isUiTarget, nextCrouchState, type CombatInputsFrame, type InputCallbacks,
 } from "./inputHelpers.js";
+import {
+  activeInputMode, isTouchInputActive, setActiveInputMode, shouldSwitchToDesktopOnMouseMove, syncInputModeFromPointerDown,
+} from "./inputMode.js";
 import { MobileCombatControls } from "./mobileCombatControls.js";
 
-export interface InputCallbacks {
-  readonly onToggleTorch: () => void;
-  readonly onZoom: (factor: number) => void;
-  readonly onSelectHotbar: (slot: number) => void;
-  readonly onToggleInventory: () => void;
-  readonly onToggleCharacter: () => void;
-  readonly onToggleMap?: () => void;
-  readonly onInteract?: () => void;
-  readonly onDropItem?: () => void;
-  readonly onWorldTap?: (clientX: number, clientY: number) => void;
-  readonly onClosePanels: () => void;
-}
-
-export interface CombatInputsFrame {
-  readonly attack: boolean;
-  readonly attackHold: boolean;
-  readonly bowDraw: boolean;
-  readonly bowRelease: boolean;
-  readonly block: boolean;
-  readonly dodge: boolean;
-  readonly dodgeDir: { readonly x: number; readonly y: number } | undefined;
-  readonly crouch: boolean;
-  readonly throwPebble: boolean;
-  readonly interact: boolean;
-  readonly mobileAim: { readonly x: number; readonly y: number } | undefined;
-}
+export type { CombatInputsFrame, InputCallbacks } from "./inputHelpers.js";
 
 export class InputController {
   private readonly keys = new Set<string>();
@@ -40,7 +18,9 @@ export class InputController {
   private origin = { x: 0, y: 0 };
   private touchVector = { x: 0, y: 0 };
   private mouseClient: { x: number; y: number } | null = null;
+  private lastMouseMove: { x: number; y: number } | null = null;
   private mouseMovedAtMs = 0;
+  private lastTouchAtMs = -1000;
   private touchStartMs = 0;
   private touchMaxDist = 0;
   private jumpQueued = false;
@@ -74,6 +54,7 @@ export class InputController {
     });
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
+    activeInputMode();
   }
 
   setCrouchMode(mode: "toggle" | "hold"): void { this.crouchMode = mode; }
@@ -82,7 +63,11 @@ export class InputController {
     this.canBlock = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null) !== "none";
     this.mobileCombat.setGear(gear);
   }
-  setEnabled(enabled: boolean): void { this.enabled = enabled; if (!enabled) this.resetHeldInputs(); }
+  setEnabled(enabled: boolean): void {
+    if (this.enabled === enabled) return;
+    this.enabled = enabled;
+    if (!enabled) this.resetHeldInputs();
+  }
   queueInteract(): void { this.interactQueued = true; }
   consumeJump(): boolean { const fired = this.jumpQueued; this.jumpQueued = false; return fired; }
 
@@ -117,7 +102,8 @@ export class InputController {
   }
 
   mouseAim(nowMs: number): { readonly x: number; readonly y: number; readonly recent: boolean } | null {
-    return this.mouseClient ? { x: this.mouseClient.x, y: this.mouseClient.y, recent: nowMs - this.mouseMovedAtMs < 1500 } : null;
+    if (isTouchInputActive() || !this.mouseClient) return null;
+    return { x: this.mouseClient.x, y: this.mouseClient.y, recent: nowMs - this.mouseMovedAtMs < 1500 };
   }
 
   private clearQueuedCombat(): void {
@@ -133,6 +119,7 @@ export class InputController {
       const editing = isEditingText(e.target);
       if (this.enabled && isGuardedBrowserCombo(e, editing)) e.preventDefault();
       if (!this.enabled || editing) { if (this.enabled && e.code === "Escape") (e.target as HTMLElement).blur(); return; }
+      setActiveInputMode("desktop");
       this.keys.add(e.code);
       if (!e.repeat) this.handleShortcut(e, callbacks);
     });
@@ -145,6 +132,8 @@ export class InputController {
 
   private resetHeldInputs(): void {
     this.keys.clear(); this.leftMouseDown = false; this.rightMouseDown = false;
+    this.pointerId = null; this.touchVector = { x: 0, y: 0 }; this.stickEl.style.display = "none";
+    this.mobileCombat.resetHeldInputs();
     this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "blur"));
   }
 
@@ -175,6 +164,7 @@ export class InputController {
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
+    window.addEventListener("pointerdown", (e) => this.handleWindowPointerDown(e), { passive: true });
     host.addEventListener("wheel", (e) => { if (!this.enabled) return; e.preventDefault(); callbacks.onZoom(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
     host.addEventListener("contextmenu", (e) => { if (this.enabled && !isUiTarget(e.target)) e.preventDefault(); });
     host.addEventListener("pointerdown", (e) => { if (!this.enabled) return; this.startTouch(e); this.onMouseDown(e); });
@@ -183,8 +173,17 @@ export class InputController {
     host.addEventListener("pointercancel", (e) => { this.endTouch(e, false); this.onMouseUp(e); });
   }
 
+  private handleWindowPointerDown(e: PointerEvent): void {
+    const now = performance.now();
+    syncInputModeFromPointerDown(e.pointerType, now - this.lastTouchAtMs);
+    if (e.pointerType !== "touch") return;
+    this.lastTouchAtMs = now;
+    this.mouseClient = null;
+    this.lastMouseMove = null;
+  }
+
   private onMouseDown(e: PointerEvent): void {
-    if (e.pointerType !== "mouse" || isUiTarget(e.target)) return;
+    if (e.pointerType !== "mouse" || isUiTarget(e.target) || performance.now() - this.lastTouchAtMs <= 500) return;
     this.mouseClient = { x: e.clientX, y: e.clientY };
     this.mouseMovedAtMs = performance.now();
     if (e.button === 0) { this.leftMouseDown = true; if (!this.isBowHeld) this.attackQueued = true; }
@@ -199,6 +198,14 @@ export class InputController {
 
   private trackMouseAim(e: PointerEvent): void {
     if (e.pointerType !== "mouse" || (e.target as HTMLElement | null)?.closest(".ow-modal")) return;
+    const msSinceTouch = performance.now() - this.lastTouchAtMs;
+    if (msSinceTouch <= 500) return;
+    if (isTouchInputActive()) {
+      const prev = this.lastMouseMove;
+      this.lastMouseMove = { x: e.clientX, y: e.clientY };
+      if (!prev || !shouldSwitchToDesktopOnMouseMove({ dx: e.clientX - prev.x, dy: e.clientY - prev.y, msSinceTouch })) return;
+      setActiveInputMode("desktop");
+    }
     this.mouseClient = { x: e.clientX, y: e.clientY };
     this.mouseMovedAtMs = performance.now();
   }
@@ -244,13 +251,8 @@ export class InputController {
 
   private resolveTouchGesture(e: PointerEvent): void {
     const elapsed = performance.now() - this.touchStartMs;
-    const dx = e.clientX - this.origin.x;
-    const dy = e.clientY - this.origin.y;
-    const dist = Math.hypot(dx, dy);
-    if (this.touchMaxDist < 14 && elapsed < 260) { this.callbacks.onWorldTap?.(e.clientX, e.clientY); return; }
-    if (this.origin.x <= window.innerWidth * 0.58 && dist >= 34 && elapsed <= 260) {
-      this.dodgeQueued = true;
-      this.dodgeDir = { x: dx / dist, y: dy / dist };
+    if (this.touchMaxDist < 14 && elapsed < 260) {
+      this.callbacks.onWorldTap?.(e.clientX, e.clientY);
     }
   }
 }

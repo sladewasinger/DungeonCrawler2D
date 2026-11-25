@@ -27,9 +27,8 @@ export class WorldEcology {
   private activePlayers: readonly CombatPlayerCandidate[] = [];
   private nextId = 1;
 
-  constructor(private readonly cache: WorldChunkCache) {
-    this.loot = new LootManager(cache);
-  }
+  constructor(private readonly cache: WorldChunkCache) { this.loot = new LootManager(cache); }
+  removePlayer(playerId: string): void { this.scent.removePlayer(playerId); }
 
   ensureAroundPlayers(players: readonly CombatPlayerCandidate[]): void {
     for (const p of players) {

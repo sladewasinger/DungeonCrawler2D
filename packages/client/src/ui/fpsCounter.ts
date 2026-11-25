@@ -66,10 +66,22 @@ export class PingCounter {
   }
 
   sync(mode: ConnectionMode, pingMs: number | null | undefined): void {
-    if (mode === "local") {
-      this.el.textContent = "Local";
-      delete this.el.dataset.tier;
-      this.el.title = "Offline local preview";
+    if (mode === "reconnecting") {
+      this.el.textContent = "Reconnecting...";
+      this.el.dataset.tier = "low";
+      this.el.title = "Connection lost — reconnecting to server";
+      return;
+    }
+    if (mode === "connecting") {
+      this.el.textContent = "Connecting...";
+      this.el.dataset.tier = "warn";
+      this.el.title = "Connecting to server";
+      return;
+    }
+    if (mode !== "server") {
+      this.el.textContent = "Offline";
+      this.el.dataset.tier = "warn";
+      this.el.title = "Not connected to server";
       return;
     }
     if (pingMs === null || pingMs === undefined) {

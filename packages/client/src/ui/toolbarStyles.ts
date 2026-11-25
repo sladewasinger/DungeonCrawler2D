@@ -54,6 +54,7 @@ const TOOLBAR_CSS = `
 }
 .ow-dot[data-mode="server"] { background: #22c55e; }
 .ow-dot[data-mode="connecting"] { background: #f59e0b; }
+.ow-dot[data-mode="reconnecting"] { background: #ef4444; }
 .ow-drawer {
   pointer-events: auto;
   display: none;
@@ -181,8 +182,16 @@ const TOOLBAR_CSS = `
 .ow-fps-pill[data-tier="good"] { color: #4ade80; border-color: rgba(74, 222, 128, 0.35); }
 .ow-fps-pill[data-tier="warn"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.45); }
 .ow-fps-pill[data-tier="low"] { color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
-@media (hover: none), (pointer: coarse), (max-width: 900px) {
+:root[data-input-mode="touch"] .ow-combat-cluster {
+  display: flex;
+}
+@media (hover: none), (pointer: coarse) {
   .ow-combat-cluster { display: flex; }
+}
+@media (max-width: 1180px) {
+  .ow-combat-cluster {
+    bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px));
+  }
 }
 `;
 

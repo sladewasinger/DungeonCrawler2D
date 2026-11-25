@@ -5,7 +5,7 @@ import { playSavedStudioPreset } from "./studioOverrides.js";
 import { synthWeaponSwingByArchetype } from "./weapons/synthWeaponSfx.js";
 import { EXTENDED_SIMPLE_CUES } from "./weapons/synthCombatCues.js";
 import {
-  applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer, playProceduralTracks,
+  applyTrackEnvelope, connectWithPan, detachAudioNodesOnEnded, getColoredNoiseBuffer, playProceduralTracks,
   type NoiseColor, type ProceduralTrackSpec,
 } from "./proceduralSynth.js";
 
@@ -78,7 +78,8 @@ export function playNoiseBurst(opts: NoiseBurstOpts): void {
     attackSec: Math.min(0.014, duration * 0.2), holdSec: opts.holdSec ?? 0, durationSec: duration,
   });
   src.connect(filter).connect(g);
-  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  const panner = connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  detachAudioNodesOnEnded(src, panner ? [src, filter, g, panner] : [src, filter, g]);
   src.start(now, Math.random() * 0.4, duration + 0.02);
 }
 
@@ -99,7 +100,8 @@ export function playSweptNoise(opts: SweptNoiseOpts): void {
     attackSec: opts.attackSec, holdSec: opts.holdSec ?? 0, durationSec: duration,
   });
   src.connect(filter).connect(g);
-  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  const panner = connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  detachAudioNodesOnEnded(src, panner ? [src, filter, g, panner] : [src, filter, g]);
   src.start(now, Math.random() * 0.5, duration + 0.03);
 }
 
@@ -116,7 +118,8 @@ export function playTone(opts: ToneOpts): void {
     attackSec: Math.min(0.012, duration * 0.25), holdSec: opts.holdSec ?? 0, durationSec: duration,
   });
   osc.connect(g);
-  connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  const panner = connectWithPan({ ctx, src: g, dst, pan: opts.pan });
+  detachAudioNodesOnEnded(osc, panner ? [osc, g, panner] : [osc, g]);
   osc.start(now);
   osc.stop(now + duration + 0.02);
 }

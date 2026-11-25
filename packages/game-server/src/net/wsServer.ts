@@ -7,6 +7,7 @@ import {
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
 import { attemptAdminAuth, resolveAdminAuthConfig, type AdminAuthConfig } from "./adminAuth.js";
+import { filterSnapshotForPlayer, inventorySignature } from "./snapshotFilter.js";
 
 export interface RunningGameServer {
   readonly port: number;
@@ -45,21 +46,34 @@ interface TickBroadcastData {
   readonly deltaRev: number;
 }
 
-export interface ClientSession { readonly playerId: string; sentDeltaRev: number; alive: boolean; isAdmin: boolean; failedAuthAttempts: number; readonly cleanup: () => void }
+export interface ClientSession {
+  readonly playerId: string;
+  sentDeltaRev: number;
+  lastInvSig: string;
+  alive: boolean;
+  isAdmin: boolean;
+  failedAuthAttempts: number;
+  readonly cleanup: () => void;
+}
 
 function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
 }): ServerMessage {
   const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
   if (sendDeltas) input.session.sentDeltaRev = input.data.deltaRev;
+  const inv = input.sim.inventorySnapshot(input.session.playerId);
+  const invSig = inventorySignature(inv);
+  const sendInv = inv !== undefined && invSig !== input.session.lastInvSig;
+  if (sendInv) input.session.lastInvSig = invSig;
+  const view = filterSnapshotForPlayer({ data: input.data, playerId: input.session.playerId });
   return {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
-    actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: input.data.players,
-    selfInventory: input.sim.inventorySnapshot(input.session.playerId),
+    actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: view.players,
+    ...(sendInv ? { selfInventory: inv } : {}),
     ...(input.session.isAdmin ? { selfAdmin: true } : {}),
-    projectiles: input.data.projectiles, entities: input.data.entities,
-    chests: input.data.chests, groundLoot: input.data.groundLoot, events: input.data.events,
-    ...(input.data.webs ? { webs: input.data.webs } : {}),
+    projectiles: view.projectiles, entities: view.entities,
+    chests: view.chests, groundLoot: view.groundLoot, events: view.events,
+    ...(view.webs ? { webs: view.webs } : {}),
     ...(sendDeltas ? { worldDeltas: input.data.worldDeltas } : {}),
   };
 }
@@ -179,7 +193,10 @@ export async function startGameServer(
   const httpServer = createServer(handleHealthRequest);
   const wss = new WebSocketServer({ server: httpServer });
   const clients = new Map<WebSocket, ClientSession>();
-  wss.on("connection", (ws) => attachClient({ ws, sim, clients, authConfig }));
+  wss.on("connection", (ws, req) => {
+    req.socket?.setNoDelay?.(true);
+    attachClient({ ws, sim, clients, authConfig });
+  });
   const timer = setInterval(() => { sim.step(1 / TICK_RATE); broadcastTickSnapshots({ clients, sim }); }, 1000 / TICK_RATE);
   const heartbeat = setInterval(() => sweepDeadClients(clients), 5000);
   await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
@@ -204,7 +221,7 @@ export function attachClient(ctx: { readonly ws: WebSocket; readonly sim: WorldS
     ctx.clients.delete(ctx.ws);
     ctx.sim.removePlayer(playerId);
   };
-  const session: ClientSession = { playerId, sentDeltaRev: -1, alive: true, isAdmin: ctx.authConfig.allowOpenDevAdmin, failedAuthAttempts: 0, cleanup };
+  const session: ClientSession = { playerId, sentDeltaRev: -1, lastInvSig: "", alive: true, isAdmin: ctx.authConfig.allowOpenDevAdmin, failedAuthAttempts: 0, cleanup };
   ctx.clients.set(ctx.ws, session);
   sendJson(ctx.ws, { t: "welcome", playerId, worldSeed: ctx.sim.worldSeed, dayPhase: ctx.sim.dayPhase, dayPaused: ctx.sim.dayPaused, tickRate: TICK_RATE });
   ctx.ws.on("pong", () => { session.alive = true; });

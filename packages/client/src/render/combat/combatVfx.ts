@@ -8,7 +8,7 @@ import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { MELEE_SWING_TUNING, type SmearSpec } from "./combatVisualTuning.js";
 import { drawUnifiedArrowGraphic } from "./lootViewHelpers.js";
 import { resolveFeedbackEventCue } from "./weapons/combatFeedbackSpecs.js";
-import { drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
+import { drawImpactClash, drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
 
 type SlashSpec = SmearSpec;
 
@@ -18,6 +18,7 @@ interface SlashEffect {
   ttl: number;
   readonly baseAngle: number;
   readonly spec: SlashSpec | null;
+  readonly burst?: { readonly color: number; readonly radius: number } | undefined;
   readonly actorId: string | undefined;
   readonly motion: AttackMotionKind;
   readonly archetype: WeaponArchetype;
@@ -44,12 +45,8 @@ function drawWebOrbGraphic(g: Graphics): void {
   g.moveTo(-5, 0).lineTo(2, -2).moveTo(-5, 1.5).lineTo(2, 2).stroke({ color: 0xf1f5f9, width: 1.0, alpha: 0.75 });
 }
 
-function drawBurst(opts: { readonly g: Graphics; readonly color: number; readonly radius: number; readonly rays: number }): void {
-  for (let i = 0; i < opts.rays; i++) {
-    const a = (i / opts.rays) * Math.PI * 2;
-    opts.g.moveTo(Math.cos(a) * 2, Math.sin(a) * 2).lineTo(Math.cos(a) * opts.radius, Math.sin(a) * opts.radius);
-  }
-  opts.g.stroke({ color: opts.color, width: 1.5, alpha: 0.95 });
+function resolveBurstAngle(ev: WorldEvent, fallback: number): number {
+  return ev.dirX !== undefined || ev.dirY !== undefined ? Math.atan2(ev.dirY ?? 0, ev.dirX ?? 1) : fallback;
 }
 
 export class CombatVfxLayer {
@@ -94,7 +91,7 @@ export class CombatVfxLayer {
     this.applyEventHitstop(ev, localId, cue.hitstopSec);
     if (cue.style === "popup") return this.spawnPopup({ x: ev.x, y: ev.y + (cue.textOffsetY ?? -1), label: cue.text, color: cue.color });
     if (cue.style === "ring") return this.spawnRingPulse({ x: ev.x, y: ev.y, color: cue.color, radius: cue.radius ?? 12, text: cue.text });
-    this.spawnBurst({ x: ev.x, y: ev.y, color: cue.color, radius: cue.radius ?? 10, text: cue.text, textOffsetY: cue.textOffsetY });
+    this.spawnBurst({ x: ev.x, y: ev.y, angle: resolveBurstAngle(ev, -Math.PI * 0.42), color: cue.color, radius: cue.radius ?? 10, text: cue.text, textOffsetY: cue.textOffsetY });
   }
 
   private spawnRingPulse(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string }): void {
@@ -138,7 +135,7 @@ export class CombatVfxLayer {
   }
 
   private handleParryEvent(ev: WorldEvent, localId: string): void {
-    this.spawnBurst({ x: ev.x, y: ev.y, color: 0xfacc15, radius: 13, text: "PARRY!" });
+    this.spawnBurst({ x: ev.x, y: ev.y, angle: resolveBurstAngle(ev, -Math.PI * 0.35), color: 0xfacc15, radius: 13, text: "PARRY!" });
     this.applyEventHitstop(ev, localId, ev.hitstopSec ?? MELEE_SWING_TUNING.hitstopParrySec);
   }
 
@@ -155,12 +152,14 @@ export class CombatVfxLayer {
     this.slashes.push(effect);
   }
 
-  private spawnBurst(opts: { readonly x: number; readonly y: number; readonly color: number; readonly radius: number; readonly text: string; readonly textOffsetY?: number | undefined }): void {
+  private spawnBurst(opts: { readonly x: number; readonly y: number; readonly angle?: number | undefined; readonly color: number; readonly radius: number; readonly text: string; readonly textOffsetY?: number | undefined }): void {
     const g = new Graphics();
-    drawBurst({ g, color: opts.color, radius: opts.radius, rays: 8 });
+    const baseAngle = opts.angle ?? -Math.PI * 0.42;
+    const burst = { color: opts.color, radius: opts.radius };
+    drawImpactClash({ g, u: 0.08, baseAngle, ...burst });
     g.position.set(opts.x * TILE_PX, opts.y * TILE_PX - 10);
     this.container.addChild(g);
-    this.slashes.push({ g, age: 0, ttl: 0.22, baseAngle: 0, spec: null, actorId: undefined, motion: "slash", archetype: "sword" });
+    this.slashes.push({ g, age: 0, ttl: 0.24, baseAngle, spec: null, burst, actorId: undefined, motion: "slash", archetype: "sword" });
     if (opts.text) this.spawnPopup({ x: opts.x, y: opts.y + (opts.textOffsetY ?? -1.1), label: opts.text, color: opts.color });
   }
 
@@ -180,14 +179,19 @@ export class CombatVfxLayer {
     this.popups.push({ text, age: 0, ttl: 0.65, vy: -18 });
   }
 
+  private stepSingleSlash(s: SlashEffect, players: readonly PlayerSnapshot[], dt: number): boolean {
+    s.age += dt;
+    if (s.age >= s.ttl) { s.g.destroy(); return false; }
+    const actor = s.actorId ? players.find((p) => p.id === s.actorId) : undefined;
+    if (actor) s.g.position.set(actor.x * TILE_PX, actor.y * TILE_PX - actor.elevation * ELEVATION_LIFT_PX - 10);
+    if (s.burst) drawImpactClash({ g: s.g, u: s.age / s.ttl, baseAngle: s.baseAngle, ...s.burst });
+    else drawWeaponSmear({ g: s.g, u: s.age / s.ttl, baseAngle: s.baseAngle, spec: s.spec, motion: s.motion, archetype: s.archetype });
+    return true;
+  }
+
   private stepSlashes(dt: number, players: readonly PlayerSnapshot[]): void {
     for (let i = this.slashes.length - 1; i >= 0; i--) {
-      const s = this.slashes[i]!;
-      s.age += dt;
-      if (s.age >= s.ttl) { s.g.destroy(); this.slashes.splice(i, 1); continue; }
-      const actor = s.actorId ? players.find((p) => p.id === s.actorId) : undefined;
-      if (actor) s.g.position.set(actor.x * TILE_PX, actor.y * TILE_PX - actor.elevation * ELEVATION_LIFT_PX - 10);
-      drawWeaponSmear({ g: s.g, u: s.age / s.ttl, baseAngle: s.baseAngle, spec: s.spec, motion: s.motion, archetype: s.archetype });
+      if (!this.stepSingleSlash(this.slashes[i]!, players, dt)) this.slashes.splice(i, 1);
     }
   }
 
@@ -195,7 +199,7 @@ export class CombatVfxLayer {
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const p = this.popups[i]!;
       p.age += dt;
-      if (p.age >= p.ttl) { p.text.destroy(); this.popups.splice(i, 1); continue; }
+      if (p.age >= p.ttl) { p.text.destroy(true); this.popups.splice(i, 1); continue; }
       p.text.position.y += p.vy * dt;
       p.text.alpha = Math.min(1, (1 - p.age / p.ttl) * 1.4);
     }

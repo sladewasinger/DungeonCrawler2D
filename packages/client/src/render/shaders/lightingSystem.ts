@@ -41,7 +41,9 @@ export class LightingSystem {
       width: Math.max(64, Math.round(width * 0.5)),
       height: Math.max(64, Math.round(height * 0.5)),
       dynamic: true,
+      resolution: 1,
       scaleMode: "linear",
+      addressMode: "clamp-to-edge",
     });
     this.glowTex = createRadialLightTexture();
     this.uniforms = new UniformGroup({

@@ -12,7 +12,6 @@ export interface FeedbackCueSpec {
 
 const STATIC_CUES: Partial<Record<WorldEvent["kind"], FeedbackCueSpec>> = {
   block: { style: "burst", color: 0x93c5fd, radius: 9, text: "BLOCK" },
-  dodge: { style: "burst", color: 0xcbd5e1, radius: 7, text: "" },
   arrowRicochet: { style: "burst", color: 0xfde047, radius: 7, text: "" },
   wolfHowl: { style: "ring", color: 0x7dd3fc, radius: 18, text: "" },
   bearBluff: { style: "ring", color: 0xf97316, radius: 17, text: "ROAR!" },

@@ -171,9 +171,23 @@ export function animateChunkPropsAndFoliage(input: {
   readonly chunk: MountedChunk;
   readonly players: readonly PlayerSnapshot[];
   readonly propsAtlas: PropTextureSet;
+  readonly viewBounds?: { readonly minX: number; readonly maxX: number; readonly minY: number; readonly maxY: number } | undefined;
   readonly timeSec: number;
 }): void {
+  const vb = input.viewBounds;
   for (const anim of input.chunk.animatedProps) animateFireSprite(anim, input.propsAtlas, input.timeSec);
-  for (const canopy of input.chunk.canopySprites) updateCanopyAlpha(canopy, input.players);
-  for (const grass of input.chunk.grassSprites) updateGrassRustle(grass, input.players, input.timeSec);
+  for (const canopy of input.chunk.canopySprites) {
+    if (!vb || inView({ x: canopy.wx, y: canopy.wy, b: vb, pad: 3 })) updateCanopyAlpha(canopy, input.players);
+  }
+  for (const grass of input.chunk.grassSprites) {
+    if (!vb || inView({ x: grass.wx, y: grass.wy, b: vb, pad: 1.5 })) updateGrassRustle(grass, input.players, input.timeSec);
+  }
+}
+
+function inView(q: {
+  readonly x: number; readonly y: number;
+  readonly b: { readonly minX: number; readonly maxX: number; readonly minY: number; readonly maxY: number };
+  readonly pad: number;
+}): boolean {
+  return q.x >= q.b.minX - q.pad && q.x <= q.b.maxX + q.pad && q.y >= q.b.minY - q.pad && q.y <= q.b.maxY + q.pad;
 }

@@ -1,0 +1,42 @@
+# Fly.io deployment config for @dc2d/game-server in Dallas (dfw).
+# Rename `app` if "dungeoncrawler2d-server" is already taken in your Fly.io org.
+app = "dungeoncrawler2d-server"
+primary_region = "dfw"
+kill_signal = "SIGTERM"
+kill_timeout = "10s"
+
+[build]
+  dockerfile = "packages/game-server/Dockerfile"
+
+[deploy]
+  strategy = "immediate"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  GAME_HOST = "0.0.0.0"
+  WORLD_SAVE_PATH = "/data/world-save.json"
+
+[mounts]
+  source = "world_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "1gb"

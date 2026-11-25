@@ -1,5 +1,6 @@
 /** Atomic debounced JSON world persistence for depleted nodes, placed camp structures, chests, and players. */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CharacterAppearance, DepletedPropDelta, PlacedStructureRecord, PlayerInventoryState } from "@dc2d/engine";
 import type { SavedBedBinding } from "./campStructures.js";
@@ -47,6 +48,8 @@ function sanitizeLoadedWorld(data: Partial<PersistedWorldFile>, expectedSeed: nu
 
 export class WorldPersistenceStore {
   private dirty = false;
+  private dirtyRev = 0;
+  private flushInFlight = false;
   private lastFlushMs = 0;
 
   constructor(private readonly filePath?: string | undefined) {}
@@ -57,6 +60,7 @@ export class WorldPersistenceStore {
 
   markDirty(): void {
     this.dirty = true;
+    this.dirtyRev += 1;
   }
 
   load(expectedSeed: number): PersistedWorldFile | null {
@@ -80,7 +84,26 @@ export class WorldPersistenceStore {
   }
 
   maybeFlush(nowMs: number, buildSnapshot: () => PersistedWorldFile): void {
-    if (!this.filePath || !this.dirty || nowMs - this.lastFlushMs < 10_000) return;
-    this.saveNow(buildSnapshot());
+    if (!this.filePath || !this.dirty || this.flushInFlight || nowMs - this.lastFlushMs < 10_000) return;
+    const targetPath = this.filePath;
+    const revAtStart = this.dirtyRev;
+    const payload = JSON.stringify(buildSnapshot());
+    this.flushInFlight = true;
+    this.lastFlushMs = nowMs;
+    void this.writeAsync(targetPath, payload, revAtStart);
+  }
+
+  private async writeAsync(targetPath: string, payload: string, revAtStart: number): Promise<void> {
+    try {
+      await mkdir(dirname(targetPath), { recursive: true });
+      const tmpPath = `${targetPath}.tmp`;
+      await writeFile(tmpPath, payload, "utf8");
+      await rename(tmpPath, targetPath);
+      if (this.dirtyRev === revAtStart) this.dirty = false;
+    } catch {
+      // Leave dirty flag intact so next interval retries async persistence.
+    } finally {
+      this.flushInFlight = false;
+    }
   }
 }

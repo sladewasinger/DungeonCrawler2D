@@ -93,6 +93,16 @@ export class MobileCombatControls {
     this.sneakBtn.dataset.active = String(next);
   }
 
+  resetHeldInputs(): void {
+    this.atkPointerId = null;
+    this.atkDragAim = undefined;
+    this.atkBtn.dataset.active = "false";
+    this.attackQueued = false;
+    this.bowReleaseQueued = false;
+    this.dodgeQueued = false;
+    this.setBlockHeld(false);
+  }
+
   setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
     this.heldItem = gear.heldItem;
     this.isBowHeld = gear.heldItem === "bow";

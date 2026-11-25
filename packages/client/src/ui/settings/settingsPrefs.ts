@@ -1,4 +1,5 @@
-/** Persistent client preferences for FPS/ping overlays, camera zoom, mobile auto-aim, and debug hitboxes. */
+/** Persistent client preferences for FPS/ping overlays, camera zoom, mobile auto-aim, quality, and hitboxes. */
+import type { QualityPresetId } from "@dc2d/content";
 import { BASE_CAMERA_ZOOM, sanitizeCameraZoom } from "./cameraZoom.js";
 
 export interface SettingsPrefs {
@@ -8,6 +9,7 @@ export interface SettingsPrefs {
   readonly autoAim: boolean;
   readonly showHitboxes: boolean;
   readonly crouchMode: "toggle" | "hold";
+  readonly quality: QualityPresetId;
 }
 
 const STORAGE_KEY = "dc2d_settings_prefs_v1";
@@ -23,11 +25,20 @@ function isCoarseMobileDefault(): boolean {
   );
 }
 
+export function defaultQualityPreset(): QualityPresetId {
+  return isCoarseMobileDefault() ? "balanced" : "high";
+}
+
+function sanitizeQuality(raw: unknown, fallback: QualityPresetId): QualityPresetId {
+  return raw === "high" || raw === "balanced" || raw === "performance" ? raw : fallback;
+}
+
 export function loadSettingsPrefs(): SettingsPrefs {
   const defaultMetric = !isCoarseMobileDefault();
+  const defQuality = defaultQualityPreset();
   const defaults: SettingsPrefs = {
     showFps: defaultMetric, showPing: defaultMetric, cameraZoom: BASE_CAMERA_ZOOM,
-    autoAim: true, showHitboxes: false, crouchMode: "toggle",
+    autoAim: true, showHitboxes: false, crouchMode: "toggle", quality: defQuality,
   };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -40,6 +51,7 @@ export function loadSettingsPrefs(): SettingsPrefs {
       autoAim: typeof parsed.autoAim === "boolean" ? parsed.autoAim : true,
       showHitboxes: typeof parsed.showHitboxes === "boolean" ? parsed.showHitboxes : false,
       crouchMode: parsed.crouchMode === "hold" ? "hold" : "toggle",
+      quality: sanitizeQuality(parsed.quality, defQuality),
     };
   } catch {
     return defaults;

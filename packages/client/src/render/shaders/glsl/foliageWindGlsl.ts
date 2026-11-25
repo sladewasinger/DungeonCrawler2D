@@ -1,6 +1,7 @@
 /** WebGL2 GLSL fragment shader for coherent world-space foliage wind gusts. */
 
 export const FOLIAGE_WIND_FRAGMENT_GLSL = /* glsl */ `#version 300 es
+precision highp float;
 in vec2 vTextureCoord;
 out vec4 finalColor;
 

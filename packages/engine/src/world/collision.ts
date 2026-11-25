@@ -3,42 +3,42 @@ import { generateChunk } from "./chunkGenerator.js";
 import { forEachFootTile, resolveDestElevation } from "./jumpPhysics.js";
 import { WorldDeltaOverlay, type DepletedPropDelta, type WorldDeltaSnapshot } from "../survival/worldDeltas.js";
 import type { PlacedStructureRecord } from "../survival/campBuilding.js";
-import { POI_CHEST_OBSTACLE_SHAPE, closestObstacleCorePoint, pushPropObstacles, type BlockingObstacle } from "./propFootprints.js";
-import {
-  GroundKind, chunkKey, worldTileIndex, worldToChunkCoord, worldToLocalCoord,
-  type ChunkPoi, type ChunkProp, type WorldChunk,
-} from "./types.js";
+import { POI_CHEST_OBSTACLE_SHAPE, buildChunkObstacles, closestObstacleCorePoint, pushPropObstacles, type BlockingObstacle } from "./propFootprints.js";
+import { GroundKind, chunkKey, worldTileIndex, worldToChunkCoord, worldToLocalCoord, type ChunkPoi, type ChunkProp, type WorldChunk } from "./types.js";
 
 export type { BlockingObstacle };
 
-export interface TileLookup {
-  readonly ground: GroundKind;
-  readonly elevation: number;
-  readonly stairs: boolean;
-}
+export interface TileLookup { readonly ground: GroundKind; readonly elevation: number; readonly stairs: boolean; }
 
 export class WorldChunkCache {
   private static readonly maxCachedChunks = 96;
   private readonly chunks = new Map<string, WorldChunk>();
   private readonly deltaOverlay = new WorldDeltaOverlay();
+  private lastChunkKey: string | null = null;
+  private lastChunk: WorldChunk | null = null;
 
   constructor(readonly worldSeed: number) {}
 
   getChunk(cx: number, cy: number): WorldChunk {
     const key = chunkKey(cx, cy);
+    if (key === this.lastChunkKey && this.lastChunk) return this.lastChunk;
     const existing = this.chunks.get(key);
     if (existing) {
-      this.chunks.delete(key);
-      this.chunks.set(key, existing);
+      this.chunks.delete(key); this.chunks.set(key, existing);
+      this.lastChunkKey = key; this.lastChunk = existing;
       return existing;
     }
     const generated = this.deltaOverlay.applyChunkDeltas(generateChunk(this.worldSeed, cx, cy));
     this.chunks.set(key, generated);
-    if (this.chunks.size > WorldChunkCache.maxCachedChunks) {
-      const oldestKey = this.chunks.keys().next().value;
-      if (oldestKey !== undefined) this.chunks.delete(oldestKey);
-    }
+    if (this.chunks.size > WorldChunkCache.maxCachedChunks) this.deleteCachedChunk(this.chunks.keys().next().value);
+    this.lastChunkKey = key; this.lastChunk = generated;
     return generated;
+  }
+
+  private deleteCachedChunk(key: string | null | undefined): void {
+    if (!key) return;
+    this.chunks.delete(key);
+    if (this.lastChunkKey === key) { this.lastChunkKey = null; this.lastChunk = null; }
   }
 
   tileAt(wx: number, wy: number): TileLookup {
@@ -74,6 +74,9 @@ export class WorldChunkCache {
   }
 
   blockingObstaclesNear(wx: number, wy: number): readonly BlockingObstacle[] {
+    if (this.propsNear === WorldChunkCache.prototype.propsNear && this.poisNear === WorldChunkCache.prototype.poisNear) {
+      return this.collectNear(wx, wy, buildChunkObstacles);
+    }
     const out: BlockingObstacle[] = [];
     for (const prop of this.propsNear(wx, wy)) pushPropObstacles(prop, out);
     const s = POI_CHEST_OBSTACLE_SHAPE;
@@ -90,49 +93,28 @@ export class WorldChunkCache {
   deltaRevision(): number { return this.deltaOverlay.revision; }
   chunkRevision(cx: number, cy: number): number { return this.deltaOverlay.chunkRevision(cx, cy); }
   worldDeltaSnapshot(): WorldDeltaSnapshot { return this.deltaOverlay.toSnapshot(); }
-  setDepletedProp(delta: DepletedPropDelta): void { const k = this.deltaOverlay.setDepletedProp(delta); if (k) this.chunks.delete(k); }
-  restoreProp(propId: string): void { const k = this.deltaOverlay.restoreProp(propId); if (k) this.chunks.delete(k); }
-  addPlacedStructure(rec: PlacedStructureRecord): void { this.chunks.delete(this.deltaOverlay.addStructure(rec)); }
-  removePlacedStructure(id: string): void { const k = this.deltaOverlay.removeStructure(id); if (k) this.chunks.delete(k); }
-  applyWorldDeltaSnapshot(snap: WorldDeltaSnapshot): void { for (const k of this.deltaOverlay.replaceFromSnapshot(snap)) this.chunks.delete(k); }
+  setDepletedProp(delta: DepletedPropDelta): void { this.deleteCachedChunk(this.deltaOverlay.setDepletedProp(delta)); }
+  restoreProp(propId: string): void { this.deleteCachedChunk(this.deltaOverlay.restoreProp(propId)); }
+  addPlacedStructure(rec: PlacedStructureRecord): void { this.deleteCachedChunk(this.deltaOverlay.addStructure(rec)); }
+  removePlacedStructure(id: string): void { this.deleteCachedChunk(this.deltaOverlay.removeStructure(id)); }
+  applyWorldDeltaSnapshot(snap: WorldDeltaSnapshot): void { for (const k of this.deltaOverlay.replaceFromSnapshot(snap)) this.deleteCachedChunk(k); }
 }
 
 export interface MovementQuery {
-  readonly cache: WorldChunkCache;
-  readonly x: number;
-  readonly y: number;
-  readonly dx: number;
-  readonly dy: number;
-  readonly radius: number;
-  readonly footHalfX?: number | undefined;
-  readonly footSegX?: number | undefined;
-  readonly footSegY?: number | undefined;
-  readonly elevation: number;
-  readonly airborne?: boolean | undefined;
-  readonly jumpZ?: number | undefined;
+  readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly dx: number; readonly dy: number; readonly radius: number;
+  readonly footHalfX?: number | undefined; readonly footSegX?: number | undefined; readonly footSegY?: number | undefined;
+  readonly elevation: number; readonly airborne?: boolean | undefined; readonly jumpZ?: number | undefined;
 }
 
 export interface MovementResult {
-  readonly x: number;
-  readonly y: number;
-  readonly elevation: number;
-  readonly elevationDrop: number;
-  readonly speedMultiplier: number;
-  readonly inWater: boolean;
-  readonly inDeepWater: boolean;
+  readonly x: number; readonly y: number; readonly elevation: number; readonly elevationDrop: number;
+  readonly speedMultiplier: number; readonly inWater: boolean; readonly inDeepWater: boolean;
 }
 
 interface StandCheck {
-  readonly cache: WorldChunkCache;
-  readonly x: number;
-  readonly y: number;
-  readonly radius: number;
-  readonly footSegX?: number | undefined;
-  readonly footSegY?: number | undefined;
-  readonly fromElevation: number;
-  readonly onStairs: boolean;
-  readonly airborne: boolean;
-  readonly canClimbUp: boolean;
+  readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly radius: number;
+  readonly footSegX?: number | undefined; readonly footSegY?: number | undefined;
+  readonly fromElevation: number; readonly onStairs: boolean; readonly airborne: boolean; readonly canClimbUp: boolean;
 }
 
 function tilePassable(check: StandCheck, tile: TileLookup): boolean {
@@ -251,7 +233,10 @@ export function resolveMovement(query: MovementQuery): MovementResult {
   const airborne = Boolean(query.airborne);
   const onStairs = cache.tileAt(Math.floor(query.x), Math.floor(query.y)).stairs;
   const checkBase = { cache, radius, footSegX: segX, footSegY: segY, fromElevation: elevation, onStairs, airborne, canClimbUp: (query.jumpZ ?? 0) >= 0.42 };
-  const obstacles = cache.blockingObstaclesNear(query.x, query.y);
+  const range = Math.hypot(dx, dy) + radius + Math.max(Math.abs(segX), Math.abs(segY)) + 3.5;
+  const obstacles = cache.blockingObstaclesNear(query.x, query.y).filter(
+    (obs) => Math.abs(obs.x - query.x) <= range && Math.abs(obs.y - query.y) <= range,
+  );
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / MAX_SUBSTEP_TILES));
   const delta = { x: dx / steps, y: dy / steps };
   let cur: Point2D = { x: query.x, y: query.y };
