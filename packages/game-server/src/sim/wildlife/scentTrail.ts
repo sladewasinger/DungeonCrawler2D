@@ -134,16 +134,25 @@ export class ScentTrail {
     return created;
   }
 
+  removePlayer(actorId: string): void {
+    this.byPlayer.delete(actorId);
+  }
+
+  private decayPlayerState(state: PlayerScentState, dt: number): boolean {
+    state.moveTimer += dt;
+    state.stillTimer += dt;
+    state.wetWashTimer = Math.max(0, state.wetWashTimer - dt);
+    for (let i = state.crumbs.length - 1; i >= 0; i--) {
+      const c = state.crumbs[i]!;
+      c.ageSec += dt * c.decayRate;
+      if (c.ageSec >= MAX_CRUMB_RETENTION_SEC) state.crumbs.splice(i, 1);
+    }
+    return state.crumbs.length === 0 && state.stillTimer > 30;
+  }
+
   step(dt: number): void {
-    for (const state of this.byPlayer.values()) {
-      state.moveTimer += dt;
-      state.stillTimer += dt;
-      state.wetWashTimer = Math.max(0, state.wetWashTimer - dt);
-      for (let i = state.crumbs.length - 1; i >= 0; i--) {
-        const c = state.crumbs[i]!;
-        c.ageSec += dt * c.decayRate;
-        if (c.ageSec >= MAX_CRUMB_RETENTION_SEC) state.crumbs.splice(i, 1);
-      }
+    for (const [actorId, state] of this.byPlayer) {
+      if (this.decayPlayerState(state, dt)) this.byPlayer.delete(actorId);
     }
   }
 

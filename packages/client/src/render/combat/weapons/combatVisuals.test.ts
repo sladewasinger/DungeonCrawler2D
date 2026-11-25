@@ -64,6 +64,7 @@ describe("Phase 6 & 7 client combat visuals, tracks, crouch modes & heavy predic
     expect(heavySmear.smear.radius).toBe(baseSmear.smear.radius + 3);
     expect(heavySmear.smear.edge).toBe(0xfef08a);
     expect(resolveFeedbackEventCue({ kind: "guardBreak", x: 0, y: 0 })?.text).toBe("GUARD BREAK!");
+    expect(resolveFeedbackEventCue({ kind: "dodge", x: 0, y: 0 })).toBeNull();
     expect(resolveFeedbackEventCue({ kind: "riposte", x: 0, y: 0 })?.text).toBe("RIPOSTE!");
     expect(resolveFeedbackEventCue({ kind: "slamImpact", x: 0, y: 0 })?.style).toBe("ring");
     expect(resolveFeedbackEventCue({ kind: "burnTick", x: 0, y: 0, value: 4 })?.text).toBe("-4");

@@ -38,6 +38,9 @@ export interface SavedChestRecord {
 }
 
 const BANDIT_CAMP_POI = "bandit-camp" as const;
+const MAX_GROUND_LOOT_AGE_SEC = 180;
+const MAX_STUCK_ARROW_AGE_SEC = 120;
+const MAX_GROUND_LOOT_ITEMS = 120;
 
 function populateChestSlots(poiKind: ChunkPoi["kind"]): InventorySlot[] {
   const slots = createEmptyChestSlots();
@@ -92,6 +95,7 @@ export class LootManager {
     readonly vx: number; readonly vy: number; readonly pickupDelaySec?: number | undefined;
     readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
   }): void {
+    while (this.groundLoot.length >= MAX_GROUND_LOOT_ITEMS) this.groundLoot.shift();
     this.groundLoot.push({
       id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count, x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
       elevation: this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation, ageSec: 0,
@@ -204,15 +208,19 @@ export class LootManager {
     return true;
   }
 
+  private stepLootItem(opts: { readonly g: GroundLootItem; readonly players: readonly CombatPlayerRef[]; readonly events: WorldEvent[]; readonly dt: number }): boolean {
+    const { g, players, events, dt } = opts;
+    g.ageSec += dt;
+    const ttl = g.stuck ? MAX_STUCK_ARROW_AGE_SEC : MAX_GROUND_LOOT_AGE_SEC;
+    if (g.ageSec >= ttl) return true;
+    g.x += g.vx * dt; g.y += g.vy * dt;
+    g.vx *= Math.max(0, 1 - dt * 6); g.vy *= Math.max(0, 1 - dt * 6);
+    return !g.manualPickup && g.ageSec >= g.pickupDelaySec && this.pullOrCollectLoot({ g, players, events, dt });
+  }
+
   step(players: readonly CombatPlayerRef[], events: WorldEvent[], dt: number): void {
     for (let i = this.groundLoot.length - 1; i >= 0; i--) {
-      const g = this.groundLoot[i]!;
-      g.ageSec += dt;
-      g.x += g.vx * dt; g.y += g.vy * dt;
-      g.vx *= Math.max(0, 1 - dt * 6); g.vy *= Math.max(0, 1 - dt * 6);
-      if (!g.manualPickup && g.ageSec >= g.pickupDelaySec && this.pullOrCollectLoot({ g, players, events, dt })) {
-        this.groundLoot.splice(i, 1);
-      }
+      if (this.stepLootItem({ g: this.groundLoot[i]!, players, events, dt })) this.groundLoot.splice(i, 1);
     }
   }
 

@@ -69,6 +69,10 @@ export class CombatWorld {
     this.ecology = new WorldEcology(cache);
   }
 
+  removePlayer(playerId: string): void {
+    this.ecology.removePlayer(playerId);
+  }
+
   stepPlayerAction(req: CombatStepRequest): void {
     const { player: p, players, input, dt } = req;
     const playerName = req.playerName ?? p.id;

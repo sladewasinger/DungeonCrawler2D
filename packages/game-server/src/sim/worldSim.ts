@@ -88,6 +88,7 @@ export class WorldSim {
       this.persistence.markDirty();
       this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
     }
+    this.combat.removePlayer(playerId);
     this.players.delete(playerId);
   }
   setPlayerName(playerId: string, name: string): void {

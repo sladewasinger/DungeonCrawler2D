@@ -1,5 +1,6 @@
 /** Mobile auto-aim helpers: 100-degree melee target cone and <=5-degree velocity-lead bow assist. */
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
+import { isTouchInputActive } from "./inputMode.js";
 
 interface TrackedVelocity {
   x: number;
@@ -17,10 +18,7 @@ const BOW_ASSIST_MIN_DIST = 1.0;
 const BOW_ASSIST_MAX_DIST = 15.0;
 
 export function isTouchViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  return Boolean(
-    window.matchMedia?.("(hover: none), (pointer: coarse)")?.matches || (navigator.maxTouchPoints ?? 0) > 0,
-  );
+  return isTouchInputActive();
 }
 
 export class EntityVelocityTracker {

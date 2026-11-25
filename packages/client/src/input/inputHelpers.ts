@@ -1,5 +1,32 @@
 /** Shared keyboard shortcut guards and touch joystick DOM helpers for InputController. */
 
+export interface InputCallbacks {
+  readonly onToggleTorch: () => void;
+  readonly onZoom: (factor: number) => void;
+  readonly onSelectHotbar: (slot: number) => void;
+  readonly onToggleInventory: () => void;
+  readonly onToggleCharacter: () => void;
+  readonly onToggleMap?: () => void;
+  readonly onInteract?: () => void;
+  readonly onDropItem?: () => void;
+  readonly onWorldTap?: (clientX: number, clientY: number) => void;
+  readonly onClosePanels: () => void;
+}
+
+export interface CombatInputsFrame {
+  readonly attack: boolean;
+  readonly attackHold: boolean;
+  readonly bowDraw: boolean;
+  readonly bowRelease: boolean;
+  readonly block: boolean;
+  readonly dodge: boolean;
+  readonly dodgeDir: { readonly x: number; readonly y: number } | undefined;
+  readonly crouch: boolean;
+  readonly throwPebble: boolean;
+  readonly interact: boolean;
+  readonly mobileAim: { readonly x: number; readonly y: number } | undefined;
+}
+
 const GUARDED_BROWSER_COMBOS = new Set([
   "KeyS", "KeyO", "KeyP", "KeyF", "KeyD", "KeyG", "KeyH", "KeyJ", "KeyU", "KeyK", "KeyL", "KeyE", "KeyB", "KeyA",
 ]);

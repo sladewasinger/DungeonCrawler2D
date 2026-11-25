@@ -146,17 +146,26 @@ export function applyTrackEnvelope(opts: {
   opts.gainParam.exponentialRampToValueAtTime(0.0001, opts.now + dur);
 }
 
+export function detachAudioNodesOnEnded(src: AudioScheduledSourceNode, nodes: readonly AudioNode[]): void {
+  src.onended = () => {
+    for (const node of nodes) {
+      try { node.disconnect(); } catch { /* detached */ }
+    }
+  };
+}
+
 export function connectWithPan(opts: {
   readonly ctx: BaseAudioContext; readonly src: AudioNode; readonly dst: AudioNode; readonly pan?: number | undefined;
-}): void {
+}): AudioNode | null {
   const pan = Math.max(-1, Math.min(1, opts.pan ?? 0));
   if (Math.abs(pan) > 0.005 && typeof opts.ctx.createStereoPanner === "function") {
     const panner = opts.ctx.createStereoPanner();
     panner.pan.value = pan;
     opts.src.connect(panner).connect(opts.dst);
-    return;
+    return panner;
   }
   opts.src.connect(opts.dst);
+  return null;
 }
 
 export function activeProceduralTracks(tracks: readonly ProceduralTrackSpec[]): readonly ProceduralTrackSpec[] {
@@ -209,6 +218,22 @@ function makeVoiceHandle(stopNode: (t: number) => void, gainNode: GainNode): Act
   };
 }
 
+function scheduleToneTrack(opts: {
+  readonly ctx: BaseAudioContext; readonly g: GainNode; readonly dst: AudioNode;
+  readonly panner: AudioNode | null; readonly track: ProceduralTrackSpec; readonly win: TrackWindow;
+  readonly now: number; readonly dur: number;
+}): ActiveTrackVoice {
+  const osc = opts.ctx.createOscillator();
+  osc.type = opts.track.wave;
+  osc.frequency.setValueAtTime(Math.max(20, opts.win.f0), opts.now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(20, opts.win.f1), opts.now + Math.max(0.015, opts.win.durationSec));
+  osc.connect(opts.g);
+  detachAudioNodesOnEnded(osc, opts.panner ? [osc, opts.g, opts.panner] : [osc, opts.g]);
+  osc.start(opts.now);
+  osc.stop(opts.now + opts.dur + 0.02);
+  return makeVoiceHandle((t) => osc.stop(t), opts.g);
+}
+
 export function scheduleProceduralTrack(opts: {
   readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: ProceduralTrackSpec;
   readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number | undefined;
@@ -219,17 +244,8 @@ export function scheduleProceduralTrack(opts: {
   const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);
   const g = ctx.createGain();
   applyTrackEnvelope({ gainParam: g.gain, now, peak: track.gain, attackSec: win.attackSec, holdSec: win.holdSec, durationSec: dur });
-  connectWithPan({ ctx, src: g, dst, pan: track.pan });
-  if (track.kind === "tone") {
-    const osc = ctx.createOscillator();
-    osc.type = track.wave;
-    osc.frequency.setValueAtTime(Math.max(20, win.f0), now);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(20, win.f1), now + Math.max(0.015, win.durationSec));
-    osc.connect(g);
-    osc.start(now);
-    osc.stop(now + dur + 0.02);
-    return makeVoiceHandle((t) => osc.stop(t), g);
-  }
+  const panner = connectWithPan({ ctx, src: g, dst, pan: track.pan });
+  if (track.kind === "tone") return scheduleToneTrack({ ctx, g, dst, panner, track, win, now, dur });
   const src = ctx.createBufferSource();
   src.buffer = getColoredNoiseBuffer(ctx, track.noiseColor);
   const filter = ctx.createBiquadFilter();
@@ -240,6 +256,7 @@ export function scheduleProceduralTrack(opts: {
     filter.frequency.exponentialRampToValueAtTime(Math.max(30, win.f1), now + Math.max(0.015, win.durationSec));
   }
   src.connect(filter).connect(g);
+  detachAudioNodesOnEnded(src, panner ? [src, filter, g, panner] : [src, filter, g]);
   src.start(now, Math.random() * 0.4, dur + 0.03);
   return makeVoiceHandle((t) => src.stop(t), g);
 }

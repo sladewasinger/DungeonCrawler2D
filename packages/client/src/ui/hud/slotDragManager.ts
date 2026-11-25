@@ -10,10 +10,17 @@ import { domNode, type HudActions } from "./slotRenderer.js";
 export type { DragSource } from "./drag/slotDropResolver.js";
 
 interface PointerTracker {
-  readonly source: DragSource; readonly startX: number; readonly startY: number; readonly itemId: string; dragging: boolean;
+  readonly pointerId: number;
+  readonly pointerType: string;
+  readonly source: DragSource;
+  readonly startX: number;
+  readonly startY: number;
+  readonly itemId: string;
+  dragging: boolean;
 }
 
 const DRAG_THRESHOLD_PX = 6;
+const TOUCH_DRAG_THRESHOLD_PX = 14;
 const KIND_CHEST = "chest" as const;
 const KIND_INV = "inv" as const;
 const KIND_ARMOR = "armor" as const;
@@ -31,7 +38,7 @@ export class SlotDragManager {
   constructor(private readonly actions: HudActions) {
     window.addEventListener("pointermove", (e) => this.handleMove(e));
     window.addEventListener("pointerup", (e) => this.handleUp(e));
-    window.addEventListener("pointercancel", () => this.cancelDrag());
+    window.addEventListener("pointercancel", (e) => { if (this.tracker && e.pointerId === this.tracker.pointerId) this.cancelDrag(); });
   }
 
   setState(inv: InventorySnapshot, opts: { readonly panelOpen: boolean; readonly chestSlots?: readonly InventorySlot[] | null }): void {
@@ -79,34 +86,41 @@ export class SlotDragManager {
     return true;
   }
 
+  private isBusyOrWrongButton(e: PointerEvent, source: DragSource, itemId: string | null): boolean {
+    if (this.tracker || (e.pointerType === "mouse" && e.button !== 0)) return true;
+    return !itemId && !(source.kind === KIND_SLOT && source.index < HOTBAR_SLOT_COUNT);
+  }
+
   private startPointer(e: PointerEvent, source: DragSource): void {
-    this.lastPointer = { x: e.clientX, y: e.clientY };
-    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.stopPropagation();
+    if (e.pointerType === "mouse") this.lastPointer = { x: e.clientX, y: e.clientY };
     const itemId = this.itemIdFor(source);
-    if (this.tryQuickChestTransfer(e, source, itemId)) return;
-    const isHotbar = source.kind === KIND_SLOT && source.index < HOTBAR_SLOT_COUNT;
-    if (!itemId && !isHotbar) return;
+    if (this.isBusyOrWrongButton(e, source, itemId) || this.tryQuickChestTransfer(e, source, itemId)) return;
     e.preventDefault();
-    this.tracker = { source, startX: e.clientX, startY: e.clientY, itemId: itemId ?? "", dragging: false };
+    this.tracker = { pointerId: e.pointerId, pointerType: e.pointerType, source, startX: e.clientX, startY: e.clientY, itemId: itemId ?? "", dragging: false };
+  }
+
+  private advanceActiveDrag(tracker: PointerTracker, x: number, y: number): void {
+    const threshold = tracker.pointerType === "touch" ? TOUCH_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
+    if (!tracker.dragging && Math.hypot(x - tracker.startX, y - tracker.startY) > threshold) {
+      tracker.dragging = true;
+      this.spawnGhost(tracker.itemId, x, y);
+    }
+    if (this.ghost) {
+      this.ghost.style.left = `${x}px`;
+      this.ghost.style.top = `${y}px`;
+    }
   }
 
   private handleMove(e: PointerEvent): void {
-    this.lastPointer = { x: e.clientX, y: e.clientY };
-    if (!this.tracker || !this.tracker.itemId) return;
-    const dist = Math.hypot(e.clientX - this.tracker.startX, e.clientY - this.tracker.startY);
-    if (!this.tracker.dragging && dist > DRAG_THRESHOLD_PX) {
-      this.tracker.dragging = true;
-      this.spawnGhost(this.tracker.itemId, e.clientX, e.clientY);
-    }
-    if (this.ghost) {
-      this.ghost.style.left = `${e.clientX}px`;
-      this.ghost.style.top = `${e.clientY}px`;
-    }
+    if (e.pointerType === "mouse") this.lastPointer = { x: e.clientX, y: e.clientY };
+    if (!this.tracker || e.pointerId !== this.tracker.pointerId || !this.tracker.itemId) return;
+    this.advanceActiveDrag(this.tracker, e.clientX, e.clientY);
   }
 
   private handleUp(e: PointerEvent): void {
     const tracker = this.tracker;
-    if (!tracker) return;
+    if (!tracker || e.pointerId !== tracker.pointerId) return;
     this.cancelDrag();
     if (tracker.dragging) {
       this.resolveAndDispatchDrop(e.clientX, e.clientY, tracker);

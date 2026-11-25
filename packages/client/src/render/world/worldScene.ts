@@ -5,8 +5,9 @@ import {
   type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
   type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
-import { Application, Container } from "pixi.js";
+import { Application, Container, Rectangle } from "pixi.js";
 import { BASE_CAMERA_ZOOM, sanitizeCameraZoom, stepCameraZoom } from "../../ui/settings/cameraZoom.js";
+import { defaultQualityPreset } from "../../ui/settings/settingsPrefs.js";
 import { CombatVfxLayer } from "../combat/combatVfx.js";
 import { PLAYER_LEAVE_SMOKE_DURATION_SEC } from "../combat/combatVisualTuning.js";
 import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
@@ -60,7 +61,7 @@ export class WorldScene {
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
   private interactHandler: ((lootId?: string) => void) | null = null;
-  private qualityId: QualityPresetId = "high";
+  private qualityId: QualityPresetId = defaultQualityPreset();
   private camX = 0.5;
   private camY = 0.5;
   private shakeMag = 0;
@@ -73,7 +74,7 @@ export class WorldScene {
     ysortCam!.sortableChildren = true;
     this.cameras = [groundCam!, waterCam!, shadowCam!, goreCam!, grassCam!, ysortCam!, canopyCam!, emissiveCam!];
     const [waterHost, grassHost, canopyHost] = [new Container(), new Container(), new Container()];
-    this.filterHosts = [this.sceneRoot, waterHost, grassHost, canopyHost];
+    this.filterHosts = CAMERA_TUNING.grassWindStrength > 0 ? [this.sceneRoot, waterHost, grassHost, canopyHost] : [this.sceneRoot, waterHost, canopyHost];
     waterHost.addChild(waterCam!);
     grassHost.addChild(grassCam!);
     canopyHost.addChild(canopyCam!);
@@ -83,7 +84,7 @@ export class WorldScene {
     this.configureGoreLayers(ysortCam!);
     emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
     waterHost.filters = [this.waterEffect.filter];
-    grassHost.filters = [this.grassWind.filter];
+    if (CAMERA_TUNING.grassWindStrength > 0) grassHost.filters = [this.grassWind.filter];
     canopyHost.filters = [this.canopyWind.filter];
     this.lighting = new LightingSystem(app.screen.width, app.screen.height);
     this.sceneRoot.filters = [this.lighting.filter];
@@ -96,7 +97,7 @@ export class WorldScene {
     reportShaderDiagnostics(app.renderer, [
       { name: "tilemap", glProgram: getTilemapGlProgram() },
       { name: "water", filter: this.waterEffect.filter },
-      { name: "wind", filter: this.grassWind.filter },
+      { name: "wind", filter: this.canopyWind.filter },
       { name: "lighting", filter: this.lighting.filter },
     ]);
   }
@@ -111,9 +112,10 @@ export class WorldScene {
 
   static async mount(host: HTMLElement): Promise<WorldScene> {
     const app = new Application();
+    const initPreset = QUALITY_PRESETS[defaultQualityPreset()];
     await app.init({
       resizeTo: host, preference: "webgl", antialias: false, roundPixels: true, autoStart: false,
-      backgroundColor: 0x0d131a, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true,
+      backgroundColor: 0x0d131a, resolution: Math.min(initPreset.maxDpr, window.devicePixelRatio || 1), autoDensity: true,
     });
     host.appendChild(app.canvas);
     return new WorldScene(app, host);
@@ -151,8 +153,11 @@ export class WorldScene {
     this.followTarget(local, input.dt);
     this.syncCameraContainers();
     this.chunks.syncVisibleChunks(input.cache, { x: this.camX, y: this.camY, radius: preset.chunkRadius });
+    const halfX = (this.app.screen.width * 0.5) / (this.zoom * TILE_PX);
+    const halfY = (this.app.screen.height * 0.5) / (this.zoom * TILE_PX);
+    const viewBounds = { minX: this.camX - halfX, maxX: this.camX + halfX, minY: this.camY - halfY, maxY: this.camY + halfY };
     const { lights, campfires, casters } = this.chunks.syncPlayersAndAtmosphere({
-      cache: input.cache, players: input.players, entities: input.entities ?? [], localPlayerId: input.localPlayerId, timeSec: input.timeSec,
+      cache: input.cache, players: input.players, entities: input.entities ?? [], localPlayerId: input.localPlayerId, viewBounds, timeSec: input.timeSec,
     });
     this.renderEffectsAndLighting({ input, local, simDt, lights, campfires, casters, preset });
     this.app.render();
@@ -231,7 +236,9 @@ export class WorldScene {
     const sh = this.app.screen.height;
     const sx = this.shakeMag > 0 ? Math.sin(this.shakeTime * 71) * this.shakeMag : 0;
     const sy = this.shakeMag > 0 ? Math.cos(this.shakeTime * 59) * this.shakeMag : 0;
-    for (const host of this.filterHosts) host.filterArea = this.app.screen;
+    for (const host of this.filterHosts) {
+      host.filterArea = (host.filterArea ?? new Rectangle()).copyFrom(this.app.screen);
+    }
     for (const cam of this.cameras) {
       cam.position.set(sw * 0.5 + sx, sh * 0.5 + sy);
       cam.pivot.set(this.camX * TILE_PX, this.camY * TILE_PX);
@@ -246,7 +253,9 @@ export class WorldScene {
     const worldOriginX = this.camX * TILE_PX - (this.app.screen.width * 0.5) / this.zoom;
     const worldOriginY = this.camY * TILE_PX - (this.app.screen.height * 0.5) / this.zoom;
     this.waterEffect.update({ timeSec: input.timeSec, enabled: input.preset.waterShader, worldOriginX, worldOriginY, zoom: this.zoom, dayNight: input.dayNight });
-    this.grassWind.update({ timeSec: input.timeSec, windStrength: input.preset.windShader ? CAMERA_TUNING.grassWindStrength : 0, worldOriginX, worldOriginY, zoom: this.zoom });
+    if (CAMERA_TUNING.grassWindStrength > 0) {
+      this.grassWind.update({ timeSec: input.timeSec, windStrength: input.preset.windShader ? CAMERA_TUNING.grassWindStrength : 0, worldOriginX, worldOriginY, zoom: this.zoom });
+    }
     this.canopyWind.update({ timeSec: input.timeSec, windStrength: input.preset.windShader ? CAMERA_TUNING.canopyWindStrength : 0, worldOriginX, worldOriginY, zoom: this.zoom });
   }
 }

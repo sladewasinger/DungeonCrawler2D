@@ -1,5 +1,6 @@
 import { WorldChunkCache } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import { INITIAL_INPUT_SEND_STATE, nextReconnectDelayMs, shouldSendInputFrame } from "./worldClientHelpers.js";
 import { createDefaultPlayer, predictLocalPlayerMove, reconcilePredictedPlayer } from "./worldPrediction.js";
 
 describe("worldPrediction", () => {
@@ -79,5 +80,22 @@ describe("worldPrediction", () => {
     const released = predictLocalPlayerMove({ cache, player: bowWalkSprintHeld, nx: 1, ny: 0, dt: 0.05, bowDraw: false });
     expect(released.bowCharge).toBe(0);
     expect(released.sprinting).toBe(true);
+  });
+
+  it("caps reconnect backoff delays and throttles steady-state idle/move input frames without delaying discrete actions", () => {
+    expect(nextReconnectDelayMs(0)).toBe(1000);
+    expect(nextReconnectDelayMs(2)).toBe(2500);
+    expect(nextReconnectDelayMs(99)).toBe(5000);
+
+    const t0 = shouldSendInputFrame({ prev: INITIAL_INPUT_SEND_STATE, nowMs: 1000, moveDir: { x: 0, y: 0 }, normAim: undefined, input: { move: { x: 0, y: 0 }, dt: 0.016 } });
+    expect(t0.send).toBe(true);
+    const idleDup = shouldSendInputFrame({ prev: t0.next, nowMs: 1050, moveDir: { x: 0, y: 0 }, normAim: undefined, input: { move: { x: 0, y: 0 }, dt: 0.016 } });
+    expect(idleDup.send).toBe(false);
+    const idleBeat = shouldSendInputFrame({ prev: t0.next, nowMs: 1210, moveDir: { x: 0, y: 0 }, normAim: undefined, input: { move: { x: 0, y: 0 }, dt: 0.016 } });
+    expect(idleBeat.send).toBe(true);
+    const moveStart = shouldSendInputFrame({ prev: idleBeat.next, nowMs: 1226, moveDir: { x: 1, y: 0 }, normAim: undefined, input: { move: { x: 1, y: 0 }, dt: 0.016 } });
+    expect(moveStart.send).toBe(true);
+    const atkEdge = shouldSendInputFrame({ prev: moveStart.next, nowMs: 1230, moveDir: { x: 1, y: 0 }, normAim: undefined, input: { move: { x: 1, y: 0 }, dt: 0.016, attack: true } });
+    expect(atkEdge.send).toBe(true);
   });
 });

@@ -108,29 +108,92 @@ function drawThrustLance(opts: WeaponSmearDrawOpts & { readonly spec: SmearSpec 
   }
 }
 
+export interface ImpactClashOpts {
+  readonly g: Graphics;
+  readonly u: number;
+  readonly baseAngle: number;
+  readonly color: number;
+  readonly radius: number;
+}
+
+const CHIP_TRAJECTORIES: readonly (readonly [number, number, number])[] = [
+  [-0.95, -0.85, 1.05],
+  [0.85, -0.78, 0.92],
+  [-0.38, -1.15, 0.8],
+  [0.42, -0.96, 1.15],
+];
+
+function drawImpactSparks(opts: {
+  readonly g: Graphics; readonly cx: number; readonly cy: number;
+  readonly radius: number; readonly u: number; readonly color: number; readonly fade: number;
+}): void {
+  const { g, cx, cy, radius, u, color, fade } = opts;
+  const dist = radius * (0.25 + u * 0.9);
+  for (const [dx, dy, mult] of CHIP_TRAJECTORIES) {
+    const px = cx + dx * dist * mult;
+    const py = cy + dy * dist * 0.55 * mult;
+    const sz = 1.1 + (1 - u) * 1.1;
+    g.rect(px - sz * 0.5, py - sz * 0.5, sz, sz).fill({ color, alpha: 0.92 * fade });
+  }
+}
+
 function drawOverheadSlam(opts: WeaponSmearDrawOpts & { readonly spec: SmearSpec }): void {
   const { g, u, baseAngle, spec } = opts;
   g.clear();
   const cx = Math.cos(baseAngle);
   const cy = Math.sin(baseAngle);
   const slamT = Math.min(1, Math.max(0, (u - 0.24) / 0.42));
-  if (u < 0.74 && slamT > 0.02) {
+  if (u < 0.72 && slamT > 0.02) {
     const startY = -18 + slamT * 10;
-    const endY = startY + 13;
-    g.moveTo(cx * 12, startY).lineTo(cx * 15, endY + cy * 8)
+    g.moveTo(cx * 11, startY).lineTo(cx * 15, startY + 13 + cy * 8)
       .stroke({ color: spec.edge, width: 3.0, alpha: (1 - u) * 0.9 });
   }
-  if (u < 0.5) return;
-  const ringT = (u - 0.5) / 0.5;
+  if (u < 0.48) return;
+  const ringT = (u - 0.48) / 0.52;
   const fade = 1 - ringT;
   const ix = cx * 15;
   const iy = cy * 11 + 2;
-  g.ellipse(ix, iy, 4 + ringT * 11, 2.2 + ringT * 5.5).stroke({ color: spec.edge, width: 1.8, alpha: 0.9 * fade });
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + 0.3;
-    g.moveTo(ix + Math.cos(a) * 3, iy + Math.sin(a) * 1.5).lineTo(ix + Math.cos(a) * (4 + ringT * 9), iy + Math.sin(a) * (2 + ringT * 4.5));
+  const flash = Math.max(0, 1 - ringT * 2.2);
+  if (flash > 0.05) {
+    g.poly([ix, iy - 4, ix + 5, iy, ix, iy + 3, ix - 5, iy], true).fill({ color: 0xffffff, alpha: flash * 0.9 });
   }
-  g.stroke({ color: spec.fill, width: 1.4, alpha: 0.8 * fade });
+  const rx = 5 + ringT * 10;
+  const ry = 2.6 + ringT * 4.5;
+  g.moveTo(ix - rx, iy).bezierCurveTo(ix - rx * 0.45, iy + ry, ix + rx * 0.45, iy + ry, ix + rx, iy)
+    .stroke({ color: spec.edge, width: 2.0, alpha: 0.88 * fade });
+  g.moveTo(ix - 4, iy - 1).lineTo(ix, iy + 2.5).lineTo(ix + 4.5, iy - 1.5)
+    .stroke({ color: spec.fill, width: 1.5, alpha: 0.85 * fade });
+  drawImpactSparks({ g, cx: ix, cy: iy, radius: 11, u: ringT, color: spec.edge, fade });
+}
+
+const CLASH_SPARKS: readonly (readonly [number, number])[] = [
+  [-0.58, 1.05],
+  [0.14, 1.2],
+  [0.64, 0.9],
+];
+
+export function drawImpactClash(opts: ImpactClashOpts): void {
+  const { g, u, baseAngle, color, radius } = opts;
+  g.clear();
+  const fade = Math.max(0, 1 - u * u);
+  const starR = radius * (0.48 + 0.25 * (1 - u));
+  const cos = Math.cos(baseAngle);
+  const sin = Math.sin(baseAngle);
+  const cross = starR * 0.55;
+  g.moveTo(-cos * starR, -sin * starR).lineTo(cos * starR, sin * starR)
+    .moveTo(-sin * cross, cos * cross).lineTo(sin * cross, -cos * cross)
+    .stroke({ color: 0xffffff, width: 1.8 * (1 - u * 0.5), alpha: fade * 0.95 });
+  const arcR = radius * (0.5 + u * 0.72);
+  g.moveTo(Math.cos(baseAngle - 0.82) * arcR, Math.sin(baseAngle - 0.82) * arcR)
+    .arc(0, 0, arcR, baseAngle - 0.82, baseAngle + 0.82)
+    .stroke({ color, width: 2.0, alpha: fade * 0.9 });
+  for (const [angOff, lenScale] of CLASH_SPARKS) {
+    const a = baseAngle + angOff;
+    const inner = radius * (0.25 + u * 0.55) * lenScale;
+    const outer = radius * (0.62 + u * 0.78) * lenScale;
+    g.moveTo(Math.cos(a) * inner, Math.sin(a) * inner).lineTo(Math.cos(a) * outer, Math.sin(a) * outer)
+      .stroke({ color, width: 1.5, alpha: fade * 0.9 });
+  }
 }
 
 function drawPunchImpact(opts: WeaponSmearDrawOpts & { readonly spec: SmearSpec }): void {

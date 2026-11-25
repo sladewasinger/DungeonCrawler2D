@@ -20,6 +20,7 @@ env:
   FRONTEND_BUCKET: dungeoncrawl2d.austinwasinger.com
   CLOUDFRONT_DISTRIBUTION_ID: E253TI6NRUSHMS
   SITE_URL: https://dungeoncrawl2d.austinwasinger.com
+  FLY_GAME_WS_URL: wss://ws.dungeoncrawl2d.austinwasinger.com/ws
 
 jobs:
   deploy:
@@ -38,14 +39,28 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npm run build
+      - name: Build packages
+        env:
+          VITE_GAME_WS_URL: ${{ vars.VITE_GAME_WS_URL || (secrets.FLY_API_TOKEN != '' && env.FLY_GAME_WS_URL) || '' }}
+        run: npm run build
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Set up Fly CLI
+        if: ${{ secrets.FLY_API_TOKEN != '' }}
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy game server to Fly.io
+        if: ${{ secrets.FLY_API_TOKEN != '' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only
+
       - name: Resolve production instance
+        if: ${{ secrets.FLY_API_TOKEN == '' }}
         id: production
         shell: bash
         run: |
@@ -61,6 +76,7 @@ jobs:
           echo "instance_id=$instance_id" >> "$GITHUB_OUTPUT"
 
       - name: Publish server bundle
+        if: ${{ secrets.FLY_API_TOKEN == '' }}
         run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
 
       - name: Publish client
@@ -87,6 +103,7 @@ jobs:
           fi
 
       - name: Restart game server on published bundle
+        if: ${{ secrets.FLY_API_TOKEN == '' }}
         shell: bash
         env:
           INSTANCE_ID: ${{ steps.production.outputs.instance_id }}
@@ -119,4 +136,6 @@ jobs:
             --id "$invalidation_id"
 
       - name: Smoke-test both game modes
+        env:
+          GAME_WS_URL: ${{ vars.VITE_GAME_WS_URL || (secrets.FLY_API_TOKEN != '' && env.FLY_GAME_WS_URL) || '' }}
         run: node tools/smoke-production.mjs "$SITE_URL"

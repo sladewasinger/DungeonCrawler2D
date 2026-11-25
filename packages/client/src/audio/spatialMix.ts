@@ -37,6 +37,18 @@ export function computeSpatialMix(offset: { readonly dx: number; readonly dy: nu
   return { audible: true, distance, gain: Math.pow(1 - t, SPATIAL_AUDIO_DEFAULTS.exponent), pan };
 }
 
+function scheduleBusCleanup(nodes: readonly AudioNode[], delayMs = 3200): void {
+  if (typeof globalThis.setTimeout !== "function") return;
+  const timer = globalThis.setTimeout(() => {
+    for (const n of nodes) {
+      try { n.disconnect(); } catch { /* detached */ }
+    }
+  }, delayMs);
+  if (typeof timer === "object" && timer !== null && "unref" in timer) {
+    (timer as { unref?: () => void }).unref?.();
+  }
+}
+
 export function createSpatialBus(opts: {
   readonly ctx: AudioContext;
   readonly dst: AudioNode;
@@ -45,9 +57,13 @@ export function createSpatialBus(opts: {
   const gain = opts.ctx.createGain();
   gain.gain.value = clamp(opts.mix.gain, 0, 1);
   gain.connect(opts.dst);
-  if (typeof opts.ctx.createStereoPanner !== "function") return gain;
+  if (typeof opts.ctx.createStereoPanner !== "function") {
+    scheduleBusCleanup([gain]);
+    return gain;
+  }
   const panner = opts.ctx.createStereoPanner();
   panner.pan.value = opts.mix.pan;
   panner.connect(gain);
+  scheduleBusCleanup([panner, gain]);
   return panner;
 }

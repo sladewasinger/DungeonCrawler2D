@@ -1,4 +1,5 @@
 /** Mobile-first auto-fullscreen on initial touch gesture and manual fullscreen toggle. */
+import { isCoarsePrimaryDevice } from "../input/inputMode.js";
 
 let manualExit = false;
 
@@ -11,11 +12,7 @@ export function isFullscreenActive(): boolean {
 }
 
 export function isCoarsePointerDevice(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(pointer: coarse)").matches
-    || window.matchMedia("(hover: none)").matches
-    || navigator.maxTouchPoints > 0
-    || "ontouchstart" in window;
+  return isCoarsePrimaryDevice();
 }
 
 export async function toggleFullscreen(): Promise<void> {

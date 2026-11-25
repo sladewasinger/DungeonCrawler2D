@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
-import { EntityVelocityTracker, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim } from "./autoAim.js";
+import { EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim } from "./autoAim.js";
+import { setActiveInputMode, shouldSwitchToDesktopOnMouseMove } from "./inputMode.js";
 
 function makePlayer(): PlayerSnapshot {
   return {
@@ -39,5 +40,15 @@ describe("mobile auto-aim", () => {
     const farOff = resolveMobileBowAutoAim({ aim: { x: 0, y: 1 }, local, entities: [makeMob("m1", 8, 0.45)], tracker, arrowSpeed: 16 });
     expect(farOff.x).toBeCloseTo(0, 4);
     expect(farOff.y).toBeCloseTo(1, 4);
+  });
+
+  it("tracks dynamic touch vs desktop mode for hybrid devices", () => {
+    setActiveInputMode("touch");
+    expect(isTouchViewport()).toBe(true);
+    expect(shouldSwitchToDesktopOnMouseMove({ dx: 20, dy: 0, msSinceTouch: 200 })).toBe(false);
+    expect(shouldSwitchToDesktopOnMouseMove({ dx: 3, dy: 2, msSinceTouch: 800 })).toBe(false);
+    expect(shouldSwitchToDesktopOnMouseMove({ dx: 8, dy: 0, msSinceTouch: 800 })).toBe(true);
+    setActiveInputMode("desktop");
+    expect(isTouchViewport()).toBe(false);
   });
 });

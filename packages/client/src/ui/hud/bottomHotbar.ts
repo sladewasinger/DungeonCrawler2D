@@ -27,6 +27,7 @@ export class BottomHotbar {
   private readonly slotItemKeys: string[] = Array.from({ length: HOTBAR_SLOT_COUNT }, () => "");
   private lastFingerprint = "";
   private lastTorchLit: boolean | null = null;
+  private lastTouchTorchMs = -1000;
 
   constructor(host: HTMLElement, drag: SlotDragManager, onToggleTorch: () => void) {
     this.el = domNode("div", "ow-hotbar");
@@ -45,8 +46,17 @@ export class BottomHotbar {
     this.lanternBtn.type = TAG_BTN;
     this.lanternBtn.setAttribute(ATTR_ARIA_LABEL, "Toggle lantern (F)");
     this.lanternBtn.innerHTML = `<span class="ow-slot-key">F</span>${createLanternIconSvg()}`;
-    this.lanternBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
-    this.lanternBtn.addEventListener("click", (e) => { e.stopPropagation(); onToggleTorch(); });
+    this.lanternBtn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      if (e.pointerType !== "touch") return;
+      e.preventDefault();
+      this.lastTouchTorchMs = performance.now();
+      onToggleTorch();
+    });
+    this.lanternBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (performance.now() - this.lastTouchTorchMs >= 400) onToggleTorch();
+    });
     this.el.append(this.lanternBtn);
     host.append(this.el);
   }

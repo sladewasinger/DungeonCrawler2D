@@ -139,8 +139,16 @@ describe("collision", () => {
     expect(deepRes.x).toBeGreaterThan(5.5);
   });
 
-  it("caps WorldChunkCache with LRU eviction during far exploration", () => {
+  it("caps WorldChunkCache with LRU eviction during far exploration and invalidates cached obstacles on deltas", () => {
     const cache = new WorldChunkCache(1337);
+    const firstChunk = cache.getChunk(0, 0);
+    expect(cache.getChunk(0, 0)).toBe(firstChunk);
+    const structId = "struct-test";
+    expect(cache.blockingObstaclesNear(5.5, 5.5).some((o) => o.id === structId)).toBe(false);
+    cache.addPlacedStructure({ id: structId, kind: "palisade", itemId: "palisade", x: 5.5, y: 5.5, elevation: 0, ownerName: "Scout" });
+    expect(cache.blockingObstaclesNear(5.5, 5.5).some((o) => o.id === structId)).toBe(true);
+    cache.removePlacedStructure(structId);
+    expect(cache.blockingObstaclesNear(5.5, 5.5).some((o) => o.id === structId)).toBe(false);
     for (let cx = 0; cx < 110; cx++) cache.getChunk(cx, 0);
     expect(cache.size()).toBeLessThanOrEqual(96);
     expect(cache.size()).toBe(96);

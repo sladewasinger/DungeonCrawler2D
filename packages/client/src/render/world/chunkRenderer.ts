@@ -14,6 +14,38 @@ import { ELEVATION_LIFT_PX, bakeElevatedChunkRows, playerVisualElevation } from 
 import { PlayerView } from "./playerSprite.js";
 import { buildChunkTilemapMeshes } from "./tileBuilder.js";
 
+export interface TileBounds {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+function overlapsBounds(q: { readonly x: number; readonly y: number; readonly b: TileBounds; readonly pad: number }): boolean {
+  return q.x >= q.b.minX - q.pad && q.x <= q.b.maxX + q.pad && q.y >= q.b.minY - q.pad && q.y <= q.b.maxY + q.pad;
+}
+
+function chunkOverlapsBounds(q: { readonly cx: number; readonly cy: number; readonly b: TileBounds; readonly pad: number }): boolean {
+  const minTx = q.cx * CHUNK_SIZE;
+  const minTy = q.cy * CHUNK_SIZE;
+  return minTx + CHUNK_SIZE >= q.b.minX - q.pad && minTx <= q.b.maxX + q.pad
+    && minTy + CHUNK_SIZE >= q.b.minY - q.pad && minTy <= q.b.maxY + q.pad;
+}
+
+function appendVisibleChunkLights(chunk: MountedChunk, vb: TileBounds | undefined, out: { readonly lights: PointLightSpec[]; readonly campfires: PointLightSpec[] }): void {
+  if (vb && !chunkOverlapsBounds({ cx: chunk.cx, cy: chunk.cy, b: vb, pad: 10 })) return;
+  for (const light of chunk.lights) {
+    out.lights.push(light);
+    if (light.kind === "campfire") out.campfires.push(light);
+  }
+}
+
+function appendVisibleChunkCasters(chunk: MountedChunk, vb: TileBounds | undefined, casters: ShadowCaster[]): void {
+  for (const c of chunk.casters) {
+    if (!vb || overlapsBounds({ x: c.x, y: c.y, b: vb, pad: 3 })) casters.push(c);
+  }
+}
+
 export class ChunkRenderer {
   private readonly mounted = new Map<string, MountedChunk>();
   private readonly playerViews = new Map<string, PlayerView>();
@@ -55,6 +87,7 @@ export class ChunkRenderer {
     readonly players: readonly PlayerSnapshot[];
     readonly entities?: readonly WorldEntitySnapshot[];
     readonly localPlayerId?: string | undefined;
+    readonly viewBounds?: TileBounds | undefined;
     readonly timeSec: number;
   }): { lights: PointLightSpec[]; campfires: PointLightSpec[]; casters: ShadowCaster[] } {
     this.reconcilePlayerViews(input.cache, input.players, input.timeSec);
@@ -86,15 +119,14 @@ export class ChunkRenderer {
 
   private appendChunkVisuals(
     chunk: MountedChunk,
-    input: { readonly players: readonly PlayerSnapshot[]; readonly timeSec: number },
+    input: { readonly players: readonly PlayerSnapshot[]; readonly viewBounds?: TileBounds | undefined; readonly timeSec: number },
     out: { readonly lights: PointLightSpec[]; readonly campfires: PointLightSpec[]; readonly casters: ShadowCaster[] },
   ): void {
-    out.casters.push(...chunk.casters);
-    for (const light of chunk.lights) {
-      out.lights.push(light);
-      if (light.kind === "campfire") out.campfires.push(light);
-    }
-    animateChunkPropsAndFoliage({ chunk, players: input.players, propsAtlas: this.atlases.props, timeSec: input.timeSec });
+    const vb = input.viewBounds;
+    appendVisibleChunkLights(chunk, vb, out);
+    if (vb && !chunkOverlapsBounds({ cx: chunk.cx, cy: chunk.cy, b: vb, pad: 4 })) return;
+    appendVisibleChunkCasters(chunk, vb, out.casters);
+    animateChunkPropsAndFoliage({ chunk, players: input.players, propsAtlas: this.atlases.props, viewBounds: vb, timeSec: input.timeSec });
   }
 
   private reconcilePlayerViews(cache: WorldChunkCache, players: readonly PlayerSnapshot[], timeSec: number): void {
@@ -156,7 +188,7 @@ export class ChunkRenderer {
     for (const s of entry.grassSprites) s.sprite.destroy();
     for (const s of entry.ysortSprites) {
       const isCliff = this.cliffSprites.delete(s);
-      s.destroy(isCliff ? { texture: true } : undefined);
+      s.destroy(isCliff ? { texture: true, textureSource: true } : undefined);
     }
     for (const s of entry.canopySprites) s.sprite.destroy();
     this.mounted.delete(entry.key);
