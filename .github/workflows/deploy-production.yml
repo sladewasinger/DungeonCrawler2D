@@ -30,6 +30,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Resolve deploy target
+        id: target
+        shell: bash
+        env:
+          HAS_FLY_TOKEN: ${{ secrets.FLY_API_TOKEN != '' }}
+          OVERRIDE_WS_URL: ${{ vars.VITE_GAME_WS_URL }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_FLY_TOKEN" = "true" ]; then
+            echo "use_fly=true" >> "$GITHUB_OUTPUT"
+            ws_url="${OVERRIDE_WS_URL:-$FLY_GAME_WS_URL}"
+          else
+            echo "use_fly=false" >> "$GITHUB_OUTPUT"
+            ws_url="$OVERRIDE_WS_URL"
+          fi
+          echo "ws_url=$ws_url" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -41,7 +58,7 @@ jobs:
       - run: npm test
       - name: Build packages
         env:
-          VITE_GAME_WS_URL: ${{ vars.VITE_GAME_WS_URL || (secrets.FLY_API_TOKEN != '' && env.FLY_GAME_WS_URL) || '' }}
+          VITE_GAME_WS_URL: ${{ steps.target.outputs.ws_url }}
         run: npm run build
 
       - uses: aws-actions/configure-aws-credentials@v6
@@ -50,17 +67,17 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Fly CLI
-        if: ${{ secrets.FLY_API_TOKEN != '' }}
+        if: steps.target.outputs.use_fly == 'true'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy game server to Fly.io
-        if: ${{ secrets.FLY_API_TOKEN != '' }}
+        if: steps.target.outputs.use_fly == 'true'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only
 
       - name: Resolve production instance
-        if: ${{ secrets.FLY_API_TOKEN == '' }}
+        if: steps.target.outputs.use_fly != 'true'
         id: production
         shell: bash
         run: |
@@ -76,7 +93,7 @@ jobs:
           echo "instance_id=$instance_id" >> "$GITHUB_OUTPUT"
 
       - name: Publish server bundle
-        if: ${{ secrets.FLY_API_TOKEN == '' }}
+        if: steps.target.outputs.use_fly != 'true'
         run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
 
       - name: Publish client
@@ -103,7 +120,7 @@ jobs:
           fi
 
       - name: Restart game server on published bundle
-        if: ${{ secrets.FLY_API_TOKEN == '' }}
+        if: steps.target.outputs.use_fly != 'true'
         shell: bash
         env:
           INSTANCE_ID: ${{ steps.production.outputs.instance_id }}
@@ -137,5 +154,5 @@ jobs:
 
       - name: Smoke-test both game modes
         env:
-          GAME_WS_URL: ${{ vars.VITE_GAME_WS_URL || (secrets.FLY_API_TOKEN != '' && env.FLY_GAME_WS_URL) || '' }}
+          GAME_WS_URL: ${{ steps.target.outputs.ws_url }}
         run: node tools/smoke-production.mjs "$SITE_URL"
