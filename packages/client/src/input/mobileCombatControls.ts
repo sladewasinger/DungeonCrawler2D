@@ -1,5 +1,5 @@
 /** Touch-only right-hand 2-row combat cluster: primary (BLOCK/ATK/JUMP) over secondary (SNEAK/ROLL). */
-import { getItemDef, resolveBlockMode } from "@dc2d/content";
+import { getItemDef, isBowItem, resolveBlockMode } from "@dc2d/content";
 
 export interface MobileCombatState {
   readonly attack: boolean;
@@ -33,10 +33,21 @@ const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
 
 const HEAL_OR_EAT_ITEMS = new Set(["bandage", "healing-salve", "cooked-meat", "raw-meat", "berry", "herb-tea"]);
 
+const ARCHETYPE_ACTION_LABELS: Readonly<Record<string, string>> = { axe: "CHOP", pickaxe: "MINE" };
+
+function labelFromItemDef(def: NonNullable<ReturnType<typeof getItemDef>>): string {
+  if (def.placeStructure) return "PLACE";
+  if (def.weaponArchetype) return ARCHETYPE_ACTION_LABELS[def.weaponArchetype] ?? "ATK";
+  return def.healHp || def.buffEffect || def.curesStatuses ? "USE" : "ATK";
+}
+
 export function actionLabelForHeldItem(heldItem: string | null): string {
   if (!heldItem) return "ATK";
-  if (ITEM_ACTION_LABELS[heldItem]) return ITEM_ACTION_LABELS[heldItem];
-  return getItemDef(heldItem)?.placeStructure ? "PLACE" : "ATK";
+  if (isBowItem(heldItem)) return "BOW";
+  const mapped = ITEM_ACTION_LABELS[heldItem];
+  if (mapped) return mapped;
+  const def = getItemDef(heldItem);
+  return def ? labelFromItemDef(def) : "ATK";
 }
 
 function makeCombatBtn(cls: string, label: string, aria: string): HTMLButtonElement {
@@ -103,12 +114,13 @@ export class MobileCombatControls {
     this.setBlockHeld(false);
   }
 
-  setGear(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
+  setGear(gear: { readonly heldItem: string | null; readonly offhandItem?: string | null | undefined; readonly hasShield: boolean }): void {
     this.heldItem = gear.heldItem;
-    this.isBowHeld = gear.heldItem === "bow";
+    this.isBowHeld = isBowItem(gear.heldItem);
     this.atkBtn.textContent = actionLabelForHeldItem(gear.heldItem);
     this.atkBtn.dataset.role = gear.heldItem && HEAL_OR_EAT_ITEMS.has(gear.heldItem) ? "heal" : (gear.heldItem ?? "none");
-    const blockMode = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null);
+    const offhand = gear.offhandItem !== undefined ? gear.offhandItem : (gear.hasShield ? "wooden-shield" : null);
+    const blockMode = resolveBlockMode(gear.heldItem, offhand);
     this.blockBtn.hidden = blockMode === "none";
     this.blockBtn.textContent = blockMode === "twoHanded" ? "PARRY" : "BLOCK";
     if (blockMode === "none") this.setBlockHeld(false);

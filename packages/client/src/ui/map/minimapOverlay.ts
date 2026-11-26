@@ -94,6 +94,7 @@ export class MinimapOverlay {
   private readonly coordsEl: HTMLSpanElement;
   private zoom = 2;
   private terrainCacheKey = "";
+  private lastDrawMs = 0;
 
   constructor(host: HTMLElement, onClose?: () => void) {
     this.el = document.createElement("div");
@@ -148,16 +149,22 @@ export class MinimapOverlay {
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
     readonly chests: readonly WorldChestSnapshot[]; readonly discovery?: DiscoveryStateSnapshot | undefined;
   }): void {
+    const wasHidden = this.el.hidden;
     this.el.hidden = !opts.visible || !opts.local;
-    if (this.el.hidden || !opts.local) return;
+    if (this.el.hidden || !opts.local) { this.lastDrawMs = 0; return; }
     const { local } = opts;
+    const nowMs = performance.now();
+    const tx0 = Math.floor(local.x); const ty0 = Math.floor(local.y);
+    const cacheKey = `${opts.cache.worldSeed}:${tx0}:${ty0}:${this.zoom}`;
+    if (!wasHidden && cacheKey === this.terrainCacheKey && nowMs - this.lastDrawMs < 95) return;
+    this.lastDrawMs = nowMs;
     const summary = formatMapFooterSummary({ worldSeed: opts.cache.worldSeed, x: local.x, y: local.y, discovery: opts.discovery });
-    this.coordsEl.textContent = `${summary} · (${Math.floor(local.x)}, ${Math.floor(local.y)})`;
-    this.refreshTerrainLayer(opts.cache, Math.floor(local.x), Math.floor(local.y));
+    this.coordsEl.textContent = `${summary} · (${tx0}, ${ty0})`;
+    this.refreshTerrainLayer(opts.cache, tx0, ty0);
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(this.terrainBuf, 0, 0);
-    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs: performance.now() });
+    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs });
     this.drawMarkers(ctx, { ...opts, local });
     drawPlayerArrow(ctx, local.facingX, local.facingY);
   }

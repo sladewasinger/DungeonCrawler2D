@@ -213,12 +213,15 @@ export class CombatWorld {
     return true;
   }
 
-  stepWorld(opts: { readonly players: Map<string, CombatPlayerRef>; readonly dt: number; readonly dayPhase: number; readonly timeSec: number }): void {
+  stepWorld(opts: { readonly players: Map<string, CombatPlayerRef>; readonly dt: number; readonly dayPhase: number; readonly timeSec: number }): boolean {
     const { players, dt, dayPhase, timeSec } = opts;
     this.simTimeSec = timeSec;
     this.harvester.stepRegrowth(timeSec, this.cache);
     const targets = Array.from(players.values());
-    for (const pl of targets) this.discovery.trackNearbyPois({ playerId: pl.id, x: pl.x, y: pl.y, cache: this.cache, events: this.events });
+    let discoveredAny = false;
+    for (const pl of targets) {
+      if (this.discovery.trackNearbyPois({ playerId: pl.id, x: pl.x, y: pl.y, cache: this.cache, events: this.events })) discoveredAny = true;
+    }
     stepTrainingDummies({
       dummies: this.dummies, dt, players: targets, events: this.events,
       onStrike: (entity, target, dmg) => {
@@ -235,6 +238,7 @@ export class CombatWorld {
       spawnWeb: (spider, target) => this.projectiles.push(createWebProjectile({ id: `p${this.nextProjId++}`, spider, targetX: target.x, targetY: target.y })),
     });
     stepProjectileList({ cache: this.cache, projectiles: this.projectiles, dummies: this.dummies, ecology: this.ecology, players, events: this.events, webs: this.webs, dt });
+    return discoveredAny;
   }
 
   private handleCreatureStrike(players: Map<string, CombatPlayerRef>, entity: WildlifeEntity, targetId: string): void {

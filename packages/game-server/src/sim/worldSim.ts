@@ -107,6 +107,8 @@ export class WorldSim {
     this.combat.removePlayer(playerId);
     this.players.delete(playerId);
   }
+  getPlayer(playerId: string): SimPlayer | undefined { return this.players.get(playerId); }
+  markPersistenceDirty(): void { this.persistence.markDirty(); }
   discoverySnapshot(playerId: string): DiscoveryStateSnapshot { return this.combat.discovery.snapshotFor(playerId); }
   sendChat(playerId: string, text: string, shout?: boolean): ChatEntry | null { const p = this.players.get(playerId); return p ? this.chat.sendMessage({ senderId: p.id, senderName: p.name, x: p.x, y: p.y, rawText: text, shout, tick: this.tick }) : null; }
   useItem(playerId: string, slotIndex: number): void { const p = this.players.get(playerId); if (p && this.combat.useItemSlot(p, slotIndex)) this.persistence.markDirty(); }
@@ -198,7 +200,9 @@ export class WorldSim {
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
     this.chat.step(dtSeconds);
     for (const p of this.players.values()) this.stepPlayer(p, dtSeconds);
-    this.combat.stepWorld({ players: this.players, dt: dtSeconds, dayPhase: this.dayPhase, timeSec: this.tick / TICK_RATE });
+    if (this.combat.stepWorld({ players: this.players, dt: dtSeconds, dayPhase: this.dayPhase, timeSec: this.tick / TICK_RATE })) {
+      this.persistence.markDirty();
+    }
     if (this.cache.deltaRevision() !== this.lastSavedDeltaRev) { this.lastSavedDeltaRev = this.cache.deltaRevision(); this.persistence.markDirty(); }
     const beds = this.combat.structures.exportState().beds;
     this.persistence.maybeFlush(Date.now(), () => buildFullWorldSaveSnapshot({ worldSeed: this.worldSeed, dayPhase: this.dayPhase, sim: this, savedProfiles: this.savedProfiles, activePlayers: this.players.values(), beds }));

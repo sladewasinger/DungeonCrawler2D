@@ -3,11 +3,12 @@ import { ACTIVE_OUTLINE_STYLE } from "@dc2d/content";
 import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Rectangle, Texture, type TextureSource } from "pixi.js";
 import { createPixelCanvas } from "../textures/pixelCanvas.js";
+import { drawRecoloredSlots, type StyledLayerEntry } from "./atlas/armorLayerRecolor.js";
 import {
   CORE_CLIP_NAMES, SECONDARY_CLIP_NAMES, buildTierAtlasPlan,
-  type AtlasFrameSlot, type PackedTierAtlas,
+  type PackedTierAtlas,
 } from "./atlas/playerAtlasPacker.js";
-import { extractPortraitUrlFromCore, resolveLayerStack } from "./atlas/playerPortraitBake.js";
+import { extractPortraitUrlFromCore, resolveStyledLayerStack } from "./atlas/playerPortraitBake.js";
 import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
@@ -86,23 +87,15 @@ function sliceTierIntoDirs(opts: {
   }
 }
 
-function drawPackedSlots(opts: {
-  readonly ctx: CanvasRenderingContext2D; readonly img: HTMLImageElement; readonly slots: readonly AtlasFrameSlot[];
-}): void {
-  for (const s of opts.slots) {
-    opts.ctx.drawImage(opts.img, s.srcX, s.srcY, s.w, s.h, s.dstX, s.dstY, s.w, s.h);
-  }
-}
-
 function compositeTierCanvas(opts: {
-  readonly layerIds: readonly string[]; readonly plan: PackedTierAtlas;
+  readonly layers: readonly StyledLayerEntry[]; readonly plan: PackedTierAtlas;
   readonly scale: number; readonly appearance: CharacterAppearance;
 }): { readonly canvas: HTMLCanvasElement; readonly source: TextureSource } {
-  const { layerIds, plan, scale, appearance } = opts;
+  const { layers, plan, scale, appearance } = opts;
   const { canvas, ctx } = createPixelCanvas(plan.width, plan.height);
-  for (const id of layerIds) {
-    const img = getPlayerLayerImage(id);
-    if (img) drawPackedSlots({ ctx, img, slots: plan.slots });
+  for (const layer of layers) {
+    const img = getPlayerLayerImage(layer.id);
+    if (img) drawRecoloredSlots({ ctx, source: img, slots: plan.slots, recolorPrimary: layer.recolorPrimary, recolorTrim: layer.recolorTrim });
   }
   const imgData = ctx.getImageData(0, 0, plan.width, plan.height);
   applyRecolorPass({
@@ -117,7 +110,7 @@ function compositeTierCanvas(opts: {
 }
 
 function createSecondaryLoader(opts: {
-  readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta;
+  readonly layers: readonly StyledLayerEntry[]; readonly meta: PlayerRigMeta;
   readonly appearance: CharacterAppearance; readonly secondaryPlan: PackedTierAtlas;
   readonly dirAnims: Readonly<Record<FacingDir, MutableDirAnim>>;
 }): () => void {
@@ -126,7 +119,7 @@ function createSecondaryLoader(opts: {
     if (built || opts.secondaryPlan.slots.length === 0) return;
     built = true;
     const secondary = compositeTierCanvas({
-      layerIds: opts.layerIds, plan: opts.secondaryPlan, scale: opts.meta.scale, appearance: opts.appearance,
+      layers: opts.layers, plan: opts.secondaryPlan, scale: opts.meta.scale, appearance: opts.appearance,
     });
     sliceTierIntoDirs({ source: secondary.source, plan: opts.secondaryPlan, dirAnims: opts.dirAnims, directions: opts.meta.directions });
   };
@@ -139,15 +132,15 @@ export function build3dCharacterSpriteSet(
 ): CharacterSpriteSet | null {
   const meta = getPlayerRigMeta();
   if (!meta) return null;
-  const fullIds = resolveLayerStack(appearance, armor, true);
-  if (onLazyReady) ensurePlayerLayersLoaded(fullIds, onLazyReady);
+  const styledLayers = resolveStyledLayerStack(appearance, armor, true);
+  if (onLazyReady) ensurePlayerLayersLoaded(styledLayers.map((l) => l.id), onLazyReady);
   const corePlan = buildTierAtlasPlan(meta, CORE_CLIP_NAMES);
   if (corePlan.slots.length === 0) return null;
   const secondaryPlan = buildTierAtlasPlan(meta, SECONDARY_CLIP_NAMES);
   const dirAnims = createDirAnimMap();
-  const core = compositeTierCanvas({ layerIds: fullIds, plan: corePlan, scale: meta.scale, appearance });
+  const core = compositeTierCanvas({ layers: styledLayers, plan: corePlan, scale: meta.scale, appearance });
   sliceTierIntoDirs({ source: core.source, plan: corePlan, dirAnims, directions: meta.directions });
-  const ensureSecondary = createSecondaryLoader({ layerIds: fullIds, meta, appearance, secondaryPlan, dirAnims });
+  const ensureSecondary = createSecondaryLoader({ layers: styledLayers, meta, appearance, secondaryPlan, dirAnims });
   const dirs = dirAnims as unknown as Readonly<Record<FacingDir, DirectionAnim>>;
   return {
     ...dirs,

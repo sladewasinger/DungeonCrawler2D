@@ -43,17 +43,30 @@ function trappedLabel(player: PlayerSnapshot): string {
   return (player.webStick ?? 0) >= 0.85 ? "STUCK" : "";
 }
 
-function readStealthAndBuffs(player: PlayerSnapshot) {
+function readBuffFields(player: PlayerSnapshot) {
   return {
-    vis: player.stealthVis ?? 0.8, cover: Boolean(player.inCover), lit: Boolean(player.torchLit || player.attackFlash),
     fed: Math.ceil(player.wellFedTimer ?? 0), rest: Math.ceil(player.restedTimer ?? 0),
+    buffKind: player.shrineBuff?.kind ?? "", buffSec: Math.ceil(player.shrineBuff?.remainingSec ?? 0),
+  };
+}
+
+function readDebuffFields(player: PlayerSnapshot) {
+  return {
     poison: Math.ceil(player.poisonTimer ?? 0), poisonLocked: Boolean(player.poisonLocked),
     trapped: trappedLabel(player), burn: Math.ceil(player.burnTimer ?? 0), god: Boolean(player.godMode),
   };
 }
 
+function readStealthAndBuffs(player: PlayerSnapshot) {
+  return {
+    vis: player.stealthVis ?? 0.8, cover: Boolean(player.inCover), lit: Boolean(player.torchLit || player.attackFlash),
+    ...readBuffFields(player),
+    ...readDebuffFields(player),
+  };
+}
+
 function readVitals(player: PlayerSnapshot | undefined) {
-  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, vis: 1, cover: false, lit: false, fed: 0, rest: 0, poison: 0, poisonLocked: false, trapped: "", burn: 0, god: false };
+  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, vis: 1, cover: false, lit: false, fed: 0, rest: 0, poison: 0, poisonLocked: false, trapped: "", burn: 0, god: false, buffKind: "", buffSec: 0 };
   return {
     hp: Math.max(0, Math.round(player.hp ?? 100)), maxHp: Math.max(1, Math.round(player.maxHp ?? 100)),
     stam: Math.max(0, Math.round(player.stamina ?? 100)), maxStam: Math.max(1, Math.round(player.maxStamina ?? 100)),
@@ -95,6 +108,7 @@ export class VitalsBar {
   private readonly trappedPill: HTMLSpanElement;
   private readonly burnPill: HTMLSpanElement;
   private readonly godPill: HTMLSpanElement;
+  private readonly shrineBuffPill: HTMLSpanElement;
   private lastKey = "";
 
   constructor(host: HTMLElement) {
@@ -109,9 +123,10 @@ export class VitalsBar {
     this.trappedPill = domNode("span", "ow-buff-pill ow-buff-web"); this.trappedPill.hidden = true;
     this.burnPill = domNode("span", "ow-buff-pill ow-buff-burn"); this.burnPill.hidden = true;
     this.godPill = domNode("span", "ow-buff-pill ow-buff-god"); this.godPill.textContent = "GOD"; this.godPill.hidden = true;
+    this.shrineBuffPill = domNode("span", "ow-buff-pill ow-buff-shrine"); this.shrineBuffPill.hidden = true;
     this.stealthPill = domNode("span", "ow-stealth-pill");
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill"); this.sanctuaryPill.textContent = "Sanctuary";
-    this.el.append(hpWrap, this.fedPill, this.restedPill, this.poisonPill, this.trappedPill, this.burnPill, this.godPill, this.stealthPill, this.sanctuaryPill);
+    this.el.append(hpWrap, this.fedPill, this.restedPill, this.shrineBuffPill, this.poisonPill, this.trappedPill, this.burnPill, this.godPill, this.stealthPill, this.sanctuaryPill);
     this.staminaRail = domNode("div", "ow-stamina-rail");
     this.staminaRail.setAttribute("aria-label", "Stamina");
     this.stamFill = domNode("div", "ow-stamina-fill");
@@ -127,7 +142,7 @@ export class VitalsBar {
     const open = resolveEyeOpenness(v.vis, threat);
     const openStep = Math.round(open * 10);
     const tier = resolveStealthTier(v.vis, threat);
-    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.cover}:${v.lit}:${openStep}:${tier}:${v.fed}:${v.rest}:${v.poison}:${v.poisonLocked}:${v.trapped}:${v.burn}:${v.god}`;
+    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.cover}:${v.lit}:${openStep}:${tier}:${v.fed}:${v.rest}:${v.buffKind}:${v.buffSec}:${v.poison}:${v.poisonLocked}:${v.trapped}:${v.burn}:${v.god}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
     this.syncBars(v);
@@ -143,6 +158,11 @@ export class VitalsBar {
     this.sanctuaryPill.hidden = !v.safe;
     syncStatusPill(this.fedPill, v.fed, "FED");
     syncStatusPill(this.restedPill, v.rest, "REST");
+    this.shrineBuffPill.hidden = v.buffSec <= 0 || !v.buffKind;
+    if (!this.shrineBuffPill.hidden) {
+      this.shrineBuffPill.dataset.kind = v.buffKind;
+      this.shrineBuffPill.textContent = `${v.buffKind.toUpperCase()} ${v.buffSec}s`;
+    }
     this.poisonPill.hidden = v.poison <= 0 && !v.poisonLocked;
     if (!this.poisonPill.hidden) this.poisonPill.textContent = v.poisonLocked ? "POISONED" : `POISONED ${v.poison}s`;
     this.trappedPill.hidden = v.trapped.length === 0;

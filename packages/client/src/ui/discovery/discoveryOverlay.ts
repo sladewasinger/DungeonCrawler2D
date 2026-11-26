@@ -65,6 +65,12 @@ export class DiscoveryOverlay {
     onChime?.();
   }
 
+  showNotice(title: string, subtitle: string, durationMs = 3000): void {
+    this.toastTitle.textContent = title;
+    this.toastSub.textContent = subtitle;
+    this.toastUntilMs = performance.now() + durationMs;
+  }
+
   private handleDiscoveryEvents(opts: {
     readonly events: readonly WorldEvent[]; readonly localPlayerId: string;
     readonly nowMs: number; readonly onChime?: (() => void) | undefined;

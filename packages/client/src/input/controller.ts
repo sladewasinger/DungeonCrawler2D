@@ -1,5 +1,5 @@
 /** Touch joystick + combat buttons, world tap, desktop WASD, and keyboard shortcuts. */
-import { resolveBlockMode } from "@dc2d/content";
+import { isBowItem, resolveBlockMode } from "@dc2d/content";
 import { COMBAT_TUNING } from "@dc2d/engine";
 import {
   HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, isEditingText, isGuardedBrowserCombo,
@@ -58,9 +58,10 @@ export class InputController {
   }
 
   setCrouchMode(mode: "toggle" | "hold"): void { this.crouchMode = mode; }
-  setGearState(gear: { readonly heldItem: string | null; readonly hasShield: boolean }): void {
-    this.isBowHeld = gear.heldItem === "bow";
-    this.canBlock = resolveBlockMode(gear.heldItem, gear.hasShield ? "wooden-shield" : null) !== "none";
+  setGearState(gear: { readonly heldItem: string | null; readonly offhandItem?: string | null | undefined; readonly hasShield: boolean }): void {
+    this.isBowHeld = isBowItem(gear.heldItem);
+    const offhand = gear.offhandItem !== undefined ? gear.offhandItem : (gear.hasShield ? "wooden-shield" : null);
+    this.canBlock = resolveBlockMode(gear.heldItem, offhand) !== "none";
     this.mobileCombat.setGear(gear);
   }
   setEnabled(enabled: boolean): void {

@@ -1,9 +1,11 @@
 /** Integration tests for frontier discovery, Waystone beacons, shrine buffs, and brazier vaults. */
-import { WorldChunkCache, findChunkPoi, type ChunkPoi } from "@dc2d/engine";
+import { TOTAL_INVENTORY_SLOTS, WorldChunkCache, findChunkPoi, type ChunkPoi } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { createCombatState, type CombatPlayerRef } from "../combatActions.js";
 import { createStarterInventory } from "../playerInventory.js";
 import { LootManager } from "../wildlife/lootManager.js";
+import { WorldSim } from "../worldSim.js";
+import { executeAdminSlashCommand } from "./adminSlashCommands.js";
 import { DiscoveryTracker } from "./discoveryTracker.js";
 import { PoiInteractionManager } from "./poiInteractions.js";
 
@@ -28,6 +30,12 @@ function makeTestPlayer(x: number, y: number): CombatPlayerRef {
     id: "p1", x, y, elevation: 0, facingX: 1, facingY: 0, aimX: 1, aimY: 0,
     selectedHotbar: 0, crouching: false, inventory: createStarterInventory(), combat: createCombatState(),
   };
+}
+
+function firstNonEmptyChestSlot(sim: WorldSim, chestId: string): { readonly idx: number; readonly itemId: string | undefined } {
+  const chest = sim.combatSnapshots().chests.find((c) => c.id === chestId);
+  const idx = chest?.slots.findIndex((s) => s !== null) ?? -1;
+  return { idx, itemId: idx >= 0 ? chest?.slots[idx]?.itemId : undefined };
 }
 
 describe("frontier discovery, shrines, waystones & brazier vaults", () => {
@@ -67,5 +75,33 @@ describe("frontier discovery, shrines, waystones & brazier vaults", () => {
     }
     player.x = vault.chestX; player.y = vault.chestY;
     expect(loot.openChest(player, vault.id, events)).toBe(vault.id);
+  });
+
+  it("prevents dropped items from auto-magneting back while looting a chest with full inventory", () => {
+    const sim = new WorldSim(1337);
+    const id = sim.addPlayer("Looter");
+    const chestPoi = findFirstPoiOfKind(1337, "bandit-camp");
+    expect(chestPoi).not.toBeNull();
+    if (!chestPoi) return;
+    sim.combat.ecology.loot.registerPoiChest(chestPoi);
+    executeAdminSlashCommand(sim, id, `/tp ${chestPoi.chestX - 1} ${chestPoi.chestY}`);
+    executeAdminSlashCommand(sim, id, "/fillbag flint-dagger");
+    expect(sim.inventorySnapshot(id)?.slots.every((s) => s !== null)).toBe(true);
+
+    sim.handleChestAction(id, { t: "openChest", chestId: chestPoi.id });
+    sim.handleChestAction(id, { t: "chestTakeAll", chestId: chestPoi.id });
+    sim.dropItem(id, { source: "inv", slotIndex: 9 });
+    for (let i = 0; i < 80; i++) sim.step();
+
+    // Dropped flint-dagger must stay on the ground instead of boomeranging back into slot 9!
+    expect(sim.inventorySnapshot(id)?.slots[9]).toBeNull();
+    expect(sim.combatSnapshots().groundLoot.some((g) => g.itemId === "flint-dagger")).toBe(true);
+
+    // Taking an item from the chest now succeeds cleanly
+    const first = firstNonEmptyChestSlot(sim, chestPoi.id);
+    expect(first.idx).toBeGreaterThanOrEqual(0);
+    sim.handleChestAction(id, { t: "chestTransfer", chestId: chestPoi.id, from: "chest", fromSlot: first.idx, to: "inv", toSlot: 0, quick: true });
+    expect(sim.inventorySnapshot(id)?.slots[9]?.itemId).toBe(first.itemId);
+    expect(TOTAL_INVENTORY_SLOTS).toBe(36);
   });
 });

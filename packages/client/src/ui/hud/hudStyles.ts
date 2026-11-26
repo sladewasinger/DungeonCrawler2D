@@ -68,6 +68,9 @@ const HUD_CSS = `
 .ow-buff-poison { color: #bbf7d0; background: rgba(20, 83, 45, 0.88); border: 1px solid rgba(74, 222, 128, 0.65); }
 .ow-buff-burn { color: #ffedd5; background: rgba(154, 52, 18, 0.88); border: 1px solid rgba(251, 146, 60, 0.65); }
 .ow-buff-god { color: #fef08a; background: rgba(161, 98, 7, 0.85); border: 1px solid rgba(250, 204, 21, 0.75); }
+.ow-buff-shrine { color: #a5f3fc; background: rgba(14, 116, 144, 0.85); border: 1px solid rgba(56, 189, 248, 0.7); }
+.ow-buff-shrine[data-kind="vigor"] { color: #bbf7d0; background: rgba(21, 128, 61, 0.85); border-color: rgba(74, 222, 128, 0.7); }
+.ow-buff-shrine[data-kind="shadow"] { color: #e9d5ff; background: rgba(88, 28, 135, 0.85); border-color: rgba(192, 132, 252, 0.7); }
 .ow-stealth-pill {
   display: inline-flex; align-items: center; justify-content: space-between;
   width: 56px; height: 18px; padding: 0 5px; box-sizing: border-box; flex: 0 0 auto;

@@ -1,5 +1,5 @@
 /** Pure 3D/2D held-weapon, bow-aim, offhand, and shield placement layout helpers. */
-import { SKIN_PALETTES } from "@dc2d/content";
+import { SKIN_PALETTES, isShieldItem } from "@dc2d/content";
 import { gaitFrameIndex, type PlayerSnapshot } from "@dc2d/engine";
 import { CHARACTER_WORLD_SCALE, resolveFacingDir8 } from "../character/characterSprites.js";
 import type { CharacterPose, FacingDir } from "../character/characterTypes.js";
@@ -254,7 +254,7 @@ function buildRawLayout(opts: {
   return computeHeldLayout({
     aimX: snap.aimX ?? snap.facingX, aimY: snap.aimY ?? snap.facingY, heldItem: snap.heldItem ?? null,
     torchLit: snap.torchLit, twoHanded: v.twoHanded, aimMode: v.aimMode, itemScale: v.spriteScale,
-    timeSec: aimTime, moving: snap.moving, hasShield: snap.armor?.offhand === "wooden-shield",
+    timeSec: aimTime, moving: snap.moving, hasShield: isShieldItem(snap.armor?.offhand),
     blocking: Boolean(snap.blocking), swingProgress: snap.swingProgress ?? 0, comboStep: snap.comboStep ?? 0,
   });
 }
