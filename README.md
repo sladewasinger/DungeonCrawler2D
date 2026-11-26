@@ -22,7 +22,8 @@ Documentation lives next to the code it describes:
 | Location | Covers |
 | --- | --- |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Master phased roadmap (`overworld`, Phases 0–13), DCC floor loop & AI-crafting vision |
-| [docs/frontier/MASTER-PLAN.md](docs/frontier/MASTER-PLAN.md) | Frontier Overhaul master plan & 7 full spec sheets (rarities, item cards, 5 biomes, 19 POIs, discovery, proximity chat) |
+| [docs/VERIFICATION-GATE.md](docs/VERIFICATION-GATE.md) | Deterministic 4-layer Verification, Completeness (`REQ-*`) & Quality Gate specification |
+| [docs/frontier/MASTER-PLAN.md](docs/frontier/MASTER-PLAN.md) | Frontier Overhaul master plan & 7 full spec sheets (rarities, item cards, 5 biomes, 20 POIs, discovery, proximity chat) |
 | [docs/LESSONS.md](docs/LESSONS.md) | Durable engineering pitfalls and repository constraints |
 | [packages/engine/README.md](packages/engine/README.md) | Platform-free simulation core, noise, collision, Day/Night, Zod wire protocol |
 | [packages/engine/src/world/README.md](packages/engine/src/world/README.md) | Deterministic `32×32` chunk generator, elevation, and spatial collision |
@@ -100,6 +101,7 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 
 ## Branch & release workflow
 
-- Active development happens on `overworld` and is merged cleanly into `develop`.
-- When a phase is verified (tests, lint, build, and live browser checks), open and merge a versioned release PR from `develop` into `main` with a clear release title (`release: vX.Y.Z — <Release Title>`).
-- Merging into `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish the static client to S3/CloudFront, deploy `@dc2d/game-server` to Fly.io `dfw` (when `FLY_API_TOKEN` is configured; see [docs/FLY-DEPLOYMENT.md](docs/FLY-DEPLOYMENT.md)), and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.
+- `main` is a protected branch and only accepts Pull Requests opened from `develop` (no direct pushes or feature-branch PRs targeting `main`).
+- Active work happens on short-lived feature or fix branches cut from `develop`, which are verified (`npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and the Verification Gate in [docs/VERIFICATION-GATE.md](docs/VERIFICATION-GATE.md) when applicable) and merged back into `develop`.
+- When `develop` is ready to ship, open a Pull Request from `develop` into `main` with a proper release title (`release: vX.Y.Z — <Release Title>`).
+- Completing/merging that release PR into `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish the static client to S3/CloudFront, deploy `@dc2d/game-server` to Fly.io `dfw` (when `FLY_API_TOKEN` is configured; see [docs/FLY-DEPLOYMENT.md](docs/FLY-DEPLOYMENT.md)), and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.
