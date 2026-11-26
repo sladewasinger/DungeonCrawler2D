@@ -1,4 +1,5 @@
 /** Pure recipe validation and execution against a 36-slot inventory. */
+import type { RecipeDef, RecipeIngredientDef } from "@dc2d/contracts";
 import { cloneInventoryState } from "./armorOps.js";
 import {
   insertIntoSlots,
@@ -7,19 +8,8 @@ import {
   type StackLimitLookup,
 } from "./slotModel.js";
 
-export interface RecipeIngredient {
-  readonly itemId: string;
-  readonly count: number;
-}
-
-export interface CraftRecipe {
-  readonly id: string;
-  readonly outputItemId: string;
-  readonly outputCount: number;
-  readonly requiresCampfire?: boolean | undefined;
-  readonly requiresWorkbench?: boolean | undefined;
-  readonly ingredients: readonly RecipeIngredient[];
-}
+export type RecipeIngredient = RecipeIngredientDef;
+export type CraftRecipe = RecipeDef;
 
 export function countItemInSlots(slots: readonly InventorySlot[], itemId: string): number {
   let total = 0;

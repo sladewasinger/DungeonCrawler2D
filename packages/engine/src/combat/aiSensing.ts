@@ -1,19 +1,11 @@
 /** Pure cognitive AI sensing, elevation-aware line of sight, and ecological tuning constants. */
+import { PROP_SPECS } from "@dc2d/content";
+import { AI_STATES, ENTITY_KINDS, GroundKind, PropKind, type AiState, type EntityKind } from "@dc2d/contracts";
 import type { BlockingObstacle, WorldChunkCache } from "../world/collision.js";
 import { closestObstacleCorePoint } from "../world/propFootprints.js";
-import { GroundKind, PropKind } from "../world/types.js";
 
-export const ENTITY_KINDS = [
-  "dummy", "slime-dummy", "spar-dummy",
-  "wolf", "bear", "spider", "boar", "slime",
-  "goblin", "orc", "skeleton", "golem",
-] as const;
-export type EntityKind = (typeof ENTITY_KINDS)[number];
-
-export const AI_STATES = [
-  "idle", "patrol", "alert", "investigate", "chase", "flank", "charge", "ambush", "feed", "return", "dead",
-] as const;
-export type AiState = (typeof AI_STATES)[number];
+export { AI_STATES, ENTITY_KINDS };
+export type { AiState, EntityKind };
 
 export const AI_TUNING = {
   visionRangeTiles: 9.0,
@@ -43,13 +35,6 @@ export const AI_TUNING = {
   maxActiveWildlife: 28,
 } as const;
 
-const LOS_BLOCKING_PROPS = new Set<PropKind>([
-  PropKind.Boulder, PropKind.Palisade, PropKind.RuinPillar, PropKind.Tent,
-  PropKind.HermitHut, PropKind.BrokenCart, PropKind.GreatStump, PropKind.SunkenBoat,
-  PropKind.RunicForge, PropKind.CursedObelisk, PropKind.BoneTotem,
-  PropKind.CopperVein, PropKind.IronVein, PropKind.CursedCrystal,
-]);
-
 export interface LosQuery {
   readonly cache: WorldChunkCache;
   readonly fromX: number;
@@ -62,15 +47,6 @@ export interface LosQuery {
 
 const HARD_BLOCK_OCCLUSION = 1.0;
 const FULL_OCCLUSION_CUTOFF = 0.92;
-const TALL_TREE_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree]);
-
-function foliageOcclusionSpec(kind: PropKind): { readonly radius: number; readonly weight: number } | null {
-  if (TALL_TREE_PROPS.has(kind)) return { radius: 0.9, weight: 0.42 };
-  if (kind === PropKind.GiantMushroom) return { radius: 0.78, weight: 0.36 };
-  if (kind === PropKind.Bush || kind === PropKind.BogReed) return { radius: 0.68, weight: 0.3 };
-  if (kind === PropKind.TallGrass) return { radius: 0.52, weight: 0.18 };
-  return null;
-}
 
 function propOcclusionRadius(p: { readonly kind: PropKind; readonly radius: number }): number {
   if (p.kind === PropKind.Palisade || p.kind === PropKind.Boulder) return Math.min(0.22, p.radius * 0.46);
@@ -84,9 +60,9 @@ function propRayOcclusionWeight(
   if (p.elevation < ray.minElev || p.elevation > ray.maxElev) return 0;
   const t = Math.max(0.08, Math.min(0.92, ((p.x - ray.ax) * ray.rx + (p.y - ray.ay) * ray.ry) / ray.lenSq));
   const dist = Math.hypot(p.x - (ray.ax + ray.rx * t), p.y - (ray.ay + ray.ry * t));
-  if (LOS_BLOCKING_PROPS.has(p.kind)) return dist < propOcclusionRadius(p) ? HARD_BLOCK_OCCLUSION : 0;
-  const foliage = foliageOcclusionSpec(p.kind);
-  return foliage && dist < foliage.radius ? foliage.weight : 0;
+  const spec = PROP_SPECS[p.kind];
+  if (spec.blocksLineOfSight) return dist < propOcclusionRadius(p) ? HARD_BLOCK_OCCLUSION : 0;
+  return spec.foliageOcclusion && dist < spec.foliageOcclusion.radius ? spec.foliageOcclusion.weight : 0;
 }
 
 function computePropOcclusion(cache: WorldChunkCache, ray: { readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number; readonly minElev: number; readonly maxElev: number }): number {

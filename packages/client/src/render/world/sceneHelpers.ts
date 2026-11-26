@@ -161,6 +161,45 @@ export function applyWorldEventFx(opts: {
   return resolveEventShake(ev, localId);
 }
 
+export function buildSceneFxSinks(opts: {
+  readonly particles: { spawnSmokePoof(q: { readonly x: number; readonly y: number; readonly durationSec?: number }): void };
+  readonly gore: {
+    spawnClashSparks(q: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation: number }): void;
+    spawnCritSparks(q: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation: number }): void;
+    spawnGroundCrack(q: { readonly x: number; readonly y: number; readonly elevation: number; readonly cache: WorldChunkCache }): void;
+    spawn(q: ReturnType<typeof buildGoreSpawn>): void;
+  };
+  readonly cache: WorldChunkCache;
+}): SceneFxSinks {
+  const { particles, gore, cache } = opts;
+  return {
+    spawnSmoke: (x, y, durationSec) => particles.spawnSmokePoof(durationSec !== undefined ? { x, y, durationSec } : { x, y }),
+    spawnSparks: (pos) => gore.spawnClashSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+    spawnCritSparks: (pos) => gore.spawnCritSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+    spawnCrack: (x, y, elevation) => gore.spawnGroundCrack({ x, y, elevation, cache }),
+    spawnGore: (ev, elev) => gore.spawn(buildGoreSpawn(ev, elev, cache)),
+  };
+}
+
+export function applyWorldEventsBatch(opts: {
+  readonly events: readonly WorldEvent[];
+  readonly localId: string;
+  readonly entities: readonly WorldEntitySnapshot[] | undefined;
+  readonly local: PlayerSnapshot | undefined;
+  readonly leaveSmokeDur: number;
+  readonly sinks: SceneFxSinks;
+}): number {
+  let maxShake = 0;
+  for (const ev of opts.events) {
+    const shake = applyWorldEventFx({
+      ev, localId: opts.localId, entities: opts.entities, local: opts.local,
+      leaveSmokeDur: opts.leaveSmokeDur, sinks: opts.sinks,
+    });
+    if (shake > maxShake) maxShake = shake;
+  }
+  return maxShake;
+}
+
 export function bindViewportRectSync(target: HTMLElement, onSync: () => void): () => void {
   onSync();
   const obs = typeof ResizeObserver === "function" ? new ResizeObserver(onSync) : null;

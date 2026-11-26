@@ -1,7 +1,16 @@
 # `@dc2d/client`
 
-Mobile-first PixiJS v8 WebGL2 client:
-- Procedural HD-pixel terrain/prop textures & tangent-space normal maps (`src/render/textures/`)
-- Custom WebGL2 GLSL shaders for water, wind, lighting, bloom, god-rays, mist & color grading (`src/render/shaders/`)
-- Chunked world renderer with Y-sorting and canopy fade (`src/render/world/`)
-- Touch joystick + strict dynamic touch/desktop aim switching for hybrid touchscreen laptops, multi-touch hotbar/torch/map interaction while moving (`M` permanent Overworld Map slot + enlarged map overlay), world tap-to-interact (without swipe-to-roll), throttled input sync, auto-reconnect lifecycle (`ConnectionStatusOverlay`), auto-appearing mobile `Fullscreen` toolbar prompt (`src/ui/fullscreen.ts`, `src/ui/atmosphereToolbar.ts`), and HUD (`src/input/`, `src/net/`, `src/ui/`)
+Tier-4 mobile-first PixiJS v8 WebGL2 client built over `@dc2d/contracts`, `@dc2d/content`, and `@dc2d/engine`:
+
+## Architecture & Directories
+| Directory | Covers |
+| --- | --- |
+| [`src/render/`](./src/render/README.md) | PixiJS v8 WebGL2 textures, shaders, 3D player rig, combat/gore VFX, pose tuning, and world scene |
+| [`src/input/`](./src/input/README.md) | Desktop keyboard/mouse, floating mobile joystick, 2-row touch combat cluster, and auto-aim |
+| [`src/net/`](./src/net/README.md) | WebSocket reconnect client, offline preview fallback, movement/swing prediction, and `PendingGate` |
+| [`src/ui/`](./src/ui/README.md) | HUD shell, toolbar, Settings, ItemCard, Proximity Chat, Discovery banners, Overworld Map, Title Screen |
+| [`src/audio/`](./src/audio/README.md) | Mobile-unlocked Hybrid Web Audio mixer, spatial campfire/river/footsteps, and vocal-tract growl synth |
+| [`src/soundStudio/`](./src/soundStudio/README.md) | Localhost multi-track DAW synthesizer, oscilloscope/FFT visualizer, and `.WAV` exporter (`/sound-studio.html`) |
+| [`src/sandbox/`](./src/sandbox/README.md) | Localhost `96×32` visual asset gallery & interactive biome diorama (`/?sandbox=1`) |
+| [`src/admin/`](./src/admin/README.md) | Gated `window.admin` DevTools console helpers and server auth bridge |
+| `src/diag/` | QA telemetry hook (`window.__dc2dDiag`, gated to dev / `?qaDiag=1`) |

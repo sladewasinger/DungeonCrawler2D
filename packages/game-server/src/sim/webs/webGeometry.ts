@@ -1,5 +1,6 @@
 /** Pure geometric helpers, solid prop anchor lookup, and sector hit checks for dynamic cloth webs. */
-import { PropKind, WorldChunkCache, isWithinSector } from "@dc2d/engine";
+import { PROP_SPECS } from "@dc2d/content";
+import { WorldChunkCache, isWithinSector } from "@dc2d/engine";
 
 export interface WebNode {
   readonly id: number;
@@ -21,16 +22,11 @@ export interface WebStrand {
   fire: number;
 }
 
-const ANCHOR_PROPS = new Set<PropKind>([
-  PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree,
-  PropKind.GiantMushroom, PropKind.GreatStump, PropKind.Boulder, PropKind.Palisade, PropKind.RuinPillar,
-]);
-
 export function pickWebAnchor(cache: WorldChunkCache, wx: number, wy: number): { readonly x: number; readonly y: number } {
   let best = { x: wx, y: wy };
   let bestDist = 1.65;
   for (const prop of cache.propsNear(wx, wy)) {
-    if (!ANCHOR_PROPS.has(prop.kind)) continue;
+    if (!PROP_SPECS[prop.kind].spiderWebAnchor) continue;
     const d = Math.hypot(prop.x - wx, prop.y - wy);
     if (d < bestDist) { bestDist = d; best = { x: prop.x, y: prop.y }; }
   }

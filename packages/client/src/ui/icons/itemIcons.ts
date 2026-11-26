@@ -152,6 +152,8 @@ const PAINTERS: Readonly<Record<string, (ctx: CanvasRenderingContext2D, id: stri
   ...FRONTIER_ITEM_PAINTERS,
 };
 
+export const REGISTERED_ITEM_ICON_IDS: readonly string[] = Object.keys(PAINTERS);
+
 function buildItemCanvas(itemId: string): HTMLCanvasElement {
   const { canvas, ctx } = createPixelCanvas(32, 32);
   (PAINTERS[itemId] ?? paintFallbackItem)(ctx, itemId);

@@ -4,7 +4,7 @@
 
 For every new user message from Austin, count each case-insensitive use of
 “fuck” or a clear derivative such as “fucks,” “fucked,” “fucking,” “fucker,”
-“fuckers,” "fucking," “motherfucker,” or “motherfuckers.”
+“fuckers,” “motherfucker,” or “motherfuckers.”
 
 Before finishing that turn, increment both the visible number and the
 `f-bomb-count` marker in `README.md` by the number of new occurrences.
@@ -26,12 +26,13 @@ does not appear.
 
 ## Validation workflow
 
-- During iterative work, run `npm run lint:working-tree`; it lints only changed
-  and untracked JavaScript/TypeScript files and checks changed folder sizes.
-  Reserve `npm run lint` for the pre-commit/release gate.
-- Do not run tests during implementation iterations. Run `npm test` only at the
+- During iterative work, run `npm run lint:working-tree` and `npm run ai:loop`
+  (fast `<4s` incremental ESLint + folder check + `verify:docs` + related Vitest tests + `.verify-reports/ai-feedback.json`).
+  Reserve full `npm run lint`, `npm run verify:content`, and `npm run verify:phase` for pre-commit/phase sign-off gates.
+- Do not run the full `npm test` suite during implementation iterations. Run `npm test` at the
   final validation checkpoint immediately before committing, unless Austin asks
   for an earlier test run.
+- **Phase-Spec Graduation Rule**: While a phase is `📋` or `🚧`, `docs/phases/phase-<N>-*.md` is the active build & verification contract. Upon passing `npm run verify:phase -- phase-<N>`, update affected colocated `README.md`s with final shipped module names/tuning locations, update `docs/ROADMAP.md`, and keep only concise `REQ-P<N>-*` traceability tables in completed phase docs.
 
 ## Critical code quality rules
 

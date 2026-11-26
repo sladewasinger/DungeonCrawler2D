@@ -1,17 +1,9 @@
 /** Zod wire schemas for Phase 8 persistent world deltas and camp structure placement requests. */
+import { PROP_KIND_VALUES } from "@dc2d/contracts";
 import { z } from "zod";
 import { STRUCTURE_KINDS } from "../survival/campBuilding.js";
-import type { PropKind } from "../world/types.js";
 
-const RUNTIME_PROP_KINDS = [
-  "oak-tree", "pine-tree", "birch-tree", "maple-tree", "dead-tree", "giant-mushroom", "bog-reed", "cursed-crystal",
-  "bush", "tall-grass", "boulder", "wildflower", "campfire", "torch",
-  "stump", "palisade", "tent", "ruin-pillar", "copper-vein", "iron-vein", "workbench", "bed", "wood-chest",
-  "shrine-altar", "waystone", "gravestone", "broken-cart", "great-stump", "sunken-boat", "lore-sign",
-  "bone-totem", "runic-forge", "cursed-obelisk", "brazier-unlit", "brazier-lit", "hermit-hut", "fairy-ring",
-] as const;
-
-const PropKindSchema = z.enum(RUNTIME_PROP_KINDS) as unknown as z.ZodType<PropKind>;
+const PropKindSchema = z.enum(PROP_KIND_VALUES);
 
 export const DepletedPropSchema = z.object({
   propId: z.string().min(1),

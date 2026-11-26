@@ -82,7 +82,7 @@ Run from the repository root (`C:\repos\DungeonCrawler2D`):
    fly secrets set ADMIN_TOKEN="your-admin-token"
    ```
 
-   *(If `WORLD_SEED` should match the legacy production seed `austin-dungeon-prod-1`, also set `fly secrets set WORLD_SEED="austin-dungeon-prod-1"` or add it under `[env]` in `fly.toml`.)*
+   *(Production world seed `WORLD_SEED` parses strictly as an integer in `@dc2d/game-server`, defaulting to `1337`; set a numeric integer value via `fly secrets set WORLD_SEED="..."` or `[env]` in `fly.toml` if customized.)*
 
 4. **Deploy the server manually & check health:**
 

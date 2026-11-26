@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { WorldChunkCache } from "../../world/collision.js";
-import { PropKind } from "../../world/types.js";
+import { GroundKind, PropKind } from "../../world/types.js";
 import { obstacleToColliderShape } from "../../world/propFootprints.js";
 import {
   attackHitboxHitsHurtbox,
@@ -64,7 +64,7 @@ describe("combatShapes", () => {
     expect(eCol.radius).toBe(0.62);
 
     const cache = new (class extends WorldChunkCache {
-      override tileAt() { return { ground: 0, elevation: 0, stairs: false }; }
+      override tileAt() { return { ground: GroundKind.DeepWater, elevation: 0, stairs: false }; }
       override propsNear() {
         return [{ id: "pal-1", kind: PropKind.Palisade, x: 8, y: 8, variant: 0, elevation: 0, radius: 0.48, blocksMovement: true }];
       }

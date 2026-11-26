@@ -1,11 +1,9 @@
 /** Pure combat math, sanctuary protection, bow ballistics, hurtbox geometry, and gore definitions. */
+import { GORE_STYLES, GORE_SUBSTANCES, type GoreStyle, type GoreSubstance } from "@dc2d/contracts";
 import type { EntityKind } from "./aiSensing.js";
 
-export const GORE_SUBSTANCES = ["blood", "slime", "ichor", "straw", "bone", "stone"] as const;
-export type GoreSubstance = (typeof GORE_SUBSTANCES)[number];
-
-export const GORE_STYLES = ["splatter", "thin-streak", "drip", "chunk-spray", "explode-away"] as const;
-export type GoreStyle = (typeof GORE_STYLES)[number];
+export { GORE_STYLES, GORE_SUBSTANCES };
+export type { GoreStyle, GoreSubstance };
 
 export const COMBAT_TUNING = {
   sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 7.5 },

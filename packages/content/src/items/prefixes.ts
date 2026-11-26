@@ -1,7 +1,7 @@
 /** Rolled gear prefixes with stat modifiers, rarity bumps, and combat/utility perks. */
+import type { ItemPerkKind, PrefixTargetGroup } from "@dc2d/contracts";
 
-export type ItemPerkKind = "bleed" | "burn" | "poison" | "lifesteal" | "thorns" | "glow";
-export type PrefixTargetGroup = "weapon" | "tool" | "armor" | "offhand" | "bow";
+export type { ItemPerkKind, PrefixTargetGroup };
 
 export interface ItemPrefixDef {
   readonly id: string;

@@ -3,7 +3,7 @@
 Chrome DevTools console utilities exposed on `window.admin`:
 
 - **Localhost (`localhost`, `127.0.0.1`, `[::1]`)**: Server sessions auto-authorize when `NODE_ENV !== "production"` and `DEBUG_COMMANDS !== "0"`, and the ready banner logs in DevTools. (`?debug=1` / `?admin=1` toolbar/hitbox toggles are strictly limited to localhost origins.)
-- **Production (`NODE_ENV=production` / `DEBUG_COMMANDS=0`)**: Silent by default; all privileged packets (`admin`, `debugSpawn`, `setDayPhase`) are rejected server-side unless the session authenticates via `admin.auth("<ADMIN_TOKEN>")` against the server's `ADMIN_TOKEN` (from AWS SSM in prod).
+- **Production (`NODE_ENV=production` / `DEBUG_COMMANDS=0`)**: Silent by default; all privileged packets (`admin`, `debugSpawn`, `setDayPhase`) and server chat slash commands (`/god`, `/give`, `/fillbag`, `/clearbag`, `/tp`, `/biome`, `/poi` in `adminSlashCommands.ts`) are rejected server-side unless the session authenticates via `admin.auth("<ADMIN_TOKEN>")` against the server's `ADMIN_TOKEN` (from Fly.io secrets or AWS SSM in prod).
 
 ## Commands
 - `admin.auth(token)` — Authenticates the active WebSocket session using `ADMIN_TOKEN` (constant-time SHA-256 + `timingSafeEqual` on the server; max 5 failed attempts per connection).

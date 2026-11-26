@@ -7,4 +7,4 @@ client UI, procedural sprite compositor, and authoritative multiplayer snapshots
 - **Skin (`fair` | `warm` | `tan` | `bronze` | `deep`)**: Skin tone identifier.
 - **Eye Color (`brown` | `blue` | `green` | `hazel` | `amber` | `violet`)**: Iris pigment palette key.
 - **Hair (`short` | `long` | `spiky` | `ponytail` | `bald`)**: Modular hair layer tucked cleanly under hoods.
-- **Hair Color (`brown` | `black` | `blonde` | `red` | `silver` | `teal`)**: Pigment palette key.
+- **Hair Color (`18` keys in `HAIR_COLORS`)**: `12` solid pigments (`brown`, `black`, `blonde`, `red`, `silver`, `teal`, `auburn`, `copper`, `ash`, `midnight`, `moss`, `violet`) + `6` two-tone gradients (`ember-fade`, `frost-fade`, `shadow-fade`, `forest-fade`, `sunset-fade`, `amethyst-fade`).

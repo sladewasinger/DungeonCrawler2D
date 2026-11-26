@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@dc2d/contracts": "*",
     "zod": "^4.4.3"
   }
 }

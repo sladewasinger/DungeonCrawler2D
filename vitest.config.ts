@@ -7,6 +7,7 @@ export default defineConfig({
       "packages/*/src/**/*.test.ts",
       "packages/*/build/**/*.test.ts",
       "tests/integration/**/*.test.ts",
+      "tests/properties/**/*.test.ts",
     ],
     exclude: ["**/node_modules/**", "**/dist/**"],
     environment: "node",

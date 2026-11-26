@@ -1,8 +1,9 @@
 /** Pure stealth exposure, cover, light-level visibility, noise radius, and backstab geometry. */
+import { PROP_SPECS } from "@dc2d/content";
 import { clamp } from "../math/noise.js";
 import { sampleDayNight } from "../time/dayNight.js";
 import type { WorldChunkCache } from "../world/collision.js";
-import { PropKind, type ChunkProp } from "../world/types.js";
+import type { ChunkProp } from "../world/types.js";
 import type { Vec2Like } from "./combatRules.js";
 
 export const STEALTH_TUNING = {
@@ -45,18 +46,11 @@ export interface StealthQuery {
   readonly attackFlash?: boolean | undefined;
 }
 
-const COVER_PROPS = new Set<PropKind>([PropKind.Bush, PropKind.TallGrass, PropKind.BogReed]);
-const CANOPY_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.GiantMushroom]);
-const WARM_GLOW_PROPS = new Set<PropKind>([PropKind.BrazierLit, PropKind.RunicForge, PropKind.Waystone, PropKind.ShrineAltar, PropKind.CursedObelisk]);
-
 function propLightContrib(prop: ChunkProp, x: number, y: number): number {
-  const isFire = prop.kind === PropKind.Campfire;
-  const isWarmGlow = WARM_GLOW_PROPS.has(prop.kind);
-  if (!isFire && prop.kind !== PropKind.Torch && !isWarmGlow) return 0;
-  const maxR = isFire ? 6.5 : 4.2;
+  const { lightMaxRadius, lightIntensity } = PROP_SPECS[prop.kind].stealth;
+  if (!lightMaxRadius || !lightIntensity) return 0;
   const dist = Math.hypot(prop.x - x, prop.y - y);
-  if (dist > maxR) return 0;
-  return (1 - dist / maxR) * (isFire ? 0.55 : isWarmGlow ? 0.45 : 0.4);
+  return dist > lightMaxRadius ? 0 : (1 - dist / lightMaxRadius) * lightIntensity;
 }
 
 function scanNearbyProps(props: readonly ChunkProp[], x: number, y: number): { readonly inCover: boolean; readonly inShade: boolean; readonly propLight: number } {
@@ -64,9 +58,10 @@ function scanNearbyProps(props: readonly ChunkProp[], x: number, y: number): { r
   let inShade = false;
   let propLight = 0;
   for (const p of props) {
+    const spec = PROP_SPECS[p.kind].stealth;
     const d = Math.hypot(p.x - x, p.y - y);
-    if (COVER_PROPS.has(p.kind) && d <= STEALTH_TUNING.bushCoverRadiusTiles) inCover = true;
-    if (CANOPY_PROPS.has(p.kind) && d <= STEALTH_TUNING.canopyShadeRadiusTiles) inShade = true;
+    if (spec.groundCoverBonus > 0 && d <= STEALTH_TUNING.bushCoverRadiusTiles) inCover = true;
+    if (spec.canopyShadeBonus > 0 && d <= STEALTH_TUNING.canopyShadeRadiusTiles) inShade = true;
     propLight = Math.max(propLight, propLightContrib(p, x, y));
   }
   return { inCover, inShade, propLight };

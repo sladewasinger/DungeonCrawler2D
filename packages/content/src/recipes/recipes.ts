@@ -1,19 +1,8 @@
 /** Authoritative hand and campfire crafting recipes. */
+import type { RecipeDef, RecipeIngredientDef } from "@dc2d/contracts";
 import { FRONTIER_RECIPES } from "./frontierRecipes.js";
 
-export interface RecipeIngredientDef {
-  readonly itemId: string;
-  readonly count: number;
-}
-
-export interface RecipeDef {
-  readonly id: string;
-  readonly outputItemId: string;
-  readonly outputCount: number;
-  readonly requiresCampfire?: boolean;
-  readonly requiresWorkbench?: boolean;
-  readonly ingredients: readonly RecipeIngredientDef[];
-}
+export type { RecipeDef, RecipeIngredientDef };
 
 const ITEM_WOOD = "wood";
 const ITEM_STONE = "stone";

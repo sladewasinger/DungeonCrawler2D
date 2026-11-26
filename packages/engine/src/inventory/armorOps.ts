@@ -1,4 +1,5 @@
 /** Pure armor equipment swap, unequip, prefix tracking, and defense helpers for 36-slot inventory. */
+import { ARMOR_SLOT_KEYS } from "@dc2d/contracts";
 import {
   insertIntoSlots,
   makeSlotItem,
@@ -10,7 +11,7 @@ import {
   type StackLimitLookup,
 } from "./slotModel.js";
 
-export const ARMOR_SLOT_KEYS: readonly ArmorSlotKey[] = ["head", "chest", "legs", "feet", "offhand"];
+export { ARMOR_SLOT_KEYS };
 
 export interface ArmorItemRule {
   readonly armorSlot?: ArmorSlotKey | undefined;

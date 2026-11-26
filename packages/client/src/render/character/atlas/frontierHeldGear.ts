@@ -1,9 +1,10 @@
 /** Crisp outlined held textures & shield variants for all Frontier weapons, bows, tools, and shields. */
+import type { ItemWeaponArchetype } from "@dc2d/contracts";
 import { Texture } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../../textures/pixelCanvas.js";
 import { OUTLINE_RGB } from "../characterTypes.js";
 
-export type HeldArchetype = "sword" | "dagger" | "spear" | "axe" | "pickaxe" | "greatsword" | "bow";
+export type HeldArchetype = Exclude<ItemWeaponArchetype, "torch">;
 
 interface WeaponPalette {
   readonly archetype: HeldArchetype;
@@ -85,6 +86,11 @@ const SHIELD_SPECS: Readonly<Record<string, { readonly rim: string; readonly fac
   "runic-buckler": { rim: "#38bdf8", face: "#334155", boss: "#e0f2fe" },
   "aegis-tower-shield": { rim: "#fbbf24", face: "#475569", boss: "#fef08a" },
 };
+
+export const FRONTIER_HELD_GEAR_IDS: readonly string[] = [
+  ...Object.keys(PALETTES),
+  ...Object.keys(SHIELD_SPECS),
+];
 
 export function getFrontierShieldTexture(offhandId: string | null | undefined): Texture | null {
   if (!offhandId) return null;
