@@ -1,22 +1,23 @@
-/** Centered parchment Overworld Map (toggled with [M] or holding the Map item) showing terrain, POIs, and players. */
+/** Centered parchment Overworld Map (toggled with [M] or hotbar [M] button) showing terrain, POIs, and players. */
 import { GroundKind, PropKind, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot } from "@dc2d/engine";
 
-const MAP_PX = 360;
+const MAP_PX = 480;
 const COLOR_ENEMY = "#ef4444";
 const COLOR_PLAYER_REMOTE = "#a855f7";
 const COLOR_CHEST = "#facc15";
 const COLOR_CAMPFIRE = "#fb923c";
 
-const GROUND_COLORS: Readonly<Record<number, string>> = {
-  [GroundKind.DeepWater]: "#1d4ed8",
-  [GroundKind.ShallowWater]: "#3b82f6",
-  [GroundKind.Sand]: "#d4a359",
-  [GroundKind.Grass]: "#3f7d3a",
-  [GroundKind.MeadowGrass]: "#539a48",
-  [GroundKind.ForestFloor]: "#2d5a2b",
-  [GroundKind.DirtPath]: "#8c5b36",
-  [GroundKind.CliffStone]: "#64748b",
-  [GroundKind.MossStone]: "#47694f",
+const DEFAULT_RGB: readonly [number, number, number] = [63, 125, 58];
+const GROUND_RGB: Readonly<Record<number, readonly [number, number, number]>> = {
+  [GroundKind.DeepWater]: [29, 78, 216],
+  [GroundKind.ShallowWater]: [59, 130, 246],
+  [GroundKind.Sand]: [212, 163, 89],
+  [GroundKind.Grass]: [63, 125, 58],
+  [GroundKind.MeadowGrass]: [83, 154, 72],
+  [GroundKind.ForestFloor]: [45, 90, 43],
+  [GroundKind.DirtPath]: [140, 91, 54],
+  [GroundKind.CliffStone]: [100, 116, 139],
+  [GroundKind.MossStone]: [71, 105, 79],
 };
 
 function drawDot(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly size: number; readonly color: string }): void {
@@ -37,25 +38,41 @@ function drawPlayerArrow(ctx: CanvasRenderingContext2D, fx: number, fy: number):
   ctx.rotate(ang);
   ctx.fillStyle = "#090d14";
   ctx.beginPath();
-  ctx.moveTo(8, 0); ctx.lineTo(-5, 5.5); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, -5.5);
+  ctx.moveTo(10, 0); ctx.lineTo(-6, 7); ctx.lineTo(-3, 0); ctx.lineTo(-6, -7);
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#f8fafc";
   ctx.beginPath();
-  ctx.moveTo(6, 0); ctx.lineTo(-3.8, 3.8); ctx.lineTo(-1.8, 0); ctx.lineTo(-3.8, -3.8);
+  ctx.moveTo(7.5, 0); ctx.lineTo(-4.5, 5); ctx.lineTo(-2.2, 0); ctx.lineTo(-4.5, -5);
   ctx.closePath(); ctx.fill();
   ctx.restore();
 }
 
-function paintTilePixel(ctx: CanvasRenderingContext2D, opts: {
+function fillTerrainBlock(data: Uint8ClampedArray, opts: {
+  readonly rgb: readonly [number, number, number]; readonly lift: number;
+  readonly px: number; readonly py: number; readonly step: number;
+}): void {
+  const r = Math.min(255, opts.rgb[0] + opts.lift);
+  const g = Math.min(255, opts.rgb[1] + opts.lift);
+  const b = Math.min(255, opts.rgb[2] + opts.lift);
+  const y0 = Math.max(0, opts.py);
+  const y1 = Math.min(MAP_PX, opts.py + opts.step);
+  const x0 = Math.max(0, opts.px);
+  const x1 = Math.min(MAP_PX, opts.px + opts.step);
+  for (let py = y0; py < y1; py++) {
+    for (let px = x0; px < x1; px++) {
+      const off = (py * MAP_PX + px) * 4;
+      data[off] = r; data[off + 1] = g; data[off + 2] = b; data[off + 3] = 255;
+    }
+  }
+}
+
+function paintTileBlock(data: Uint8ClampedArray, opts: {
   readonly cache: WorldChunkCache; readonly wx: number; readonly wy: number; readonly px: number; readonly py: number; readonly step: number;
 }): void {
   const tile = opts.cache.tileAt(opts.wx, opts.wy);
-  ctx.fillStyle = GROUND_COLORS[tile.ground] ?? "#3f7d3a";
-  ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
-  if (tile.elevation > 0) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
-    ctx.fillRect(opts.px, opts.py, opts.step, opts.step);
-  }
+  const rgb = GROUND_RGB[tile.ground] ?? DEFAULT_RGB;
+  const lift = tile.elevation > 0 ? Math.min(48, tile.elevation * 22) : 0;
+  fillTerrainBlock(data, { rgb, lift, px: opts.px, py: opts.py, step: opts.step });
 }
 
 export class MinimapOverlay {
@@ -100,7 +117,7 @@ export class MinimapOverlay {
     btn.addEventListener("pointerdown", (e) => e.stopPropagation());
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.zoom = this.zoom >= 3 ? 1 : this.zoom + 1;
+      this.zoom = this.zoom >= 4 ? 2 : this.zoom + 1;
       btn.textContent = `${this.zoom}×`;
       this.terrainCacheKey = "";
     });
@@ -138,11 +155,15 @@ export class MinimapOverlay {
     this.terrainCacheKey = key;
     const ctx = this.terrainBuf.getContext("2d");
     if (!ctx) return;
+    const img = ctx.createImageData(MAP_PX, MAP_PX);
     const step = this.zoom;
     const half = Math.floor(MAP_PX / (2 * step));
-    for (let dy = -half; dy <= half; dy++) {
-      for (let dx = -half; dx <= half; dx++) paintTilePixel(ctx, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * step, py: (dy + half) * step, step });
+    for (let dy = -half; dy < half; dy++) {
+      for (let dx = -half; dx < half; dx++) {
+        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * step, py: (dy + half) * step, step });
+      }
     }
+    ctx.putImageData(img, 0, 0);
   }
 
   private drawMarkers(ctx: CanvasRenderingContext2D, opts: {
@@ -154,16 +175,16 @@ export class MinimapOverlay {
     const cx = MAP_PX * 0.5;
     const cy = MAP_PX * 0.5;
     for (const prop of opts.cache.propsNear(local.x, local.y).filter((p) => p.kind === PropKind.Campfire)) {
-      drawDot(ctx, { px: cx + (prop.x - local.x) * this.zoom, py: cy + (prop.y - local.y) * this.zoom, size: 5, color: COLOR_CAMPFIRE });
+      drawDot(ctx, { px: cx + (prop.x - local.x) * this.zoom, py: cy + (prop.y - local.y) * this.zoom, size: 6, color: COLOR_CAMPFIRE });
     }
     for (const c of opts.chests) {
-      drawDot(ctx, { px: cx + (c.x - local.x) * this.zoom, py: cy + (c.y - local.y) * this.zoom, size: 5, color: c.opened ? "#ca8a04" : COLOR_CHEST });
+      drawDot(ctx, { px: cx + (c.x - local.x) * this.zoom, py: cy + (c.y - local.y) * this.zoom, size: 6, color: c.opened ? "#ca8a04" : COLOR_CHEST });
     }
     for (const e of opts.entities.filter((m) => !m.corpse && m.hp > 0)) {
-      drawDot(ctx, { px: cx + (e.x - local.x) * this.zoom, py: cy + (e.y - local.y) * this.zoom, size: 4, color: COLOR_ENEMY });
+      drawDot(ctx, { px: cx + (e.x - local.x) * this.zoom, py: cy + (e.y - local.y) * this.zoom, size: 5, color: COLOR_ENEMY });
     }
     for (const p of opts.players.filter((pl) => pl.id !== local.id)) {
-      drawDot(ctx, { px: cx + (p.x - local.x) * this.zoom, py: cy + (p.y - local.y) * this.zoom, size: 5, color: COLOR_PLAYER_REMOTE });
+      drawDot(ctx, { px: cx + (p.x - local.x) * this.zoom, py: cy + (p.y - local.y) * this.zoom, size: 6, color: COLOR_PLAYER_REMOTE });
     }
   }
 }

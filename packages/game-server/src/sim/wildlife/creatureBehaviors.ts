@@ -166,10 +166,17 @@ function resolveBoarMoveOrCharge(opts: { readonly cache: WorldChunkCache; readon
   return { mode: "steer", steer: holdOrChaseBoarSteer(e, target, dist) };
 }
 
+function stepBoarChargeWindupOrCancel(opts: Parameters<typeof stepBoarCommittedCharge>[0]): boolean {
+  if (!opts.target) { opts.e.telegraphTimer = 0; opts.e.aiState = ST_IDLE; return false; }
+  advanceBoarChargeWindup({ cache: opts.cache, e: opts.e, target: opts.target, dt: opts.dt, events: opts.events });
+  return true;
+}
+
 export function stepBoarCommittedCharge(opts: { readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly target: CombatPlayerCandidate | null; readonly dt: number; readonly onStrike: StrikePlayerFn; readonly events: WorldEvent[] }): boolean {
   if (opts.e.kind !== "boar") return false;
   if (opts.e.chargeTimer > 0) { advanceActiveBoarCharge(opts); return true; }
   if (opts.e.chargeRecoverTimer > 0) { advanceBoarRecovery(opts.e, opts.cache, opts.dt); return true; }
+  if (opts.e.telegraphTimer > 0 && opts.e.aiState === ST_CHARGE) return stepBoarChargeWindupOrCancel(opts);
   return false;
 }
 

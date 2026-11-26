@@ -149,7 +149,7 @@ export class WorldEcology {
   }
 
   private finalizeDeath(e: WildlifeEntity): void {
-    e.corpse = true; e.aiState = ST_DEAD; e.telegraphTimer = 0;
+    e.corpse = true; e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
     e.targetPlayerId = null; e.targetKind = null; e.suspicion = 0;
     e.corpseTimer = e.kind === KIND_SLIME ? 0.35 : AI_TUNING.corpseDurationSec;
     CREATURE_SPECS[e.kind].lootDrops.forEach((drop, idx) => {

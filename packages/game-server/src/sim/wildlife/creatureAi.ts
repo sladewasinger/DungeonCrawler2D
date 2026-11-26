@@ -3,7 +3,7 @@ import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, canReachMeleeTarget, type W
 import type { CombatPlayerRef } from "../combatActions.js";
 import { stepBurnTarget } from "../combat/statusEffects.js";
 import { holdsSpiderConcealedAmbush, stepSpiderPursuitActions } from "../webs/webCocoon.js";
-import { CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
+import { CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
 import { clearNavPath, faceTarget, findReturnReaggroPlayer, stepIdleJumpArc, stepKnockbackVelocity, syncCreatureWaterState } from "./creatureNavigation.js";
 import { computeSeparation, computeSlimeCohesion, isSpiderConcealed, moveCreatureToward, stepBearBluff, stepBearScavenge, stepBoarBehavior, stepBoarCommittedCharge, stepHomePatrol, type CombatPlayerCandidate, type EcologyFoodSource } from "./creatureBehaviors.js";
 import { beginCreatureStrike, stepCreatureStrikeWindow, steerGoblinAllyRetreat } from "./ecologyHelpers.js";
@@ -107,7 +107,7 @@ function steerOrChargeTarget(input: StepCreatureInput, target: CombatTarget): vo
 
 function enterReturnState(e: WildlifeEntity): void {
   e.aiState = ST_RETURN; e.investigateTimer = 0; e.telegraphTimer = 0;
-  e.strikeTimer = 0; e.strikeHitIds.clear(); e.chargeTimer = 0;
+  e.strikeTimer = 0; e.strikeHitIds.clear(); e.chargeTimer = 0; e.bluffTimer = 0;
   e.suspicion = 0; e.unreachableTimer = 0; e.provokedTimer = 0;
   e.targetPlayerId = null; e.targetKind = null; e.spottedPopTimer = 0;
   resetHuntTracking(e);
@@ -223,15 +223,24 @@ function handleUnseenTurn(input: StepCreatureInput): void {
   const unseen = { cache: input.cache, e: input.e, allEntities: input.allEntities, players: input.players, dt: input.dt, enterReturn: enterReturnState };
   if (stepLostSightGrace(unseen)) return;
   redirectSearchByHearing(unseen);
-  decayUnseenSuspicion(input.e, input.dt);
+  decayUnseenSuspicion(input.e, input.dt); input.e.bluffTimer = 0;
   stepInvestigateOrPatrol(input);
+}
+
+function stepCommittedMeleeWindup(input: StepCreatureInput): boolean {
+  const { e } = input;
+  if (e.telegraphTimer <= 0 || (e.kind === "boar" && e.aiState === ST_CHARGE)) return false;
+  const locked = e.targetPlayerId ? resolveLockedTarget({ id: e.targetPlayerId, players: input.players, allEntities: input.allEntities }) : null;
+  if (!locked) { e.telegraphTimer = 0; return false; }
+  finishWindupStrike(input); return true;
 }
 
 function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   const { cache, e, allEntities, players, dayPhase, dt } = input;
   stepCreatureStrikeWindow({ cache, e, players, allEntities, dt, onStrike: input.onStrike });
-  if (e.aiState === ST_RETURN) { stepCommittedReturn(input); return; }
+  if (e.aiState === ST_RETURN) { e.telegraphTimer = 0; stepCommittedReturn(input); return; }
   if (stepChargeOrForage(input)) return;
+  if (stepCommittedMeleeWindup(input)) return;
   scanAlliesAndCorpses({ cache, e, allEntities, players });
   const perceived = findBestHostileTarget({ cache, e, players, allEntities });
   if (!perceived) { handleUnseenTurn(input); return; }
@@ -245,7 +254,7 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   e.jumpStepped = false;
   if (e.hp <= 0 || e.corpse) {
     e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
-    e.spottedPopTimer = 0; e.howlTimer = 0;
+    e.spottedPopTimer = 0; e.howlTimer = 0; e.bluffTimer = 0;
     e.corpseTimer = Math.max(0, e.corpseTimer - dt);
     return e.corpseTimer > 0;
   }
@@ -255,7 +264,7 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   if (e.hp <= 0 || e.corpse) return true;
   stepKnockbackVelocity(input.cache, e, dt);
   if (e.staggerTimer > 0) {
-    e.telegraphTimer = 0; e.strikeTimer = 0;
+    e.telegraphTimer = 0; e.strikeTimer = 0; e.bluffTimer = 0;
     stepIdleJumpArc(e, dt); return true;
   }
   stepActiveWildlifeTurn(input);

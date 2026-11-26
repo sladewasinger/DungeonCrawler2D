@@ -46,6 +46,19 @@ const TOOLBAR_CSS = `
   background: rgba(120, 53, 15, 0.75);
 }
 .ow-pill[hidden] { display: none; }
+.ow-fs-pill {
+  gap: 5px;
+  padding: 5px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(120, 53, 15, 0.72);
+  color: #fef3c7;
+}
+.ow-fs-pill:hover {
+  border-color: #f59e0b;
+  background: rgba(146, 64, 14, 0.85);
+}
 .ow-dot {
   width: 8px;
   height: 8px;

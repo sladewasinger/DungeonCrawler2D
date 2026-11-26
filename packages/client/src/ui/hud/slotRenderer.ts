@@ -21,6 +21,7 @@ export interface HudActions {
   readonly onCraft: (recipeId: string) => void;
   readonly onSetCharacter: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
   readonly onToggleTorch: () => void;
+  readonly onMapToggled?: () => void;
   readonly onDropItem: (req: DropItemRequest) => void;
 }
 
