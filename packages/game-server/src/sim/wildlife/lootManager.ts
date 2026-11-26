@@ -3,41 +3,16 @@ import { maxStackForItem } from "@dc2d/content";
 import {
   AI_TUNING, WorldChunkCache, canInsertSlotItem, createEmptyChestSlots, insertIntoSlots,
   makeSlotItem, quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
-  type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
+  type ChunkPoi, type GroundLootSnapshot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { countLitBraziersForChest, populatePoiChestSlots } from "./loot/eliteScaling.js";
+import {
+  buildGroundLootEntry, toChestSnapshot, toGroundLootSnapshot, toSavedChestRecord,
+  type GroundLootItem, type SavedChestRecord, type SpawnLootOpts, type StoredChest,
+} from "./loot/lootTypes.js";
 
-interface GroundLootItem {
-  readonly id: string; readonly itemId: string; count: number; readonly prefixId?: string | undefined;
-  x: number; y: number; vx: number; vy: number; readonly elevation: number; ageSec: number;
-  readonly pickupDelaySec: number;
-  readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
-}
-
-interface StoredChest {
-  readonly id: string;
-  readonly poiKind: ChunkPoi["kind"] | "player-chest";
-  readonly x: number;
-  readonly y: number;
-  readonly elevation: number;
-  opened: boolean;
-  sealed?: boolean | undefined;
-  readonly braziersTotal?: number | undefined;
-  readonly slots: InventorySlot[];
-}
-
-export interface SavedChestRecord {
-  readonly id: string;
-  readonly poiKind: ChunkPoi["kind"] | "player-chest";
-  readonly x: number;
-  readonly y: number;
-  readonly elevation: number;
-  readonly opened: boolean;
-  readonly sealed?: boolean | undefined;
-  readonly braziersTotal?: number | undefined;
-  readonly slots: readonly InventorySlot[];
-}
+export type { SavedChestRecord } from "./loot/lootTypes.js";
 
 const MAX_GROUND_LOOT_AGE_SEC = 180;
 const MAX_STUCK_ARROW_AGE_SEC = 120;
@@ -71,44 +46,22 @@ export class LootManager {
     this.chests.set(opts.id, { id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation, opened: false, slots: createEmptyChestSlots() });
   }
 
-  exportChests(): readonly SavedChestRecord[] {
-    return Array.from(this.chests.values(), (c) => ({
-      id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
-      opened: c.opened, ...(c.sealed ? { sealed: true } : {}), ...(c.braziersTotal ? { braziersTotal: c.braziersTotal } : {}),
-      slots: c.slots.map((s) => (s ? { ...s } : null)),
-    }));
-  }
+  exportChests(): readonly SavedChestRecord[] { return Array.from(this.chests.values(), toSavedChestRecord); }
 
   importChests(list: readonly SavedChestRecord[]): void {
     for (const c of list) {
-      this.chests.set(c.id, {
-        id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
-        opened: c.opened, ...(c.sealed ? { sealed: true } : {}), ...(c.braziersTotal ? { braziersTotal: c.braziersTotal } : {}),
-        slots: c.slots.map((s) => (s ? { ...s } : null)),
-      });
+      this.chests.set(c.id, { ...c, slots: c.slots.map((s) => (s ? { ...s } : null)) });
     }
   }
 
-  spawnLoot(opts: {
-    readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined; readonly x: number; readonly y: number;
-    readonly vx: number; readonly vy: number; readonly pickupDelaySec?: number | undefined;
-    readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
-  }): void {
+  spawnLoot(opts: SpawnLootOpts): void {
     while (this.groundLoot.length >= MAX_GROUND_LOOT_ITEMS) this.groundLoot.shift();
-    this.groundLoot.push({
-      id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count,
-      ...(opts.prefixId ? { prefixId: opts.prefixId } : {}),
-      x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
-      elevation: this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation, ageSec: 0,
-      pickupDelaySec: opts.pickupDelaySec ?? 0.25,
-      ...(opts.manualPickup ? { manualPickup: true } : {}),
-      ...(opts.angle !== undefined ? { angle: opts.angle } : {}),
-      ...(opts.stuck ? { stuck: true } : {}),
-    });
+    const elev = this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation;
+    this.groundLoot.push(buildGroundLootEntry(`loot-${this.nextId++}`, opts, elev));
   }
 
   spawnPlayerDrop(
-    player: { readonly x: number; readonly y: number; readonly aimX: number; readonly aimY: number },
+    player: { readonly id?: string | undefined; readonly x: number; readonly y: number; readonly aimX: number; readonly aimY: number },
     item: { readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined },
   ): void {
     const mag = Math.hypot(player.aimX, player.aimY);
@@ -116,8 +69,9 @@ export class LootManager {
     const dy = mag > 0.05 ? player.aimY / mag : 1;
     this.spawnLoot({
       itemId: item.itemId, count: item.count, ...(item.prefixId ? { prefixId: item.prefixId } : {}),
-      x: player.x + dx * 0.7, y: player.y + dy * 0.7,
-      vx: dx * 2.5, vy: dy * 2.5, pickupDelaySec: 1.8,
+      x: player.x + dx * 1.05, y: player.y + dy * 1.05,
+      vx: dx * 3.0, vy: dy * 3.0, pickupDelaySec: 2.2,
+      ...(player.id ? { droppedByPlayerId: player.id, dropLockActive: true } : {}),
     });
   }
 
@@ -190,7 +144,8 @@ export class LootManager {
     let idx = -1; let bestDist = 2.25;
     for (let i = 0; i < this.groundLoot.length; i++) {
       const g = this.groundLoot[i]!;
-      const d = g.manualPickup && (!lootId || g.id === lootId) ? Math.hypot(g.x - player.x, g.y - player.y) : Infinity;
+      const pickable = Boolean(g.manualPickup || g.dropLockActive);
+      const d = pickable && (!lootId || g.id === lootId) ? Math.hypot(g.x - player.x, g.y - player.y) : Infinity;
       if (d <= bestDist) { bestDist = d; idx = i; }
     }
     return idx;
@@ -208,6 +163,13 @@ export class LootManager {
     return true;
   }
 
+  private maybeReleaseDropLock(g: GroundLootItem, players: readonly CombatPlayerRef[]): void {
+    if (!g.dropLockActive || !g.droppedByPlayerId) return;
+    const dropper = players.find((p) => p.id === g.droppedByPlayerId);
+    const farEnough = !dropper || Math.hypot(dropper.x - g.x, dropper.y - g.y) >= AI_TUNING.lootMagnetRadiusTiles + 0.8;
+    if (farEnough || g.ageSec >= 120) g.dropLockActive = false;
+  }
+
   private stepLootItem(opts: { readonly g: GroundLootItem; readonly players: readonly CombatPlayerRef[]; readonly events: WorldEvent[]; readonly dt: number }): boolean {
     const { g, players, events, dt } = opts;
     g.ageSec += dt;
@@ -215,6 +177,7 @@ export class LootManager {
     if (g.ageSec >= ttl) return true;
     g.x += g.vx * dt; g.y += g.vy * dt;
     g.vx *= Math.max(0, 1 - dt * 6); g.vy *= Math.max(0, 1 - dt * 6);
+    this.maybeReleaseDropLock(g, players);
     return !g.manualPickup && g.ageSec >= g.pickupDelaySec && this.pullOrCollectLoot({ g, players, events, dt });
   }
 
@@ -224,12 +187,17 @@ export class LootManager {
     }
   }
 
+  private isCandidateForMagnet(g: GroundLootItem, cand: CombatPlayerRef): boolean {
+    if (g.dropLockActive && cand.id === g.droppedByPlayerId) return false;
+    return canInsertSlotItem(cand.inventory.slots, { itemId: g.itemId, prefixId: g.prefixId }, maxStackForItem);
+  }
+
   private findClosestMagnetPlayer(g: GroundLootItem, players: readonly CombatPlayerRef[]): { readonly p: CombatPlayerRef; readonly dist: number } | null {
     let p: CombatPlayerRef | null = null;
     let dist: number = AI_TUNING.lootMagnetRadiusTiles;
     for (const cand of players) {
       const d = Math.hypot(cand.x - g.x, cand.y - g.y);
-      if (d < dist && canInsertSlotItem(cand.inventory.slots, { itemId: g.itemId, prefixId: g.prefixId }, maxStackForItem)) { dist = d; p = cand; }
+      if (d < dist && this.isCandidateForMagnet(g, cand)) { dist = d; p = cand; }
     }
     return p ? { p, dist } : null;
   }
@@ -253,20 +221,8 @@ export class LootManager {
 
   snapshot(): { readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[] } {
     return {
-      chests: Array.from(this.chests.values(), (c) => ({
-        id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation, opened: c.opened,
-        ...(c.sealed ? { sealed: true } : {}),
-        ...(c.braziersTotal ? { braziersTotal: c.braziersTotal, braziersLit: countLitBraziersForChest(this.cache, c.id, c.braziersTotal) } : {}),
-        slots: c.slots.map((s) => (s ? { ...s } : null)),
-      })),
-      groundLoot: this.groundLoot.map((g) => ({
-        id: g.id, itemId: g.itemId, count: g.count,
-        ...(g.prefixId ? { prefixId: g.prefixId } : {}),
-        x: g.x, y: g.y, elevation: g.elevation, ageSec: g.ageSec,
-        ...(g.manualPickup ? { manualPickup: true } : {}),
-        ...(g.angle !== undefined ? { angle: g.angle } : {}),
-        ...(g.stuck ? { stuck: true } : {}),
-      })),
+      chests: Array.from(this.chests.values(), (c) => toChestSnapshot(c, c.braziersTotal ? countLitBraziersForChest(this.cache, c.id, c.braziersTotal) : undefined)),
+      groundLoot: this.groundLoot.map(toGroundLootSnapshot),
     };
   }
 }

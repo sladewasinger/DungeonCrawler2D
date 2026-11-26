@@ -48,32 +48,39 @@ export class HudRoot {
   constructor(host: HTMLElement, actions: HudActions) {
     ensureHudStyles();
     this.actions = actions;
-    const wrappedActions: HudActions = {
-      ...actions,
-      onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
-      onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
-      onInspectItem: (source) => { this.itemCard.open(source); this.refreshFromCache(); },
-      onDismissInspect: () => this.itemCard.close(),
-    };
-    this.drag = new SlotDragManager(wrappedActions);
-    this.itemCard = new ItemCardPopover(host, wrappedActions);
+    const wrapped = this.buildWrappedActions(actions);
+    this.drag = new SlotDragManager(wrapped);
+    this.itemCard = new ItemCardPopover(host, wrapped);
     this.hotbar = new BottomHotbar(host, this.drag, {
       onToggleTorch: actions.onToggleTorch,
       onToggleMap: () => { this.toggleMap(); actions.onMapToggled?.(); },
     });
     this.vitals = new VitalsBar(host);
-    this.inventoryModal = new InventoryModal(host, this.drag, {
-      onClose: () => this.closePanels(), onOpenCrafting: () => this.togglePanel("crafting"),
-    });
-    this.chestModal = new ChestModal(host, this.drag, {
-      onTakeAll: () => { if (this.openChestId) actions.onChestTakeAll(this.openChestId); },
-      onClose: () => this.closePanels(),
-    });
-    this.craftingPanel = new CraftingPanel(host, actions.onCraft, {
-      onClose: () => this.closePanels(), onOpenInventory: () => this.togglePanel("inventory"),
-    });
+    this.inventoryModal = new InventoryModal(host, this.drag, { onClose: () => this.closePanels(), onOpenCrafting: () => this.togglePanel("crafting") });
+    this.chestModal = new ChestModal(host, this.drag, { onTakeAll: () => this.handleTakeAll(), onClose: () => this.closePanels() });
+    this.craftingPanel = new CraftingPanel(host, actions.onCraft, { onClose: () => this.closePanels(), onOpenInventory: () => this.togglePanel("inventory") });
     this.characterPanel = new CharacterPanel(host, actions.onSetCharacter, () => this.closePanels());
     this.minimap = new MinimapOverlay(host, () => { this.mapOpen = false; this.refreshFromCache(); });
+  }
+
+  private buildWrappedActions(actions: HudActions): HudActions {
+    return {
+      ...actions,
+      onChestTransfer: (req) => {
+        const res = actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId });
+        if (res === false && req.from === "chest") this.chestModal.showNotice("Inventory Full — drop or swap an item");
+        return res;
+      },
+      onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
+      onInspectItem: (source, rect) => { this.itemCard.open(source, rect); this.refreshFromCache(); },
+      onHoverItem: (source, rect) => { this.itemCard.hover(source, rect); this.refreshFromCache(); },
+      onDismissInspect: () => this.itemCard.close(),
+    };
+  }
+
+  private handleTakeAll(): void {
+    if (!this.openChestId) return;
+    if (this.actions.onChestTakeAll(this.openChestId) === false) this.chestModal.showNotice("Inventory Full — drop or swap an item");
   }
 
   activePanel(): ActiveHudPanel { return this.openPanel; }
@@ -112,6 +119,7 @@ export class HudRoot {
   }
 
   private togglePanel(panel: ActiveHudPanel): void {
+    this.itemCard.close();
     this.openPanel = this.openPanel === panel ? "none" : panel;
     if (this.openPanel !== "chest") this.openChestId = null;
     if (this.openPanel === "none") this.drag.clearTapSelection();

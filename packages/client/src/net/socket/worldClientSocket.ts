@@ -1,4 +1,5 @@
 /** WebSocket connection, lifecycle, and snapshot helper utilities for WorldClient. */
+import { isBowItem } from "@dc2d/content";
 import {
   DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, STEALTH_TUNING, ServerMessageSchema,
   type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
@@ -97,6 +98,9 @@ export function applyServerSnapshotMessage(t: ServerSnapshotTarget, msg: Extract
     const rec = reconcileInventorySnapshot({ current: t.inventory, incoming: { ...msg.selfInventory, ackSeq: serverAck }, pendingSeq: t.gates.inv.pendingSeq, elapsedMs: nowMs - t.gates.inv.atMs });
     t.inventory = rec.inventory;
     if (rec.clearedPending) t.gates.inv = IDLE_GATE;
+  } else {
+    const invRes = resolvePendingGate(t.gates.inv, { serverAck, nowMs });
+    t.gates.inv = invRes.nextGate;
   }
   if (msg.selfDiscovery) t.discovery = msg.selfDiscovery;
   reconcilePlayersWithGates({ t, players: msg.players, serverAck, nowMs });
@@ -143,7 +147,7 @@ function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void
   const heldId = heldItemForInventory(ctx.inventory);
   const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
   const normAim = normalizeDirection(input.aim, false);
-  state.bowDrawing = Boolean(input.bowDraw) && heldId === "bow";
+  state.bowDrawing = Boolean(input.bowDraw) && isBowItem(heldId);
   ctx.smoother.step(input.dt);
   const preEvCount = ctx.queuedEvents.length;
   ctx.swing.step({ dt: input.dt, attack: Boolean(input.attack), attackHold: Boolean(input.attackHold), dodge: Boolean(input.dodge), heldId, player: state.player, normAim, isServer: true, events: ctx.queuedEvents });
@@ -172,12 +176,12 @@ export function stepWorldClientInput(ctx: StepLoopContext, input: StepInputFrame
 export function mutateChestEntry(
   chests: readonly WorldChestSnapshot[],
   chestId: string,
-  mutate: (chest: WorldChestSnapshot) => { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot },
-): { readonly inv: InventorySnapshot; readonly chests: readonly WorldChestSnapshot[] } | null {
+  mutate: (chest: WorldChestSnapshot) => { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot; readonly changed: boolean },
+): { readonly inv: InventorySnapshot; readonly chests: readonly WorldChestSnapshot[]; readonly changed: boolean } | null {
   const chest = chests.find((c) => c.id === chestId);
   if (!chest) return null;
   const next = mutate(chest);
-  return { inv: next.inv, chests: chests.map((c) => (c.id === chestId ? next.chest : c)) };
+  return { inv: next.inv, chests: chests.map((c) => (c.id === chestId ? next.chest : c)), changed: next.changed };
 }
 
 export function parseServerMessage(raw: string): ServerMessage | null {

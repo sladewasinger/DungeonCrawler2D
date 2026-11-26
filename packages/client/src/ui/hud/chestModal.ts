@@ -1,7 +1,7 @@
 /** Minecraft-style bidirectional 27-slot Chest <-> 27-slot Backpack modal (bottom hotbar stays active). */
 import {
-  BACKPACK_SLOT_COUNT, CHEST_SLOT_COUNT, HOTBAR_SLOT_COUNT,
-  type InventorySnapshot, type WorldChestSnapshot,
+  BACKPACK_SLOT_COUNT, CHEST_SLOT_COUNT, HOTBAR_SLOT_COUNT, getPoiCatalogEntry,
+  type InventorySnapshot, type PoiKind, type WorldChestSnapshot,
 } from "@dc2d/engine";
 import type { DragSource, SlotDragManager } from "./slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
@@ -9,6 +9,11 @@ import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js"
 const TAG_DIV = "div";
 const TAG_BTN = "button";
 const CLS_SLOT = "ow-slot ow-bag-slot";
+
+function chestTitleForKind(poiKind: string): string {
+  if (poiKind === "player-chest") return "Storage Chest";
+  return getPoiCatalogEntry(poiKind as PoiKind).displayName;
+}
 
 function tapFp(tap: DragSource | null): string {
   if (!tap) return "-";
@@ -18,10 +23,12 @@ function tapFp(tap: DragSource | null): string {
 export class ChestModal {
   readonly el: HTMLElement;
   private readonly titleEl: HTMLSpanElement;
+  private readonly noticeEl: HTMLSpanElement;
   private readonly chestButtons: HTMLButtonElement[] = [];
   private readonly bagButtons: HTMLButtonElement[] = [];
   private readonly chestKeys: string[] = Array.from({ length: CHEST_SLOT_COUNT }, () => "");
   private readonly bagKeys: string[] = Array.from({ length: BACKPACK_SLOT_COUNT }, () => "");
+  private noticeTimer: number | null = null;
   private lastFp = "";
 
   constructor(
@@ -31,15 +38,23 @@ export class ChestModal {
   ) {
     this.el = domNode("section", "ow-modal ow-chest-modal");
     this.el.hidden = true;
-    const { header, titleEl } = buildChestHeader(opts);
+    const { header, titleEl, noticeEl } = buildChestHeader(opts);
     this.titleEl = titleEl;
+    this.noticeEl = noticeEl;
     const body = domNode(TAG_DIV, "ow-chest-body");
     body.append(
-      this.buildPane({ title: "Chest (Drag or Shift-click)", count: CHEST_SLOT_COUNT, kind: "chest", drag, out: this.chestButtons }),
+      this.buildPane({ title: "Chest (Drag, Right-click, or Shift-click)", count: CHEST_SLOT_COUNT, kind: "chest", drag, out: this.chestButtons }),
       this.buildPane({ title: "Backpack (Hotbar below)", count: BACKPACK_SLOT_COUNT, kind: "slot", drag, out: this.bagButtons }),
     );
     this.el.append(header, body);
     host.append(this.el);
+  }
+
+  showNotice(text: string): void {
+    this.noticeEl.textContent = text;
+    this.noticeEl.hidden = false;
+    if (this.noticeTimer !== null) window.clearTimeout(this.noticeTimer);
+    this.noticeTimer = window.setTimeout(() => { this.noticeEl.hidden = true; this.noticeTimer = null; }, 2400);
   }
 
   private buildPane(opts: {
@@ -69,8 +84,8 @@ export class ChestModal {
     readonly open: boolean; readonly tapSource: DragSource | null;
   }): void {
     this.el.hidden = !opts.open || !opts.chest;
-    if (this.el.hidden || !opts.chest) return;
-    this.titleEl.textContent = opts.chest.poiKind === "ancient-ruins" ? "Ancient Coffer" : "Bandit Chest";
+    if (this.el.hidden || !opts.chest) { this.noticeEl.hidden = true; return; }
+    this.titleEl.textContent = chestTitleForKind(opts.chest.poiKind);
     const cFp = slotsFingerprint(opts.chest.slots, 0, CHEST_SLOT_COUNT);
     const bFp = slotsFingerprint(opts.inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
     const fp = `${opts.chest.id}#${cFp}#${bFp}#${tapFp(opts.tapSource)}`;
@@ -106,22 +121,24 @@ function syncSlotGrid(buttons: readonly HTMLButtonElement[], opts: {
   }
 }
 
-function buildChestHeader(opts: { readonly onTakeAll: () => void; readonly onClose: () => void }): { readonly header: HTMLDivElement; readonly titleEl: HTMLSpanElement } {
+function buildChestHeader(opts: { readonly onTakeAll: () => void; readonly onClose: () => void }): {
+  readonly header: HTMLDivElement; readonly titleEl: HTMLSpanElement; readonly noticeEl: HTMLSpanElement;
+} {
   const header = domNode(TAG_DIV, "ow-modal-head");
+  const left = domNode(TAG_DIV);
+  left.style.display = "flex"; left.style.alignItems = "center"; left.style.gap = "8px";
   const titleEl = domNode("span");
   titleEl.textContent = "Chest";
+  const noticeEl = domNode("span", "ow-buff-pill ow-buff-burn");
+  noticeEl.hidden = true;
+  left.append(titleEl, noticeEl);
   const right = domNode(TAG_DIV);
-  right.style.display = "flex";
-  right.style.gap = "6px";
+  right.style.display = "flex"; right.style.gap = "6px";
   const takeBtn = domNode(TAG_BTN, "ow-pill");
-  takeBtn.type = TAG_BTN;
-  takeBtn.textContent = "Take All";
-  takeBtn.addEventListener("click", opts.onTakeAll);
+  takeBtn.type = TAG_BTN; takeBtn.textContent = "Take All"; takeBtn.addEventListener("click", opts.onTakeAll);
   const closeBtn = domNode(TAG_BTN, "ow-pill");
-  closeBtn.type = TAG_BTN;
-  closeBtn.textContent = "Close";
-  closeBtn.addEventListener("click", opts.onClose);
+  closeBtn.type = TAG_BTN; closeBtn.textContent = "Close"; closeBtn.addEventListener("click", opts.onClose);
   right.append(takeBtn, closeBtn);
-  header.append(titleEl, right);
-  return { header, titleEl };
+  header.append(left, right);
+  return { header, titleEl, noticeEl };
 }

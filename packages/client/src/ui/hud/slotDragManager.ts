@@ -1,9 +1,9 @@
-/** Unified pointer drag-and-drop, outside-HUD dropping, and Shift-click chest transfer. */
+/** Unified pointer drag-and-drop, right/Shift-click chest transfer, hover preview, and panel inspection. */
 import { getItemDef, maxStackForItem } from "@dc2d/content";
 import { HOTBAR_SLOT_COUNT, type ArmorSlotKey, type InventorySlot, type InventorySnapshot, type SlotItem } from "@dc2d/engine";
 import { getItemIconUrl } from "../icons/itemIcons.js";
 import {
-  isSameDragSource, resolvePointerDrop, type DragSource, type HudDropZone, type MeasuredSlot, type MeasuredZone,
+  dragSourceKey, isSameDragSource, resolvePointerDrop, type DragSource, type HudDropZone, type MeasuredSlot, type MeasuredZone,
 } from "./drag/slotDropResolver.js";
 import { domNode, type HudActions } from "./slotRenderer.js";
 
@@ -33,7 +33,9 @@ export class SlotDragManager {
   private ghost: HTMLImageElement | null = null;
   private latestInv: InventorySnapshot | null = null;
   private chestSlots: readonly InventorySlot[] | null = null;
+  private panelOpen = false;
   private lastPointer: { readonly x: number; readonly y: number } | null = null;
+  private lastHoverKey = "";
 
   constructor(private readonly actions: HudActions) {
     window.addEventListener("pointermove", (e) => this.handleMove(e));
@@ -43,17 +45,17 @@ export class SlotDragManager {
 
   setState(inv: InventorySnapshot, opts: { readonly panelOpen: boolean; readonly chestSlots?: readonly InventorySlot[] | null }): void {
     this.latestInv = inv;
+    this.panelOpen = opts.panelOpen;
     this.chestSlots = opts.chestSlots ?? null;
   }
 
   activeTapSource(): DragSource | null { return null; }
-  clearTapSelection(): void { /* Tap-to-select removed; drag-and-drop or Shift-click only. */ }
+  clearTapSelection(): void { this.emitHover(null); }
 
   hoveredFilledSource(): DragSource | null {
     if (!this.lastPointer) return null;
-    const slotEl = document.elementFromPoint(this.lastPointer.x, this.lastPointer.y)?.closest<HTMLElement>(SLOT_SELECTOR);
-    const src = slotEl ? sourceFromEl(slotEl) : null;
-    return src && this.itemIdFor(src) ? src : null;
+    const hit = hoveredSlotElAt(this.lastPointer.x, this.lastPointer.y);
+    return hit && this.itemIdFor(hit.source) ? hit.source : null;
   }
 
   bindSlot(btn: HTMLButtonElement, source: DragSource): void {
@@ -61,28 +63,39 @@ export class SlotDragManager {
     else if (source.kind === KIND_CHEST) btn.dataset.chestSlot = String(source.index);
     else btn.dataset.armorSlot = source.armorSlot;
     btn.addEventListener("pointerdown", (e) => this.startPointer(e, source));
+    btn.addEventListener("contextmenu", (e) => { if (this.chestSlots) e.preventDefault(); });
+  }
+
+  private armorSlotItem(slot: ArmorSlotKey): SlotItem | null {
+    const id = this.latestInv?.armor[slot];
+    if (!id) return null;
+    const prefixId = this.latestInv?.armorPrefixes?.[slot];
+    return prefixId ? { itemId: id, count: 1, prefixId } : { itemId: id, count: 1 };
   }
 
   private slotItemFor(source: DragSource): SlotItem | null {
     if (source.kind === KIND_CHEST) return this.chestSlots?.[source.index] ?? null;
-    if (!this.latestInv) return null;
-    if (source.kind === KIND_SLOT) return this.latestInv.slots[source.index] ?? null;
-    const id = this.latestInv.armor[source.armorSlot];
-    return id ? { itemId: id, count: 1 } : null;
+    if (source.kind === KIND_SLOT) return this.latestInv?.slots[source.index] ?? null;
+    return this.armorSlotItem(source.armorSlot);
   }
 
-  private itemIdFor(source: DragSource): string | null {
-    return this.slotItemFor(source)?.itemId ?? null;
-  }
+  private itemIdFor(source: DragSource): string | null { return this.slotItemFor(source)?.itemId ?? null; }
 
-  private tryQuickChestTransfer(e: PointerEvent, source: DragSource, itemId: string | null): boolean {
-    if (!e.shiftKey || !this.chestSlots || !itemId || source.kind === KIND_ARMOR) return false;
-    e.preventDefault();
+  private dispatchQuickChest(source: DragSource): void {
+    if (source.kind === KIND_ARMOR) return;
     const fromChest = source.kind === KIND_CHEST;
     this.actions.onChestTransfer({
       from: fromChest ? KIND_CHEST : KIND_INV, fromSlot: source.index,
       to: fromChest ? KIND_INV : KIND_CHEST, toSlot: 0, quick: true,
     });
+  }
+
+  private tryQuickChestTransfer(e: PointerEvent, source: DragSource, itemId: string | null): boolean {
+    if (!this.chestSlots || !itemId || source.kind === KIND_ARMOR) return false;
+    const isRightClick = e.pointerType === "mouse" && e.button === 2;
+    if (!e.shiftKey && !isRightClick) return false;
+    e.preventDefault();
+    this.dispatchQuickChest(source);
     return true;
   }
 
@@ -93,11 +106,26 @@ export class SlotDragManager {
 
   private startPointer(e: PointerEvent, source: DragSource): void {
     e.stopPropagation();
+    this.emitHover(null);
     if (e.pointerType === "mouse") this.lastPointer = { x: e.clientX, y: e.clientY };
     const itemId = this.itemIdFor(source);
-    if (this.isBusyOrWrongButton(e, source, itemId) || this.tryQuickChestTransfer(e, source, itemId)) return;
+    if (this.tryQuickChestTransfer(e, source, itemId) || this.isBusyOrWrongButton(e, source, itemId)) return;
     e.preventDefault();
     this.tracker = { pointerId: e.pointerId, pointerType: e.pointerType, source, startX: e.clientX, startY: e.clientY, itemId: itemId ?? "", dragging: false };
+  }
+
+  private emitHover(hit: { readonly source: DragSource; readonly rect: DOMRect } | null): void {
+    const key = hit ? dragSourceKey(hit.source) : "";
+    if (key === this.lastHoverKey) return;
+    this.lastHoverKey = key;
+    this.actions.onHoverItem?.(hit?.source ?? null, hit?.rect);
+  }
+
+  private updateMouseHover(e: PointerEvent): void {
+    if (e.pointerType !== "mouse" || this.tracker) return;
+    const hit = hoveredSlotElAt(e.clientX, e.clientY);
+    if (!hit || !this.itemIdFor(hit.source)) { this.emitHover(null); return; }
+    this.emitHover({ source: hit.source, rect: hit.el.getBoundingClientRect() });
   }
 
   private advanceActiveDrag(tracker: PointerTracker, x: number, y: number): void {
@@ -107,38 +135,41 @@ export class SlotDragManager {
       this.actions.onDismissInspect?.();
       this.spawnGhost(tracker.itemId, x, y);
     }
-    if (this.ghost) {
-      this.ghost.style.left = `${x}px`;
-      this.ghost.style.top = `${y}px`;
-    }
+    if (this.ghost) { this.ghost.style.left = `${x}px`; this.ghost.style.top = `${y}px`; }
   }
 
   private handleMove(e: PointerEvent): void {
     if (e.pointerType === "mouse") this.lastPointer = { x: e.clientX, y: e.clientY };
-    if (!this.tracker || e.pointerId !== this.tracker.pointerId || !this.tracker.itemId) return;
-    this.advanceActiveDrag(this.tracker, e.clientX, e.clientY);
+    if (this.tracker && e.pointerId === this.tracker.pointerId && this.tracker.itemId) {
+      this.advanceActiveDrag(this.tracker, e.clientX, e.clientY);
+      return;
+    }
+    this.updateMouseHover(e);
+  }
+
+  private handleTapUp(tracker: PointerTracker): void {
+    if (tracker.source.kind === KIND_SLOT && tracker.source.index < HOTBAR_SLOT_COUNT) {
+      this.actions.onSelectHotbar(tracker.source.index);
+    }
+    if (this.panelOpen && tracker.itemId) this.actions.onInspectItem?.(tracker.source, rectForSource(tracker.source));
+    else this.actions.onDismissInspect?.();
   }
 
   private handleUp(e: PointerEvent): void {
     const tracker = this.tracker;
     if (!tracker || e.pointerId !== tracker.pointerId) return;
     this.cancelDrag();
-    if (tracker.dragging) {
-      this.resolveAndDispatchDrop(e.clientX, e.clientY, tracker);
-      return;
-    }
-    if (tracker.source.kind === KIND_SLOT && tracker.source.index < HOTBAR_SLOT_COUNT) {
-      this.actions.onSelectHotbar(tracker.source.index);
-    }
-    if (tracker.itemId) this.actions.onInspectItem?.(tracker.source);
+    if (tracker.dragging) this.resolveAndDispatchDrop(e.clientX, e.clientY, tracker);
+    else this.handleTapUp(tracker);
   }
 
   private resolveAndDispatchDrop(x: number, y: number, tracker: PointerTracker): void {
+    const prefixId = this.slotItemFor(tracker.source)?.prefixId;
     const res = resolvePointerDrop({
       x, y, from: tracker.source, itemId: tracker.itemId, maxStack: maxStackForItem(tracker.itemId),
+      ...(prefixId ? { prefixId } : {}),
       itemArmorSlot: getItemDef(tracker.itemId)?.armorSlot,
-      zones: measureHudZones(),
-      slots: this.measureHudSlots(),
+      zones: measureHudZones(), slots: this.measureHudSlots(),
     });
     if (res.kind === "worldDrop") this.dispatchWorldDrop(tracker.source);
     else if (res.kind === "transfer") this.dispatchTransfer(tracker.source, res.target);
@@ -173,17 +204,27 @@ export class SlotDragManager {
   private spawnGhost(itemId: string, x: number, y: number): void {
     const img = domNode("img", "ow-drag-ghost");
     img.src = getItemIconUrl(itemId);
-    img.style.left = `${x}px`;
-    img.style.top = `${y}px`;
+    img.style.left = `${x}px`; img.style.top = `${y}px`;
     document.body.append(img);
     this.ghost = img;
   }
 
-  private cancelDrag(): void {
-    this.tracker = null;
-    this.ghost?.remove();
-    this.ghost = null;
+  private cancelDrag(): void { this.tracker = null; this.ghost?.remove(); this.ghost = null; }
+}
+
+function hoveredSlotElAt(x: number, y: number): { readonly el: HTMLElement; readonly source: DragSource } | null {
+  const el = document.elementFromPoint(x, y)?.closest<HTMLElement>(SLOT_SELECTOR);
+  if (!el || el.closest("[hidden]")) return null;
+  const source = sourceFromEl(el);
+  return source ? { el, source } : null;
+}
+
+function rectForSource(source: DragSource): DOMRect | undefined {
+  const sel = source.kind === KIND_CHEST ? `[data-chest-slot="${source.index}"]` : (source.kind === KIND_ARMOR ? `[data-armor-slot="${source.armorSlot}"]` : `[data-slot-index="${source.index}"]`);
+  for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+    if (!el.closest("[hidden]")) return el.getBoundingClientRect();
   }
+  return undefined;
 }
 
 function measureHudZones(): MeasuredZone[] {
@@ -225,8 +266,7 @@ function parseIndexedSource(raw: string | undefined, kind: "chest" | "slot"): Dr
 }
 
 function sourceFromEl(slotEl: HTMLElement): DragSource | null {
-  const indexed = parseIndexedSource(slotEl.dataset.chestSlot, KIND_CHEST)
-    ?? parseIndexedSource(slotEl.dataset.slotIndex, KIND_SLOT);
+  const indexed = parseIndexedSource(slotEl.dataset.chestSlot, KIND_CHEST) ?? parseIndexedSource(slotEl.dataset.slotIndex, KIND_SLOT);
   if (indexed) return indexed;
   const armorSlot = slotEl.dataset.armorSlot as ArmorSlotKey | undefined;
   return armorSlot ? { kind: KIND_ARMOR, armorSlot } : null;

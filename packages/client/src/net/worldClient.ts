@@ -183,15 +183,21 @@ export class WorldClient {
   craftRecipe(recipeId: string): void { this.updateInventory(applyCraftRecipe(this.inventory, recipeId)); this.send({ t: "craft", recipeId, seq: this.armInvSeq() }); }
   nearestChest(radius: number = AI_TUNING.chestInteractRadiusTiles): WorldChestSnapshot | undefined { return findNearestChest(this.chests, this.localPlayer, radius); }
   openChest(chestId: string): void { this.chests = this.chests.map((c) => (c.id === chestId ? { ...c, opened: true } : c)); this.send({ t: "openChest", chestId, seq: this.armChestSeq() }); }
-  chestTransfer(req: { readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }): void {
+  chestTransfer(req: { readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }): boolean {
     const next = mutateChestEntry(this.chests, req.chestId, (chest) => applyChestTransfer({ inv: this.inventory, chest, ...req }));
-    if (next) { this.updateInventory(next.inv); this.chests = next.chests; }
+    if (next && !next.changed && req.quick && req.from === "chest") return false;
+    if (next) {
+      if (next.changed) { this.updateInventory(next.inv); this.chests = next.chests; }
+    }
     this.send({ t: "chestTransfer", ...req, seq: this.armChestSeq() });
+    return next ? next.changed : true;
   }
-  chestTakeAll(chestId: string): void {
+  chestTakeAll(chestId: string): boolean {
     const next = mutateChestEntry(this.chests, chestId, (chest) => applyChestTakeAll({ inv: this.inventory, chest }));
-    if (next) { this.updateInventory(next.inv); this.chests = next.chests; }
+    if (next && !next.changed) return false;
+    if (next?.changed) { this.updateInventory(next.inv); this.chests = next.chests; }
     this.send({ t: "chestTakeAll", chestId, seq: this.armChestSeq() });
+    return true;
   }
   debugSpawn(kind: EntityKind, count = 1): void { this.send({ t: "debugSpawn", kind, count, seq: this.nextSeq() }); }
   sendAdmin(req: AdminSendRequest): void {
