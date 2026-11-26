@@ -187,6 +187,9 @@ export const WorldEntitySnapshotSchema = z.object({
   corpse: z.boolean().optional(),
   inWater: z.boolean().optional(),
   inDeepWater: z.boolean().optional(),
+  isElite: z.boolean().optional(),
+  title: z.string().max(40).optional(),
+  dangerTier: z.number().int().min(1).max(4).optional(),
 });
 
 export type WorldEntitySnapshot = z.infer<typeof WorldEntitySnapshotSchema>;

@@ -1,5 +1,5 @@
 /** Pooled GPU ambient & FX particles: sun-motes, leaves, fireflies, torch flames, embers, ripples & smoke poofs. */
-import { TILE_PX, hashUnit2d, type DayNightState, type PointLightSpec } from "@dc2d/engine";
+import { TILE_PX, hashUnit2d, type BiomeKind, type DayNightState, type PointLightSpec } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
 import {
   applyParticleStyle, createRingTexture, createSmokePuffTexture, createSoftDotTexture, type ParticleKind,
@@ -15,9 +15,17 @@ export interface WaterRippleActor {
   readonly x: number; readonly y: number; readonly moving: boolean; readonly deep: boolean;
 }
 
+const BIOME_FLOATER_FN: Partial<Record<BiomeKind, (r: number) => ParticleKind>> = {
+  "misty-bog": (r) => (r < 0.75 ? "spore" : "firefly"),
+  "craggy-highlands": (r) => (r < 0.65 ? "ember" : "mote"),
+  "cursed-ruinlands": () => "wisp",
+  "autumn-woods": () => "autumnLeaf",
+};
+
 export interface ParticleStepInput {
   readonly dt: number; readonly timeSec: number; readonly dayNight: DayNightState;
   readonly center: { readonly x: number; readonly y: number };
+  readonly biome?: BiomeKind;
   readonly maxParticles: number;
   readonly campfires: readonly PointLightSpec[];
   readonly torches?: readonly PointLightSpec[];
@@ -134,10 +142,19 @@ export class AmbientParticleLayer {
     for (let i = 0; i < count; i++) this.spawnSingleFloater(input, isNight);
   }
 
+  private pickBiomeFloaterKind(biome: BiomeKind | undefined, isNight: boolean): ParticleKind {
+    if (biome && (!isNight || biome !== "autumn-woods")) {
+      const fn = BIOME_FLOATER_FN[biome];
+      if (fn) return fn(this.rand());
+    }
+    return isNight ? "firefly" : this.rand() < 0.35 ? "leaf" : "mote";
+  }
+
   private spawnSingleFloater(input: ParticleStepInput, isNight: boolean): void {
-    const kind: ParticleKind = isNight ? "firefly" : this.rand() < 0.35 ? "leaf" : "mote";
+    const kind = this.pickBiomeFloaterKind(input.biome, isNight);
+    const upward = kind === "spore" || kind === "ember" || kind === "wisp";
     const vxBase = isNight ? 0.55 : 0.7;
-    const vy = isNight ? (this.rand() - 0.5) * 0.45 : 0.35 + this.rand() * 0.35;
+    const vy = upward ? -(0.28 + this.rand() * 0.35) : (isNight ? (this.rand() - 0.5) * 0.45 : 0.35 + this.rand() * 0.35);
     this.spawnAt(kind, {
       x: input.center.x + (this.rand() - 0.5) * 26, y: input.center.y + (this.rand() - 0.5) * 18,
       vx: (this.rand() - 0.5) * vxBase, vy, life: 3.8 + this.rand() * 2.5,

@@ -1,7 +1,8 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, worldToChunkCoord,
-  type ChunkPoi, type GoreStyle, type WeaponArchetype, type WorldEvent,
+  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, computeDangerTier, getPoiGuardRoster,
+  isInSanctuary, sampleMacroBiome, worldToChunkCoord,
+  type ChunkPoi, type DangerTier, type GoreStyle, type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { applyPlayerOnHitPerks, computeGearStrikeOutcome, resolvePlayerGear } from "../combat/gearEffects.js";
@@ -13,6 +14,7 @@ import {
   findClearGuardSpot, isSectorTargetHit, serializeEntitySnapshot,
 } from "./ecologyHelpers.js";
 import { factionOfKind, isCreatureAggro, type CombatTarget } from "./factionTargeting.js";
+import { buildChunkWildlifeSpawns, spawnScaledEnemyDrops } from "./loot/eliteScaling.js";
 import { LootManager } from "./lootManager.js";
 import { ScentTrail } from "./scentTrail.js";
 import { beginInvestigation } from "./tracking/searchTracking.js";
@@ -52,6 +54,8 @@ export class WorldEcology {
 
   private spawnPoiEncounter(poi: ChunkPoi): void {
     this.loot.registerPoiChest(poi);
+    const biome = sampleMacroBiome(this.cache.worldSeed, poi.centerX, poi.centerY);
+    const dangerTier = computeDangerTier(biome, poi.centerX, poi.centerY);
     const guards = getPoiGuardRoster(poi.layout);
     const rx = Math.max(1.8, poi.radiusX - 1.2);
     const ry = Math.max(1.8, poi.radiusY - 1.0);
@@ -62,7 +66,7 @@ export class WorldEcology {
         x: poi.centerX + Math.cos(angle) * rx * ring, y: poi.centerY + Math.sin(angle) * ry * ring,
       });
       this.spawnEntity({
-        kind, x: pos.x, y: pos.y,
+        kind, x: pos.x, y: pos.y, dangerTier,
         homeRadius: Math.max(8, Math.max(poi.radiusX, poi.radiusY) + 5), poiId: poi.id, packId: poi.id, packSlot: idx,
       });
     });
@@ -80,21 +84,17 @@ export class WorldEcology {
 
   private spawnChunkWildlife(cx: number, cy: number): void {
     if (this.list.filter((e) => !e.corpse).length >= AI_TUNING.maxActiveWildlife) return;
-    const kinds: readonly WildlifeKind[] = ["wolf", "boar", "bear", "spider", KIND_SLIME];
-    const baseSeed = this.cache.worldSeed + cx * 73 + cy * 179;
-    const rawPick = kinds[Math.floor(hashUnit2d(baseSeed, cx, cy) * kinds.length)] ?? "wolf";
-    const wx = cx * 32 + 10 + hashUnit2d(baseSeed + 7, cx, cy) * 14;
-    const wy = cy * 32 + 10 + hashUnit2d(baseSeed + 19, cx, cy) * 14;
-    if (!this.isValidWildlifeSpawn(wx, wy)) return;
-    const chosen = this.pickSpawnKind(rawPick, wx, wy);
-    const count = chosen === "wolf" ? 3 : 1;
-    const packId = chosen === "wolf" ? `pack:${cx},${cy}` : null;
-    for (let i = 0; i < count; i++) {
-      this.spawnEntity({ kind: chosen, x: wx + i * 0.85, y: wy + (i % 2) * 0.7, homeRadius: 11, poiId: null, packId, packSlot: i });
+    const plan = buildChunkWildlifeSpawns({ cache: this.cache, cx, cy, resolveKind: (r, wx, wy) => this.pickSpawnKind(r, wx, wy) });
+    for (const s of plan) {
+      if (this.isValidWildlifeSpawn(s.x, s.y)) this.spawnEntity(s);
     }
   }
 
-  spawnEntity(opts: { readonly kind: WildlifeKind; readonly x: number; readonly y: number; readonly homeRadius: number; readonly poiId: string | null; readonly packId: string | null; readonly packSlot: number }): WildlifeEntity {
+  spawnEntity(opts: {
+    readonly kind: WildlifeKind; readonly x: number; readonly y: number; readonly homeRadius: number;
+    readonly poiId: string | null; readonly packId: string | null; readonly packSlot: number;
+    readonly dangerTier?: DangerTier | undefined; readonly isElite?: boolean | undefined; readonly title?: string | undefined;
+  }): WildlifeEntity {
     const elev = this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation;
     const e = createWildlifeEntity({ id: `mob-${this.nextId++}`, elevation: elev, ...opts });
     this.list.push(e);
@@ -153,12 +153,7 @@ export class WorldEcology {
     e.corpse = true; e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
     e.targetPlayerId = null; e.targetKind = null; e.suspicion = 0;
     e.corpseTimer = e.kind === KIND_SLIME ? 0.35 : AI_TUNING.corpseDurationSec;
-    CREATURE_SPECS[e.kind].lootDrops.forEach((drop, idx) => {
-      const count = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
-      if (count <= 0) return;
-      const ang = idx * 2.1 + Math.random();
-      this.loot.spawnLoot({ itemId: drop.itemId, count, x: e.x, y: e.y, vx: Math.cos(ang) * 1.8, vy: Math.sin(ang) * 1.8 });
-    });
+    spawnScaledEnemyDrops({ e, cache: this.cache, loot: this.loot });
     if (e.embeddedArrows > 0) {
       this.loot.spawnLoot({ itemId: "arrow", count: e.embeddedArrows, x: e.x, y: e.y, vx: 0.7, vy: -0.7, manualPickup: true, angle: 0.35 });
       e.embeddedArrows = 0;
@@ -234,7 +229,7 @@ export class WorldEcology {
       const spec = CREATURE_SPECS[att.kind];
       const mag = Math.max(0.01, Math.hypot(target.x - att.x, target.y - att.y));
       this.damageEntity({
-        entity: target.entityRef, damage: spec.damage, dirX: (target.x - att.x) / mag,
+        entity: target.entityRef, damage: Math.round(spec.damage * att.damageMult), dirX: (target.x - att.x) / mag,
         dirY: (target.y - att.y) / mag, goreStyle: spec.goreStyle, actorId: att.id, events,
       });
       return;

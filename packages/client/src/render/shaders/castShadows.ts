@@ -53,6 +53,11 @@ export class CastShadowLayer {
 const PROP_SHADOW_SPECS: Readonly<Partial<Record<PropKind, { readonly widthPx: number; readonly lengthPx: number }>>> = {
   [PropKind.OakTree]: { widthPx: 26, lengthPx: 38 },
   [PropKind.PineTree]: { widthPx: 22, lengthPx: 36 },
+  [PropKind.BirchTree]: { widthPx: 22, lengthPx: 34 },
+  [PropKind.MapleTree]: { widthPx: 26, lengthPx: 38 },
+  [PropKind.DeadTree]: { widthPx: 14, lengthPx: 26 },
+  [PropKind.GiantMushroom]: { widthPx: 16, lengthPx: 18 },
+  [PropKind.CursedCrystal]: { widthPx: 14, lengthPx: 20 },
   [PropKind.Boulder]: { widthPx: 16, lengthPx: 22 },
   [PropKind.Bush]: { widthPx: 14, lengthPx: 18 },
   [PropKind.Stump]: { widthPx: 10, lengthPx: 14 },

@@ -264,6 +264,9 @@ export function serializeEntitySnapshot(e: WildlifeEntity): WorldEntitySnapshot 
     staggerTimer: e.staggerTimer, bleedTimer: e.bleedTimer, aiState: e.aiState, spottedPop: e.spottedPopTimer > 0,
     corpse: e.corpse, inWater: e.inWater, inDeepWater: e.inDeepWater, telegraphProgress: prog,
     suspicion: Number(e.suspicion.toFixed(2)),
+    ...(e.isElite ? { isElite: true } : {}),
+    ...(e.title ? { title: e.title } : {}),
+    ...(e.dangerTier > 1 ? { dangerTier: e.dangerTier } : {}),
     ...serializeEntityFlags(e),
   };
 }

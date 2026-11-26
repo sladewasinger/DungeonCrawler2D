@@ -1,7 +1,7 @@
 /** Top-level PixiJS v8 overworld scene coordinating shaders, camera, and quality scaling. */
 import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import {
-  TILE_PX, WorldChunkCache, sampleDayNight,
+  TILE_PX, WorldChunkCache, sampleDayNight, sampleMacroBiome,
   type GroundLootSnapshot, type PlayerSnapshot, type ProjectileSnapshot,
   type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
@@ -188,6 +188,7 @@ export class WorldScene {
     const emitters = collectActorParticleEmitters(input.players, entities);
     this.particles.step({
       dt: simDt, timeSec: input.timeSec, dayNight, center: { x: this.camX, y: this.camY },
+      biome: sampleMacroBiome(input.cache.worldSeed, this.camX, this.camY),
       maxParticles: preset.maxParticles, campfires, torches: lights.filter((l) => l.kind === "torch"),
       waterActors: collectWaterActors(input.players, entities), ...emitters,
     });

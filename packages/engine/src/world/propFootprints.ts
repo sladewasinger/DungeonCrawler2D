@@ -60,6 +60,11 @@ const PROP_COLLISION_OFFSET_Y: Readonly<Partial<Record<PropKind, number>>> = {
   [PropKind.Stump]: -0.22,
   [PropKind.OakTree]: -0.16,
   [PropKind.PineTree]: -0.15,
+  [PropKind.BirchTree]: -0.16,
+  [PropKind.MapleTree]: -0.16,
+  [PropKind.DeadTree]: -0.18,
+  [PropKind.GiantMushroom]: -0.24,
+  [PropKind.CursedCrystal]: -0.28,
   [PropKind.Campfire]: -0.17,
   [PropKind.RuinPillar]: -0.20,
 };

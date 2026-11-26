@@ -1,14 +1,11 @@
 /** Authoritative persistent 27-slot POI chests and magnetic dropped enemy/wildlife loot. */
-import { maxStackForItem } from "@dc2d/content";
+import { maxStackForItem, rollChestLoot } from "@dc2d/content";
 import {
-  AI_TUNING, WorldChunkCache, canInsertSlotItem, createEmptyChestSlots, insertIntoSlots,
-  makeSlotItem, quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
+  AI_TUNING, WorldChunkCache, canInsertSlotItem, computeDangerTier, createEmptyChestSlots, insertIntoSlots,
+  makeSlotItem, quickTransferChestSlot, removeFromSlot, sampleMacroBiome, takeAllFromChest, transferChestSlot,
   type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import {
-  ITEM_ARROW, ITEM_BANDAGE, ITEM_COOKED_MEAT, ITEM_FLINT, ITEM_RAW_MEAT, ITEM_STONE, ITEM_TORCH,
-} from "./creatureSpecs.js";
 
 interface GroundLootItem {
   readonly id: string; readonly itemId: string; count: number; readonly prefixId?: string | undefined;
@@ -37,17 +34,18 @@ export interface SavedChestRecord {
   readonly slots: readonly InventorySlot[];
 }
 
-const BANDIT_CAMP_POI = "bandit-camp" as const;
 const MAX_GROUND_LOOT_AGE_SEC = 180;
 const MAX_STUCK_ARROW_AGE_SEC = 120;
 const MAX_GROUND_LOOT_ITEMS = 120;
 
-function populateChestSlots(poiKind: ChunkPoi["kind"]): InventorySlot[] {
+function populateChestSlots(cache: WorldChunkCache, poi: ChunkPoi): InventorySlot[] {
   const slots = createEmptyChestSlots();
-  const entries: readonly (readonly [string, number])[] = poiKind === BANDIT_CAMP_POI
-    ? [[ITEM_COOKED_MEAT, 2], [ITEM_ARROW, 8], [ITEM_BANDAGE, 2], [ITEM_TORCH, 2], ["leather-boots", 1], ["sword", 1]]
-    : [[ITEM_BANDAGE, 3], [ITEM_FLINT, 3], [ITEM_STONE, 4], [ITEM_RAW_MEAT, 2], ["wooden-shield", 1], [ITEM_ARROW, 10]];
-  entries.forEach(([itemId, count], idx) => { slots[idx] = { itemId, count }; });
+  const biome = sampleMacroBiome(cache.worldSeed, poi.chestX, poi.chestY);
+  const dangerTier = computeDangerTier(biome, poi.chestX, poi.chestY);
+  const rolled = rollChestLoot({ worldSeed: cache.worldSeed, chestId: poi.id, poiKind: poi.kind, biome, dangerTier });
+  rolled.slice(0, slots.length).forEach((entry, idx) => {
+    slots[idx] = { itemId: entry.itemId, count: entry.count, ...(entry.prefixId ? { prefixId: entry.prefixId } : {}) };
+  });
   return slots;
 }
 
@@ -62,7 +60,7 @@ export class LootManager {
     if (this.chests.has(poi.id)) return;
     this.chests.set(poi.id, {
       id: poi.id, poiKind: poi.kind, x: poi.chestX, y: poi.chestY, elevation: poi.elevation,
-      opened: false, slots: populateChestSlots(poi.kind),
+      opened: false, slots: populateChestSlots(this.cache, poi),
     });
   }
 

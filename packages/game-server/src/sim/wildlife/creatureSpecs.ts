@@ -1,5 +1,6 @@
 /** Archetype definitions and entity runtime contracts for wildlife and POI guards. */
-import type { AiState, EntityKind, GoreStyle, GoreSubstance } from "@dc2d/engine";
+import type { AiState, DangerTier, EntityKind, GoreStyle, GoreSubstance } from "@dc2d/engine";
+import { dangerTierStatScale } from "./loot/eliteScaling.js";
 
 export type WildlifeKind = Exclude<EntityKind, "dummy" | "slime-dummy" | "spar-dummy">;
 export type SearchPhase = "move_to_clue" | "scan" | "search_area";
@@ -122,19 +123,26 @@ export interface WildlifeEntity {
   lastScentSeq: number; scentTrackTimer: number; scentHuntElapsed: number;
   investigateElapsed: number; passiveSniffCooldown: number;
   coldTrailSearchDone: boolean; searchStepCount: number;
+  dangerTier: DangerTier; isElite: boolean; title: string | undefined; damageMult: number;
 }
 
 export function createWildlifeEntity(opts: {
   readonly id: string; readonly kind: WildlifeKind; readonly x: number; readonly y: number;
   readonly elevation: number; readonly homeRadius: number; readonly poiId: string | null;
   readonly packId: string | null; readonly packSlot: number;
+  readonly dangerTier?: DangerTier | undefined; readonly isElite?: boolean | undefined; readonly title?: string | undefined;
 }): WildlifeEntity {
   const spec = CREATURE_SPECS[opts.kind];
+  const dangerTier: DangerTier = opts.dangerTier ?? 1;
+  const isElite = Boolean(opts.isElite);
+  const scale = dangerTierStatScale(dangerTier, isElite);
+  const scaledHp = Math.round(spec.hp * scale.hpMult);
   return {
     id: opts.id, kind: opts.kind, substance: spec.substance,
     homeX: opts.x, homeY: opts.y, homeRadius: opts.homeRadius, poiId: opts.poiId,
     packId: opts.packId, packSlot: opts.packSlot, x: opts.x, y: opts.y, elevation: opts.elevation,
-    facingX: 0, facingY: 1, hp: spec.hp, maxHp: spec.hp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
+    facingX: 0, facingY: 1, hp: scaledHp, maxHp: scaledHp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
+    dangerTier, isElite, title: opts.title, damageMult: scale.dmgMult,
     bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, poisonTimer: 0, poisonTickAcc: 0, poisonLocked: false, parried: false, telegraphTimer: 0, windupDuration: spec.windupSec,
     strikeTimer: 0, strikeDuration: 0.16, strikeHitIds: new Set<string>(), attackCooldown: 0.4,
     aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,

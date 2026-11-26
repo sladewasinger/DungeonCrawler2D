@@ -19,7 +19,12 @@ import {
 
 export { TERRAIN_TEX_PX, type TilePalette } from "./terrainTileMotifs.js";
 
-const GRASS_SET = new Set<GroundKind>([GroundKind.Grass, GroundKind.MeadowGrass, GroundKind.ForestFloor]);
+const GRASS_SET = new Set<GroundKind>([
+  GroundKind.Grass, GroundKind.MeadowGrass, GroundKind.ForestFloor,
+  GroundKind.AutumnGrass, GroundKind.AutumnFloor, GroundKind.BogMoss, GroundKind.CursedMoss,
+]);
+const EARTH_SET = new Set<GroundKind>([GroundKind.Sand, GroundKind.DirtPath, GroundKind.BogMud, GroundKind.AshGround]);
+const STONE_SET = new Set<GroundKind>([GroundKind.CliffStone, GroundKind.MossStone, GroundKind.SlateRock, GroundKind.RuinFlagstone]);
 
 export interface DetailPaintInput {
   readonly ctx: CanvasRenderingContext2D;
@@ -30,8 +35,8 @@ export interface DetailPaintInput {
 
 export function paintOrganicDetails(input: DetailPaintInput): void {
   if (GRASS_SET.has(input.kind)) paintFoliageOverlay(input);
-  else if (input.kind === GroundKind.Sand || input.kind === GroundKind.DirtPath) paintEarthOverlay(input);
-  else if (input.kind === GroundKind.CliffStone || input.kind === GroundKind.MossStone) paintStoneOverlay(input);
+  else if (EARTH_SET.has(input.kind)) paintEarthOverlay(input);
+  else if (STONE_SET.has(input.kind)) paintStoneOverlay(input);
   else paintWaterRipples(input.ctx, input.variant, input.palette);
 }
 

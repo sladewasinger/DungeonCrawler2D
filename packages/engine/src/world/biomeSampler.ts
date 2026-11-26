@@ -1,9 +1,11 @@
 /** Deterministic infinite biome, terrain, elevation, and river sampling. */
 import { clamp, fbm2d, hashUnit2d, ridgeNoise2d } from "../math/noise.js";
+import { sampleMacroBiome } from "./biomes/macroBiome.js";
 import { GroundKind, type BiomeKind } from "./types.js";
 
-const BIOME_GLADE: BiomeKind = "verdant-glade";
-const BIOME_RIVER: BiomeKind = "riverbank";
+const BIOME_VERDANT: BiomeKind = "verdant-forest";
+const BIOME_HIGHLANDS: BiomeKind = "craggy-highlands";
+const BIOME_CURSED: BiomeKind = "cursed-ruinlands";
 
 export interface TileSample {
   readonly ground: GroundKind;
@@ -28,7 +30,7 @@ function spawnHighlandSample(wx: number, wy: number): TileSample {
     ground: isStairs ? GroundKind.CliffStone : GroundKind.MossStone,
     elevation: isStairs ? 0 : 1,
     stairs: isStairs,
-    biome: "highland-ridge",
+    biome: BIOME_VERDANT,
     forestDensity: 0.15,
     variant: hashVariant(wx, wy),
   };
@@ -44,7 +46,7 @@ function spawnClearingSample(wx: number, wy: number): TileSample | null {
     ground: isPath ? GroundKind.DirtPath : GroundKind.MeadowGrass,
     elevation: 0,
     stairs: false,
-    biome: BIOME_GLADE,
+    biome: BIOME_VERDANT,
     forestDensity: 0.05,
     variant: hashVariant(wx, wy),
   };
@@ -59,45 +61,54 @@ function riverMetric(seed: number, wx: number, wy: number): number {
   return Math.min(waveRiver / 3.4, (1 - globalRidge) * 8 + nearOriginMask * 0.35);
 }
 
-function sampleWaterOrBank(river: number, variant: number): TileSample | null {
+function sampleWaterOrBank(river: number, variant: number, biome: BiomeKind): TileSample | null {
   if (river < 0.42) {
-    return { ground: GroundKind.DeepWater, elevation: 0, stairs: false, biome: BIOME_RIVER, forestDensity: 0, variant };
+    return { ground: GroundKind.DeepWater, elevation: 0, stairs: false, biome, forestDensity: 0, variant };
   }
   if (river < 0.74) {
-    return { ground: GroundKind.ShallowWater, elevation: 0, stairs: false, biome: BIOME_RIVER, forestDensity: 0, variant };
+    return { ground: GroundKind.ShallowWater, elevation: 0, stairs: false, biome, forestDensity: 0, variant };
   }
   if (river < 1.02) {
-    return { ground: GroundKind.Sand, elevation: 0, stairs: false, biome: BIOME_RIVER, forestDensity: 0.05, variant };
+    return { ground: GroundKind.Sand, elevation: 0, stairs: false, biome, forestDensity: 0.05, variant };
   }
   return null;
 }
 
-function sampleHighlandGround(hill: number): Omit<TileSample, "stairs" | "variant"> {
-  const ground = hill > 0.84 ? GroundKind.CliffStone : GroundKind.MossStone;
-  return { ground, elevation: hill > 0.85 ? 2 : 1, biome: "highland-ridge", forestDensity: 0.2 };
+function sampleHighlandGround(hill: number, biome: BiomeKind): Omit<TileSample, "stairs" | "variant"> {
+  const craggy = biome === BIOME_HIGHLANDS;
+  const rocky = craggy ? GroundKind.SlateRock : GroundKind.CliffStone;
+  const soft = craggy ? GroundKind.AshGround : GroundKind.MossStone;
+  const ground = hill > 0.84 ? rocky : soft;
+  return { ground, elevation: hill > 0.85 ? 2 : 1, biome, forestDensity: 0.22 };
 }
 
-function sampleFlatGround(moisture: number): Omit<TileSample, "stairs" | "variant"> {
-  if (moisture > 0.56) {
-    return { ground: GroundKind.ForestFloor, elevation: 0, biome: "deep-forest", forestDensity: 0.82 };
-  }
-  const meadow = moisture < 0.38;
-  return { ground: meadow ? GroundKind.MeadowGrass : GroundKind.Grass, elevation: 0, biome: BIOME_GLADE, forestDensity: meadow ? 0.25 : 0.55 };
-}
+type FlatSampler = (biome: BiomeKind, moisture: number) => Omit<TileSample, "stairs" | "variant">;
+
+const BIOME_FLAT_SAMPLERS: Readonly<Record<BiomeKind, FlatSampler>> = {
+  "autumn-woods": (biome, moisture) => ({ ground: moisture > 0.5 ? GroundKind.AutumnFloor : GroundKind.AutumnGrass, elevation: 0, biome, forestDensity: 0.65 }),
+  "misty-bog": (biome, moisture) => (moisture > 0.78
+    ? { ground: GroundKind.ShallowWater, elevation: 0, biome, forestDensity: 0 }
+    : { ground: moisture > 0.58 ? GroundKind.BogMud : GroundKind.BogMoss, elevation: 0, biome, forestDensity: 0.45 }),
+  [BIOME_HIGHLANDS]: (biome, moisture) => ({ ground: moisture > 0.48 ? GroundKind.SlateRock : GroundKind.AshGround, elevation: 0, biome, forestDensity: 0.25 }),
+  [BIOME_CURSED]: (biome, moisture) => ({ ground: moisture > 0.5 ? GroundKind.CursedMoss : GroundKind.RuinFlagstone, elevation: 0, biome, forestDensity: 0.3 }),
+  [BIOME_VERDANT]: (biome, moisture) => {
+    if (moisture > 0.56) return { ground: GroundKind.ForestFloor, elevation: 0, biome, forestDensity: 0.82 };
+    const meadow = moisture < 0.38;
+    return { ground: meadow ? GroundKind.MeadowGrass : GroundKind.Grass, elevation: 0, biome, forestDensity: meadow ? 0.25 : 0.55 };
+  },
+};
 
 function sampleDryGround(input: {
-  readonly seed: number;
-  readonly wx: number;
-  readonly wy: number;
-  readonly moisture: number;
-  readonly hill: number;
+  readonly seed: number; readonly wx: number; readonly wy: number;
+  readonly moisture: number; readonly hill: number; readonly biome: BiomeKind;
 }): Omit<TileSample, "stairs" | "variant"> {
-  if (input.hill > 0.72) return sampleHighlandGround(input.hill);
+  if (input.hill > 0.72) return sampleHighlandGround(input.hill, input.biome);
   const trail = Math.abs(fbm2d({ seed: input.seed + 61, x: input.wx * 0.045, y: input.wy * 0.045, octaves: 2 }) - 0.5);
   if (trail < 0.025 && input.hill < 0.65) {
-    return { ground: GroundKind.DirtPath, elevation: 0, biome: BIOME_GLADE, forestDensity: 0.08 };
+    const pathGround = input.biome === BIOME_CURSED ? GroundKind.RuinFlagstone : GroundKind.DirtPath;
+    return { ground: pathGround, elevation: 0, biome: input.biome, forestDensity: 0.08 };
   }
-  return sampleFlatGround(input.moisture);
+  return BIOME_FLAT_SAMPLERS[input.biome](input.biome, input.moisture);
 }
 
 export function sampleWorldTile(seed: number, wx: number, wy: number): TileSample {
@@ -105,9 +116,10 @@ export function sampleWorldTile(seed: number, wx: number, wy: number): TileSampl
   if (spawnOverride) return spawnOverride;
   const river = riverMetric(seed, wx, wy);
   const variant = Math.floor(hashUnit2d(seed + 5, wx, wy) * 4);
-  const bank = sampleWaterOrBank(river, variant);
+  const macroBiome = sampleMacroBiome(seed, wx, wy);
+  const bank = sampleWaterOrBank(river, variant, macroBiome);
   if (bank) return bank;
   const hill = fbm2d({ seed: seed + 109, x: wx * 0.024, y: wy * 0.024, octaves: 4 });
   const moisture = fbm2d({ seed: seed + 211, x: wx * 0.02, y: wy * 0.02, octaves: 3 });
-  return { ...sampleDryGround({ seed, wx, wy, moisture, hill }), stairs: false, variant };
+  return { ...sampleDryGround({ seed, wx, wy, moisture, hill, biome: macroBiome }), stairs: false, variant };
 }

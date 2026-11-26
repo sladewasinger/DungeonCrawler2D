@@ -76,6 +76,16 @@ const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) 
   [PropKind.Workbench]: (p) => p.workbench,
   [PropKind.Bed]: (p) => p.bed,
   [PropKind.WoodChest]: (p) => p.woodChest,
+  [PropKind.DeadTree]: (p) => p.deadTree,
+  [PropKind.GiantMushroom]: (p) => p.giantMushroom,
+  [PropKind.BogReed]: (p) => p.bogReed,
+  [PropKind.CursedCrystal]: (p) => p.cursedCrystal,
+};
+
+const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [Texture, Texture]>> = {
+  [PropKind.PineTree]: (p) => [p.pineTrunk, p.pineCanopy],
+  [PropKind.BirchTree]: (p) => [p.birchTrunk, p.birchCanopy],
+  [PropKind.MapleTree]: (p) => [p.mapleTrunk, p.mapleCanopy],
 };
 
 function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
@@ -89,9 +99,9 @@ function mountTreeProp(input: {
   readonly target: MountTarget;
 }): void {
   const { prop, layers, propsAtlas, target } = input;
-  const pine = prop.kind === PropKind.PineTree;
-  target.ysortSprites.push(addPropSprite(layers.ysort, pine ? propsAtlas.pineTrunk : propsAtlas.oakTrunk, prop));
-  const crown = addPropSprite(layers.canopy, pine ? propsAtlas.pineCanopy : propsAtlas.oakCanopy, {
+  const [trunkTex, canopyTex] = TREE_TEXTURES[prop.kind]?.(propsAtlas) ?? [propsAtlas.oakTrunk, propsAtlas.oakCanopy];
+  target.ysortSprites.push(addPropSprite(layers.ysort, trunkTex, prop));
+  const crown = addPropSprite(layers.canopy, canopyTex, {
     x: prop.x, y: prop.y - 0.38, elevation: prop.elevation,
   });
   target.canopySprites.push({ sprite: crown, wx: prop.x, wy: prop.y });
