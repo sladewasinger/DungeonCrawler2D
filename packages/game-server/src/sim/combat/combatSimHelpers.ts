@@ -1,9 +1,9 @@
 /** Extracted combat movement multipliers, active swing pass dispatch, and input buffer helpers. */
-import { getItemDef } from "@dc2d/content";
+import { getItemDef, resolveItemInstance } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
   evaluateBowShot, isInSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
-  type GoreStyle, type WorldEvent,
+  type GoreStyle, type SlotItem, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, resolveMeleeHits, type CombatPlayerRef } from "../combatActions.js";
 import type { SimEntity } from "../dummySim.js";
@@ -13,22 +13,40 @@ import { tryCutOrIgniteCocoon } from "../webs/webCocoon.js";
 import { CREATURE_SPECS, type WildlifeEntity } from "../wildlife/creatureSpecs.js";
 import { createArrowProjectile, type SimProjectile } from "../wildlife/projectileSim.js";
 import type { WorldEcology } from "../wildlife/worldEcology.js";
+import { applyThornsToCreature, resolvePlayerGear } from "./gearEffects.js";
 import { buildPendingSwing, computeSwingNoiseRadius, type PendingMeleeSwing } from "./meleeTimeline.js";
 
 const DEFAULT_MELEE_STATS = { cost: 8, damage: 10, range: 1.5, halfArc: 0.75, gore: "splatter" as GoreStyle };
 
-function pickDefStats(def: NonNullable<ReturnType<typeof getItemDef>>, archetype: ReturnType<typeof resolveWeaponArchetype>) {
-  const d = DEFAULT_MELEE_STATS;
+export function isBowItemId(heldId: string | null): boolean {
+  if (!heldId) return false;
+  if (heldId === "bow") return true;
+  const def = getItemDef(heldId);
+  return Boolean(def && def.category === "weapon" && !def.weaponArchetype && (def.range ?? 0) > 4);
+}
+
+function extractHeldInfo(held: string | SlotItem | null): { readonly itemId: string | null; readonly prefixId?: string | undefined } {
+  if (typeof held === "string") return { itemId: held };
+  return held ? { itemId: held.itemId, prefixId: held.prefixId } : { itemId: null };
+}
+
+function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, prefixId: string | undefined, archetype: ReturnType<typeof resolveWeaponArchetype>) {
+  const res = resolveItemInstance(def.id, prefixId);
   return {
-    archetype, cost: def.staminaCost ?? d.cost, damage: def.damage ?? d.damage,
-    range: def.range ?? d.range, halfArc: (def.arcRad ?? 1.5) * 0.5, gore: def.goreStyle ?? d.gore,
+    archetype,
+    cost: res.staminaCost || DEFAULT_MELEE_STATS.cost,
+    damage: res.damage || DEFAULT_MELEE_STATS.damage,
+    range: def.range || DEFAULT_MELEE_STATS.range,
+    halfArc: (def.arcRad || 1.5) * 0.5,
+    gore: def.goreStyle || DEFAULT_MELEE_STATS.gore,
   };
 }
 
-export function meleeStatsFor(heldId: string | null) {
-  const def = heldId ? getItemDef(heldId) : undefined;
-  if (!def) return { ...DEFAULT_MELEE_STATS, archetype: resolveWeaponArchetype(heldId) };
-  return pickDefStats(def, resolveWeaponArchetype(heldId, def.weaponArchetype));
+export function meleeStatsFor(held: string | SlotItem | null) {
+  const { itemId, prefixId } = extractHeldInfo(held);
+  const def = itemId ? getItemDef(itemId) : undefined;
+  const archetype = resolveWeaponArchetype(itemId, def?.weaponArchetype);
+  return def ? buildDefMeleeStats(def, prefixId, archetype) : { ...DEFAULT_MELEE_STATS, archetype };
 }
 
 function waterMoveMult(p: CombatPlayerRef): number {
@@ -60,7 +78,23 @@ function webMoveMult(p: CombatPlayerRef): number {
 
 export function computePlayerMoveMultiplier(p: CombatPlayerRef): number {
   const crouchMult = p.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
-  return baseActionMult(p) * waterMoveMult(p) * crouchMult * webMoveMult(p);
+  const gear = resolvePlayerGear(p);
+  const swiftBonus = p.combat.buffTimer > 0 && p.combat.buffKind === "swiftness" ? 0.22 : 0;
+  const gearMult = Math.max(0.65, 1 + gear.moveSpeedMult + swiftBonus);
+  return baseActionMult(p) * waterMoveMult(p) * crouchMult * webMoveMult(p) * gearMult;
+}
+
+function buildGearCombatExtras(p: CombatPlayerRef) {
+  const c = p.combat;
+  const gear = resolvePlayerGear(p);
+  const swiftBonus = c.buffTimer > 0 && c.buffKind === "swiftness" ? 0.22 : 0;
+  const totalSpeed = gear.moveSpeedMult + swiftBonus;
+  return {
+    ...(c.godMode ? { godMode: true } : {}),
+    ...(totalSpeed !== 0 ? { moveSpeedMult: Number((1 + totalSpeed).toFixed(2)) } : {}),
+    ...(gear.glowRadiusBonus > 0 ? { glowRadiusBonus: gear.glowRadiusBonus } : {}),
+    ...(c.buffTimer > 0 && c.buffKind ? { shrineBuff: { kind: c.buffKind, remainingSec: Math.ceil(c.buffTimer) } } : {}),
+  };
 }
 
 export function buildPlayerCombatExtras(p: CombatPlayerRef) {
@@ -73,7 +107,7 @@ export function buildPlayerCombatExtras(p: CombatPlayerRef) {
     bleedTimer: c.bleedTimer, burnTimer: c.burnTimer, poisonTimer: c.poisonTimer, poisonLocked: c.poisonLocked,
     webSlowTimer: c.webSlowTimer, webStick: Number(c.webStick.toFixed(2)), cocoonProgress: Number(c.cocoonProgress.toFixed(2)),
     hitTimer: c.hitTimer, respawnTimer: c.respawnTimer, wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer,
-    inSanctuary: isInSanctuary(p.x, p.y), ...(c.godMode ? { godMode: true } : {}),
+    inSanctuary: isInSanctuary(p.x, p.y), ...buildGearCombatExtras(p),
   };
 }
 
@@ -85,15 +119,11 @@ export function startTrackedMeleeSwing(opts: {
   const { p, heldId, events } = opts;
   const c = p.combat;
   if (c.swingTimer > 0 || c.dodgeTimer > 0 || c.actionCooldown > 0 || c.pendingSwing) return false;
-  const stats = meleeStatsFor(heldId);
-  const shieldPoke = c.blocking && stats.archetype === "spear";
-  const sw = buildPendingSwing({ state: c, heldId, archetype: stats.archetype, stats, aim: { x: p.aimX, y: p.aimY }, shieldPoke });
+  const stats = meleeStatsFor(p.inventory.slots[p.selectedHotbar] ?? heldId);
+  const sw = buildPendingSwing({ state: c, heldId, archetype: stats.archetype, stats, aim: { x: p.aimX, y: p.aimY }, shieldPoke: c.blocking && stats.archetype === "spear" });
   if (!sw) return false;
   p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
-  events.push({
-    kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id,
-    comboStep: c.comboStep, weaponArchetype: stats.archetype, sweepDir: sw.spec.sweepDir,
-  });
+  events.push({ kind: "swing", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, comboStep: c.comboStep, weaponArchetype: stats.archetype, sweepDir: sw.spec.sweepDir });
   return true;
 }
 
@@ -182,6 +212,7 @@ export function applyCreatureStrikeToPlayer(opts: {
       opts.entity.strikeTimer = 0;
     },
   });
+  applyThornsToCreature({ targetPlayer: opts.hitPlayer, attacker: opts.entity, events: opts.events });
 }
 
 export function spawnChargedBowArrow(opts: {
@@ -190,15 +221,14 @@ export function spawnChargedBowArrow(opts: {
   readonly ecology: WorldEcology; readonly events: WorldEvent[];
 }): void {
   const { p, chargeSec, projId, projectiles, ecology, events } = opts;
-  const c = p.combat;
-  if (!c.godMode) c.stamina -= 10;
-  c.actionCooldown = 0.25;
+  const heldSlot = p.inventory.slots[p.selectedHotbar];
+  const resolved = heldSlot ? resolveItemInstance(heldSlot.itemId, heldSlot.prefixId) : undefined;
+  if (!p.combat.godMode) p.combat.stamina = Math.max(0, p.combat.stamina - (resolved?.staminaCost || 10));
+  p.combat.actionCooldown = 0.25;
   p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
   const shot = evaluateBowShot(chargeSec);
-  projectiles.push(createArrowProjectile({
-    id: projId, p, speed: shot.speedTilesPerSec, charge: shot.ratio,
-    damage: Math.round((getItemDef("bow")?.damage ?? 22) * shot.damageMult),
-  }));
+  const baseDmg = resolved?.damage || 22;
+  projectiles.push(createArrowProjectile({ id: projId, p, speed: shot.speedTilesPerSec, charge: shot.ratio, damage: Math.round(baseDmg * shot.damageMult) }));
   events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
   ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 3.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
 }

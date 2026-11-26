@@ -83,6 +83,22 @@ export const ARMOR_VISUAL_STYLES: Readonly<Record<string, ArmorVisualStyle>> = {
   "leather-tunic": { base: "#8e401e", shade: "#662b13", highlight: "#b5582c", accent: "#f59e0b" },
   "leather-leggings": { base: "#72361c", shade: "#4f2311", highlight: "#914828", accent: "#cbd5e1" },
   "leather-boots": { base: "#572814", shade: "#3b190c", highlight: "#783a20", accent: "#d97706" },
+  "moss-stalker-hood": { base: "#3f6b3a", shade: "#284726", highlight: "#5b9152", accent: "#a3e635" },
+  "moss-stalker-tunic": { base: "#3a6336", shade: "#254223", highlight: "#55874d", accent: "#84cc16" },
+  "moss-stalker-leggings": { base: "#335730", shade: "#20381e", highlight: "#4a7845", accent: "#86efac" },
+  "moss-stalker-boots": { base: "#2b4728", shade: "#1b2e19", highlight: "#3e663a", accent: "#65a30d" },
+  "autumn-ranger-hood": { base: "#9a4a24", shade: "#6e3115", highlight: "#bd6335", accent: "#fbbf24" },
+  "autumn-ranger-tunic": { base: "#914320", shade: "#652c13", highlight: "#b55b30", accent: "#f59e0b" },
+  "autumn-ranger-leggings": { base: "#7c3a1c", shade: "#542511", highlight: "#9e4e2a", accent: "#fde68a" },
+  "autumn-ranger-boots": { base: "#693017", shade: "#471f0e", highlight: "#874122", accent: "#d97706" },
+  "iron-knight-helm": { base: "#64748b", shade: "#475569", highlight: "#94a3b8", accent: "#e2e8f0" },
+  "iron-knight-cuirass": { base: "#64748b", shade: "#475569", highlight: "#94a3b8", accent: "#f1f5f9" },
+  "iron-knight-greaves": { base: "#475569", shade: "#334155", highlight: "#64748b", accent: "#cbd5e1" },
+  "iron-knight-sabatons": { base: "#334155", shade: "#1e293b", highlight: "#475569", accent: "#94a3b8" },
+  "shadowsteel-cowl": { base: "#3b2d54", shade: "#251b38", highlight: "#564378", accent: "#c084fc" },
+  "shadowsteel-coat": { base: "#3b2d54", shade: "#251b38", highlight: "#564378", accent: "#a855f7" },
+  "shadowsteel-legguards": { base: "#2e2242", shade: "#1c1429", highlight: "#443461", accent: "#c084fc" },
+  "shadowsteel-boots": { base: "#241936", shade: "#150e21", highlight: "#372752", accent: "#9333ea" },
 };
 
 export function getArmorVisualStyle(itemId: string | null | undefined): ArmorVisualStyle | undefined {

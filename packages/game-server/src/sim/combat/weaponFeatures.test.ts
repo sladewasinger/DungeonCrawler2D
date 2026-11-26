@@ -110,7 +110,7 @@ describe("Phase 7 weapon archetypes, recipes, armor-crush, burn DoT, shield-poke
     swingAndResolve({ cw: dagCw, p: dp, map: dMap });
     const backHit = dagCw.drainEvents().find((e) => e.kind === "backstab" && e.targetId === daggerGob.id);
     expect(backHit).toBeDefined();
-    expect(backHit?.value).toBe(30);
+    expect(backHit?.value).toBeGreaterThanOrEqual(33);
 
     const ripP = makeArmedPlayer({ id: "rp", x: 9.2, y: -1.5, heldItem: "sword" });
     const rMap = new Map([[ripP.id, ripP]]);

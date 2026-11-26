@@ -1,9 +1,10 @@
 /** Player combat state, timer decay, consumables, respawn, and incoming-hit delegation. */
-import { getItemDef, resolveBlockMode } from "@dc2d/content";
 import {
   COMBAT_TUNING, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC,
-  consumeItemFromSlots, type PlayerInventoryState, type WorldEvent,
+  type PlayerInventoryState, type WorldEvent,
 } from "@dc2d/engine";
+import { resolveBlockMode } from "@dc2d/content";
+import { resolvePlayerGear, useConsumableByItemId } from "./combat/gearEffects.js";
 import type { BufferedCombatAction, PendingMeleeSwing } from "./combat/meleeTimeline.js";
 import { clearPlayerCombatOnFatal } from "./combat/playerCombatHits.js";
 import { stepBurnTarget, stepPoisonTarget } from "./combat/statusEffects.js";
@@ -49,6 +50,8 @@ export interface PlayerCombatState {
   wellFedTimer: number;
   restedTimer: number;
   hearthWarmSec: number;
+  buffKind: "swiftness" | "vigor" | "shadow" | null;
+  buffTimer: number;
   godMode: boolean;
   pendingSwing: PendingMeleeSwing | null;
   bufferedAction: BufferedCombatAction | null;
@@ -86,6 +89,7 @@ export function createCombatState(): PlayerCombatState {
     poisonTimer: 0, poisonTickAcc: 0, poisonLocked: false, webSlowTimer: 0,
     webStick: 0, webStuckSec: 0, cocoonProgress: 0, cocoonHp: 0, cocoonBurning: false, parried: false,
     hitTimer: 0, respawnTimer: 0, actionCooldown: 0, pebbleCooldown: 0, wellFedTimer: 0, restedTimer: 0, hearthWarmSec: 0,
+    buffKind: null, buffTimer: 0,
     godMode: false, pendingSwing: null, bufferedAction: null,
   };
 }
@@ -104,6 +108,10 @@ function decayCombatTimers(c: PlayerCombatState, dt: number): void {
   c.hitTimer = Math.max(0, c.hitTimer - dt);
   c.actionCooldown = Math.max(0, c.actionCooldown - dt);
   c.pebbleCooldown = Math.max(0, c.pebbleCooldown - dt);
+  if (c.buffTimer > 0) {
+    c.buffTimer = Math.max(0, c.buffTimer - dt);
+    if (c.buffTimer === 0) c.buffKind = null;
+  }
 }
 
 function isBlockReady(c: PlayerCombatState): boolean {
@@ -161,16 +169,42 @@ export function stepPlayerPoisonTimer(p: CombatPlayerRef, dt: number, events: Wo
   });
 }
 
+function syncGearAndVigorVitals(p: CombatPlayerRef): number {
+  const c = p.combat;
+  const gear = resolvePlayerGear(p);
+  const vigorBonus = c.buffTimer > 0 && c.buffKind === "vigor" ? 25 : 0;
+  c.maxHp = MAX_PLAYER_HP + gear.maxHpBonus + vigorBonus;
+  c.maxStamina = MAX_PLAYER_STAMINA + gear.maxStaminaBonus;
+  c.hp = Math.min(c.hp, c.maxHp);
+  c.stamina = Math.min(c.stamina, c.maxStamina);
+  return gear.staminaRegenBonus;
+}
+
+function computeStaminaRegenRate(p: CombatPlayerRef, gearStamRegen: number): number {
+  const c = p.combat;
+  const swiftBonus = c.buffTimer > 0 && c.buffKind === "swiftness" ? 12 : 0;
+  const baseRate = STAMINA_REGEN_PER_SEC + gearStamRegen + swiftBonus;
+  return c.blocking ? baseRate * 0.45 : baseRate;
+}
+
+function stepVitalsRegen(p: CombatPlayerRef, gearStamRegen: number, dt: number): void {
+  const c = p.combat;
+  if (c.buffTimer > 0 && c.buffKind === "vigor" && c.respawnTimer <= 0) {
+    c.hp = Math.min(c.maxHp, c.hp + 1.5 * dt);
+  }
+  if (c.swingTimer > 0 || c.dodgeTimer > 0) return;
+  if (p.inDeepWater) { stepDeepWaterStamina(p, dt); return; }
+  c.stamina = Math.min(c.maxStamina, c.stamina + computeStaminaRegenRate(p, gearStamRegen) * dt);
+}
+
 export function stepCombatTimers(p: CombatPlayerRef, blockHeld: boolean, dt: number): void {
   const c = p.combat;
+  const gearStamRegen = syncGearAndVigorVitals(p);
   decayCombatTimers(c, dt);
   c.blocking = canBlockNow(p, blockHeld);
   c.blockElapsed = c.blocking ? c.blockElapsed + dt : 0;
   if (c.godMode) { c.hp = c.maxHp; c.stamina = c.maxStamina; return; }
-  if (c.swingTimer > 0 || c.dodgeTimer > 0) return;
-  if (p.inDeepWater) { stepDeepWaterStamina(p, dt); return; }
-  const rate = c.blocking ? STAMINA_REGEN_PER_SEC * 0.45 : STAMINA_REGEN_PER_SEC;
-  c.stamina = Math.min(c.maxStamina, c.stamina + rate * dt);
+  stepVitalsRegen(p, gearStamRegen, dt);
 }
 
 export interface RespawnSpot {
@@ -179,26 +213,8 @@ export interface RespawnSpot {
   readonly elevation: number;
 }
 
-function canUseConsumable(p: CombatPlayerRef, heal: number, fed: number): boolean {
-  if ((!heal && !fed) || p.combat.actionCooldown > 0 || p.combat.respawnTimer > 0) return false;
-  return !(heal > 0 && !fed && p.combat.hp >= p.combat.maxHp);
-}
-
-function applyConsumableEffects(opts: { readonly p: CombatPlayerRef; readonly heal: number; readonly fed: number; readonly events: WorldEvent[] }): void {
-  const { p, heal, fed, events } = opts;
-  if (heal > 0) p.combat.hp = Math.min(p.combat.maxHp, p.combat.hp + heal);
-  if (fed > 0) p.combat.wellFedTimer = Math.max(p.combat.wellFedTimer, fed);
-  p.combat.actionCooldown = 0.45;
-  events.push({ kind: "heal", x: p.x, y: p.y, value: heal || Math.round(fed / 10), actorId: p.id });
-}
-
 export function tryHealConsumable(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): boolean {
-  const def = getItemDef(itemId);
-  const heal = def?.healHp ?? 0;
-  const fed = def?.wellFedSec ?? 0;
-  if (!canUseConsumable(p, heal, fed) || !consumeItemFromSlots(p.inventory.slots, itemId, 1)) return false;
-  applyConsumableEffects({ p, heal, fed, events });
-  return true;
+  return useConsumableByItemId(p, itemId, events);
 }
 
 export function stepPlayerRespawn(target: CombatPlayerRef, events: WorldEvent[], opts: { readonly dt: number; readonly spot?: RespawnSpot | null | undefined }): boolean {

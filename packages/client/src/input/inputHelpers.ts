@@ -10,6 +10,7 @@ export interface InputCallbacks {
   readonly onInteract?: () => void;
   readonly onDropItem?: () => void;
   readonly onWorldTap?: (clientX: number, clientY: number) => void;
+  readonly onOpenChat?: () => void;
   readonly onClosePanels: () => void;
 }
 
@@ -33,7 +34,7 @@ const GUARDED_BROWSER_COMBOS = new Set([
 const GUARDED_ALWAYS_COMBOS = new Set(["KeyS", "KeyO", "KeyP"]);
 
 export const UI_OVERLAY_SELECTOR =
-  ".ow-hud, .ow-hotbar, .ow-modal, .ow-settings-modal, .ow-stamina-rail, .ow-zoom-controls, .ow-jump-btn, .ow-combat-cluster, .ow-vitals";
+  ".ow-hud, .ow-hotbar, .ow-modal, .ow-settings-modal, .ow-stamina-rail, .ow-zoom-controls, .ow-jump-btn, .ow-combat-cluster, .ow-vitals, .ow-item-card, .ow-chat-ui";
 
 export const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
   Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,

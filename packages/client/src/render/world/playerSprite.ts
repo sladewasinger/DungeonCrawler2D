@@ -11,6 +11,7 @@ import type { computeActorCombatFx, HeldLayout, OffhandPlacement, ShieldPlacemen
 import { getGearScale, getGrippingHandTexture, getHeldWeaponVisual, getShieldTexture, getWaistLanternFrames, type HeldWeaponVisual } from "../character/heldWeapons.js";
 import { getBowOverlayTexture } from "../character/playerAssets.js";
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
+import { PlayerSpeechBubble } from "./chat/playerSpeechBubble.js";
 import { PlayerHpBar, createPlayerNameLabel } from "./playerHpBar.js";
 import {
   PLAYER_WATERLINE, attachToSlot, computePlayerCombatFx, computeSwimDip, createWaterSubmergeRig, gearLayoutFor,
@@ -46,6 +47,7 @@ export class PlayerView {
   private readonly shieldSprite = makeShieldSprite();
   private readonly webOverlay = new Graphics();
   private readonly hpBar = new PlayerHpBar();
+  private readonly speechBubble = new PlayerSpeechBubble();
   private readonly label: Text;
   private appearanceKey = "";
   private cacheRev = -1;
@@ -72,7 +74,7 @@ export class PlayerView {
     this.webOverlay.zIndex = 4; this.frontSlot.addChild(this.webOverlay);
     this.actorGroup.addChild(this.backSlot, this.body, this.frontSlot);
     const w = this.waterRig;
-    this.root.addChild(this.groundShadow, this.bowAimGuide, w.submergedMask, w.submergedBody!, w.waterRing, w.waterMask, this.actorGroup, w.waterFrontLip, this.hpBar.root, this.label);
+    this.root.addChild(this.groundShadow, this.bowAimGuide, w.submergedMask, w.submergedBody!, w.waterRing, w.waterMask, this.actorGroup, w.waterFrontLip, this.hpBar.root, this.label, this.speechBubble.root);
   }
 
   sync(input: {
@@ -119,6 +121,7 @@ export class PlayerView {
     this.applyCrouchScaleAndAlpha(snap, fx.alpha);
     const barVisible = this.hpBar.sync({ snap, jumpPx, timeSec });
     this.label.position.y = (barVisible ? -32 : -27) - jumpPx;
+    this.speechBubble.sync({ bubble: snap.activeBubble, baseY: this.label.position.y - 9 });
   }
 
   private applyCrouchScaleAndAlpha(snap: PlayerSnapshot, baseAlpha: number): void {

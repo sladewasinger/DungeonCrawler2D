@@ -14,8 +14,10 @@ import {
   transferChestSlot,
   unequipArmorToSlot,
   type ArmorSlotKey,
+  type ChatEntry,
   type DropItemRequest,
   type InventorySnapshot,
+  type PlayerSnapshot,
   type WorldChestSnapshot,
   type WorldChunkCache,
 } from "@dc2d/engine";
@@ -48,12 +50,19 @@ export function applyMoveSlot(inv: InventorySnapshot, move: { readonly from: num
   return { ...inv, slots: cloned.slots, armor: cloned.armor };
 }
 
+function withArmorResult(inv: InventorySnapshot, next: { readonly slots: InventorySnapshot["slots"]; readonly armor: InventorySnapshot["armor"]; readonly armorPrefixes?: InventorySnapshot["armorPrefixes"] }): InventorySnapshot {
+  const out = { ...inv, slots: next.slots, armor: next.armor } as { -readonly [K in keyof InventorySnapshot]: InventorySnapshot[K] };
+  if (next.armorPrefixes) out.armorPrefixes = next.armorPrefixes;
+  else delete out.armorPrefixes;
+  return out;
+}
+
 export function applyEquipArmor(
   inv: InventorySnapshot,
   req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined },
 ): InventorySnapshot {
   const next = equipArmorFromSlot(inv, req, getItemDef);
-  return next ? { ...inv, slots: next.slots, armor: next.armor } : inv;
+  return next ? withArmorResult(inv, next) : inv;
 }
 
 export function applyUnequipArmor(
@@ -61,7 +70,7 @@ export function applyUnequipArmor(
   req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined },
 ): InventorySnapshot {
   const next = unequipArmorToSlot(inv, req, { maxStackFor: maxStackForItem, lookup: getItemDef });
-  return next ? { ...inv, slots: next.slots, armor: next.armor } : inv;
+  return next ? withArmorResult(inv, next) : inv;
 }
 
 export function applyCraftRecipe(inv: InventorySnapshot, recipeId: string): InventorySnapshot {
@@ -131,16 +140,56 @@ function dropFromInvSlot(opts: { readonly inv: InventorySnapshot; readonly chest
   return { inv: { ...opts.inv, slots: nextSlots }, chest: opts.chest };
 }
 
+export function tickLocalBubbleState(
+  player: PlayerSnapshot,
+  timerSec: number,
+  dt: number,
+): { readonly player: PlayerSnapshot; readonly timerSec: number } {
+  if (timerSec <= 0) return { player, timerSec: 0 };
+  const nextSec = Math.max(0, timerSec - dt);
+  const next = { ...player } as { -readonly [K in keyof PlayerSnapshot]: PlayerSnapshot[K] };
+  if (nextSec === 0) delete next.activeBubble;
+  else if (next.activeBubble) next.activeBubble = { ...next.activeBubble, remainingSec: nextSec };
+  return { player: next, timerSec: nextSec };
+}
+
+export function makeLocalChatEcho(opts: {
+  readonly player: PlayerSnapshot; readonly text: string; readonly shout: boolean; readonly durationSec: number;
+}): { readonly player: PlayerSnapshot; readonly entry: ChatEntry } {
+  const { player, text, shout, durationSec } = opts;
+  return {
+    player: { ...player, activeBubble: { text, ...(shout ? { shout: true } : {}), remainingSec: durationSec } },
+    entry: { id: `local-${Date.now()}`, senderId: player.id, senderName: player.name, text, shout, x: player.x, y: player.y, sentAtTick: 0 },
+  };
+}
+
+export function applyUseItemClient(inv: InventorySnapshot, slotIndex: number): InventorySnapshot {
+  const item = inv.slots[slotIndex];
+  if (!item) return inv;
+  const def = getItemDef(item.itemId);
+  if (!def || (!def.healHp && !def.wellFedSec && !def.buffEffect && !def.curesStatuses)) return inv;
+  const nextSlots = inv.slots.map((s) => (s ? { ...s } : null));
+  if (!removeFromSlot(nextSlots, slotIndex, 1)) return inv;
+  return { ...inv, slots: nextSlots };
+}
+
+function dropFromArmorSlot(opts: { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly slot?: ArmorSlotKey | undefined }) {
+  if (!opts.slot || !opts.inv.armor[opts.slot]) return { inv: opts.inv, chest: opts.chest };
+  const nextPrefixes = opts.inv.armorPrefixes ? { ...opts.inv.armorPrefixes } : undefined;
+  if (nextPrefixes) delete nextPrefixes[opts.slot];
+  const hasPrefixes = Boolean(nextPrefixes && Object.keys(nextPrefixes).length > 0);
+  return {
+    inv: withArmorResult(opts.inv, { slots: opts.inv.slots, armor: { ...opts.inv.armor, [opts.slot]: null }, ...(hasPrefixes ? { armorPrefixes: nextPrefixes } : {}) }),
+    chest: opts.chest,
+  };
+}
+
 export function applyClientDropItem(opts: {
   readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest;
 }): { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined } {
   if (opts.req.source === "chest") return dropFromChestSlot(opts);
   if (opts.req.source === "inv") return dropFromInvSlot(opts);
-  const slot = opts.req.armorSlot;
-  if (opts.req.source === "armor" && slot && opts.inv.armor[slot]) {
-    return { inv: { ...opts.inv, armor: { ...opts.inv.armor, [slot]: null } }, chest: opts.chest };
-  }
-  return { inv: opts.inv, chest: opts.chest };
+  return dropFromArmorSlot({ inv: opts.inv, chest: opts.chest, slot: opts.req.armorSlot });
 }
 
 export function applyDropToClientState(opts: {

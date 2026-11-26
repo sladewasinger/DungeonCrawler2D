@@ -1,9 +1,15 @@
 /** Public exports for @dc2d/content. */
 export { ITEM_CATALOG, STARTER_ARMOR, STARTER_LOADOUT, getItemDef, isMeleeItem, maxStackForItem, resolveBlockMode } from "./items/catalog.js";
 export type {
-  ArmorSlot, BlockMode, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemDef, ItemVisualLayerSpec, ItemWeaponArchetype,
-  PlaceableStructureKind, StarterArmorLoadout, StarterLoadoutEntry,
+  ArmorSlot, BlockMode, CosmeticLayerSlot, GoreStyle, ItemBuffEffectSpec, ItemCategory, ItemDef,
+  ItemVisualLayerSpec, ItemWeaponArchetype, PlaceableStructureKind, StarterArmorLoadout, StarterLoadoutEntry,
 } from "./items/catalog.js";
+export { RARITY_META, RARITY_ORDER, bumpRarity, getRarityMeta } from "./items/rarities.js";
+export type { ItemRarity, RarityMeta } from "./items/rarities.js";
+export { PREFIX_CATALOG, eligiblePrefixesForItem, getPrefixDef, prefixGroupsForItem } from "./items/prefixes.js";
+export type { ItemPerkKind, ItemPrefixDef, PrefixTargetGroup } from "./items/prefixes.js";
+export { resolveItemInstance } from "./items/statResolver.js";
+export type { ResolvedItemStats } from "./items/statResolver.js";
 export { RECIPE_CATALOG, getRecipeDef } from "./recipes/recipes.js";
 export type { RecipeDef, RecipeIngredientDef } from "./recipes/recipes.js";
 export {

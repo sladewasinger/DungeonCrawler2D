@@ -84,6 +84,9 @@ export interface WildlifeEntity {
   bleedTimer: number;
   burnTimer: number;
   burnTickAcc: number;
+  poisonTimer: number;
+  poisonTickAcc: number;
+  poisonLocked: boolean;
   parried: boolean;
   telegraphTimer: number;
   windupDuration: number;
@@ -132,7 +135,7 @@ export function createWildlifeEntity(opts: {
     homeX: opts.x, homeY: opts.y, homeRadius: opts.homeRadius, poiId: opts.poiId,
     packId: opts.packId, packSlot: opts.packSlot, x: opts.x, y: opts.y, elevation: opts.elevation,
     facingX: 0, facingY: 1, hp: spec.hp, maxHp: spec.hp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
-    bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, parried: false, telegraphTimer: 0, windupDuration: spec.windupSec,
+    bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, poisonTimer: 0, poisonTickAcc: 0, poisonLocked: false, parried: false, telegraphTimer: 0, windupDuration: spec.windupSec,
     strikeTimer: 0, strikeDuration: 0.16, strikeHitIds: new Set<string>(), attackCooldown: 0.4,
     aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,
     investigateTimer: 0, suspicion: 0, peekSide: opts.packSlot % 2 === 0 ? 1 : -1, hunger: 0.25, feedTimer: 0,

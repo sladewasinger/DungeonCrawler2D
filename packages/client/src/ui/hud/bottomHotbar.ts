@@ -13,7 +13,7 @@ export interface HotbarActionCallbacks {
 }
 
 function slotItemKey(item: InventorySlot): string {
-  return item ? `${item.itemId}:${item.count}` : "-";
+  return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
 }
 
 function createLanternIconSvg(): string {

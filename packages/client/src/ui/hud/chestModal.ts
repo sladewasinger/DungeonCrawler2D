@@ -86,7 +86,7 @@ function syncSingleCell(btn: HTMLButtonElement | undefined, opts: {
   readonly item: InventorySnapshot["slots"][number] | null; readonly tap: boolean;
 }): void {
   if (!btn) return;
-  const key = opts.item ? `${opts.item.itemId}:${opts.item.count}` : "-";
+  const key = opts.item ? `${opts.item.itemId}:${opts.item.count}:${opts.item.prefixId ?? ""}` : "-";
   if (opts.cache[opts.index] === key) { btn.dataset.tapSource = String(opts.tap); return; }
   opts.cache[opts.index] = key;
   renderSlotContent(btn, { item: opts.item, tapSource: opts.tap });

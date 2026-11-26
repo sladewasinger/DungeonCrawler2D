@@ -1,6 +1,6 @@
 /** Shared network input builders, snapshots types, and local stealth flash helpers for WorldClient. */
 import {
-  sampleStealthExposure, isInSanctuary, type CharacterAppearance, type ClientMessage, type GroundLootSnapshot, type InventorySnapshot,
+  sampleStealthExposure, isInSanctuary, type CharacterAppearance, type ChatEntry, type ClientMessage, type GroundLootSnapshot, type InventorySnapshot,
   type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { normalizeDirection } from "./worldPrediction.js";
@@ -33,8 +33,8 @@ export interface WorldViewState {
   readonly localName: string; readonly localAppearance: CharacterAppearance; readonly projectiles: readonly ProjectileSnapshot[];
   readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
   readonly groundLoot: readonly GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined;
-  readonly events: readonly WorldEvent[]; readonly selfAdmin?: boolean | undefined;
-  readonly pingMs?: number | null | undefined;
+  readonly events: readonly WorldEvent[]; readonly chatMessages?: readonly ChatEntry[] | undefined;
+  readonly selfAdmin?: boolean | undefined; readonly pingMs?: number | null | undefined;
 }
 
 export interface InputSendState {

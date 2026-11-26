@@ -4,6 +4,7 @@ import {
   canvasToNearestTexture, createPixelCanvas, fillCluster, fillEllipsePixel, stampSelOutOutline,
 } from "../../render/textures/pixelCanvas.js";
 import { CAMP_ITEM_PAINTERS } from "./campItemIcons.js";
+import { FRONTIER_ITEM_PAINTERS } from "./frontierItemIcons.js";
 import { WEAPON_ITEM_PAINTERS } from "./weaponItemIcons.js";
 
 const iconUrlCache = new Map<string, string>();
@@ -148,6 +149,7 @@ const PAINTERS: Readonly<Record<string, (ctx: CanvasRenderingContext2D, id: stri
   arrow: paintArrowMat, wood: paintWoodMat, stone: paintStoneMat, flint: paintStoneMat, herb: paintHerbMat,
   ...CAMP_ITEM_PAINTERS,
   ...WEAPON_ITEM_PAINTERS,
+  ...FRONTIER_ITEM_PAINTERS,
 };
 
 function buildItemCanvas(itemId: string): HTMLCanvasElement {

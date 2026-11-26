@@ -1,7 +1,7 @@
 /** Shared wildlife perception, sanctuary leash, locked windups, multi-faction targeting, and combat loop. */
 import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, canReachMeleeTarget, type WorldEvent } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { stepBurnTarget } from "../combat/statusEffects.js";
+import { stepBurnTarget, stepPoisonTarget } from "../combat/statusEffects.js";
 import { holdsSpiderConcealedAmbush, stepSpiderPursuitActions } from "../webs/webCocoon.js";
 import { CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
 import { clearNavPath, faceTarget, findReturnReaggroPlayer, stepIdleJumpArc, stepKnockbackVelocity, syncCreatureWaterState } from "./creatureNavigation.js";
@@ -261,6 +261,8 @@ export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   decayTimers(e, dt);
   syncCreatureWaterState(input.cache, e);
   stepBurnTarget({ target: e, dt, kind: e.kind, x: e.x, y: e.y, targetId: e.id, events: input.events, onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) input.onBurnKill?.(e); } });
+  if (e.hp <= 0 || e.corpse) return true;
+  stepPoisonTarget({ target: e, dt, x: e.x, y: e.y, targetId: e.id, events: input.events, onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) input.onBurnKill?.(e); } });
   if (e.hp <= 0 || e.corpse) return true;
   stepKnockbackVelocity(input.cache, e, dt);
   if (e.staggerTimer > 0) {

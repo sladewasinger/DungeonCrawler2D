@@ -10,6 +10,7 @@ import { ChestModal } from "./chestModal.js";
 import { CraftingPanel } from "./craftingPanel.js";
 import { ensureHudStyles } from "./hudStyles.js";
 import { InventoryModal } from "./inventoryModal.js";
+import { ItemCardPopover } from "./itemCard/itemCardPopover.js";
 import { SlotDragManager } from "./slotDragManager.js";
 import type { HudActions } from "./slotRenderer.js";
 import { VitalsBar } from "./vitalsBar.js";
@@ -36,6 +37,7 @@ export class HudRoot {
   private readonly craftingPanel: CraftingPanel;
   private readonly characterPanel: CharacterPanel;
   private readonly minimap: MinimapOverlay;
+  private readonly itemCard: ItemCardPopover;
   private readonly actions: HudActions;
   private openPanel: ActiveHudPanel = "none";
   private openChestId: string | null = null;
@@ -45,11 +47,15 @@ export class HudRoot {
   constructor(host: HTMLElement, actions: HudActions) {
     ensureHudStyles();
     this.actions = actions;
-    this.drag = new SlotDragManager({
+    const wrappedActions: HudActions = {
       ...actions,
       onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
       onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
-    });
+      onInspectItem: (source) => { this.itemCard.open(source); this.refreshFromCache(); },
+      onDismissInspect: () => this.itemCard.close(),
+    };
+    this.drag = new SlotDragManager(wrappedActions);
+    this.itemCard = new ItemCardPopover(host, wrappedActions);
     this.hotbar = new BottomHotbar(host, this.drag, {
       onToggleTorch: actions.onToggleTorch,
       onToggleMap: () => { this.toggleMap(); actions.onMapToggled?.(); },
@@ -112,6 +118,7 @@ export class HudRoot {
   }
 
   closePanels(): void {
+    this.itemCard.close();
     if (this.openPanel === "none" && !this.mapOpen) return;
     this.openPanel = "none";
     this.mapOpen = false;
@@ -133,6 +140,7 @@ export class HudRoot {
     this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen, tapSource: tap });
     this.craftingPanel.sync(state.inventory, this.openPanel === "crafting");
     this.characterPanel.sync({ open: this.openPanel === "character", name: state.name, appearance: state.appearance, armor: state.inventory.armor });
+    this.itemCard.sync(state.inventory, chest);
     this.syncMinimap(state);
   }
 

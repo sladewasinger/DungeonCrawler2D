@@ -1,8 +1,9 @@
-/** Per-client AOI snapshot culling, float rounding, and inventory dirty-check helpers. */
+/** Per-client AOI snapshot culling, float rounding, proximity chat filtering, and inventory dirty-check helpers. */
 import type {
-  GroundLootSnapshot, InventorySnapshot, PlayerSnapshot, ProjectileSnapshot,
+  ChatEntry, GroundLootSnapshot, InventorySnapshot, PlayerSnapshot, ProjectileSnapshot,
   WorldChestSnapshot, WorldEntitySnapshot, WorldEvent, WorldWebSnapshot,
 } from "@dc2d/engine";
+import { isWithinChatRadius } from "../sim/chat/proximityChat.js";
 
 export interface BroadcastPayload {
   readonly players: PlayerSnapshot[];
@@ -12,6 +13,7 @@ export interface BroadcastPayload {
   readonly groundLoot: GroundLootSnapshot[];
   readonly webs?: WorldWebSnapshot | undefined;
   readonly events: WorldEvent[];
+  readonly chatMessages?: ChatEntry[] | undefined;
 }
 
 export const DEFAULT_AOI_RADIUS_TILES = 42;
@@ -25,19 +27,24 @@ function withinRadius(q: { readonly ax: number; readonly ay: number; readonly px
   return dx * dx + dy * dy <= q.rSq;
 }
 
-function roundPlayer(p: PlayerSnapshot): PlayerSnapshot {
-  return {
+function shouldShowBubble(p: PlayerSnapshot, recipient?: { readonly x: number; readonly y: number }): boolean {
+  if (!p.activeBubble) return false;
+  if (!recipient) return true;
+  return isWithinChatRadius({ ax: p.x, ay: p.y, bx: recipient.x, by: recipient.y, shout: p.activeBubble.shout });
+}
+
+function roundPlayer(p: PlayerSnapshot, recipient?: { readonly x: number; readonly y: number }): PlayerSnapshot {
+  const out = {
     ...p,
-    x: round3(p.x),
-    y: round3(p.y),
-    facingX: round3(p.facingX),
-    facingY: round3(p.facingY),
+    x: round3(p.x), y: round3(p.y), facingX: round3(p.facingX), facingY: round3(p.facingY),
     ...(p.aimX !== undefined ? { aimX: round3(p.aimX) } : {}),
     ...(p.aimY !== undefined ? { aimY: round3(p.aimY) } : {}),
     ...(p.jumpZ !== undefined ? { jumpZ: round3(p.jumpZ) } : {}),
     ...(p.hp !== undefined ? { hp: round2(p.hp) } : {}),
     ...(p.stamina !== undefined ? { stamina: round2(p.stamina) } : {}),
-  };
+  } as { -readonly [K in keyof PlayerSnapshot]: PlayerSnapshot[K] };
+  if (!shouldShowBubble(p, recipient)) delete out.activeBubble;
+  return out;
 }
 
 function roundEntity(e: WorldEntitySnapshot): WorldEntitySnapshot {
@@ -78,11 +85,12 @@ export function filterSnapshotForPlayer(opts: {
   const { data, playerId } = opts;
   const r = opts.aoiRadiusTiles ?? DEFAULT_AOI_RADIUS_TILES;
   const rSq = r * r;
-  const players = data.players.map(roundPlayer);
-  const me = players.find((p) => p.id === playerId) ?? players[0];
-  if (!me) return { ...data, players };
+  const me = data.players.find((p) => p.id === playerId) ?? data.players[0];
+  if (!me) return { ...data, players: data.players.map((p) => roundPlayer(p)) };
   const { x: px, y: py } = me;
+  const players = data.players.map((p) => roundPlayer(p, { x: px, y: py }));
   const webs = filterWebs({ webs: data.webs, px, py, rSq });
+  const chatMessages = data.chatMessages?.filter((m) => isWithinChatRadius({ ax: m.x, ay: m.y, bx: px, by: py, shout: m.shout }));
   return {
     players,
     projectiles: data.projectiles.filter((p) => withinRadius({ ax: p.x, ay: p.y, px, py, rSq })).map(roundProjectile),
@@ -90,6 +98,7 @@ export function filterSnapshotForPlayer(opts: {
     chests: data.chests.filter((c) => withinRadius({ ax: c.x, ay: c.y, px, py, rSq })),
     groundLoot: data.groundLoot.filter((g) => withinRadius({ ax: g.x, ay: g.y, px, py, rSq })),
     events: data.events.filter((ev) => withinRadius({ ax: ev.x, ay: ev.y, px, py, rSq })),
+    ...(chatMessages && chatMessages.length > 0 ? { chatMessages } : {}),
     ...(webs ? { webs } : {}),
   };
 }

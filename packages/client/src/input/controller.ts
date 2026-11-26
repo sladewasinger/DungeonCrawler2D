@@ -137,17 +137,25 @@ export class InputController {
     this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "blur"));
   }
 
-  private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
+  private handlePriorityKey(e: KeyboardEvent, callbacks: InputCallbacks): boolean {
     const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
-    if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return; }
-    if (e.code === "Tab") { e.preventDefault(); callbacks.onToggleInventory(); return; }
-    if (e.code === "Space") {
-      e.preventDefault();
-      this.jumpQueued = true;
-      this.syncCrouch(false);
-      return;
-    }
-    if (e.code === "ControlLeft" || e.code === "ControlRight") { this.dodgeQueued = true; return; }
+    if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return true; }
+    const special: Readonly<Record<string, () => void>> = {
+      Tab: () => { e.preventDefault(); callbacks.onToggleInventory(); },
+      Enter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
+      NumpadEnter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
+      Space: () => { e.preventDefault(); this.jumpQueued = true; this.syncCrouch(false); },
+      ControlLeft: () => { this.dodgeQueued = true; },
+      ControlRight: () => { this.dodgeQueued = true; },
+    };
+    const fn = special[e.code];
+    if (!fn) return false;
+    fn();
+    return true;
+  }
+
+  private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
+    if (this.handlePriorityKey(e, callbacks)) return;
     const actions: Readonly<Record<string, () => void>> = {
       KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
       KeyC: () => this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "press")),
