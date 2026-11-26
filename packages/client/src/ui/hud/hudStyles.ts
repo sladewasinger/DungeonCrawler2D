@@ -2,18 +2,23 @@
 
 const HUD_CSS = `
 :root {
-  --ow-slot-size: clamp(32px, calc((100vw - 74px) / 10), 56px);
+  --ow-slot-size: clamp(30px, calc((100vw - 82px) / 11), 54px);
   --ow-bag-slot: clamp(32px, calc((100vw - 88px) / 9), 50px);
 }
 .ow-hotbar {
   position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
   transform: translateX(-50%); z-index: 40;
-  display: grid; grid-template-columns: repeat(9, var(--ow-slot-size)) var(--ow-slot-size); gap: 6px; padding: 8px 10px;
+  display: grid; grid-template-columns: repeat(9, var(--ow-slot-size)) repeat(2, var(--ow-slot-size)); gap: 6px; padding: 8px 10px;
   border-radius: 14px; background: rgba(12, 18, 26, 0.86);
   border: 1px solid rgba(148, 163, 184, 0.28); backdrop-filter: blur(8px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
-.ow-lantern-btn { cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease; }
+.ow-map-btn, .ow-lantern-btn { cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease; }
+.ow-map-btn[data-active="true"] {
+  border-color: rgba(251, 191, 36, 0.9);
+  background: rgba(120, 53, 15, 0.65);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+}
 .ow-lantern-btn[data-lit="true"] {
   border-color: rgba(251, 191, 36, 0.85);
   background: rgba(120, 53, 15, 0.55);
@@ -121,15 +126,15 @@ const HUD_CSS = `
 .ow-chest-pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ow-chest-lbl { font-size: 11px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; }
 .ow-minimap {
-  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  z-index: 34; padding: 12px; border-radius: 14px; pointer-events: none;
-  background: rgba(24, 19, 13, 0.92); border: 2px solid rgba(217, 179, 106, 0.72);
+  position: fixed; left: 50%; top: calc(50% - 14px); transform: translate(-50%, -50%);
+  z-index: 34; padding: 14px; border-radius: 14px; pointer-events: none;
+  background: rgba(24, 19, 13, 0.94); border: 2px solid rgba(217, 179, 106, 0.72);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.68); display: flex; flex-direction: column; gap: 8px;
 }
 .ow-minimap[hidden] { display: none; }
-.ow-minimap-head, .ow-minimap-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; color: #fde68a; letter-spacing: 0.04em; }
+.ow-minimap-head, .ow-minimap-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; color: #fde68a; letter-spacing: 0.04em; }
 .ow-minimap-controls { display: flex; gap: 6px; pointer-events: auto; }
-.ow-minimap-canvas { width: min(360px, 78vmin); height: min(360px, 78vmin); border-radius: 6px; border: 2px solid rgba(148, 120, 74, 0.65); image-rendering: pixelated; display: block; }
+.ow-minimap-canvas { width: min(620px, 86vw, calc(100dvh - 150px)); height: min(620px, 86vw, calc(100dvh - 150px)); border-radius: 6px; border: 2px solid rgba(148, 120, 74, 0.65); image-rendering: pixelated; display: block; }
 .ow-compass-pill { font-variant-numeric: tabular-nums; cursor: default; }
 .ow-compass-coords { font-size: 12px; font-weight: 800; color: #fde047; }
 .ow-drag-ghost { position: fixed; width: 44px; height: 44px; pointer-events: none; z-index: 60; transform: translate(-50%, -50%) scale(1.1); image-rendering: pixelated; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.65)); }
@@ -139,7 +144,7 @@ const HUD_CSS = `
 }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
   :root {
-    --ow-slot-size: clamp(28px, calc((100vw - 54px) / 10), 42px);
+    --ow-slot-size: clamp(26px, calc((100vw - 58px) / 11), 40px);
   }
   .ow-hotbar {
     bottom: env(safe-area-inset-bottom);

@@ -50,7 +50,10 @@ export class HudRoot {
       onChestTransfer: (req) => actions.onChestTransfer({ ...req, chestId: this.openChestId ?? req.chestId }),
       onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
     });
-    this.hotbar = new BottomHotbar(host, this.drag, actions.onToggleTorch);
+    this.hotbar = new BottomHotbar(host, this.drag, {
+      onToggleTorch: actions.onToggleTorch,
+      onToggleMap: () => { this.toggleMap(); actions.onMapToggled?.(); },
+    });
     this.vitals = new VitalsBar(host);
     this.inventoryModal = new InventoryModal(host, this.drag, {
       onClose: () => this.closePanels(), onOpenCrafting: () => this.togglePanel("crafting"),
@@ -124,7 +127,7 @@ export class HudRoot {
     const chestOpen = this.openPanel === "chest" && Boolean(chest);
     this.drag.setState(state.inventory, { panelOpen: invOpen || chestOpen, chestSlots: chest?.slots ?? null });
     const tap = this.drag.activeTapSource();
-    this.hotbar.sync(state.inventory, tap, Boolean(state.localPlayer?.torchLit));
+    this.hotbar.sync(state.inventory, tap, { torchLit: Boolean(state.localPlayer?.torchLit), mapOpen: this.isMapVisible(state) });
     this.vitals.sync(state.localPlayer, state.entities);
     this.inventoryModal.sync(state.inventory, { open: invOpen, tapSource: tap, player: state.localPlayer });
     this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen, tapSource: tap });
@@ -133,10 +136,14 @@ export class HudRoot {
     this.syncMinimap(state);
   }
 
+  private isMapVisible(state: HudSyncState): boolean {
+    return this.openPanel === "none" && (this.mapOpen || state.localPlayer?.heldItem === "map");
+  }
+
   private syncMinimap(state: HudSyncState): void {
     if (!state.cache) return;
     this.minimap.sync({
-      visible: this.openPanel === "none" && (this.mapOpen || state.localPlayer?.heldItem === "map"),
+      visible: this.isMapVisible(state),
       cache: state.cache, local: state.localPlayer,
       players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [],
     });

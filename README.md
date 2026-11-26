@@ -38,7 +38,8 @@ Documentation lives next to the code it describes:
 | [packages/client/src/render/character/README.md](packages/client/src/render/character/README.md) | Layered `32×32` (`0.75×` world-scale) 4-directional paper-doll compositor, Hybrid Weapon Grip Socket arm rig, & LRU texture cache |
 | [packages/client/src/render/README.md](packages/client/src/render/README.md) | Terrain/prop texture builders, world layers, and shader atmosphere pipeline |
 | [packages/client/src/ui/hud/README.md](packages/client/src/ui/hud/README.md) | Clean public HUD (`?debug=1` admin gate), hotbar Lantern, Vitals bar, 5-slot Inventory/Craft swap |
-| [infra/README.md](infra/README.md) | Terraform AWS deployment, CloudFront, SSM, and EC2 server setup |
+| [infra/README.md](infra/README.md) | Terraform AWS static frontend & legacy EC2 stack (`dungeoncrawl2d.austinwasinger.com`) |
+| [docs/FLY-DEPLOYMENT.md](docs/FLY-DEPLOYMENT.md) | Fly.io `dfw` game server setup, local `fly` CLI, custom WSS DNS/TLS, `FLY_API_TOKEN`, and ops runbook |
 
 ## Getting started
 
@@ -74,24 +75,25 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
   - **Desktop**: Left-click to swing melee 3-hit combos (`Sword`, `Axe`, `Pickaxe`, `Torch`) or heal (`Bandage`, `Cooked Meat`); hold-and-release Left-click to draw & loose the `Hunter Bow`; hold Right-click with an off-hand shield equipped to block (time it within `220ms` of an attack to **Parry** and stagger attackers); `Ctrl` to dodge-roll; `E` to interact; `X` to toss a distraction pebble.
   - **Touch / Mobile**: Tap `ATK` for melee/heal or hold-and-drag `ATK` for 360° aimed bow shots; tap `ROLL` to dodge; hold `BLOCK` when wearing a shield.
 - **Inventory, Character & Hotbar**:
-  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand), plus the built-in glowing **Lantern** toggle icon (`F` shortcut) right beside slot 9 (auto-clips to waist with bow or shield). Drag any stack outside the HUD panels or press `Q` (`Delete`/`Backspace`) to drop items on the ground.
+  - **`1`–`9` or tap/click bottom hotbar**: Select active item slot (`0..8`, rendered in the hero's hand), plus permanent **`M` Overworld Map** (centered enlarged world map, also `M` on keyboard) and **`F` Lantern** toggle icons right beside slot 9 (cannot be dropped; lantern auto-clips to waist with bow or shield). Drag any stack outside the HUD panels or press `Q` (`Delete`/`Backspace`) to drop items on the ground.
   - **`Tab` or `Bag` button**: Open minimalist Inventory (`27`-slot Backpack + `5` Armor/Shield slots + live Stats + **`Craft`** header button). Equipped gear (`Leather Hood`, `Tunic`, `Leggings`, `Boots`, `Wooden Shield`) renders visibly on your character for all players; drag items or tap-to-swap between Backpack, Armor/Shield, and bottom hotbar.
   - **`H` or `Hero` button**: Open Hero Appearance creator (name, `Male`/`Female` body silhouette, skin tone, eye color, hair style, and hair pigment; auto-saved in `localStorage` and synced over WebSocket).
   - **`C` or `Bag -> Craft`**: Open Crafting panel (craftable recipes only by default, with optional `Show Locked` toggle and **`Bag`** header button back).
   - **`Esc`**: Close open panels.
 - **Audio, Telemetry, Debug Toolbar & Fullscreen**:
   - **Settings gear (`Esc` / top-right)**: Adjust independent `Music` and `SFX` sliders or `Mute All`, toggle **`Show FPS`**, **`Show Ping`**, camera zoom, and crouch mode (`Toggle`/`Hold`). Tuning levers live in `packages/client/src/audio/audioTuning.ts`, `packages/client/src/render/combat/combatVisualTuning.ts`, and `packages/engine/src/combat/combatRules.ts`.
-  - **`FS` & `−`/`+` buttons**: Manual fullscreen toggle (touch devices also auto-request fullscreen on first touch gesture) and camera zoom.
+  - **`Fullscreen` prompt button**: Touch/mobile sessions auto-request fullscreen on first gesture and automatically surface a **`Fullscreen`** button beside Settings whenever fullscreen is exited (e.g., after switching apps on mobile).
   - **`?debug=1` / `?admin=1`**: Reveals the admin status pill (`Server · Day`), `FX` quality cycler, and `Atmosphere ▾` clock/preset drawer.
 
 ## Configuration reference
 
 | Environment variable | Default and meaning |
 | --- | --- |
-| `GAME_PORT` | `4000` (fallback `PORT`, then `4000`); WebSocket/HTTP server port (`infra/` production systemd uses `8081`). |
+| `GAME_PORT` | `4000` (fallback `PORT`, then `4000`); WebSocket/HTTP server port (`fly.toml` production uses `8080`). |
 | `GAME_HOST` | `0.0.0.0`; bind host for `@dc2d/game-server`. |
 | `WORLD_SEED` | `1337`; numeric world seed parsed on server startup. |
-| `VITE_GAME_WS_URL` | Unset (uses `ws(s)://<location.host>/ws` same-origin proxy); optional explicit WebSocket URL override for Vite client builds. |
+| `WORLD_SAVE_PATH` | `data/world-save.json` (`none` disables persistence); Fly.io mounts `/data/world-save.json` on `world_data`. |
+| `VITE_GAME_WS_URL` | Unset (uses `ws(s)://<location.host>/ws` same-origin proxy); optional explicit WebSocket URL override for Vite client builds (CI defaults to `wss://ws.dungeoncrawl2d.austinwasinger.com/ws` when `FLY_API_TOKEN` is set). |
 | `PREVIEW_PORT` | `4173`; static Vite preview HTTP port used by `npm run preview-prod`. |
 | `PREVIEW_GAME_PORT` | `4174`; frozen built game-server port spawned by `npm run preview-prod`. |
 
@@ -99,4 +101,4 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 
 - Active development happens on `overworld` and is merged cleanly into `develop`.
 - When a phase is verified (tests, lint, build, and live browser checks), open and merge a versioned release PR from `develop` into `main` with a clear release title (`release: vX.Y.Z — <Release Title>`).
-- Merging into `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish to S3/EC2/CloudFront, and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.
+- Merging into `main` triggers [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) to build, publish the static client to S3/CloudFront, deploy `@dc2d/game-server` to Fly.io `dfw` (when `FLY_API_TOKEN` is configured; see [docs/FLY-DEPLOYMENT.md](docs/FLY-DEPLOYMENT.md)), and smoke-test `https://dungeoncrawl2d.austinwasinger.com`.

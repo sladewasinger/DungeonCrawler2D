@@ -1,10 +1,16 @@
-/** Always-visible, larger 9-slot bottom hotbar (slots 0..8), droppable even when inventory is open. */
+/** Always-visible bottom hotbar (slots 1..9 plus permanent Map [M] and Lantern [F] buttons). */
 import { HOTBAR_SLOT_COUNT, type InventorySlot, type InventorySnapshot } from "@dc2d/engine";
+import { getItemIconUrl } from "../icons/itemIcons.js";
 import type { DragSource, SlotDragManager } from "./slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_BTN = "button";
 const ATTR_ARIA_LABEL = "aria-label";
+
+export interface HotbarActionCallbacks {
+  readonly onToggleTorch: () => void;
+  readonly onToggleMap: () => void;
+}
 
 function slotItemKey(item: InventorySlot): string {
   return item ? `${item.itemId}:${item.count}` : "-";
@@ -20,16 +26,52 @@ function createLanternIconSvg(): string {
   </svg>`;
 }
 
+function bindHotbarActionButton(btn: HTMLButtonElement, onTrigger: () => void): void {
+  let lastTouchMs = -1000;
+  btn.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    if (e.pointerType !== "touch") return;
+    e.preventDefault();
+    lastTouchMs = performance.now();
+    onTrigger();
+  });
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (performance.now() - lastTouchMs >= 400) onTrigger();
+  });
+}
+
+function buildMapHotbarButton(onToggleMap: () => void): HTMLButtonElement {
+  const btn = domNode(TAG_BTN, "ow-slot ow-map-btn");
+  btn.type = TAG_BTN;
+  btn.title = "Overworld Map (M)";
+  btn.setAttribute(ATTR_ARIA_LABEL, "Toggle Overworld Map (M)");
+  btn.innerHTML = `<span class="ow-slot-key">M</span><img class="ow-slot-img" src="${getItemIconUrl("map")}" alt="Overworld Map" draggable="false" />`;
+  bindHotbarActionButton(btn, onToggleMap);
+  return btn;
+}
+
+function buildLanternHotbarButton(onToggleTorch: () => void): HTMLButtonElement {
+  const btn = domNode(TAG_BTN, "ow-slot ow-lantern-btn");
+  btn.type = TAG_BTN;
+  btn.title = "Toggle Lantern (F)";
+  btn.setAttribute(ATTR_ARIA_LABEL, "Toggle lantern (F)");
+  btn.innerHTML = `<span class="ow-slot-key">F</span>${createLanternIconSvg()}`;
+  bindHotbarActionButton(btn, onToggleTorch);
+  return btn;
+}
+
 export class BottomHotbar {
   readonly el: HTMLDivElement;
   private readonly buttons: HTMLButtonElement[] = [];
+  private readonly mapBtn: HTMLButtonElement;
   private readonly lanternBtn: HTMLButtonElement;
   private readonly slotItemKeys: string[] = Array.from({ length: HOTBAR_SLOT_COUNT }, () => "");
   private lastFingerprint = "";
   private lastTorchLit: boolean | null = null;
-  private lastTouchTorchMs = -1000;
+  private lastMapOpen: boolean | null = null;
 
-  constructor(host: HTMLElement, drag: SlotDragManager, onToggleTorch: () => void) {
+  constructor(host: HTMLElement, drag: SlotDragManager, callbacks: HotbarActionCallbacks) {
     this.el = domNode("div", "ow-hotbar");
     this.el.dataset.dropZone = "hotbar";
     this.el.setAttribute("role", "toolbar");
@@ -42,36 +84,33 @@ export class BottomHotbar {
       this.buttons.push(btn);
       this.el.append(btn);
     }
-    this.lanternBtn = domNode(TAG_BTN, "ow-slot ow-lantern-btn");
-    this.lanternBtn.type = TAG_BTN;
-    this.lanternBtn.setAttribute(ATTR_ARIA_LABEL, "Toggle lantern (F)");
-    this.lanternBtn.innerHTML = `<span class="ow-slot-key">F</span>${createLanternIconSvg()}`;
-    this.lanternBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      if (e.pointerType !== "touch") return;
-      e.preventDefault();
-      this.lastTouchTorchMs = performance.now();
-      onToggleTorch();
-    });
-    this.lanternBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (performance.now() - this.lastTouchTorchMs >= 400) onToggleTorch();
-    });
-    this.el.append(this.lanternBtn);
+    this.mapBtn = buildMapHotbarButton(callbacks.onToggleMap);
+    this.lanternBtn = buildLanternHotbarButton(callbacks.onToggleTorch);
+    this.el.append(this.mapBtn, this.lanternBtn);
     host.append(this.el);
   }
 
-  sync(inv: InventorySnapshot, tapSource: DragSource | null, torchLit = true): void {
-    if (this.lastTorchLit !== torchLit) {
-      this.lastTorchLit = torchLit;
-      this.lanternBtn.dataset.lit = String(torchLit);
-      this.lanternBtn.style.color = torchLit ? "#fde047" : "#64748b";
-    }
+  sync(inv: InventorySnapshot, tapSource: DragSource | null, opts: { readonly torchLit?: boolean; readonly mapOpen?: boolean } = {}): void {
+    this.syncActionButtons(opts);
     const tapIdx = tapSource?.kind === "slot" ? tapSource.index : -1;
     const fp = `${slotsFingerprint(inv.slots, 0, HOTBAR_SLOT_COUNT)}#${inv.selectedHotbar}#${tapIdx}`;
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
     for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) this.syncSlot(i, inv, tapIdx);
+  }
+
+  private syncActionButtons(opts: { readonly torchLit?: boolean; readonly mapOpen?: boolean }): void {
+    const torchLit = opts.torchLit ?? true;
+    const mapOpen = opts.mapOpen ?? false;
+    if (this.lastTorchLit !== torchLit) {
+      this.lastTorchLit = torchLit;
+      this.lanternBtn.dataset.lit = String(torchLit);
+      this.lanternBtn.style.color = torchLit ? "#fde047" : "#64748b";
+    }
+    if (this.lastMapOpen !== mapOpen) {
+      this.lastMapOpen = mapOpen;
+      this.mapBtn.dataset.active = String(mapOpen);
+    }
   }
 
   private syncSlot(index: number, inv: InventorySnapshot, tapIdx: number): void {

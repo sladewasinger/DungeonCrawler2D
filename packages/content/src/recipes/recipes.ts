@@ -39,6 +39,15 @@ export const RECIPE_CATALOG: readonly RecipeDef[] = [
     ],
   },
   {
+    id: "craft-bow",
+    outputItemId: "bow",
+    outputCount: 1,
+    ingredients: [
+      { itemId: ITEM_WOOD, count: 5 },
+      { itemId: ITEM_HERB, count: 2 },
+    ],
+  },
+  {
     id: "craft-iron-greatsword",
     outputItemId: "iron-greatsword",
     outputCount: 1,

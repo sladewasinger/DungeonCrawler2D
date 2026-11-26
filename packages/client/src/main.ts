@@ -137,7 +137,8 @@ function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: (
     onEquipArmor: (req) => { client.equipArmor(req); audio.playUi("equip"); }, onUnequipArmor: (req) => { client.unequipArmor(req); audio.playUi("equip"); },
     onChestTransfer: (req) => { if (req.chestId) { client.chestTransfer({ ...req, chestId: req.chestId }); audio.playUi("click"); } },
     onChestTakeAll: (chestId) => { client.chestTakeAll(chestId); audio.playUi("equip"); }, onCraft: (recipeId) => { client.craftRecipe(recipeId); audio.playUi("craft"); },
-    onDropItem: (req) => { client.dropItem(req); audio.playUi("click"); }, onSetCharacter: (req) => client.setCharacter(req), onToggleTorch: toggleTorch,
+    onDropItem: (req) => { client.dropItem(req); audio.playUi("click"); }, onSetCharacter: (req) => client.setCharacter(req),
+    onToggleTorch: toggleTorch, onMapToggled: () => audio.playUi("open"),
   };
 }
 

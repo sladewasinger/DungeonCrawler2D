@@ -3,6 +3,7 @@ import { QUALITY_PRESETS, type QualityPresetId } from "@dc2d/content";
 import { periodForPhase, type EntityKind } from "@dc2d/engine";
 import type { ConnectionMode } from "../net/worldClient.js";
 import { FpsCounter, PingCounter } from "./fpsCounter.js";
+import { onFullscreenStateChange, shouldShowFullscreenPrompt, toggleFullscreen } from "./fullscreen.js";
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
@@ -44,6 +45,10 @@ const GEAR_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" st
   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.79 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
 </svg>`;
 
+const EXPAND_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+</svg>`;
+
 export class AtmosphereToolbar {
   private readonly debug = isDebugMode();
   private readonly dot: HTMLSpanElement;
@@ -51,6 +56,7 @@ export class AtmosphereToolbar {
   private readonly timeLabel: HTMLSpanElement;
   private readonly bagBtn: HTMLButtonElement;
   private readonly qualityBtn: HTMLButtonElement;
+  private readonly fullscreenBtn: HTMLButtonElement;
   private readonly settingsBtn: HTMLButtonElement;
   private readonly compass = new CompassBadge();
   private readonly fps = new FpsCounter();
@@ -86,9 +92,12 @@ export class AtmosphereToolbar {
     else root.append(bar);
 
     const topRight = el("div", "ow-zoom-controls");
+    this.fullscreenBtn = buildFullscreenBtn();
     this.settingsBtn = iconBtn({ svg: GEAR_SVG, label: "Settings", onClick: callbacks.onToggleSettings });
-    topRight.append(this.fps.el, this.ping.el, this.compass.el, this.settingsBtn);
+    topRight.append(this.fps.el, this.ping.el, this.compass.el, this.fullscreenBtn, this.settingsBtn);
     host.append(root, topRight);
+    onFullscreenStateChange(() => this.syncFullscreenBtn());
+    this.syncFullscreenBtn();
   }
 
   setFpsVisible(visible: boolean): void {
@@ -116,6 +125,7 @@ export class AtmosphereToolbar {
   }): void {
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.settingsBtn.dataset.active = String(state.settingsOpen);
+    this.syncFullscreenBtn();
     this.ping.sync(state.mode, state.pingMs);
     this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
     if (this.debug) this.syncDebugBar(state);
@@ -164,6 +174,21 @@ export class AtmosphereToolbar {
     this.drawerOpen = !this.drawerOpen;
     this.drawer.dataset.open = String(this.drawerOpen);
   }
+
+  private syncFullscreenBtn(): void {
+    this.fullscreenBtn.hidden = !shouldShowFullscreenPrompt();
+  }
+}
+
+function buildFullscreenBtn(): HTMLButtonElement {
+  const b = el("button", "ow-pill ow-fs-pill");
+  b.type = "button";
+  b.setAttribute("aria-label", "Fullscreen");
+  b.title = "Enter Fullscreen";
+  b.innerHTML = `${EXPAND_SVG}<span>Fullscreen</span>`;
+  b.addEventListener("pointerdown", (e) => e.stopPropagation());
+  b.addEventListener("click", () => { void toggleFullscreen(); });
+  return b;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): HTMLElementTagNameMap[K] {

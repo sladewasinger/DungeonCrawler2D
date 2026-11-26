@@ -1,5 +1,5 @@
 /** Mobile-first auto-fullscreen on initial touch gesture and manual fullscreen toggle. */
-import { isCoarsePrimaryDevice } from "../input/inputMode.js";
+import { isCoarsePrimaryDevice, isTouchInputActive } from "../input/inputMode.js";
 
 let manualExit = false;
 
@@ -13,6 +13,15 @@ export function isFullscreenActive(): boolean {
 
 export function isCoarsePointerDevice(): boolean {
   return isCoarsePrimaryDevice();
+}
+
+export function isStandaloneDisplayMode(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(display-mode: standalone)").matches);
+}
+
+export function shouldShowFullscreenPrompt(): boolean {
+  const touchOrCoarse = isCoarsePointerDevice() || isTouchInputActive();
+  return isFullscreenSupported() && touchOrCoarse && !isFullscreenActive() && !isStandaloneDisplayMode();
 }
 
 export async function toggleFullscreen(): Promise<void> {
@@ -50,4 +59,21 @@ export function onFullscreenChange(listener: () => void): void {
     if (!document.fullscreenElement) manualExit = true;
     listener();
   });
+}
+
+export function onFullscreenStateChange(listener: () => void): () => void {
+  const handleFs = (): void => {
+    if (!document.fullscreenElement) manualExit = true;
+    listener();
+  };
+  document.addEventListener("fullscreenchange", handleFs);
+  document.addEventListener("visibilitychange", listener);
+  window.addEventListener("pageshow", listener);
+  window.addEventListener("focus", listener);
+  return () => {
+    document.removeEventListener("fullscreenchange", handleFs);
+    document.removeEventListener("visibilitychange", listener);
+    window.removeEventListener("pageshow", listener);
+    window.removeEventListener("focus", listener);
+  };
 }

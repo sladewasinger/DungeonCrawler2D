@@ -1,5 +1,7 @@
 # AWS deployment
 
+> **Fly.io game server note:** The authoritative production game server now runs on Fly.io in Dallas (`dfw`) at `wss://ws.dungeoncrawl2d.austinwasinger.com/ws` when `FLY_API_TOKEN` is set in GitHub Actions Secrets. See [`docs/FLY-DEPLOYMENT.md`](../docs/FLY-DEPLOYMENT.md) for CLI setup, DNS/TLS, deploy tokens, and operations. The Terraform stack here continues to own S3, CloudFront, ACM, and the GitHub OIDC role for the static frontend at `dungeoncrawl2d.austinwasinger.com` (and retains the legacy EC2 resources as fallback).
+
 This stack owns `dungeoncrawl2d.austinwasinger.com` independently from the main website:
 
 - a private S3 bucket and CloudFront origin for the client;
