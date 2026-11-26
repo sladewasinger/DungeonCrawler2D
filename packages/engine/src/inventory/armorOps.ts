@@ -6,6 +6,7 @@ import {
   type ArmorEquipment,
   type ArmorPrefixMap,
   type ArmorSlotKey,
+  type ArmorUpgradeMap,
   type InventorySlot,
   type PlayerInventoryState,
   type StackLimitLookup,
@@ -42,12 +43,36 @@ function withUpdatedArmorPrefix(
   return cleanPrefixMap(copy);
 }
 
+function cleanUpgradeMap(upgrades: ArmorUpgradeMap | undefined): ArmorUpgradeMap | undefined {
+  if (!upgrades) return undefined;
+  const out: ArmorUpgradeMap = {};
+  let hasAny = false;
+  for (const key of ARMOR_SLOT_KEYS) {
+    const lv = upgrades[key];
+    if (lv && lv > 0) { out[key] = lv; hasAny = true; }
+  }
+  return hasAny ? out : undefined;
+}
+
+function withUpdatedArmorUpgrade(
+  upgrades: ArmorUpgradeMap | undefined,
+  slot: ArmorSlotKey,
+  nextUpgrade: number | undefined,
+): ArmorUpgradeMap | undefined {
+  const copy: ArmorUpgradeMap = { ...(upgrades ?? {}) };
+  if (nextUpgrade && nextUpgrade > 0) copy[slot] = nextUpgrade;
+  else delete copy[slot];
+  return cleanUpgradeMap(copy);
+}
+
 export function cloneInventoryState(state: PlayerInventoryState): PlayerInventoryState {
   const prefixes = cleanPrefixMap(state.armorPrefixes);
+  const upgrades = cleanUpgradeMap(state.armorUpgrades);
   return {
-    slots: state.slots.map((slot) => (slot ? makeSlotItem(slot.itemId, slot.count, slot.prefixId) : null)),
+    slots: state.slots.map((slot) => (slot ? makeSlotItem(slot.itemId, slot.count, { prefixId: slot.prefixId, upgradeLevel: slot.upgradeLevel }) : null)),
     armor: { ...state.armor },
     ...(prefixes ? { armorPrefixes: prefixes } : {}),
+    ...(upgrades ? { armorUpgrades: upgrades } : {}),
   };
 }
 
@@ -79,10 +104,50 @@ export function equipArmorFromSlot(
   const next = cloneInventoryState(state);
   const previousId = next.armor[itemSlot];
   const previousPrefix = next.armorPrefixes?.[itemSlot];
-  next.slots[req.slotIndex] = previousId ? makeSlotItem(previousId, 1, previousPrefix) : null;
+  const previousUpgrade = next.armorUpgrades?.[itemSlot];
+  next.slots[req.slotIndex] = previousId ? makeSlotItem(previousId, 1, { prefixId: previousPrefix, upgradeLevel: previousUpgrade }) : null;
   const updatedArmor: ArmorEquipment = { ...next.armor, [itemSlot]: source.itemId };
   const updatedPrefixes = withUpdatedArmorPrefix(next.armorPrefixes, itemSlot, source.prefixId);
-  return { slots: next.slots, armor: updatedArmor, ...(updatedPrefixes ? { armorPrefixes: updatedPrefixes } : {}) };
+  const updatedUpgrades = withUpdatedArmorUpgrade(next.armorUpgrades, itemSlot, source.upgradeLevel);
+  return {
+    slots: next.slots,
+    armor: updatedArmor,
+    ...(updatedPrefixes ? { armorPrefixes: updatedPrefixes } : {}),
+    ...(updatedUpgrades ? { armorUpgrades: updatedUpgrades } : {}),
+  };
+}
+
+function buildArmorUpdateResult(opts: {
+  readonly slots: InventorySlot[];
+  readonly armor: ArmorEquipment;
+  readonly armorPrefixes: ArmorPrefixMap | undefined;
+  readonly armorUpgrades: ArmorUpgradeMap | undefined;
+}): PlayerInventoryState {
+  return {
+    slots: opts.slots,
+    armor: opts.armor,
+    ...(opts.armorPrefixes ? { armorPrefixes: opts.armorPrefixes } : {}),
+    ...(opts.armorUpgrades ? { armorUpgrades: opts.armorUpgrades } : {}),
+  };
+}
+
+function applyArmorSwapState(opts: {
+  readonly state: PlayerInventoryState;
+  readonly armorSlot: ArmorSlotKey;
+  readonly targetSlot: number;
+  readonly equippedId: string;
+}): PlayerInventoryState {
+  const existing = opts.state.slots[opts.targetSlot] ?? null;
+  const next = cloneInventoryState(opts.state);
+  const prevPrefix = next.armorPrefixes?.[opts.armorSlot];
+  const prevUpgrade = next.armorUpgrades?.[opts.armorSlot];
+  next.slots[opts.targetSlot] = makeSlotItem(opts.equippedId, 1, { prefixId: prevPrefix, upgradeLevel: prevUpgrade });
+  return buildArmorUpdateResult({
+    slots: next.slots,
+    armor: { ...next.armor, [opts.armorSlot]: existing?.itemId ?? null },
+    armorPrefixes: withUpdatedArmorPrefix(next.armorPrefixes, opts.armorSlot, existing?.prefixId),
+    armorUpgrades: withUpdatedArmorUpgrade(next.armorUpgrades, opts.armorSlot, existing?.upgradeLevel),
+  });
 }
 
 function swapArmorWithSlot(
@@ -92,13 +157,7 @@ function swapArmorWithSlot(
 ): PlayerInventoryState | null {
   const existing = state.slots[req.targetSlot];
   if (existing && lookup(existing.itemId, existing.prefixId)?.armorSlot !== req.armorSlot) return null;
-
-  const next = cloneInventoryState(state);
-  const prevPrefix = next.armorPrefixes?.[req.armorSlot];
-  next.slots[req.targetSlot] = makeSlotItem(req.equippedId, 1, prevPrefix);
-  const updatedArmor: ArmorEquipment = { ...next.armor, [req.armorSlot]: existing ? existing.itemId : null };
-  const updatedPrefixes = withUpdatedArmorPrefix(next.armorPrefixes, req.armorSlot, existing?.prefixId);
-  return { slots: next.slots, armor: updatedArmor, ...(updatedPrefixes ? { armorPrefixes: updatedPrefixes } : {}) };
+  return applyArmorSwapState({ state, armorSlot: req.armorSlot, targetSlot: req.targetSlot, equippedId: req.equippedId });
 }
 
 /** Unequips `armorSlot` into a specified slot (swapping matching armor) or first open inventory slot. */
@@ -116,12 +175,14 @@ export function unequipArmorToSlot(
   }
 
   const next = cloneInventoryState(state);
-  const prevPrefix = next.armorPrefixes?.[req.armorSlot];
-  const inserted = insertIntoSlots(next.slots, makeSlotItem(equippedId, 1, prevPrefix), deps.maxStackFor);
-  if (inserted !== 1) return null;
-  const updatedArmor: ArmorEquipment = { ...next.armor, [req.armorSlot]: null };
-  const updatedPrefixes = withUpdatedArmorPrefix(next.armorPrefixes, req.armorSlot, undefined);
-  return { slots: next.slots, armor: updatedArmor, ...(updatedPrefixes ? { armorPrefixes: updatedPrefixes } : {}) };
+  const item = makeSlotItem(equippedId, 1, { prefixId: next.armorPrefixes?.[req.armorSlot], upgradeLevel: next.armorUpgrades?.[req.armorSlot] });
+  if (insertIntoSlots(next.slots, item, deps.maxStackFor) !== 1) return null;
+  return buildArmorUpdateResult({
+    slots: next.slots,
+    armor: { ...next.armor, [req.armorSlot]: null },
+    armorPrefixes: withUpdatedArmorPrefix(next.armorPrefixes, req.armorSlot, undefined),
+    armorUpgrades: withUpdatedArmorUpgrade(next.armorUpgrades, req.armorSlot, undefined),
+  });
 }
 
 /** Sums defense across all equipped armor slots. */

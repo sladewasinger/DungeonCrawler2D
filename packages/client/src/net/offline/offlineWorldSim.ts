@@ -6,7 +6,9 @@ import {
   type InventorySnapshot, type PlacedStructureRecord, type PlayerSnapshot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { createStarterInventorySnapshot } from "../clientInventory.js";
+import type { ClientHubState } from "../hubClientBridge.js";
 import type { OfflineWorldSnapshot } from "../offlinePersistence.js";
+import { hydrateOfflineHubState, serializeOfflineHubState } from "./offlineHubs.js";
 
 const STATION_RADIUS_SQ = 2.8 * 2.8;
 
@@ -35,12 +37,14 @@ export function hydrateOfflineWorld(opts: {
   readonly cache: WorldChunkCache;
   readonly runtime: OfflineRuntimeState;
   readonly player: PlayerSnapshot;
+  readonly hub?: ClientHubState | undefined;
 }): { readonly player: PlayerSnapshot; readonly chests: WorldChestSnapshot[]; readonly inventory: InventorySnapshot } {
   const { saved, cache, runtime } = opts;
   cache.applyWorldDeltaSnapshot({ depleted: saved.depleted, structures: saved.structures, litBraziers: [] });
   runtime.structures = [...saved.structures];
   runtime.beds = [...saved.beds];
   runtime.nextStructId = saved.structures.reduce((m, s) => Math.max(m, Number(s.id.replace("struct-", "")) || 0), 0) + 1;
+  if (opts.hub) hydrateOfflineHubState(saved, opts.hub);
   const bed = saved.beds[0];
   const player: PlayerSnapshot = {
     ...opts.player, x: saved.player.x, y: saved.player.y, elevation: saved.player.elevation,
@@ -166,6 +170,7 @@ export function stepOfflineSurvival(cache: WorldChunkCache, player: PlayerSnapsh
 export function buildOfflineWorldSnapshot(opts: {
   readonly cache: WorldChunkCache; readonly dayPhase: number; readonly runtime: OfflineRuntimeState;
   readonly chests: readonly WorldChestSnapshot[]; readonly player: PlayerSnapshot; readonly inventory: InventorySnapshot;
+  readonly hub?: ClientHubState | undefined;
 }): OfflineWorldSnapshot {
   const deltas = opts.cache.worldDeltaSnapshot();
   return {
@@ -177,6 +182,7 @@ export function buildOfflineWorldSnapshot(opts: {
       wellFedTimer: opts.player.wellFedTimer ?? 0, invigoratedTimer: opts.player.invigoratedTimer ?? 0,
       restedTimer: opts.player.restedTimer ?? 0, hotTimer: opts.player.hotTimer ?? 0,
     },
+    ...(opts.hub ? serializeOfflineHubState(opts.hub) : {}),
   };
 }
 

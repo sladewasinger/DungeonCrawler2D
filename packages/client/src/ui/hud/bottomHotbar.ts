@@ -14,7 +14,7 @@ export interface HotbarActionCallbacks {
 }
 
 function slotItemKey(item: InventorySlot): string {
-  return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
+  return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}:${item.upgradeLevel ?? 0}` : "-";
 }
 
 function createLanternIconSvg(): string {

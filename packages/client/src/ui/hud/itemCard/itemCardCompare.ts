@@ -18,21 +18,40 @@ const PERK_LABELS: Readonly<Record<ItemPerkKind, (v: number) => string>> = {
   glow: (v) => `Radiant: +${v}px carried light radius`,
 };
 
+export function resolveUpgradedItemStats(
+  itemId: string,
+  opts?: { readonly prefixId?: string | null | undefined; readonly upgradeLevel?: number | undefined },
+): ResolvedItemStats {
+  const base = resolveItemInstance(itemId, opts?.prefixId);
+  const lv = Math.max(0, Math.min(3, Math.floor(opts?.upgradeLevel ?? 0)));
+  if (lv <= 0) return base;
+  return {
+    ...base,
+    damage: base.damage > 0 ? Math.round(base.damage * (1 + lv * 0.15)) : 0,
+    defense: base.defense > 0 ? base.defense + lv : 0,
+  };
+}
+
+function isSameSignature(a: SlotItem, b: SlotItem): boolean {
+  return a.itemId === b.itemId && a.prefixId === b.prefixId && (a.upgradeLevel ?? 0) === (b.upgradeLevel ?? 0);
+}
+
+const isWeaponOrTool = (cat: string | undefined): boolean => cat === "weapon" || cat === "tool";
+
 function findWeaponComparison(inv: InventorySnapshot, target: SlotItem): ResolvedItemStats | null {
   const held = inv.slots[inv.selectedHotbar];
-  if (!held || (held.itemId === target.itemId && held.prefixId === target.prefixId)) return null;
-  const cat = resolveItemInstance(held.itemId, held.prefixId).def?.category;
-  return cat === "weapon" || cat === "tool" ? resolveItemInstance(held.itemId, held.prefixId) : null;
+  if (!held || isSameSignature(held, target)) return null;
+  const heldDef = resolveItemInstance(held.itemId, held.prefixId).def;
+  return isWeaponOrTool(heldDef?.category) ? resolveUpgradedItemStats(held.itemId, held) : null;
 }
 
 export function findComparisonItem(inv: InventorySnapshot, target: SlotItem, isArmorSlot: boolean): ResolvedItemStats | null {
   const def = resolveItemInstance(target.itemId, target.prefixId).def;
   if (!def || isArmorSlot) return null;
-  if (def.armorSlot) {
-    const eqId = inv.armor[def.armorSlot as ArmorSlotKey];
-    return eqId ? resolveItemInstance(eqId, inv.armorPrefixes?.[def.armorSlot as ArmorSlotKey]) : null;
-  }
-  return def.category === "weapon" || def.category === "tool" ? findWeaponComparison(inv, target) : null;
+  if (!def.armorSlot) return isWeaponOrTool(def.category) ? findWeaponComparison(inv, target) : null;
+  const key = def.armorSlot as ArmorSlotKey;
+  const eqId = inv.armor[key];
+  return eqId ? resolveUpgradedItemStats(eqId, { prefixId: inv.armorPrefixes?.[key], upgradeLevel: inv.armorUpgrades?.[key] }) : null;
 }
 
 function deltaEntry(opts: {

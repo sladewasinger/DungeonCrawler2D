@@ -80,7 +80,7 @@ function structurePlacementBlocked(opts: {
   return false;
 }
 
-const SANCTUARY_BUILD_MARGIN = 4;
+const SANCTUARY_BUILD_MARGIN = 1.5;
 const POI_BUILD_MARGIN = 1.5;
 
 function isInBuildExclusionZone(cache: WorldChunkCache, x: number, y: number): boolean {

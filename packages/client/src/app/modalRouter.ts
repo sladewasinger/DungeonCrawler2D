@@ -1,6 +1,6 @@
 /** Coordinates exclusive HUD modals so opening one cleanly closes any active modal. */
 
-export type ModalId = "inventory" | "crafting" | "character" | "chest" | "minimap" | "settings" | "chat";
+export type ModalId = "inventory" | "crafting" | "character" | "chest" | "hub" | "minimap" | "settings" | "chat";
 
 export interface ModalEntry {
   readonly isOpen: () => boolean;

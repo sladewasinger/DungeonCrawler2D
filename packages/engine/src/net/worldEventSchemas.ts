@@ -13,7 +13,7 @@ const WORLD_EVENT_KINDS = [
   "arrowFire", "arrowEmbed", "arrowRicochet", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot",
   "creatureVocal", "playerLeave", "distract", "backstab", "ambushShot", "wolfHowl", "bearBluff", "boarCrash",
   "pebbleLand", "harvestHit", "harvestBreak", "placeStructure", "dismantleStructure", "bedSet",
-  "poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead",
+  "poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead", "hubNotice", "goldGain",
 ] as const;
 
 export const WorldEventSchema = z.object({

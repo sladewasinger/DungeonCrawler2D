@@ -8,9 +8,9 @@ The long-term signature architecture keeps a flexible, composable effects system
 
 ## Austin's F-Bomb Counter
 
-**80**
+**82**
 
-<!-- f-bomb-count: 80 -->
+<!-- f-bomb-count: 82 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

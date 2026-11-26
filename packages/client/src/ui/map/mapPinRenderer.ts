@@ -1,5 +1,6 @@
 /** Category-colored [M] Overworld Map pins, Waystone '?' beacons, and discovery counter formatting. */
 import { getBiomeEntry } from "@dc2d/content";
+import { drawShieldBadge } from "./fogOverlay.js";
 import {
   TOTAL_POI_TYPES, computeDangerTier, getPoiCatalogEntry, sampleMacroBiome,
   type DiscoveryStateSnapshot, type PoiCategory, type PoiKind, type WorldChunkCache,
@@ -75,7 +76,7 @@ function inBounds(px: number, py: number, mapPx: number): boolean {
 interface PinEntry {
   readonly cx: number; readonly cy: number;
   readonly x: number; readonly y: number;
-  readonly id: string; readonly color: string; readonly shape: string;
+  readonly id: string; readonly kind: PoiKind; readonly color: string; readonly shape: string;
 }
 
 let cachedPinKey = "";
@@ -91,12 +92,24 @@ function getWindowPins(opts: { readonly cache: WorldChunkCache; readonly pcx: nu
     for (let ox = -halfChunks; ox <= halfChunks; ox++) {
       for (const poi of cache.getChunk(pcx + ox, pcy + oy).pois) {
         const pin = CATEGORY_PIN[getPoiCatalogEntry(poi.kind).category];
-        out.push({ cx: pcx + ox, cy: pcy + oy, x: poi.centerX, y: poi.centerY, id: poi.id, ...pin });
+        out.push({ cx: pcx + ox, cy: pcy + oy, x: poi.centerX, y: poi.centerY, id: poi.id, kind: poi.kind, ...pin });
       }
     }
   }
   cachedPins = out;
   return out;
+}
+
+function drawSinglePoiPin(opts: {
+  readonly ctx: CanvasRenderingContext2D; readonly poi: PinEntry;
+  readonly localX: number; readonly localY: number; readonly zoom: number; readonly mapPx: number;
+}): void {
+  const center = opts.mapPx * 0.5;
+  const px = center + (opts.poi.x - opts.localX) * opts.zoom;
+  const py = center + (opts.poi.y - opts.localY) * opts.zoom;
+  if (!inBounds(px, py, opts.mapPx)) return;
+  if (opts.poi.kind === "safe-room") drawShieldBadge(opts.ctx, { px, py, fill: "#2563eb", rim: "#bae6fd" });
+  else drawPinGlyph(opts.ctx, { px, py, color: opts.poi.color, shape: opts.poi.shape });
 }
 
 function drawWindowPoiPins(opts: {
@@ -107,12 +120,8 @@ function drawWindowPoiPins(opts: {
   const halfChunks = Math.min(8, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
   const pcx = Math.floor(opts.localX / 32);
   const pcy = Math.floor(opts.localY / 32);
-  const center = opts.mapPx * 0.5;
   for (const poi of getWindowPins({ cache: opts.cache, pcx, pcy, halfChunks })) {
-    if (!opts.discovered.has(poi.id)) continue;
-    const px = center + (poi.x - opts.localX) * opts.zoom;
-    const py = center + (poi.y - opts.localY) * opts.zoom;
-    if (inBounds(px, py, opts.mapPx)) drawPinGlyph(opts.ctx, { px, py, color: poi.color, shape: poi.shape });
+    if (opts.discovered.has(poi.id)) drawSinglePoiPin({ ...opts, poi });
   }
 }
 

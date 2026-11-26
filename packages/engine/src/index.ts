@@ -106,7 +106,7 @@ export {
   ArmorSlotKeySchema, ChatEntrySchema, ClientAdminSchema, ClientChatSchema, ClientDropItemSchema,
   ClientMessageSchema, ClientPingSchema, ClientUseItemSchema, DiscoveryStateSchema, GoreStyleSchema, GoreSubstanceSchema,
   GroundLootSnapshotSchema, InventorySnapshotSchema, PROTOCOL_VERSION, PlayerBubbleSchema,
-  ProjectileSnapshotSchema, ServerMessageSchema, ServerPongSchema, WorldChestSnapshotSchema,
+  ProjectileSnapshotSchema, ServerMessageSchema, ServerPongSchema, SlotItemSchema, WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema, WorldEventSchema, WorldWebSnapshotSchema,
 } from "./net/protocol.js";
 export { CHAT_BUBBLE_DURATION_SEC, MAX_CHAT_LENGTH, PROXIMITY_CHAT_RADIUS, PROXIMITY_SHOUT_RADIUS } from "./net/chatSchemas.js";
@@ -224,3 +224,11 @@ export {
   ClientDismantleStructureSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
   DepletedPropSchema, PlacedStructureSchema, WorldDeltaSnapshotSchema,
 } from "./net/worldDeltaSchemas.js";
+export * from "./world/fog/fogOfWar.js";
+export * from "./world/pois/safeRoomLayout.js";
+export * from "./inventory/stashOps.js";
+export * from "./inventory/upgradeOps.js";
+export * from "./net/hubSchemas.js";
+export type { ArmorUpgradeMap } from "./inventory/slotModel.js";
+export { NPC_KINDS } from "@dc2d/contracts";
+export type { NpcKind } from "@dc2d/contracts";

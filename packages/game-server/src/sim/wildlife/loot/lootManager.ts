@@ -21,6 +21,7 @@ const MAX_GROUND_LOOT_ITEMS = 120;
 export class LootManager {
   readonly chests = new Map<string, StoredChest>();
   readonly groundLoot: GroundLootItem[] = [];
+  onChestFirstOpen?: ((player: CombatPlayerRef, chest: { readonly id: string; readonly poiKind: string; readonly x: number; readonly y: number }) => void) | undefined;
   private nextId = 1;
 
   constructor(private readonly cache: WorldChunkCache) {}
@@ -139,6 +140,7 @@ export class LootManager {
     if (!chest.opened) {
       chest.opened = true;
       events.push({ kind: "chestOpen", x: chest.x, y: chest.y, actorId: player.id });
+      this.onChestFirstOpen?.(player, { id: chest.id, poiKind: chest.poiKind, x: chest.x, y: chest.y });
     }
     return chest.id;
   }

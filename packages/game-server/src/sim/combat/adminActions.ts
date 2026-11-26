@@ -5,7 +5,7 @@ import type { CombatPlayerRef } from "../combatActions.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
 
 export interface AdminActionRequest {
-  readonly action: "godMode" | "heal" | "give" | "clearWebs" | "teleport";
+  readonly action: "godMode" | "heal" | "give" | "giveGold" | "clearWebs" | "teleport";
   readonly enabled?: boolean | undefined;
   readonly itemId?: string | undefined;
   readonly count?: number | undefined;
@@ -50,6 +50,13 @@ function applyTeleport(p: CombatPlayerRef, cache: WorldChunkCache, req: AdminAct
   return true;
 }
 
+function applyGiveGold(p: CombatPlayerRef & { gold?: number; hubRev?: number }, amount = 100): boolean {
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  p.gold = Math.max(0, (p.gold ?? 0) + Math.floor(amount));
+  p.hubRev = (p.hubRev ?? 1) + 1;
+  return true;
+}
+
 export function applyAdminAction(opts: {
   readonly player: CombatPlayerRef; readonly cache: WorldChunkCache; readonly webs: WorldWebNetwork; readonly events: WorldEvent[]; readonly req: AdminActionRequest;
 }): boolean {
@@ -62,5 +69,6 @@ export function applyAdminAction(opts: {
   }
   if (req.action === "clearWebs") { clearPlayerWebsOnly(player, webs); return false; }
   if (req.action === "teleport") return applyTeleport(player, cache, req);
+  if (req.action === "giveGold") return applyGiveGold(player as CombatPlayerRef & { gold?: number; hubRev?: number }, req.count);
   return req.action === "give" && applyGiveItem(player, req.itemId, req.count);
 }

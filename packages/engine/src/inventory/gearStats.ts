@@ -1,6 +1,6 @@
 /** Pure aggregated player RPG stats & combat perks computed from equipped armor and held item. */
 import { ARMOR_SLOT_KEYS, type ItemPerkKind } from "@dc2d/contracts";
-import type { ArmorEquipment, ArmorPrefixMap, SlotItem } from "./slotModel.js";
+import type { ArmorEquipment, ArmorPrefixMap, ArmorUpgradeMap, SlotItem } from "./slotModel.js";
 
 export type GearPerkKind = ItemPerkKind;
 
@@ -84,10 +84,15 @@ function accumulatePerks(tot: MutableGearTotals, perks: GearPieceStats["perks"],
   }
 }
 
-function accumulatePiece(tot: MutableGearTotals, s: GearPieceStats, isHeld: boolean): void {
-  tot.defense += s.defense;
+function accumulatePiece(
+  tot: MutableGearTotals,
+  entry: { readonly stats: GearPieceStats; readonly isHeld: boolean; readonly upgradeLevel?: number | undefined },
+): void {
+  const { stats: s, isHeld } = entry;
+  const lv = Math.max(0, Math.min(3, Math.floor(entry.upgradeLevel ?? 0)));
+  tot.defense += isHeld ? s.defense : s.defense + (s.defense > 0 ? lv : 0);
   if (isHeld) {
-    tot.heldDamage = s.damage;
+    tot.heldDamage = s.damage > 0 ? Math.round(s.damage * (1 + lv * 0.15)) : 0;
     tot.heldStaminaCost = s.staminaCost;
     tot.critMult = Math.max(tot.critMult, s.critMult);
   }
@@ -105,6 +110,7 @@ function accumulatePiece(tot: MutableGearTotals, s: GearPieceStats, isHeld: bool
 export function computePlayerGearStats(input: {
   readonly armor: ArmorEquipment;
   readonly armorPrefixes?: ArmorPrefixMap | undefined;
+  readonly armorUpgrades?: ArmorUpgradeMap | undefined;
   readonly heldItem?: SlotItem | null | undefined;
   readonly lookup: GearStatsLookup;
 }): AggregatedPlayerGearStats {
@@ -116,10 +122,10 @@ export function computePlayerGearStats(input: {
   };
   for (const key of ARMOR_SLOT_KEYS) {
     const id = input.armor[key];
-    if (id) accumulatePiece(tot, input.lookup(id, input.armorPrefixes?.[key]), false);
+    if (id) accumulatePiece(tot, { stats: input.lookup(id, input.armorPrefixes?.[key]), isHeld: false, upgradeLevel: input.armorUpgrades?.[key] });
   }
   if (input.heldItem) {
-    accumulatePiece(tot, input.lookup(input.heldItem.itemId, input.heldItem.prefixId), true);
+    accumulatePiece(tot, { stats: input.lookup(input.heldItem.itemId, input.heldItem.prefixId), isHeld: true, upgradeLevel: input.heldItem.upgradeLevel });
   }
   return {
     ...tot,

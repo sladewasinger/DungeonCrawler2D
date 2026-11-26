@@ -10,7 +10,7 @@ import { WorldDeltaOverlay } from "./worldDeltas.js";
 
 class FlatCampCache extends WorldChunkCache {
   override tileAt(wx: number) {
-    return { ground: Math.floor(wx) === 15 ? GroundKind.DeepWater : GroundKind.Grass, elevation: 0, stairs: false };
+    return { ground: Math.floor(wx) === 18 ? GroundKind.DeepWater : GroundKind.Grass, elevation: 0, stairs: false };
   }
 }
 
@@ -27,7 +27,7 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
   it("validates camp building terrain/range and composes chunk deltas with revision bumps", () => {
     const cache = new FlatCampCache(1337);
     expect(canPlaceStructure({ cache, x: 4, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
-    expect(canPlaceStructure({ cache, x: 14, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
+    expect(canPlaceStructure({ cache, x: 16.5, y: 0, playerX: 15, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
     expect(canPlaceStructure({ cache, x: 15.5, y: 0, playerX: 14, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
     expect(canPlaceStructure({ cache, x: 12.5, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toBe(false);
 
@@ -103,7 +103,7 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     expect(PALISADE_MAX_HP).toBe(80);
     expect(validateStructurePlacement({ cache: poiCache, x: 12.6, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Too Close" });
     expect(validateStructurePlacement({ cache: poiCache, x: 20, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Too Far" });
-    expect(validateStructurePlacement({ cache: poiCache, x: 15.5, y: 0, playerX: 14, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Water" });
+    expect(validateStructurePlacement({ cache: poiCache, x: 18.5, y: 0, playerX: 17, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Water" });
     expect(applyWellFedDuration(240, 45)).toBe(240);
     const fullBuff = computeSurvivalRegen({ wellFedTimer: 10, restedTimer: 0, invigoratedTimer: 30, hotTimer: 2, hitTimer: 1 });
     expect(fullBuff.maxHpBonus).toBe(15);

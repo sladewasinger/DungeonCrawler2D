@@ -1,5 +1,8 @@
 /** Player survival buff progression (Well-Fed & hearth-warmed Rested), stealth/snapshot helpers, and persistence hydration. */
-import { COMBAT_TUNING, SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, sanitizeCharacterAppearance, type PlayerBubble, type PlayerSnapshot, type WorldChunkCache } from "@dc2d/engine";
+import {
+  COMBAT_TUNING, SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, encodeFogMask, sanitizeCharacterAppearance,
+  type ActiveBountyState, type ActiveQuestState, type FogState, type InventorySlot, type PlayerBubble, type PlayerSnapshot, type WorldChunkCache,
+} from "@dc2d/engine";
 import { resolvePlayerGear } from "../combat/gearEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { playerCombatExtras } from "../combatSim.js";
@@ -52,10 +55,14 @@ export function stepPlayerSurvivalBuffs(opts: {
   }
 }
 
-export function applySavedPlayerRecord(p: CombatPlayerRef & { x: number; y: number; elevation: number; appearance: PersistedPlayerRecord["appearance"] }, rec: PersistedPlayerRecord): void {
+export function applySavedPlayerRecord(
+  p: CombatPlayerRef & { x: number; y: number; elevation: number; gold: number; appearance: PersistedPlayerRecord["appearance"] },
+  rec: PersistedPlayerRecord,
+): void {
   p.x = rec.x;
   p.y = rec.y;
   p.elevation = rec.elevation;
+  p.gold = typeof rec.gold === "number" && Number.isFinite(rec.gold) ? Math.max(0, Math.floor(rec.gold)) : 0;
   p.appearance = sanitizeCharacterAppearance(rec.appearance);
   p.inventory = cloneInventoryState(rec.inventory);
   p.combat.wellFedTimer = rec.wellFedTimer ?? 0;
@@ -72,29 +79,43 @@ export interface PersistablePlayerInput {
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
+  readonly gold: number;
+  readonly fog: FogState;
   readonly appearance: PersistedPlayerRecord["appearance"];
   readonly inventory: PersistedPlayerRecord["inventory"];
   readonly combat: CombatPlayerRef["combat"];
+}
+
+export interface PersistedHubExtras {
+  readonly stashSlots?: readonly InventorySlot[] | undefined;
+  readonly bounties?: readonly ActiveBountyState[] | undefined;
+  readonly quests?: readonly ActiveQuestState[] | undefined;
+}
+
+function buildHubRecordFields(hubExtras: PersistedHubExtras | undefined) {
+  if (!hubExtras) return {};
+  return {
+    ...(hubExtras.stashSlots ? { stashSlots: hubExtras.stashSlots } : {}),
+    ...(hubExtras.bounties ? { bounties: hubExtras.bounties } : {}),
+    ...(hubExtras.quests ? { quests: hubExtras.quests } : {}),
+  };
 }
 
 export function toPersistedPlayerRecord(opts: {
   readonly p: PersistablePlayerInput;
   readonly normalizeName: (name: string) => string;
   readonly discovery?: PersistedPlayerRecord["discovery"];
+  readonly hubExtras?: PersistedHubExtras | undefined;
 }): PersistedPlayerRecord {
   const { p } = opts;
   return {
-    ownerKey: opts.normalizeName(p.name),
-    accountId: p.accountId,
-    ...(p.tokenHash ? { tokenHash: p.tokenHash } : {}),
-    x: p.x, y: p.y, elevation: p.elevation,
-    appearance: p.appearance,
-    inventory: cloneInventoryState(p.inventory),
-    wellFedTimer: p.combat.wellFedTimer,
-    invigoratedTimer: p.combat.invigoratedTimer,
-    restedTimer: p.combat.restedTimer,
-    hotTimer: p.combat.hotTimer,
+    ownerKey: opts.normalizeName(p.name), accountId: p.accountId, ...(p.tokenHash ? { tokenHash: p.tokenHash } : {}),
+    x: p.x, y: p.y, elevation: p.elevation, gold: p.gold, fogMask: encodeFogMask(p.fog),
+    appearance: p.appearance, inventory: cloneInventoryState(p.inventory),
+    wellFedTimer: p.combat.wellFedTimer, invigoratedTimer: p.combat.invigoratedTimer,
+    restedTimer: p.combat.restedTimer, hotTimer: p.combat.hotTimer,
     ...(opts.discovery ? { discovery: opts.discovery } : {}),
+    ...buildHubRecordFields(opts.hubExtras),
   };
 }
 
@@ -103,10 +124,13 @@ export function buildPersistedPlayerList(opts: {
   readonly savedProfiles: Map<string, PersistedPlayerRecord>;
   readonly normalizeName: (name: string) => string;
   readonly discoveryFor?: ((playerId: string) => PersistedPlayerRecord["discovery"]) | undefined;
+  readonly hubExtrasFor?: ((accountId: string) => PersistedHubExtras | undefined) | undefined;
 }): readonly PersistedPlayerRecord[] {
   for (const p of opts.activePlayers) {
     opts.savedProfiles.set(p.accountId, toPersistedPlayerRecord({
-      p, normalizeName: opts.normalizeName, discovery: opts.discoveryFor?.(p.id),
+      p, normalizeName: opts.normalizeName,
+      discovery: opts.discoveryFor?.(p.id),
+      hubExtras: opts.hubExtrasFor?.(p.accountId),
     }));
   }
   return Array.from(opts.savedProfiles.values());
@@ -149,7 +173,7 @@ export function buildPlayerSnapshotRecord(
   },
   extra: {
     readonly hasBedRespawn: boolean; readonly respawnBedPos?: { readonly x: number; readonly y: number } | undefined;
-    readonly bubble: PlayerBubble | undefined; readonly cache?: WorldChunkCache | undefined;
+    readonly bubble: PlayerBubble | undefined; readonly cache?: WorldChunkCache | undefined; readonly gold?: number | undefined;
   },
 ): PlayerSnapshot {
   return {
@@ -158,6 +182,7 @@ export function buildPlayerSnapshotRecord(
     stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0, torchLit: p.torchLit,
     inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq, heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
     appearance: p.appearance, armor: { ...p.inventory.armor }, hasBedRespawn: extra.hasBedRespawn,
+    ...(extra.gold !== undefined ? { gold: extra.gold } : {}),
     ...(extra.respawnBedPos ? { respawnBedPos: extra.respawnBedPos } : {}),
     ...(extra.bubble ? { activeBubble: extra.bubble } : {}), ...playerCombatExtras(p, extra.cache),
   };

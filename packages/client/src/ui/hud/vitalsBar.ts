@@ -107,6 +107,7 @@ export class VitalsBar {
   private readonly hpFill: HTMLDivElement;
   private readonly hpText: HTMLSpanElement;
   private readonly stamFill: HTMLDivElement;
+  private readonly goldBadge: HTMLSpanElement;
   private readonly sanctuaryPill: HTMLSpanElement;
   private readonly stealthPill: HTMLSpanElement;
   private readonly stealthDom: StealthEyeDom;
@@ -126,8 +127,11 @@ export class VitalsBar {
     this.buffTray = new BuffTray(host);
     this.stealthPill = domNode("span", "ow-stealth-pill");
     this.stealthDom = createStealthEyeDom(this.stealthPill);
+    this.goldBadge = domNode("span", "ow-gold-badge");
+    this.goldBadge.textContent = "0g";
+    this.goldBadge.dataset.gold = "0";
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill"); this.sanctuaryPill.textContent = "Sanctuary";
-    this.el.append(hpWrap, this.buffTray.el, this.stealthPill, this.sanctuaryPill);
+    this.el.append(hpWrap, this.buffTray.el, this.stealthPill, this.goldBadge, this.sanctuaryPill);
     this.warmingBar = domNode("div", "ow-warming-bar"); this.warmingBar.hidden = true;
     this.warmingFill = domNode("div", "ow-warming-fill");
     this.warmingLabel = domNode("span", "ow-warming-label");
@@ -141,7 +145,8 @@ export class VitalsBar {
     this.syncStealthEye({ vis: 0.8, cover: false, lit: false, threat: "calm", open: resolveEyeOpenness(0.8, "calm"), openStep: 8, tier: "exposed" });
   }
 
-  sync(player: PlayerSnapshot | undefined, entities?: readonly WorldEntitySnapshot[]): void {
+  sync(player: PlayerSnapshot | undefined, entities?: readonly WorldEntitySnapshot[], gold?: number): void {
+    this.syncGold(gold ?? player?.gold ?? 0);
     const v = readVitals(player);
     const threat = resolveThreatLevel(player, entities);
     const open = resolveEyeOpenness(v.vis, threat);
@@ -153,6 +158,13 @@ export class VitalsBar {
     this.lastKey = key;
     this.syncBars(v);
     this.syncStealthEye({ vis: v.vis, cover: v.cover, lit: v.lit, threat, open, openStep, tier });
+  }
+
+  private syncGold(gold: number): void {
+    const g = Math.max(0, Math.floor(gold));
+    if (this.goldBadge.dataset.gold === String(g)) return;
+    this.goldBadge.dataset.gold = String(g);
+    this.goldBadge.textContent = `${g}g`;
   }
 
   private syncBars(v: ReturnType<typeof readVitals>): void {

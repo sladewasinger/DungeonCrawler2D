@@ -1,10 +1,20 @@
 /** Authoritative multiplayer WebSocket wire protocol schemas. */
-import { ARMOR_SLOT_KEYS } from "@dc2d/contracts";
 import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { ChatEntrySchema, ClientChatSchema, PlayerBubbleSchema, type ChatEntry, type PlayerBubble } from "./chatSchemas.js";
 import { DiscoveryStateSchema, type DiscoveryStateSnapshot, type RevealedBeacon } from "./discoverySchemas.js";
+import {
+  ActiveBountyStateSchema, ActiveQuestStateSchema, ClientBlacksmithReforgeSchema, ClientBlacksmithUpgradeSchema,
+  ClientBountyAcceptSchema, ClientBountyClaimSchema, ClientInteractNpcSchema, ClientMerchantBuySchema,
+  ClientMerchantSellSchema, ClientQuestAcceptSchema, ClientQuestClaimSchema, ClientStashQuickMoveSchema,
+  ClientStashTakeAllSchema, ClientStashTransferSchema, FogChunkDeltaSchema,
+  type ActiveBountyState, type ActiveQuestState, type FogChunkDeltaSnapshot,
+} from "./hubSchemas.js";
+import {
+  ArmorEquipmentSchema, ArmorPrefixesSchema, ArmorSlotKeySchema, ArmorUpgradesSchema,
+  InventorySnapshotSchema, SlotItemSchema, type InventorySnapshot,
+} from "./inventorySchemas.js";
 import { ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
 import {
   ClientDismantleStructureSchema, ClientPickupLootSchema, ClientPlaceStructureSchema,
@@ -13,44 +23,25 @@ import {
 import { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema, type CreatureVocalKind, type WorldEvent } from "./worldEventSchemas.js";
 
 export {
-  ChatEntrySchema, ClientChatSchema, ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema,
-  DiscoveryStateSchema, GoreStyleSchema, GoreSubstanceSchema, PlayerBubbleSchema, ServerPongSchema, WorldEventSchema,
+  ActiveBountyStateSchema, ActiveQuestStateSchema, ArmorEquipmentSchema, ArmorPrefixesSchema,
+  ArmorSlotKeySchema, ArmorUpgradesSchema, ChatEntrySchema, ClientBlacksmithReforgeSchema,
+  ClientBlacksmithUpgradeSchema, ClientBountyAcceptSchema, ClientBountyClaimSchema, ClientChatSchema,
+  ClientDropItemSchema, ClientInteractNpcSchema, ClientMerchantBuySchema, ClientMerchantSellSchema,
+  ClientPingSchema, ClientQuestAcceptSchema, ClientQuestClaimSchema, ClientStashQuickMoveSchema,
+  ClientStashTakeAllSchema, ClientStashTransferSchema, ClientUseItemSchema, DiscoveryStateSchema,
+  FogChunkDeltaSchema, GoreStyleSchema, GoreSubstanceSchema, InventorySnapshotSchema, PlayerBubbleSchema,
+  ServerPongSchema, SlotItemSchema, WorldEventSchema,
 };
-export type { ChatEntry, CreatureVocalKind, DiscoveryStateSnapshot, DropItemRequest, PlayerBubble, RevealedBeacon, WorldEvent };
+export type {
+  ActiveBountyState, ActiveQuestState, ChatEntry, CreatureVocalKind, DiscoveryStateSnapshot,
+  DropItemRequest, FogChunkDeltaSnapshot, InventorySnapshot, PlayerBubble, RevealedBeacon, WorldEvent,
+};
 
 export const PROTOCOL_VERSION = 1;
 
 const SlotIndexSchema = z.number().int().min(0).max(35);
 const HotbarIndexSchema = z.number().int().min(0).max(8);
 const SeqSchema = z.number().int().nonnegative().max(2_147_483_647).optional();
-
-export const ArmorSlotKeySchema = z.enum(ARMOR_SLOT_KEYS);
-export const SlotItemSchema = z.object({
-  itemId: z.string().min(1),
-  count: z.number().int().min(1),
-  prefixId: z.string().min(1).max(32).optional(),
-});
-
-export const ArmorEquipmentSchema = z.object({
-  head: z.string().nullable(), chest: z.string().nullable(), legs: z.string().nullable(),
-  feet: z.string().nullable(), offhand: z.string().nullable().default(null),
-});
-
-export const ArmorPrefixesSchema = z.object({
-  head: z.string(), chest: z.string(), legs: z.string(), feet: z.string(), offhand: z.string(),
-}).partial();
-
-export const InventorySnapshotSchema = z.object({
-  slots: z.array(SlotItemSchema.nullable()).length(36),
-  armor: ArmorEquipmentSchema,
-  armorPrefixes: ArmorPrefixesSchema.optional(),
-  selectedHotbar: HotbarIndexSchema,
-  nearCampfire: z.boolean(),
-  nearWorkbench: z.boolean(),
-  ackSeq: SeqSchema,
-});
-
-export type InventorySnapshot = z.infer<typeof InventorySnapshotSchema>;
 
 export const ClientHelloSchema = z.object({
   t: z.literal("hello"),
@@ -111,9 +102,9 @@ export const ClientChestTransferSchema = z.object({
 export const ClientChestTakeAllSchema = z.object({ t: z.literal("chestTakeAll"), chestId: z.string().min(1).max(64), seq: SeqSchema });
 export const ClientDebugSpawnSchema = z.object({ t: z.literal("debugSpawn"), kind: z.enum(ENTITY_KINDS), count: z.number().int().min(1).max(10).optional(), seq: SeqSchema });
 export const ClientAdminSchema = z.object({
-  t: z.literal("admin"), action: z.enum(["auth", "godMode", "heal", "give", "clearWebs", "teleport"]),
+  t: z.literal("admin"), action: z.enum(["auth", "godMode", "heal", "give", "giveGold", "clearWebs", "teleport"]),
   enabled: z.boolean().optional(), itemId: z.string().min(1).max(48).optional(),
-  count: z.number().int().min(1).max(99).optional(), token: z.string().min(1).max(256).optional(),
+  count: z.number().int().min(1).max(100_000).optional(), token: z.string().min(1).max(256).optional(),
   x: z.number().finite().min(-1_000_000).max(1_000_000).optional(),
   y: z.number().finite().min(-1_000_000).max(1_000_000).optional(),
   seq: SeqSchema,
@@ -126,6 +117,10 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema,
   ClientDismantleStructureSchema, ClientSetRespawnBedSchema, ClientPickupLootSchema, ClientDropItemSchema,
   ClientUseItemSchema, ClientChatSchema, ClientPingSchema,
+  ClientInteractNpcSchema, ClientMerchantBuySchema, ClientMerchantSellSchema,
+  ClientBlacksmithReforgeSchema, ClientBlacksmithUpgradeSchema, ClientBountyAcceptSchema,
+  ClientBountyClaimSchema, ClientQuestAcceptSchema, ClientQuestClaimSchema,
+  ClientStashTransferSchema, ClientStashQuickMoveSchema, ClientStashTakeAllSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -151,6 +146,7 @@ export const PlayerSnapshotSchema = z.object({
   hasBedRespawn: z.boolean().optional(), respawnBedPos: z.object({ x: z.number(), y: z.number() }).optional(),
   godMode: z.boolean().optional(), activeBubble: PlayerBubbleSchema.optional(), moveSpeedMult: z.number().optional(),
   glowRadiusBonus: z.number().optional(), shrineBuff: z.object({ kind: z.string(), remainingSec: z.number() }).optional(),
+  gold: z.number().int().nonnegative().optional(),
 });
 
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
@@ -267,6 +263,10 @@ export const ServerSnapshotSchema = z.object({
   chatMessages: z.array(ChatEntrySchema).optional(),
   worldDeltas: WorldDeltaSnapshotSchema.optional(),
   selfDiscovery: DiscoveryStateSchema.optional(),
+  selfStash: z.array(SlotItemSchema.nullable()).length(27).optional(),
+  selfBounties: z.array(ActiveBountyStateSchema).optional(),
+  selfQuests: z.array(ActiveQuestStateSchema).optional(),
+  selfFogDelta: z.array(FogChunkDeltaSchema).optional(),
 });
 
 export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema, ServerPongSchema]);

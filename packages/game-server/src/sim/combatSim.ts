@@ -65,6 +65,7 @@ export class CombatWorld {
   readonly webs = new WorldWebNetwork();
   readonly discovery = new DiscoveryTracker();
   readonly poiInteractions = new PoiInteractionManager();
+  onDiscoveryEvent?: ((opts: { readonly playerId: string; readonly kind: "discover" | "attune-waystone" }) => void) | undefined;
   private readonly projectiles: SimProjectile[] = [];
   private events: WorldEvent[] = [];
   private nextProjId = 1;
@@ -97,12 +98,19 @@ export class CombatWorld {
     this.stepOffense({ p, input, dt, playerName });
   }
 
+  private tryInteractPoiWithTracking(p: CombatPlayerRef): boolean {
+    const preIdx = this.events.length;
+    if (!this.poiInteractions.interactWithPoi({ player: p, cache: this.cache, loot: this.ecology.loot, discovery: this.discovery, simTimeSec: this.simTimeSec, events: this.events })) return false;
+    for (let i = preIdx; i < this.events.length; i++) {
+      if (this.events[i]?.kind === "waystoneAttune") this.onDiscoveryEvent?.({ playerId: p.id, kind: "attune-waystone" });
+    }
+    return true;
+  }
+
   private handleInteract(p: CombatPlayerRef, playerName: string): void {
-    if (this.ecology.openChest(p, undefined, this.events)) return;
-    if (this.ecology.pickupManualLoot(p, undefined, this.events)) return;
+    if (this.ecology.openChest(p, undefined, this.events) || this.ecology.pickupManualLoot(p, undefined, this.events)) return;
     if (this.harvester.forageNearestProp({ cache: this.cache, loot: this.ecology.loot, player: p, timeSec: this.simTimeSec, events: this.events })) return;
-    if (this.poiInteractions.interactWithPoi({ player: p, cache: this.cache, loot: this.ecology.loot, discovery: this.discovery, simTimeSec: this.simTimeSec, events: this.events })) return;
-    this.structures.bindNearestBed({ player: p, playerName, events: this.events });
+    if (!this.tryInteractPoiWithTracking(p)) this.structures.bindNearestBed({ player: p, playerName, events: this.events });
   }
 
   pickupLoot(p: CombatPlayerRef, lootId?: string): boolean { return this.ecology.pickupManualLoot(p, lootId, this.events); }
@@ -113,37 +121,21 @@ export class CombatWorld {
     if (!res) return false;
     p.inventory = res.nextState; this.ecology.loot.spawnPlayerDrop(p, res.item); return true;
   }
-
   private handleDodgeOrBuffer(p: CombatPlayerRef, input: CombatInputFlags): void {
     if (!input.dodgeQueued || isTrappedOrDrowning(p)) return;
     const c = p.combat;
-    if (c.pendingSwing && canDodgeCancelSwing(c.pendingSwing)) {
-      clearSwingOnCancel(p);
-      this.startInputDodge(p, input);
-      return;
-    }
-    if (c.swingTimer > 0 || c.pendingSwing) {
-      c.bufferedAction = { kind: "dodge", expiresSec: this.simTimeSec + MELEE_FEEL_TUNING.inputBufferSec, dodgeDirX: input.dodgeDirX, dodgeDirY: input.dodgeDirY };
-      return;
-    }
+    if (c.pendingSwing && canDodgeCancelSwing(c.pendingSwing)) { clearSwingOnCancel(p); this.startInputDodge(p, input); return; }
+    if (c.swingTimer > 0 || c.pendingSwing) { c.bufferedAction = { kind: "dodge", expiresSec: this.simTimeSec + MELEE_FEEL_TUNING.inputBufferSec, dodgeDirX: input.dodgeDirX, dodgeDirY: input.dodgeDirY }; return; }
     this.startInputDodge(p, input);
   }
-
   private startInputDodge(p: CombatPlayerRef, input: Pick<CombatInputFlags, "moveX" | "moveY" | "dodgeDirX" | "dodgeDirY">): void {
     const hasDir = input.dodgeDirX !== undefined && input.dodgeDirY !== undefined;
     this.tryStartDodge(p, hasDir ? input.dodgeDirX! : input.moveX, hasDir ? input.dodgeDirY! : input.moveY);
   }
-
   respawnPlayerNow(p: CombatPlayerRef, spot?: RespawnSpot | null): void { forceRespawnPlayer(p, this.events, spot); }
-  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): boolean {
-    return Boolean(this.structures.placeStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events }));
-  }
-  dismantleStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean {
-    return this.structures.dismantleStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events });
-  }
-  setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean {
-    return this.structures.bindNearestBed({ ...opts, events: this.events });
-  }
+  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): boolean { return Boolean(this.structures.placeStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events })); }
+  dismantleStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean { return this.structures.dismantleStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events }); }
+  setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean { return this.structures.bindNearestBed({ ...opts, events: this.events }); }
 
   private stepActiveSwingTimeline(opts: {
     readonly p: CombatPlayerRef; readonly players: Map<string, CombatPlayerRef>; readonly input: CombatInputFlags; readonly dt: number;
@@ -221,7 +213,10 @@ export class CombatWorld {
     const targets = Array.from(players.values());
     let discoveredAny = false;
     for (const pl of targets) {
-      if (this.discovery.trackNearbyPois({ playerId: pl.id, x: pl.x, y: pl.y, cache: this.cache, events: this.events })) discoveredAny = true;
+      if (this.discovery.trackNearbyPois({ playerId: pl.id, x: pl.x, y: pl.y, cache: this.cache, events: this.events })) {
+        discoveredAny = true;
+        this.onDiscoveryEvent?.({ playerId: pl.id, kind: "discover" });
+      }
     }
     stepTrainingDummies({
       dummies: this.dummies, dt, players: targets, events: this.events,
@@ -257,15 +252,11 @@ export class CombatWorld {
     else if (req.t === "chestTransfer") this.ecology.transferChest(p, req as Parameters<WorldEcology["transferChest"]>[1]);
     else this.ecology.takeAllChest(p, req.chestId, this.events);
   }
-  private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {
-    tryExecutePlayerDodge({ p, moveX, moveY, cost: DODGE_STAMINA_COST, durSec: DODGE_DURATION_SEC, iframeSec: DODGE_IFRAME_SEC, cdSec: DODGE_COOLDOWN_SEC, events: this.events });
-  }
-
+  private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void { tryExecutePlayerDodge({ p, moveX, moveY, cost: DODGE_STAMINA_COST, durSec: DODGE_DURATION_SEC, iframeSec: DODGE_IFRAME_SEC, cdSec: DODGE_COOLDOWN_SEC, events: this.events }); }
   private fireArrowIfReady(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {
     if ((!p.combat.godMode && p.combat.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
     spawnChargedBowArrow({ p, chargeSec, projId: `p${this.nextProjId++}`, projectiles: this.projectiles, ecology: this.ecology, events: this.events });
   }
-
   private stepBowAction(p: CombatPlayerRef & { attackFlashTimer?: number }, input: CombatInputFlags, dt: number): void {
     const c = p.combat;
     if (c.dodgeTimer > 0 || c.actionCooldown > 0) return;

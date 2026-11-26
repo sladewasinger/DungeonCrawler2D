@@ -23,9 +23,9 @@ function buildInventoryFingerprint(
   heldId: string,
   player: PlayerSnapshot | undefined,
 ): string {
-  const armorFp = ARMOR_SLOT_KEYS.map((k) => `${inv.armor[k] ?? "-"}:${inv.armorPrefixes?.[k] ?? ""}`).join(",");
+  const armorFp = ARMOR_SLOT_KEYS.map((k) => `${inv.armor[k] ?? "-"}:${inv.armorPrefixes?.[k] ?? ""}:${inv.armorUpgrades?.[k] ?? 0}`).join(",");
   const bagFp = slotsFingerprint(inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
-  return `${armorFp}#${bagFp}#${heldId}#${playerStatsFp(player)}`;
+  return `${armorFp}#${bagFp}#${heldId}#${inv.gold ?? 0}#${playerStatsFp(player)}`;
 }
 
 export class InventoryModal {
@@ -34,6 +34,7 @@ export class InventoryModal {
   private readonly bagButtons: HTMLButtonElement[] = [];
   private readonly armorItemKeys = new Map<ArmorSlotKey, string>();
   private readonly bagItemKeys: string[] = Array.from({ length: BACKPACK_SLOT_COUNT }, () => "");
+  private readonly goldEl: HTMLSpanElement;
   private readonly statsEl: HTMLDivElement;
   private lastFingerprint = "";
 
@@ -44,7 +45,9 @@ export class InventoryModal {
   ) {
     this.el = domNode("section", "ow-modal ow-inv-modal");
     this.el.hidden = true;
-    this.el.append(buildModalHeader(nav));
+    this.goldEl = domNode("span", "ow-gold-badge");
+    this.goldEl.textContent = "0g";
+    this.el.append(buildModalHeader(nav, this.goldEl));
     const body = domNode(TAG_DIV, "ow-inv-body");
     const leftCol = domNode(TAG_DIV, "ow-armor-wrap");
     leftCol.append(this.buildArmorGrid(drag));
@@ -97,9 +100,14 @@ export class InventoryModal {
     const fp = buildInventoryFingerprint(inv, heldId, player);
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
+    this.syncGoldBadge(inv.gold ?? player?.gold);
     for (const key of ARMOR_SLOT_KEYS) this.syncSingleArmor(key, inv);
     for (let i = 0; i < BACKPACK_SLOT_COUNT; i++) this.syncSingleBagSlot(i, inv);
     this.syncStats(inv, heldId, player);
+  }
+
+  private syncGoldBadge(gold: number | undefined): void {
+    this.goldEl.textContent = `${Math.max(0, Math.floor(gold ?? 0))}g`;
   }
 
   private syncSingleArmor(key: ArmorSlotKey, inv: InventorySnapshot): void {
@@ -107,10 +115,11 @@ export class InventoryModal {
     if (!btn) return;
     const itemId = inv.armor[key];
     const prefixId = inv.armorPrefixes?.[key];
-    const itemKey = itemId ? `${itemId}:${prefixId ?? ""}` : "-";
+    const upgradeLevel = inv.armorUpgrades?.[key] ?? 0;
+    const itemKey = itemId ? `${itemId}:${prefixId ?? ""}:${upgradeLevel}` : "-";
     if (this.armorItemKeys.get(key) === itemKey) return;
     this.armorItemKeys.set(key, itemKey);
-    renderSlotContent(btn, { item: buildArmorSlotItem(itemId, prefixId), emptyHint: armorLabel(key) });
+    renderSlotContent(btn, { item: buildArmorSlotItem(itemId, prefixId, upgradeLevel), emptyHint: armorLabel(key) });
   }
 
   private syncSingleBagSlot(bagIdx: number, inv: InventorySnapshot): void {
@@ -118,7 +127,7 @@ export class InventoryModal {
     if (!btn) return;
     const slotIndex = HOTBAR_SLOT_COUNT + bagIdx;
     const item = inv.slots[slotIndex] ?? null;
-    const itemKey = item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
+    const itemKey = item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}:${item.upgradeLevel ?? 0}` : "-";
     if (this.bagItemKeys[bagIdx] === itemKey) return;
     this.bagItemKeys[bagIdx] = itemKey;
     renderSlotContent(btn, { item });
@@ -134,15 +143,16 @@ export class InventoryModal {
   }
 }
 
-function buildArmorSlotItem(itemId: string | null, prefixId: string | undefined) {
+function buildArmorSlotItem(itemId: string | null, prefixId: string | undefined, upgradeLevel: number) {
   if (!itemId) return null;
-  return prefixId ? { itemId, count: 1, prefixId } : { itemId, count: 1 };
+  return { itemId, count: 1, ...(prefixId ? { prefixId } : {}), ...(upgradeLevel > 0 ? { upgradeLevel } : {}) };
 }
 
 function formatHeldName(inv: InventorySnapshot): string {
   const held = inv.slots[inv.selectedHotbar];
   if (!held) return "Unarmed";
-  return resolveItemInstance(held.itemId, held.prefixId).displayName;
+  const upg = held.upgradeLevel ? ` +${held.upgradeLevel}` : "";
+  return `${resolveItemInstance(held.itemId, held.prefixId).displayName}${upg}`;
 }
 
 function resolveDisplayVitals(
@@ -165,7 +175,7 @@ function formatStatRows(opts: {
 }): readonly string[] {
   const held = opts.inv.slots[opts.inv.selectedHotbar];
   const gear = computePlayerGearStats({
-    armor: opts.inv.armor, armorPrefixes: opts.inv.armorPrefixes, heldItem: held,
+    armor: opts.inv.armor, armorPrefixes: opts.inv.armorPrefixes, armorUpgrades: opts.inv.armorUpgrades, heldItem: held,
     lookup: (id, pId) => resolveItemInstance(id, pId),
   });
   const v = resolveDisplayVitals(gear, opts.player);
@@ -179,13 +189,14 @@ function formatStatRows(opts: {
   ];
 }
 
-function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void }): HTMLDivElement {
+function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void }, goldEl: HTMLSpanElement): HTMLDivElement {
   const head = domNode(TAG_DIV, "ow-modal-head");
   const title = domNode("span");
   title.textContent = "Inventory";
   const right = domNode(TAG_DIV);
   right.style.display = "flex";
   right.style.gap = "6px";
+  right.style.alignItems = "center";
   const craftBtn = domNode(TAG_BTN, "ow-pill");
   craftBtn.type = TAG_BTN;
   craftBtn.textContent = "Craft";
@@ -194,7 +205,7 @@ function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCr
   closeBtn.type = TAG_BTN;
   closeBtn.textContent = "Close";
   closeBtn.addEventListener("click", nav.onClose);
-  right.append(craftBtn, closeBtn);
+  right.append(goldEl, craftBtn, closeBtn);
   head.append(title, right);
   return head;
 }

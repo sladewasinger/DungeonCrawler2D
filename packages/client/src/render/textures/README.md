@@ -6,4 +6,4 @@ Procedural `48 px/tile` HD-pixel texture bakers and WebP sprite manifest preload
 - `propTextures.ts`, `poiPropTextures.ts`, and [`hd/`](./hd/README.md): HD trees, bushes, grass, boulders, flames, and POI props.
 - `spriteManifest.ts`: Loads `public/assets/sprite-manifest.json` lossless `.webp` creature/gear/POI spritesheets with `scaleMode: "nearest"`.
 - `pixelCanvas.ts`: Shared pixel-art Canvas2D helpers and `sel-out` silhouette stamps.
-- **Subfolders**: [`hd/`](./hd/README.md), `biomes/` (biome terrain/prop atlases), and `pois/` (overworld POI textures).
+- **Subfolders**: [`hd/`](./hd/README.md), `biomes/` (biome terrain/prop atlases), and [`pois/`](./pois/README.md) (overworld POI & Safe-Room Hub textures).

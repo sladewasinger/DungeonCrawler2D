@@ -3,7 +3,7 @@ import { getBiomeEntry } from "@dc2d/content";
 import { computeDangerTier, sampleMacroBiome, type BiomeKind, type DangerTier, type WorldEvent } from "@dc2d/engine";
 import { ensureDiscoveryStyles } from "./discoveryStyles.js";
 
-const TOAST_EVENTS = new Set<WorldEvent["kind"]>(["poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead"]);
+const TOAST_EVENTS = new Set<WorldEvent["kind"]>(["poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead", "hubNotice"]);
 const ROMAN_TIERS: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
 const TIER_COLORS: Readonly<Record<number, string>> = {
   1: "#6daa4b", 2: "#eab308", 3: "#f97316", 4: "#a855f7", 5: "#ef4444",

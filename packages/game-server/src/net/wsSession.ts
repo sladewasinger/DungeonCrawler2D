@@ -7,6 +7,7 @@ import { WebSocket } from "ws";
 import { TICK_RATE, type WorldSim } from "../sim/worldSim.js";
 import { executeAdminSlashCommand } from "../sim/admin/adminSlashCommands.js";
 import { attemptAdminAuth, type AdminAuthConfig } from "./adminAuth.js";
+import { buildHubMessageHandlers, buildHubSnapshotExtras } from "./hubSessionSync.js";
 import {
   createSpatialBroadcastIndex, filterSnapshotForPlayer, inventorySignature,
   populateSpatialBroadcastIndex, type SpatialBroadcastIndex,
@@ -48,6 +49,8 @@ export interface ClientSession {
   sentDeltaRev: number;
   lastInvSig: string;
   lastDiscSig?: string | undefined;
+  lastHubRev: number;
+  hasInitialFogSent?: boolean | undefined;
   alive: boolean;
   isAdmin: boolean;
   failedAuthAttempts: number;
@@ -86,6 +89,7 @@ function buildOptionalSnapshotFields(opts: {
   return {
     ...(selfInventory ? { selfInventory } : {}),
     ...(selfDiscovery ? { selfDiscovery } : {}),
+    ...buildHubSnapshotExtras(opts.sim, opts.session),
     ...(opts.session.isAdmin ? { selfAdmin: true } : {}),
     ...(chatMessages?.length ? { chatMessages: [...chatMessages] } : {}),
     ...(opts.view.webs ? { webs: opts.view.webs } : {}),
@@ -183,6 +187,7 @@ export function buildMessageHandlers(ctx: {
     ping: () => {},
     debugSpawn: () => msg.t === "debugSpawn" && session.isAdmin && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
     admin: () => msg.t === "admin" && handleAdminPacket({ msg, session, sim, authConfig }),
+    ...buildHubMessageHandlers({ msg, session, sim }),
   };
 }
 
@@ -206,7 +211,7 @@ export function completeHelloHandshake(opts: {
   });
   const session: ClientSession = {
     playerId, accountId: auth.accountId, clientIp: opts.clientIp, pendingAdminChat: [],
-    sentDeltaRev: -1, lastInvSig: "", alive: true, isAdmin: opts.authConfig.allowOpenDevAdmin, failedAuthAttempts: 0, cleanup: opts.cleanup,
+    sentDeltaRev: -1, lastInvSig: "", lastHubRev: -1, alive: true, isAdmin: opts.authConfig.allowOpenDevAdmin, failedAuthAttempts: 0, cleanup: opts.cleanup,
   };
   opts.clients.set(opts.ws, session);
   sendJson(opts.ws, {

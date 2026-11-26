@@ -22,6 +22,20 @@ export interface ChunkTileGrid {
 const POI_KIND_BANDIT: PoiKind = "bandit-camp";
 const POI_KIND_RUINS: PoiKind = "ancient-ruins";
 const LAYOUT_RUINS_SHRINE: PoiLayoutKind = "ruins-shrine";
+const SAFE_ROOM_LAYOUT: PoiLayoutKind = "safe-room";
+
+function isSafeRoomAnchor(input: {
+  readonly cx: number;
+  readonly cy: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly biome: string;
+  readonly dangerTier: number;
+}): boolean {
+  if (Math.hypot(input.wx, input.wy) < 64) return false;
+  if (input.dangerTier < 2 || input.dangerTier > 4 || input.biome === "cursed-ruinlands") return false;
+  return Math.abs(input.cx) % 4 === 2 && Math.abs(input.cy) % 4 === 2;
+}
 
 function isSparseMacroCellWinner(worldSeed: number, cx: number, cy: number): boolean {
   const mx = Math.floor(cx / 2);
@@ -50,11 +64,12 @@ function chooseChunkPoiLayout(worldSeed: number, cx: number, cy: number): PoiLay
   const fixed = starterPoiLayout(cx, cy);
   if (fixed === "skip") return null;
   if (fixed) return fixed;
-  if (!isSparseMacroCellWinner(worldSeed, cx, cy) || hashUnit2d(worldSeed + 607, cx, cy) >= 0.44) return null;
   const wx = cx * CHUNK_SIZE + 16;
   const wy = cy * CHUNK_SIZE + 16;
   const biome = sampleMacroBiome(worldSeed, wx, wy);
   const dangerTier = computeDangerTier(biome, wx, wy);
+  if (isSafeRoomAnchor({ cx, cy, wx, wy, biome, dangerTier })) return SAFE_ROOM_LAYOUT;
+  if (!isSparseMacroCellWinner(worldSeed, cx, cy) || hashUnit2d(worldSeed + 607, cx, cy) >= 0.44) return null;
   const kind = pickBiomeWeightedPoiKind({ worldSeed, cx, cy, biome, dangerTier });
   return pickLayoutForKind({ worldSeed, cx, cy, kind });
 }
@@ -213,6 +228,7 @@ export function findChunkPoiFromGrid(opts: {
   if (!layout) return null;
   const primary = findForLayout({ ...opts, layout });
   if (primary) return primary;
+  if (layout === SAFE_ROOM_LAYOUT) return null;
   const fallback: PoiLayoutKind = layoutShapeFor(layout).kind === POI_KIND_BANDIT ? "camp-outpost" : LAYOUT_RUINS_SHRINE;
   return fallback === layout ? null : findForLayout({ ...opts, layout: fallback });
 }

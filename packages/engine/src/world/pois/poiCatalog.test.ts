@@ -1,7 +1,7 @@
 /** Unit tests validating all 20 biome POI catalog entries, layouts, and puzzle braziers. */
 import { describe, expect, it } from "vitest";
 import { findChunkPoi } from "../poiStamper.js";
-import { POI_CATALOG_LIST, TOTAL_POI_TYPES } from "./poiCatalog.js";
+import { POI_CATALOG_LIST, TOTAL_POI_TYPES, getPoiCatalogEntry } from "./poiCatalog.js";
 
 function collectPoiKindsInBox(opts: {
   readonly cxMin: number; readonly cxMax: number; readonly cyMin: number; readonly cyMax: number; readonly out: Set<string>;
@@ -15,8 +15,8 @@ function collectPoiKindsInBox(opts: {
 }
 
 describe("biome POI catalog & stamper", () => {
-  it("registers all 20 distinct POI types including shrines, micro-scenes, lairs, puzzles, and friendly camps", () => {
-    expect(TOTAL_POI_TYPES).toBe(20);
+  it("registers all 21 distinct POI types including safe-room, shrines, micro-scenes, lairs, puzzles, and friendly camps", () => {
+    expect(TOTAL_POI_TYPES).toBe(21);
     const categories = new Set(POI_CATALOG_LIST.map((e) => e.category));
     for (const c of ["camp", "ruins", "shrine", "micro", "lair", "puzzle", "friendly"]) {
       expect(categories.has(c as never)).toBe(true);
@@ -33,5 +33,12 @@ describe("biome POI catalog & stamper", () => {
     const outerSeen = new Set<string>(t1Seen);
     collectPoiKindsInBox({ cxMin: 64, cxMax: 82, cyMin: -12, cyMax: 12, out: outerSeen });
     expect(outerSeen.size).toBeGreaterThanOrEqual(12);
+  });
+
+  it("[REQ-P9-05] stamps outer safe-room POIs outside r >= 64 in Tier II-IV biomes with isSanctuary", () => {
+    const seen = new Set<string>();
+    collectPoiKindsInBox({ cxMin: -26, cxMax: 26, cyMin: -26, cyMax: 26, out: seen });
+    expect(seen.has("safe-room")).toBe(true);
+    expect(getPoiCatalogEntry("safe-room").isSanctuary).toBe(true);
   });
 });

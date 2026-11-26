@@ -1,7 +1,7 @@
 /** Per-tick player step, stealth sampling, sprint noise emission, and movement integration. */
 import {
   COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, STEALTH_TUNING, WorldChunkCache,
-  playerFootSegment, resolveMovement, sampleStealthExposure, stepJumpArc,
+  periodForPhase, playerFootSegment, resolveMovement, revealFogAroundPlayer, sampleStealthExposure, stepJumpArc,
 } from "@dc2d/engine";
 import { stepStationaryPlayerTurn } from "../combat/combatSimHelpers.js";
 import type { CombatInputFlags, CombatWorld } from "../combatSim.js";
@@ -69,6 +69,16 @@ function movePlayerBody(opts: {
   if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
 }
 
+export function updatePlayerFogOfWar(p: SimPlayer, dayPhase: number): void {
+  const period = periodForPhase(dayPhase);
+  const isDaytime = period === "Dawn" || period === "Day" || period === "Golden Hour";
+  const key = `${Math.floor(p.x)},${Math.floor(p.y)},${p.elevation},${isDaytime ? 1 : 0}`;
+  if (key === p.lastFogTileKey) return;
+  p.lastFogTileKey = key;
+  const deltas = revealFogAroundPlayer(p.fog, { x: p.x, y: p.y, elevation: p.elevation, isDaytime });
+  if (deltas.length > 0) p.pendingFogDeltas.push(...deltas);
+}
+
 /** Steps one simulated player's jump arc, combat action, survival buffs, movement, and stealth/noise. */
 export function stepPlayerTick(opts: {
   readonly p: SimPlayer; readonly players: Map<string, SimPlayer>; readonly cache: WorldChunkCache;
@@ -88,5 +98,6 @@ export function stepPlayerTick(opts: {
   p.jumpQueued = false; p.attackQueued = false; p.bowReleaseQueued = false; p.dodgeQueued = false;
   p.dodgeDirX = undefined; p.dodgeDirY = undefined; p.throwPebbleQueued = false; p.interactQueued = false;
   movePlayerBody({ p, cache, combat, dtSeconds });
+  updatePlayerFogOfWar(p, dayPhase);
   updatePlayerStealthAndNoise({ p, cache, combat, dayPhase, dtSeconds });
 }

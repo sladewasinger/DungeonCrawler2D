@@ -23,17 +23,23 @@ export function isBowItemId(heldId: string | null): boolean {
   return isBowItem(heldId);
 }
 
-function extractHeldInfo(held: string | SlotItem | null): { readonly itemId: string | null; readonly prefixId?: string | undefined } {
+function extractHeldInfo(held: string | SlotItem | null): { readonly itemId: string | null; readonly prefixId?: string | undefined; readonly upgradeLevel?: number | undefined } {
   if (typeof held === "string") return { itemId: held };
-  return held ? { itemId: held.itemId, prefixId: held.prefixId } : { itemId: null };
+  return held ? { itemId: held.itemId, prefixId: held.prefixId, upgradeLevel: held.upgradeLevel } : { itemId: null };
 }
 
-function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, prefixId: string | undefined, archetype: ReturnType<typeof resolveWeaponArchetype>) {
+function buildDefMeleeStats(
+  def: NonNullable<ReturnType<typeof getItemDef>>,
+  prefixId: string | undefined,
+  opts: { readonly archetype: ReturnType<typeof resolveWeaponArchetype>; readonly upgradeLevel?: number | undefined },
+) {
   const res = resolveItemInstance(def.id, prefixId);
+  const lv = Math.max(0, Math.min(3, Math.floor(opts.upgradeLevel ?? 0)));
+  const scaledDmg = res.damage > 0 ? Math.round(res.damage * (1 + lv * 0.15)) : DEFAULT_MELEE_STATS.damage;
   return {
-    archetype,
+    archetype: opts.archetype,
     cost: res.staminaCost || DEFAULT_MELEE_STATS.cost,
-    damage: res.damage || DEFAULT_MELEE_STATS.damage,
+    damage: scaledDmg,
     range: def.range || DEFAULT_MELEE_STATS.range,
     halfArc: (def.arcRad || 1.5) * 0.5,
     gore: def.goreStyle || DEFAULT_MELEE_STATS.gore,
@@ -42,10 +48,10 @@ function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, pre
 }
 
 function meleeStatsFor(held: string | SlotItem | null) {
-  const { itemId, prefixId } = extractHeldInfo(held);
+  const { itemId, prefixId, upgradeLevel } = extractHeldInfo(held);
   const def = itemId ? getItemDef(itemId) : undefined;
   const archetype = resolveWeaponArchetype(itemId, def?.weaponArchetype);
-  return def ? buildDefMeleeStats(def, prefixId, archetype) : { ...DEFAULT_MELEE_STATS, archetype };
+  return def ? buildDefMeleeStats(def, prefixId, { archetype, upgradeLevel }) : { ...DEFAULT_MELEE_STATS, archetype };
 }
 
 function resolveServerSwingState(p: CombatPlayerRef) {

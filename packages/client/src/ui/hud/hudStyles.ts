@@ -123,7 +123,7 @@ const HUD_CSS = `
 .ow-hero-lbl { width: 82px; font-size: 12px; font-weight: 700; color: #94a3b8; }
 .ow-swatch { width: 26px; height: 26px; border-radius: 999px; border: 2px solid rgba(148, 163, 184, 0.35); cursor: pointer; padding: 0; }
 .ow-swatch[data-active="true"] { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45); }
-.ow-chest-modal { width: min(860px, calc(100vw - 20px)); --ow-bag-slot: clamp(28px, calc((min(820px, 100vw - 60px) / 2 - 44px) / 9), 40px); }
+.ow-chest-modal, .ow-stash-modal { width: min(860px, calc(100vw - 20px)); --ow-bag-slot: clamp(28px, calc((min(820px, 100vw - 60px) / 2 - 44px) / 9), 40px); }
 .ow-chest-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .ow-chest-pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ow-chest-lbl { font-size: 11px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -142,7 +142,7 @@ const HUD_CSS = `
 .ow-drag-ghost { position: fixed; width: 44px; height: 44px; pointer-events: none; z-index: 60; transform: translate(-50%, -50%) scale(1.1); image-rendering: pixelated; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.65)); }
 @media (max-width: 820px) {
   .ow-chest-body { grid-template-columns: 1fr; }
-  .ow-chest-modal { --ow-bag-slot: clamp(30px, calc((100vw - 88px) / 9), 44px); }
+  .ow-chest-modal, .ow-stash-modal { --ow-bag-slot: clamp(30px, calc((100vw - 88px) / 9), 44px); }
 }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
   :root {

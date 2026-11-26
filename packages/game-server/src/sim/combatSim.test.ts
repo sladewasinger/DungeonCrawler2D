@@ -122,9 +122,9 @@ describe("combatSim", () => {
     const a = sim.addPlayer("Attacker");
     const b = sim.addPlayer("Victim");
     sim.grantPlayerItems(a, [{ slot: 0, itemId: "sword", count: 1 }]);
-    let seqA = advanceMove({ sim, id: a, moveX: 1, moveY: 0, steps: 32, seqStart: 1 });
+    let seqA = advanceMove({ sim, id: a, moveX: 1, moveY: 0, steps: 78, seqStart: 1 });
     sim.queueInput(a, { seq: seqA++, moveX: 0, moveY: 0 });
-    let seqB = advanceMove({ sim, id: b, moveX: 1, moveY: 0, steps: 33, seqStart: 1 });
+    let seqB = advanceMove({ sim, id: b, moveX: 1, moveY: 0, steps: 79, seqStart: 1 });
     sim.queueInput(b, { seq: seqB++, moveX: 0, moveY: 0 });
     sim.selectHotbar(a, 0);
     for (let i = 0; i < 24; i++) {

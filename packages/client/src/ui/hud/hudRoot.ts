@@ -1,7 +1,7 @@
 /** Coordinates BottomHotbar, VitalsBar, InventoryModal, ChestModal, CraftingPanel, CharacterPanel, Minimap, and drag/drop. */
 import {
-  AI_TUNING, type CharacterAppearance, type DiscoveryStateSnapshot, type InventorySnapshot, type PlayerSnapshot,
-  type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
+  AI_TUNING, type CharacterAppearance, type DiscoveryStateSnapshot, type FogState, type InventorySnapshot,
+  type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
 } from "@dc2d/engine";
 import { MinimapOverlay } from "../map/minimapOverlay.js";
 import { BottomHotbar } from "./bottomHotbar.js";
@@ -27,6 +27,9 @@ export interface HudSyncState {
   readonly entities?: readonly WorldEntitySnapshot[] | undefined;
   readonly chests?: readonly WorldChestSnapshot[] | undefined;
   readonly discovery?: DiscoveryStateSnapshot | undefined;
+  readonly fog?: FogState | undefined;
+  readonly fogVersion?: number | undefined;
+  readonly gold?: number | undefined;
 }
 
 export class HudRoot {
@@ -150,7 +153,7 @@ export class HudRoot {
     const chestOpen = this.openPanel === "chest" && Boolean(chest);
     this.drag.setState(state.inventory, { panelOpen: invOpen || chestOpen, chestSlots: chest?.slots ?? null });
     this.hotbar.sync(state.inventory, { torchLit: Boolean(state.localPlayer?.torchLit), mapOpen: this.isMapVisible() });
-    this.vitals.sync(state.localPlayer, state.entities);
+    this.vitals.sync(state.localPlayer, state.entities, state.gold ?? state.inventory.gold);
     this.inventoryModal.sync(state.inventory, { open: invOpen, player: state.localPlayer });
     this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen });
     this.craftingPanel.sync(state.inventory, this.openPanel === "crafting");
@@ -169,6 +172,7 @@ export class HudRoot {
       visible: this.isMapVisible(),
       cache: state.cache, local: state.localPlayer,
       players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [], discovery: state.discovery,
+      fog: state.fog, fogVersion: state.fogVersion,
     });
   }
 

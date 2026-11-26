@@ -10,6 +10,7 @@ import type { DiscoveryOverlay } from "../ui/discovery/discoveryOverlay.js";
 import {
   findNearestDismantleableProp, resolveWorldInteractPrompt, sealedVaultHint,
 } from "../ui/discovery/poiPromptHelper.js";
+import type { HubModalController, HubStationKind } from "../ui/hubs/hubModalController.js";
 import type { HudRoot } from "../ui/hud/hudRoot.js";
 import type { HudActions } from "../ui/hud/slotRenderer.js";
 import { SettingsMenu } from "../ui/settings/settingsMenu.js";
@@ -68,21 +69,30 @@ function handleNearestChestInteract(opts: { readonly client: WorldClient; readon
   return false;
 }
 
+const HUB_PROMPT_KINDS = new Set<string>(["merchant", "blacksmith", "bounty-board", "guide", "stash"]);
+
 function handlePromptKindAction(opts: {
   readonly prompt: NonNullable<ReturnType<typeof resolveWorldInteractPrompt>>;
-  readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine;
+  readonly client: WorldClient; readonly hud: HudRoot; readonly hubs: HubModalController; readonly audio: AudioEngine;
 }): boolean {
-  const { prompt, client, hud, audio } = opts;
+  const { prompt, client, hud, hubs, audio } = opts;
   if (prompt.kind === "workbench" || prompt.kind === "campfire") { hud.toggleCrafting(); audio.playUi("open"); return true; }
   if (prompt.kind === "bed" && prompt.prop) { client.setRespawnBed(prompt.prop.id); audio.playUi("equip"); return true; }
+  if (HUB_PROMPT_KINDS.has(prompt.kind)) {
+    client.interactNpc(prompt.prop?.id ?? prompt.kind);
+    hubs.openStation(prompt.kind as HubStationKind);
+    audio.playUi("open");
+    return true;
+  }
   return false;
 }
 
 export function handleWorldInteract(opts: {
-  readonly client: WorldClient; readonly hud: HudRoot; readonly discovery: DiscoveryOverlay;
-  readonly audio: AudioEngine; readonly lootId?: string | undefined;
+  readonly client: WorldClient; readonly hud: HudRoot; readonly hubs: HubModalController;
+  readonly discovery: DiscoveryOverlay; readonly audio: AudioEngine; readonly lootId?: string | undefined;
 }): boolean {
-  const { client, hud, audio, lootId } = opts;
+  const { client, hud, hubs, audio, lootId } = opts;
+  if (hubs.isOpen()) { hubs.close(); return true; }
   if (hud.activePanel() === "chest") { hud.closePanels(); return true; }
   if (lootId) { client.pickupLoot(lootId); audio.playUi("equip"); return true; }
   if (handleNearestChestInteract(opts)) return true;
@@ -91,7 +101,7 @@ export function handleWorldInteract(opts: {
   const manual = me ? findManualLootInReach(snap.groundLoot, me) : undefined;
   if (manual) { client.pickupLoot(manual.id); audio.playUi("equip"); return true; }
   const prompt = resolveWorldInteractPrompt({ nearestChest: undefined, nearestLoot: undefined, local: me, cache: snap.cache, touch: isTouchInputActive() });
-  return prompt ? handlePromptKindAction({ prompt, client, hud, audio }) : false;
+  return prompt ? handlePromptKindAction({ prompt, client, hud, hubs, audio }) : false;
 }
 
 function handleWorldDismantle(opts: { readonly client: WorldClient; readonly audio: AudioEngine }): void {
@@ -128,19 +138,25 @@ function applySettingsPrefs(opts: {
 }
 
 export function createOverworldModalRouter(opts: {
-  readonly hud: HudRoot; readonly chat: ChatOverlay; readonly settings: SettingsMenu;
+  readonly hud: HudRoot; readonly hubs: HubModalController; readonly chat: ChatOverlay; readonly settings: SettingsMenu;
 }): ModalRouter {
-  const { hud, chat, settings } = opts;
+  const { hud, hubs, chat, settings } = opts;
   const router = new ModalRouter();
   const closeMap = () => { if (hud.isMapOpen()) hud.toggleMap(); };
   router.register("inventory", { isOpen: () => hud.activePanel() === "inventory", open: () => hud.toggleInventory(), close: () => hud.closePanels() });
   router.register("crafting", { isOpen: () => hud.activePanel() === "crafting", open: () => hud.toggleCrafting(), close: () => hud.closePanels() });
   router.register("character", { isOpen: () => hud.activePanel() === "character", open: () => hud.toggleCharacter(), close: () => hud.closePanels() });
   router.register("chest", { isOpen: () => hud.activePanel() === "chest", open: () => {}, close: () => hud.closePanels() });
+  router.register("hub", { isOpen: () => hubs.isOpen(), open: () => {}, close: () => hubs.close() });
   router.register("minimap", { isOpen: () => hud.isMapOpen(), open: () => hud.toggleMap(), close: closeMap });
   router.register("settings", { isOpen: () => settings.isOpen(), open: () => settings.setOpen(true), close: () => settings.setOpen(false) });
   router.register("chat", { isOpen: () => chat.isOpen(), open: () => chat.openInput(), close: () => chat.closeInput() });
-  chat.setOpenListener((open) => { if (open) { hud.closePanels(); settings.setOpen(false); } });
+  chat.setOpenListener((open) => {
+    if (!open) return;
+    hud.closePanels();
+    hubs.close();
+    settings.setOpen(false);
+  });
   return router;
 }
 

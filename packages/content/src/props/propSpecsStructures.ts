@@ -104,4 +104,24 @@ export const STRUCTURE_AND_POI_PROP_SPECS = {
     kind: PropKind.FairyRing, category: CAT_STRUCT, collision: { shape: SHAPE_NONE, offsetY: 0 },
     blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_NONE, spiderWebAnchor: false,
   },
+  [PropKind.StashChest]: {
+    kind: PropKind.StashChest, category: CAT_FURN, collision: { shape: SHAPE_AABB, offsetY: -0.20, halfX: 0.24, halfY: 0.05, radius: 0.18 },
+    blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_WOOD, spiderWebAnchor: false, interactionKind: "stash",
+  },
+  [PropKind.BountyBoard]: {
+    kind: PropKind.BountyBoard, category: CAT_STRUCT, collision: { shape: SHAPE_AABB, offsetY: -0.20, halfX: 0.34, halfY: 0.08, radius: 0.16 },
+    blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_WOOD, spiderWebAnchor: false, interactionKind: "bounty",
+  },
+  [PropKind.NpcGuide]: {
+    kind: PropKind.NpcGuide, category: CAT_FURN, collision: { shape: SHAPE_CIRCLE, offsetY: -0.18, radius: 0.32 },
+    blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_NONE, spiderWebAnchor: false, interactionKind: "npc",
+  },
+  [PropKind.NpcMerchant]: {
+    kind: PropKind.NpcMerchant, category: CAT_FURN, collision: { shape: SHAPE_CIRCLE, offsetY: -0.18, radius: 0.32 },
+    blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_NONE, spiderWebAnchor: false, interactionKind: "npc",
+  },
+  [PropKind.NpcBlacksmith]: {
+    kind: PropKind.NpcBlacksmith, category: CAT_FURN, collision: { shape: SHAPE_CIRCLE, offsetY: -0.18, radius: 0.34 },
+    blocksLineOfSight: false, stealth: STEALTH_NONE, combatSurface: SURF_NONE, spiderWebAnchor: false, interactionKind: "npc",
+  },
 } as const satisfies Partial<Record<PropKind, PropSpec>>;

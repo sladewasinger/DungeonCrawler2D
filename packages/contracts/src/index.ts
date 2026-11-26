@@ -50,5 +50,5 @@ export type {
   PropSpec,
   PropStealthSpec,
 } from "./propSpecTypes.js";
-export { CHUNK_SIZE, GROUND_KIND_VALUES, GroundKind, PROP_KIND_VALUES, PropKind, TILE_PX } from "./world.js";
-export type { BiomeKind, DangerTier, PoiCategory, PoiKind, PoiLayoutKind } from "./world.js";
+export { CHUNK_SIZE, GROUND_KIND_VALUES, GroundKind, NPC_KINDS, PROP_KIND_VALUES, PropKind, TILE_PX } from "./world.js";
+export type { BiomeKind, DangerTier, NpcKind, PoiCategory, PoiKind, PoiLayoutKind } from "./world.js";

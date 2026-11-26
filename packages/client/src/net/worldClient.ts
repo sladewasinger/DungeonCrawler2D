@@ -1,13 +1,28 @@
 /** Authoritative multiplayer WebSocket client with auto-reconnect, lifecycle probes, and input throttling. */
-import { AI_TUNING, CHAT_BUBBLE_DURATION_SEC, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
-import { loadCharacterPrefs, readStoredAuthToken, sanitizeCharacterName, saveCharacterPrefs, writeStoredAuthToken } from "./characterPrefs.js";
-import { applyChestTakeAll, applyChestTransfer, applyCraftRecipe, applyDropToClientState, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor, applyUseItemClient, createStarterInventorySnapshot, findNearestChest, heldItemForInventory } from "./clientInventory.js";
+import { AI_TUNING, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
+import { loadCharacterPrefs, readStoredAuthToken, writeStoredAuthToken } from "./characterPrefs.js";
+import {
+  applyCraftRecipe, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor,
+  createStarterInventorySnapshot, findNearestChest, heldItemForInventory,
+} from "./clientInventory.js";
 import { LocalSwingTracker } from "./localSwingTracker.js";
+import {
+  createClientHubState, createHubActionClient, resetClientHubState, tryOfflineAdminMutation,
+  type ClientHubState, type HubActionClient,
+} from "./hubClientBridge.js";
 import { OfflineWorldController, type OfflineStateSlice } from "./offline/offlineWorldController.js";
 import { RemotePlayerSmoother } from "./remoteInterp.js";
-import { INITIAL_INPUT_SEND_STATE, bindPageLifecycle, closeSocketSafely, nextReconnectDelayMs, prepareAdminDispatch, resetDisconnectedPlayer, smoothPingRtt, type AdminSendRequest, type ConnectionMode, type InputSendState, type StepInputFrame, type WorldViewState } from "./worldClientHelpers.js";
-import { applyServerSnapshotMessage, attachWorldWebSocket, buildLocalChatDispatch, createIdleGates, mutateChestEntry, parseServerMessage, sendClientHello, stepWorldClientInput, type StepLoopMutable } from "./socket/worldClientSocket.js";
-import { applyWelcomeState, buildClientViewSnapshot } from "./socket/worldClientView.js";
+import { INITIAL_INPUT_SEND_STATE, bindPageLifecycle, closeSocketSafely, prepareAdminDispatch, smoothPingRtt, type AdminSendRequest, type ConnectionMode, type InputSendState, type StepInputFrame, type WorldViewState } from "./worldClientHelpers.js";
+import { createIdleGates, parseServerMessage, type StepLoopMutable } from "./socket/worldClientSocket.js";
+import {
+  dispatchCharacterAppearance, dispatchChatAction, dispatchChestTakeAllAction,
+  dispatchChestTransferAction, dispatchDropAction, dispatchUseItemAction,
+} from "./socket/worldClientOps.js";
+import {
+  applyClientStructureAction, applyWelcomeState, buildClientViewSnapshot, buildDisconnectedStreamReset, clearAllManagedTimers,
+  clearManagedTimer, dispatchSnapshotToTarget, openManagedClientSocket, runStepWorldClientFrame,
+  scheduleClientReconnect, scheduleClientResumeProbe, type TimerSlotKey,
+} from "./socket/worldClientView.js";
 import { createDefaultPlayer, defaultWsUrl } from "./worldPrediction.js";
 
 export type { ConnectionMode, StepInputFrame, WorldViewState } from "./worldClientHelpers.js";
@@ -50,42 +65,51 @@ export class WorldClient {
   private manualDisconnect = false;
   private reconnectAttempt = 0;
   private lastServerMsgAtMs = 0;
-  private readonly timers: Record<"connect" | "reconnect" | "probe", number | null> = { connect: null, reconnect: null, probe: null };
+  private readonly timers: Record<TimerSlotKey, number | null> = { connect: null, reconnect: null, probe: null };
   private sendState: InputSendState = INITIAL_INPUT_SEND_STATE;
   private readonly offlineOnly: boolean;
   private readonly offline = new OfflineWorldController();
+  private readonly hub: ClientHubState = createClientHubState(1337);
+  private hubActionsCache: HubActionClient | null = null;
 
   constructor(wsUrl = defaultWsUrl(), opts?: { readonly autoConnect?: boolean; readonly offlineOnly?: boolean }) {
     this.wsUrl = wsUrl; this.offlineOnly = Boolean(opts?.offlineOnly);
     this.localPlayer = createDefaultPlayer("local", loadCharacterPrefs());
     const saved = this.offlineOnly ? this.offline.loadSaved(this.offlineSlice()) : null;
     if (saved) {
-      this.dayPhase = saved.dayPhase; this.localPlayer = saved.player;
-      this.chests = saved.chests; this.updateInventory(saved.inventory);
+      this.dayPhase = saved.dayPhase;
+      this.localPlayer = saved.player;
+      this.chests = saved.chests;
+      this.updateInventory(saved.inventory);
     }
-    bindPageLifecycle({
-      onUnload: () => { if (this.mode !== "server") this.offline.flushNow(this.offlineSlice()); this.disconnect(); },
-      onResume: () => this.handleResume(),
-    });
+    bindPageLifecycle({ onUnload: () => this.handlePageUnload(), onResume: () => this.handleResume() });
     if (opts?.autoConnect && !this.offlineOnly) this.connect();
   }
 
+  private handlePageUnload(): void {
+    if (this.mode !== "server") this.offline.flushNow(this.offlineSlice());
+    this.disconnect();
+  }
   isOfflineOnly(): boolean { return this.offlineOnly; }
   private offlineSlice(): OfflineStateSlice {
-    return { cache: this.cache, dayPhase: this.dayPhase, player: this.localPlayer, inventory: this.inventory, chests: this.chests, events: this.queuedEvents };
+    return { cache: this.cache, dayPhase: this.dayPhase, player: this.localPlayer, inventory: this.inventory, chests: this.chests, events: this.queuedEvents, hub: this.hub };
   }
   resetOfflineWorld(): void {
     const res = this.offline.reset(this.cache.worldSeed, this.localPlayer);
-    this.cache = res.cache; this.localPlayer = res.player;
-    this.chests = []; this.groundLoot = []; this.queuedEvents = [];
+    this.cache = res.cache;
+    this.localPlayer = res.player;
+    this.chests = [];
+    this.groundLoot = [];
+    this.queuedEvents = [];
+    resetClientHubState(this.hub, this.cache.worldSeed);
     this.updateInventory(res.inventory);
   }
   connect(): void {
     if (this.ws || this.mode === "connecting") return;
-    this.shouldReconnect = true; this.manualDisconnect = false; this.clearTimer("reconnect");
+    this.shouldReconnect = true; this.manualDisconnect = false; clearManagedTimer(this.timers, "reconnect");
     this.mode = this.reconnectAttempt > 0 ? "reconnecting" : "connecting"; this.openSocket(this.wsUrl);
   }
-  private dropSocket(reason: string): void { this.clearSocketTimers(); closeSocketSafely(this.ws, reason); this.ws = null; }
+  private dropSocket(reason: string): void { clearAllManagedTimers(this.timers); closeSocketSafely(this.ws, reason); this.ws = null; }
   reconnectNow(): void {
     if (this.mode === "idle" && !this.shouldReconnect) { this.connect(); return; }
     this.manualDisconnect = false; this.shouldReconnect = true; this.reconnectAttempt = 0;
@@ -99,74 +123,66 @@ export class WorldClient {
   private handleResume(): void {
     if (this.manualDisconnect || !this.shouldReconnect) return;
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) { this.reconnectNow(); return; }
-    const sentAt = performance.now(); this.send({ t: "ping", t0: sentAt }); this.clearTimer("probe");
-    this.timers.probe = window.setTimeout(() => {
-      this.timers.probe = null;
-      if (this.lastServerMsgAtMs < sentAt && !this.manualDisconnect && this.shouldReconnect) this.reconnectNow();
-    }, RESUME_PROBE_MS);
+    scheduleClientResumeProbe({
+      timers: this.timers, probeMs: RESUME_PROBE_MS, sendPing: (t0) => this.send({ t: "ping", t0 }),
+      isStale: (t0) => this.lastServerMsgAtMs < t0 && !this.manualDisconnect && this.shouldReconnect, onStale: () => this.reconnectNow(),
+    });
   }
   private openSocket(url: string): void {
-    const ws = attachWorldWebSocket({
-      url, isCurrent: (s) => this.ws === s, onOpen: () => sendClientHello(this.ws, this.localPlayer, readStoredAuthToken()),
+    const ws = openManagedClientSocket({
+      url, isCurrent: (s) => this.ws === s, getHelloCtx: () => ({ player: this.localPlayer, auth: readStoredAuthToken() }),
       onMessage: (raw) => this.handleMessage(raw), onDrop: () => this.handleSocketDrop(),
+      onHandshakeTimeout: (s) => { if (this.ws === s && this.mode !== "server") this.handleSocketDrop(); },
+      timers: this.timers, timeoutMs: HANDSHAKE_TIMEOUT_MS,
     });
-    if (!ws) return;
-    this.ws = ws; this.timers.connect = window.setTimeout(() => { if (this.ws === ws && this.mode !== "server") this.handleSocketDrop(); }, HANDSHAKE_TIMEOUT_MS);
+    if (ws) this.ws = ws;
   }
-  private clearTimer(key: "connect" | "reconnect" | "probe"): void { const id = this.timers[key]; if (id !== null) { window.clearTimeout(id); this.timers[key] = null; } }
-  private clearSocketTimers(): void { this.clearTimer("connect"); this.clearTimer("reconnect"); this.clearTimer("probe"); }
   private resetStreamState(resetId: boolean): void {
-    this.entities = []; this.projectiles = []; this.webs = undefined;
-    this.localBowDrawing = false; this.selfAdmin = false; this.pingMs = null; this.pingTimerSec = 0;
-    this.sendState = INITIAL_INPUT_SEND_STATE; this.localPlayer = resetDisconnectedPlayer(this.localPlayer, resetId);
+    const r = buildDisconnectedStreamReset(this.localPlayer, resetId, INITIAL_INPUT_SEND_STATE);
+    this.entities = r.entities; this.projectiles = r.projectiles; this.webs = r.webs; this.localBowDrawing = r.localBowDrawing;
+    this.selfAdmin = r.selfAdmin; this.pingMs = r.pingMs; this.pingTimerSec = r.pingTimerSec;
+    this.sendState = r.sendState; this.localPlayer = r.localPlayer;
   }
   private handleSocketDrop(): void {
     this.dropSocket("drop"); this.resetStreamState(false);
     const retry = !this.manualDisconnect && this.shouldReconnect;
     this.mode = retry ? "reconnecting" : "idle";
-    if (retry && this.timers.reconnect === null) this.timers.reconnect = window.setTimeout(() => { this.timers.reconnect = null; this.connect(); }, nextReconnectDelayMs(this.reconnectAttempt++));
+    this.reconnectAttempt = scheduleClientReconnect({ timers: this.timers, retry, attempt: this.reconnectAttempt, onConnect: () => this.connect() });
   }
   private handleMessage(raw: string): void {
     const msg = parseServerMessage(raw);
     if (!msg) return;
-    this.lastServerMsgAtMs = performance.now(); this.clearTimer("probe");
-    if (msg.t === "welcome") { this.applyWelcome(msg); return; }
-    if (msg.t === "pong") { this.pingMs = smoothPingRtt(this.pingMs, performance.now() - msg.t0); return; }
-    this.applySnapshot(msg);
+    this.lastServerMsgAtMs = performance.now(); clearManagedTimer(this.timers, "probe");
+    if (msg.t === "welcome") this.applyWelcome(msg);
+    else if (msg.t === "pong") this.pingMs = smoothPingRtt(this.pingMs, performance.now() - msg.t0);
+    else this.applySnapshot(msg);
   }
   private applySnapshot(msg: Extract<ServerMessage, { t: "snapshot" }>): void {
-    const t = { gates: this.gates, dayPhase: this.dayPhase, dayPaused: this.dayPaused, selfAdmin: this.selfAdmin, inventory: this.inventory, localPlayer: this.localPlayer, remotePlayers: this.remotePlayers, localPlayerId: this.localPlayerId, localBowDrawing: this.localBowDrawing, remoteSmoother: this.remoteSmoother, projectiles: this.projectiles, entities: this.entities, groundLoot: this.groundLoot, webs: this.webs, chests: this.chests, cache: this.cache, queuedEvents: this.queuedEvents, queuedChat: this.queuedChat, swing: this.swing, discovery: this.discovery };
-    applyServerSnapshotMessage(t, msg);
+    const t = dispatchSnapshotToTarget({ gates: this.gates, dayPhase: this.dayPhase, dayPaused: this.dayPaused, selfAdmin: this.selfAdmin, inventory: this.inventory, localPlayer: this.localPlayer, remotePlayers: this.remotePlayers, localPlayerId: this.localPlayerId, localBowDrawing: this.localBowDrawing, remoteSmoother: this.remoteSmoother, projectiles: this.projectiles, entities: this.entities, groundLoot: this.groundLoot, webs: this.webs, chests: this.chests, cache: this.cache, queuedEvents: this.queuedEvents, queuedChat: this.queuedChat, swing: this.swing, discovery: this.discovery, hub: this.hub }, msg);
     this.dayPhase = t.dayPhase; this.dayPaused = t.dayPaused; this.selfAdmin = t.selfAdmin; this.inventory = t.inventory;
     this.localPlayer = t.localPlayer; this.remotePlayers = t.remotePlayers; this.projectiles = t.projectiles;
     this.entities = t.entities; this.groundLoot = t.groundLoot; this.webs = t.webs;
     this.chests = t.chests; this.queuedEvents = t.queuedEvents; this.discovery = t.discovery;
   }
   private applyWelcome(msg: Extract<ServerMessage, { t: "welcome" }>): void {
-    this.clearSocketTimers(); this.mode = "server"; this.reconnectAttempt = 0; this.pingTimerSec = 0;
+    clearAllManagedTimers(this.timers); this.mode = "server"; this.reconnectAttempt = 0; this.pingTimerSec = 0;
     const w = applyWelcomeState({ msg, localPlayer: this.localPlayer, saveToken: writeStoredAuthToken });
-    this.localPlayerId = w.playerId; this.localPlayer = w.localPlayer; this.gates = w.gates;
-    this.cache = w.cache; this.dayPhase = w.dayPhase; this.dayPaused = w.dayPaused;
-    this.send({ t: "ping", t0: performance.now() });
+    this.localPlayerId = w.playerId; this.localPlayer = w.localPlayer; this.gates = w.gates; this.cache = w.cache;
+    this.dayPhase = w.dayPhase; this.dayPaused = w.dayPaused; resetClientHubState(this.hub, msg.worldSeed); this.send({ t: "ping", t0: performance.now() });
   }
   localPose(): { readonly x: number; readonly y: number; readonly elevation: number } { return this.localPlayer; }
   stepInput(input: StepInputFrame): void {
     const state: StepLoopMutable = { player: this.localPlayer, attackFlashTimer: this.attackFlashTimer, bubbleTimer: this.localBubbleTimer, pingTimerSec: this.pingTimerSec, seq: this.seq, sendState: this.sendState, bowDrawing: this.localBowDrawing };
-    stepWorldClientInput({ state, isServer: this.mode === "server", offlinePlayable: this.offlineOnly, cache: this.cache, dayPhase: this.dayPhase, inventory: this.inventory, swing: this.swing, smoother: this.remoteSmoother, queuedEvents: this.queuedEvents, send: (m) => this.send(m) }, input);
-    this.localPlayer = state.player; this.attackFlashTimer = state.attackFlashTimer; this.localBubbleTimer = state.bubbleTimer;
+    const next = runStepWorldClientFrame({ state, mode: this.mode, offlineOnly: this.offlineOnly, cache: this.cache, dayPhase: this.dayPhase, inventory: this.inventory, swing: this.swing, smoother: this.remoteSmoother, queuedEvents: this.queuedEvents, send: (m) => this.send(m), input, offline: this.offline, offlineSlice: () => this.offlineSlice() });
+    this.localPlayer = next.player; this.inventory = next.inventory;
+    this.attackFlashTimer = state.attackFlashTimer; this.localBubbleTimer = state.bubbleTimer;
     this.pingTimerSec = state.pingTimerSec; this.seq = state.seq; this.sendState = state.sendState; this.localBowDrawing = state.bowDrawing;
-    if (this.mode !== "server") {
-      const next = this.offline.step(this.offlineSlice(), input.dt);
-      this.localPlayer = next.player; this.inventory = next.inventory;
-    }
   }
 
   setCharacter(req: { readonly name: string; readonly appearance: CharacterAppearance }): void {
-    const name = sanitizeCharacterName(req.name);
-    this.localPlayer = { ...this.localPlayer, name, appearance: req.appearance }; saveCharacterPrefs({ name, appearance: req.appearance });
-    const seq = this.nextSeq();
-    if (seq > 0) this.gates.appearance = { pendingSeq: seq, atMs: performance.now() };
-    this.send({ t: "setAppearance", name, appearance: req.appearance, seq });
+    const out = dispatchCharacterAppearance({ req, localPlayer: this.localPlayer, seq: this.nextSeq(), send: (m) => this.send(m) });
+    this.localPlayer = out.player;
+    if (out.gate) this.gates.appearance = out.gate;
   }
 
   toggleTorch(): void { this.localPlayer = { ...this.localPlayer, torchLit: !this.localPlayer.torchLit }; const seq = this.nextSeq(); this.gates.torch = { pendingSeq: seq, atMs: performance.now() }; this.send({ t: "toggleTorch", seq }); }
@@ -192,63 +208,47 @@ export class WorldClient {
   nearestChest(radius: number = AI_TUNING.chestInteractRadiusTiles): WorldChestSnapshot | undefined { return findNearestChest(this.chests, this.localPlayer, radius); }
   openChest(chestId: string): void { this.chests = this.chests.map((c) => (c.id === chestId ? { ...c, opened: true } : c)); this.send({ t: "openChest", chestId, seq: this.armChestSeq() }); }
   chestTransfer(req: { readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number; readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined }): boolean {
-    const next = mutateChestEntry(this.chests, req.chestId, (chest) => applyChestTransfer({ inv: this.inventory, chest, ...req }));
-    if (next && !next.changed && req.quick && req.from === "chest") return false;
-    if (next?.changed) this.commitOfflineInv(next.inv, next.chests);
-    this.send({ t: "chestTransfer", ...req, seq: this.armChestSeq() });
-    return next ? next.changed : true;
+    return dispatchChestTransferAction({ chests: this.chests, inv: this.inventory, req, seq: this.armChestSeq(), commit: (i, c) => this.commitOfflineInv(i, c), send: (m) => this.send(m) });
   }
   chestTakeAll(chestId: string): boolean {
-    const next = mutateChestEntry(this.chests, chestId, (chest) => applyChestTakeAll({ inv: this.inventory, chest }));
-    if (next && !next.changed) return false;
-    if (next?.changed) this.commitOfflineInv(next.inv, next.chests);
-    this.send({ t: "chestTakeAll", chestId, seq: this.armChestSeq() });
-    return true;
+    return dispatchChestTakeAllAction({ chests: this.chests, chestId, inv: this.inventory, seq: this.armChestSeq(), commit: (i, c) => this.commitOfflineInv(i, c), send: (m) => this.send(m) });
   }
   debugSpawn(kind: EntityKind, count = 1): void { this.send({ t: "debugSpawn", kind, count, seq: this.nextSeq() }); }
+  private offlineCtx() {
+    return { hub: this.hub, inv: this.inventory, player: this.localPlayer, worldSeed: this.cache.worldSeed, events: this.queuedEvents };
+  }
   sendAdmin(req: AdminSendRequest): void {
-    if (this.mode !== "server" && req.action === "give" && req.itemId) {
-      this.commitOfflineInv(this.offline.giveItem(this.offlineSlice(), req.itemId, req.count ?? 1));
-      return;
-    }
+    if (this.mode !== "server" && tryOfflineAdminMutation({ req, offline: this.offline, slice: this.offlineSlice(), commit: (i) => this.commitOfflineInv(i) })) return;
     const out = prepareAdminDispatch({ req, localPlayer: this.localPlayer, isServer: this.mode === "server", isAdmin: this.selfAdmin, seq: this.nextSeq() });
     this.localPlayer = out.nextPlayer; this.send(out.message);
   }
-  placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): void {
-    if (this.mode === "server") { this.send({ t: "placeStructure", ...req, seq: this.armInvSeq() }); return; }
-    const res = this.offline.place(this.offlineSlice(), req);
-    if (res) { this.localPlayer = res.player; this.commitOfflineInv(res.inventory, res.chests); }
+  interactNpc(npcId: string): void { if (this.mode === "server") this.send({ t: "interactNpc", npcId }); }
+  hubs(): HubActionClient {
+    return (this.hubActionsCache ??= createHubActionClient({
+      isServer: () => this.mode === "server", nextSeq: () => this.nextSeq(), send: (m) => this.send(m),
+      getOfflineCtx: () => this.offlineCtx(), commitOfflineInv: (inv) => this.commitOfflineInv(inv),
+    }));
   }
-  dismantleStructure(structureId: string): void {
-    if (this.mode === "server") { this.send({ t: "dismantleStructure", structureId, seq: this.armInvSeq() }); return; }
-    const res = this.offline.dismantle(this.offlineSlice(), structureId);
-    this.localPlayer = res.player; this.commitOfflineInv(res.inventory, res.chests);
+  private runStruct(req: Parameters<typeof applyClientStructureAction>[0]["req"], seq: number): void {
+    applyClientStructureAction({ mode: this.mode, req, seq, send: (m) => this.send(m), offline: this.offline, slice: () => this.offlineSlice(), onResult: (r) => { this.localPlayer = r.player; if (r.inv) this.commitOfflineInv(r.inv, r.chests ?? this.chests); } });
   }
-  setRespawnBed(structureId: string): void {
-    if (this.mode === "server") { this.send({ t: "setRespawnBed", structureId, seq: this.nextSeq() }); return; }
-    const p = this.offline.bindBed(this.offlineSlice(), structureId);
-    if (p) this.localPlayer = p;
-  }
+  placeStructure(req: { readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): void { this.runStruct({ kind: "place", ...req }, this.armInvSeq()); }
+  dismantleStructure(structureId: string): void { this.runStruct({ kind: "dismantle", structureId }, this.armInvSeq()); }
+  setRespawnBed(structureId: string): void { this.runStruct({ kind: "bed", structureId }, this.nextSeq()); }
   pickupLoot(lootId?: string): void { this.send({ t: "pickupLoot", ...(lootId ? { lootId } : {}), seq: this.armInvSeq() }); }
   dropItem(req: DropItemRequest): void {
-    const next = applyDropToClientState({ inv: this.inventory, chests: this.chests, req });
-    this.commitOfflineInv(next.inv, [...next.chests]); this.send({ t: "dropItem", ...req, seq: req.source === "chest" ? this.armChestSeq() : this.armInvSeq() });
+    const seq = req.source === "chest" ? this.armChestSeq() : this.armInvSeq();
+    dispatchDropAction({ inv: this.inventory, chests: this.chests, req, seq, commit: (i, c) => this.commitOfflineInv(i, c), send: (m) => this.send(m) });
   }
   useItem(slotIndex: number): void {
-    const itemId = this.inventory.slots[slotIndex]?.itemId;
-    this.updateInventory(applyUseItemClient(this.inventory, slotIndex));
-    if (this.mode !== "server") { this.localPlayer = this.offline.useConsumable(this.offlineSlice(), itemId); return; }
-    this.send({ t: "useItem", slotIndex, seq: this.armInvSeq() });
+    dispatchUseItemAction({ slotIndex, inv: this.inventory, mode: this.mode, seq: this.armInvSeq(), offline: this.offline, slice: () => this.offlineSlice(), updateInv: (n) => this.updateInventory(n), setPlayer: (p) => { this.localPlayer = p; }, send: (m) => this.send(m) });
   }
   sendChat(rawText: string, shout = false): void {
-    const out = buildLocalChatDispatch({ rawText, shout, durationSec: CHAT_BUBBLE_DURATION_SEC, player: this.localPlayer });
-    if (!out) return;
-    if (this.mode === "server") { this.send({ t: "chat", text: out.clean, ...(shout ? { shout: true } : {}), seq: this.nextSeq() }); return; }
-    this.localBubbleTimer = CHAT_BUBBLE_DURATION_SEC; this.localPlayer = out.echo.player; this.queuedChat.push(out.echo.entry);
+    dispatchChatAction({ rawText, shout, player: this.localPlayer, mode: this.mode, seq: this.nextSeq(), send: (m) => this.send(m), onLocalEcho: (e) => { this.localBubbleTimer = e.bubbleSec; this.localPlayer = e.player; this.queuedChat.push(e.entry); } });
   }
   snapshot(): WorldViewState {
     const events = this.queuedEvents; this.queuedEvents = []; const chatMessages = this.queuedChat; this.queuedChat = [];
-    return buildClientViewSnapshot({ mode: this.mode, reconnectAttempt: this.reconnectAttempt, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, remotePlayers: this.remotePlayers, localPlayer: this.localPlayer, localPlayerId: this.localPlayerId, inventory: this.inventory, swing: this.swing, smoother: this.remoteSmoother, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, chatMessages, discovery: this.discovery, selfAdmin: this.selfAdmin, pingMs: this.pingMs });
+    return buildClientViewSnapshot({ mode: this.mode, reconnectAttempt: this.reconnectAttempt, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache, remotePlayers: this.remotePlayers, localPlayer: this.localPlayer, localPlayerId: this.localPlayerId, inventory: this.inventory, swing: this.swing, smoother: this.remoteSmoother, projectiles: this.projectiles, entities: this.entities, chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, chatMessages, discovery: this.discovery, hub: this.hub, selfAdmin: this.selfAdmin, pingMs: this.pingMs });
   }
   private nextSeq(): number { return this.mode === "server" ? ++this.actionSeq : 0; }
   private armInvSeq(): number { const seq = this.nextSeq(); if (seq > 0) this.gates.inv = { pendingSeq: seq, atMs: performance.now() }; return seq; }

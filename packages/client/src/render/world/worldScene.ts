@@ -25,6 +25,7 @@ import { WaterSurfaceEffect } from "../shaders/waterFilter.js";
 import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
+import { HubNpcOverlay } from "./npcs/hubNpcOverlay.js";
 import {
   buildSceneCameraRig, reportWorldSceneShaders, stepCameraFollow, syncWorldCameraContainers, updateWorldSceneShaders,
 } from "./sceneCamera.js";
@@ -60,6 +61,7 @@ export class WorldScene {
   private readonly pickups: WorldPickupsRenderer;
   private readonly vfx = new CombatVfxLayer();
   private readonly harvestFx = new HarvestFxLayer();
+  private readonly hubNpcs = new HubNpcOverlay();
   private readonly placementGhost: PlacementGhostLayer;
   private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
@@ -88,7 +90,7 @@ export class WorldScene {
     this.pickups = new WorldPickupsRenderer(host, (lootId) => this.interactHandler?.(lootId));
     this.placementGhost = new PlacementGhostLayer(host);
     this.configureGoreLayers(rig.layers.ysort);
-    rig.emissiveCam.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.placementGhost.container, this.gore.sparkLayer, this.hitboxDebug.container);
+    rig.emissiveCam.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.hubNpcs.container, this.placementGhost.container, this.gore.sparkLayer, this.hitboxDebug.container);
     const props = createPropTextureSet();
     this.pickups.setHdWoodChests({ closed: props.woodChestClosed, open: props.woodChestOpen });
     this.chunks = new ChunkRenderer(rig.layers, { terrain: createTerrainTileAtlas(), props });
@@ -180,6 +182,7 @@ export class WorldScene {
     const { input, local, simDt, lights, campfires, casters, preset } = opts;
     const entities = input.entities ?? [];
     this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, cache: input.cache, timeSec: input.timeSec });
+    this.hubNpcs.sync(input.cache, local);
     const cursorWorld = input.cursorClient ? this.screenToWorldTile(input.cursorClient.x, input.cursorClient.y) : undefined;
     this.placementGhost.sync({ heldItem: local?.heldItem, player: local, cache: input.cache, cursorWorld, visible: input.ghostEnabled !== false });
     const dayNight = sampleDayNight(input.dayPhase);

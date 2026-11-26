@@ -9,16 +9,27 @@ export function createEmptyChestSlots(): InventorySlot[] {
   return Array.from({ length: CHEST_SLOT_COUNT }, () => null);
 }
 
+function sameItemTraits(src: SlotItem, dst: SlotItem): boolean {
+  if (dst.prefixId !== src.prefixId) return false;
+  return (dst.upgradeLevel ?? 0) === (src.upgradeLevel ?? 0);
+}
+
+function canCrossMerge(src: SlotItem, dst: SlotItem, maxStack: number): boolean {
+  if (dst.itemId !== src.itemId || maxStack <= 1 || dst.count >= maxStack) return false;
+  return sameItemTraits(src, dst);
+}
+
 function tryCrossMerge(opts: {
   readonly srcList: InventorySlot[]; readonly dstList: InventorySlot[];
   readonly fromSlot: number; readonly toSlot: number;
   readonly src: SlotItem; readonly dst: SlotItem; readonly maxStack: number;
 }): boolean {
-  const samePrefix = (opts.dst.prefixId ?? undefined) === (opts.src.prefixId ?? undefined);
-  if (opts.dst.itemId !== opts.src.itemId || !samePrefix || opts.maxStack <= 1 || opts.dst.count >= opts.maxStack) return false;
+  if (!canCrossMerge(opts.src, opts.dst, opts.maxStack)) return false;
   const moved = Math.min(opts.src.count, opts.maxStack - opts.dst.count);
-  opts.dstList[opts.toSlot] = makeSlotItem(opts.dst.itemId, opts.dst.count + moved, opts.dst.prefixId);
-  opts.srcList[opts.fromSlot] = opts.src.count > moved ? makeSlotItem(opts.src.itemId, opts.src.count - moved, opts.src.prefixId) : null;
+  opts.dstList[opts.toSlot] = makeSlotItem(opts.dst.itemId, opts.dst.count + moved, { prefixId: opts.dst.prefixId, upgradeLevel: opts.dst.upgradeLevel });
+  opts.srcList[opts.fromSlot] = opts.src.count > moved
+    ? makeSlotItem(opts.src.itemId, opts.src.count - moved, { prefixId: opts.src.prefixId, upgradeLevel: opts.src.upgradeLevel })
+    : null;
   return true;
 }
 
@@ -61,7 +72,7 @@ export function quickTransferChestSlot(opts: {
   if (!src) return false;
   const moved = insertIntoSlots(dstList, src, opts.maxStackFor);
   if (moved <= 0) return false;
-  srcList[opts.slotIndex] = src.count > moved ? makeSlotItem(src.itemId, src.count - moved, src.prefixId) : null;
+  srcList[opts.slotIndex] = src.count > moved ? makeSlotItem(src.itemId, src.count - moved, { prefixId: src.prefixId, upgradeLevel: src.upgradeLevel }) : null;
   return true;
 }
 
@@ -75,7 +86,7 @@ export function takeAllFromChest(opts: {
     const moved = insertIntoSlots(opts.invSlots, item, opts.maxStackFor);
     if (moved <= 0) continue;
     totalMoved += moved;
-    opts.chestSlots[i] = item.count > moved ? makeSlotItem(item.itemId, item.count - moved, item.prefixId) : null;
+    opts.chestSlots[i] = item.count > moved ? makeSlotItem(item.itemId, item.count - moved, { prefixId: item.prefixId, upgradeLevel: item.upgradeLevel }) : null;
   }
   return totalMoved;
 }

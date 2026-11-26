@@ -18,6 +18,7 @@ export interface AdminConsoleApi {
   god(enabled?: boolean): boolean;
   heal(): void;
   give(itemId: string, count?: number): void;
+  giveGold(amount?: number): void;
   tp(x: number, y: number): void;
   clearWebs(): void;
   time(phaseOrPreset: number | "dawn" | "day" | "golden" | "dusk" | "night", paused?: boolean): void;
@@ -45,6 +46,7 @@ function logHelp(): void {
     "  admin.god(enabled?)          — Toggle unlimited health & stamina/sprint (or pass true/false)",
     "  admin.heal()                 — Full HP/stamina & clear poison, burn, bleed, web, cocoon",
     "  admin.give(itemId, count=1)  — Grant inventory item (e.g. 'torch', 'sword', 'bow', 'arrow')",
+    "  admin.giveGold(amount=200)   — Grant Gold currency for Merchant & Blacksmith testing",
     "  admin.tp(x, y)               — Teleport hero to world tile coordinates (x, y)",
     "  admin.clearWebs()            — Clear nearby spider webs and release cocoon",
     "  admin.time(phase|preset)     — Set time ('dawn'|'day'|'golden'|'dusk'|'night' or 0..1)",
@@ -90,6 +92,13 @@ function runGive(client: WorldClient, itemId: string, count = 1): void {
   console.info(`${LOG_PREFIX} Granted ${n}x ${itemId}.`);
 }
 
+function runGiveGold(client: WorldClient, amount = 200): void {
+  if (!client.isOfflineOnly() && (!requireServerMode(client, "giving Gold") || !requireAuthorized(client, "giving Gold"))) return;
+  const n = Math.max(1, Math.min(100_000, Math.round(amount)));
+  client.sendAdmin({ action: "giveGold", count: n });
+  console.info(`${LOG_PREFIX} Granted ${n} Gold.`);
+}
+
 function runTime(client: WorldClient, phaseOrPreset: number | string, paused = true): void {
   if (!requireAuthorized(client, "changing time")) return;
   const phase = typeof phaseOrPreset === "string" ? (TIME_PRESETS[phaseOrPreset] ?? 0.46) : phaseOrPreset;
@@ -127,6 +136,7 @@ export function installAdminConsole(client: WorldClient, opts?: { readonly silen
     god: (enabled) => runGod(client, enabled),
     heal: () => { if (requireAuthorized(client, "healing")) { client.sendAdmin({ action: "heal" }); console.info(`${LOG_PREFIX} Hero healed and cleared of debuffs.`); } },
     give: (itemId, count) => runGive(client, itemId, count),
+    giveGold: (amount) => runGiveGold(client, amount),
     tp: (x, y) => runTeleport(client, { x, y }),
     clearWebs: () => { if (requireAuthorized(client, "clearing webs")) { client.sendAdmin({ action: "clearWebs" }); console.info(`${LOG_PREFIX} Cleared nearby webs & cocoon.`); } },
     time: (phase, paused) => runTime(client, phase, paused),

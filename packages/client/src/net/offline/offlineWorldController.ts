@@ -5,7 +5,9 @@ import {
   type InventorySnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { createStarterInventorySnapshot } from "../clientInventory.js";
+import type { ClientHubState } from "../hubClientBridge.js";
 import { OfflineWorldSaver, clearOfflineWorldState, loadOfflineWorldState } from "../offlinePersistence.js";
+import { stepOfflineFog } from "./offlineHubs.js";
 import {
   applyOfflineConsumableUse, bindOfflineBed, buildOfflineWorldSnapshot, createOfflineRuntime,
   dismantleOfflineStructure, hydrateOfflineWorld, isNearOfflinePropKind, placeOfflineStructure,
@@ -19,6 +21,7 @@ export interface OfflineStateSlice {
   inventory: InventorySnapshot;
   chests: readonly WorldChestSnapshot[];
   events: WorldEvent[];
+  hub?: ClientHubState | undefined;
 }
 
 export class OfflineWorldController {
@@ -28,19 +31,20 @@ export class OfflineWorldController {
   loadSaved(slice: OfflineStateSlice): { readonly player: PlayerSnapshot; readonly chests: readonly WorldChestSnapshot[]; readonly inventory: InventorySnapshot; readonly dayPhase: number } | null {
     const saved = loadOfflineWorldState(slice.cache.worldSeed);
     if (!saved) return null;
-    const h = hydrateOfflineWorld({ saved, cache: slice.cache, runtime: this.runtime, player: slice.player });
+    const h = hydrateOfflineWorld({ saved, cache: slice.cache, runtime: this.runtime, player: slice.player, hub: slice.hub });
     return { ...h, dayPhase: saved.dayPhase };
   }
 
   flushNow(slice: OfflineStateSlice): void {
     this.saver.flushNow(() => buildOfflineWorldSnapshot({
       cache: slice.cache, dayPhase: slice.dayPhase, runtime: this.runtime,
-      chests: slice.chests, player: slice.player, inventory: slice.inventory,
+      chests: slice.chests, player: slice.player, inventory: slice.inventory, hub: slice.hub,
     }));
   }
 
   step(slice: OfflineStateSlice, dt: number): { readonly player: PlayerSnapshot; readonly inventory: InventorySnapshot } {
     const player = stepOfflineSurvival(slice.cache, slice.player, dt);
+    if (slice.hub) stepOfflineFog({ hub: slice.hub, player, dayPhase: slice.dayPhase });
     const nearCampfire = isNearOfflinePropKind(slice.cache, player, PropKind.Campfire);
     const nearWorkbench = isNearOfflinePropKind(slice.cache, player, PropKind.Workbench);
     const inventory = nearCampfire !== slice.inventory.nearCampfire || nearWorkbench !== slice.inventory.nearWorkbench
@@ -49,7 +53,7 @@ export class OfflineWorldController {
     this.saver.markDirty();
     this.saver.maybeFlush(Date.now(), () => buildOfflineWorldSnapshot({
       cache: slice.cache, dayPhase: slice.dayPhase, runtime: this.runtime,
-      chests: slice.chests, player, inventory,
+      chests: slice.chests, player, inventory, hub: slice.hub,
     }));
     return { player, inventory };
   }

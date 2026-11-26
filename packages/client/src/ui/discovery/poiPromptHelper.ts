@@ -6,7 +6,9 @@ import {
   type WorldChestSnapshot, type WorldChunkCache,
 } from "@dc2d/engine";
 
-export type WorldPromptKind = "chest" | "loot" | "workbench" | "campfire" | "bed" | "forage" | "poi";
+export type WorldPromptKind =
+  | "chest" | "loot" | "workbench" | "campfire" | "bed" | "forage" | "poi"
+  | "merchant" | "blacksmith" | "bounty-board" | "guide" | "stash";
 
 export interface WorldPromptResult {
   readonly label: string;
@@ -58,11 +60,20 @@ function lootPromptLabel(loot: GroundLootSnapshot | undefined, local: PlayerSnap
   return { label: `[E] Pick up ${getItemDef(loot.itemId)?.name ?? loot.itemId}`, locked: false, kind: "loot" };
 }
 
+const STATION_PROMPT: Readonly<Partial<Record<PropKind, { readonly label: string; readonly kind: WorldPromptKind }>>> = {
+  [PropKind.Workbench]: { label: "[E] Craft (Workbench)", kind: "workbench" },
+  [PropKind.Campfire]: { label: "[E] Cook & Smelt", kind: "campfire" },
+  [PropKind.Bed]: { label: "[E] Set Respawn Bed", kind: "bed" },
+  [PropKind.NpcMerchant]: { label: "[E] Trade with Merchant", kind: "merchant" },
+  [PropKind.NpcBlacksmith]: { label: "[E] Blacksmith (Forge)", kind: "blacksmith" },
+  [PropKind.BountyBoard]: { label: "[E] Check Bounty Board", kind: "bounty-board" },
+  [PropKind.NpcGuide]: { label: "[E] Speak to Guide", kind: "guide" },
+  [PropKind.StashChest]: { label: "[E] Open Personal Stash", kind: "stash" },
+};
+
 function stationPromptForProp(prop: ChunkProp): WorldPromptResult | null {
-  if (prop.kind === PropKind.Workbench) return { label: "[E] Craft (Workbench)", locked: false, kind: "workbench", prop };
-  if (prop.kind === PropKind.Campfire) return { label: "[E] Cook & Smelt", locked: false, kind: "campfire", prop };
-  if (prop.kind === PropKind.Bed) return { label: "[E] Set Respawn Bed", locked: false, kind: "bed", prop };
-  return null;
+  const entry = STATION_PROMPT[prop.kind];
+  return entry ? { label: entry.label, locked: false, kind: entry.kind, prop } : null;
 }
 
 function candidatePromptForProp(prop: ChunkProp, dist: number, touch: boolean): WorldPromptResult | null {

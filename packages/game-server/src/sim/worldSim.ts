@@ -1,11 +1,14 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  DAY_DURATION_SECONDS, HOTBAR_SLOT_COUNT, sanitizeCharacterAppearance, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type DiscoveryStateSnapshot, type DropItemRequest, type InventorySnapshot,
-  type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot, type GroundLootSnapshot,
+  DAY_DURATION_SECONDS, HOTBAR_SLOT_COUNT, exportAllFogDeltas, sanitizeCharacterAppearance, wrapDayPhase,
+  type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot,
+  type DropItemRequest, type FogChunkDelta, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
+  type ProjectileSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldDeltaSnapshot,
+  type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { ProximityChatManager } from "./chat/proximityChat.js";
 import type { CombatWorld } from "./combatSim.js";
+import { WorldHubCoordinator, attachHubCombatHooks } from "./hubs/hubCoordinator.js";
 import {
   applyLoadoutEntries, buildInventorySnapshot, craftPlayerRecipe, equipPlayerArmor,
   isPlayerNearCampfire, isPlayerNearWorkbench, movePlayerInventorySlot, unequipPlayerArmor,
@@ -13,6 +16,7 @@ import {
 import { normalizeOwnerKey } from "./survival/campStructures.js";
 import type { PersistedPlayerRecord, PersistedWorldFile } from "./survival/persistenceStore.js";
 import { SqliteWorldStore } from "./persistence/sqliteWorldStore.js";
+import { updatePlayerFogOfWar } from "./survival/playerStepHelper.js";
 import { applyPlayerAimInput, buildPlayerSnapshotRecord } from "./survival/playerSurvivalState.js";
 import {
   buildFullWorldSaveSnapshot, createInitialSimPlayer, hydratePlayerProfileIfFound, loadWorldPersistence,
@@ -28,6 +32,7 @@ export { TICK_RATE };
 
 export class WorldSim {
   readonly zones: ZoneManager;
+  readonly hubs: WorldHubCoordinator;
   readonly chat = new ProximityChatManager();
   private readonly activeByAccountId = new Map<string, string>();
   private readonly commandQueue: (() => void)[] = [];
@@ -47,11 +52,10 @@ export class WorldSim {
   constructor(readonly worldSeed = 1337, options?: { readonly persistencePath?: string | undefined; readonly maxClients?: number | undefined }) {
     const maxCachedChunks = Math.max(512, (options?.maxClients ?? 32) * 16);
     this.zones = new ZoneManager({ worldSeed, maxCachedChunks });
+    this.hubs = new WorldHubCoordinator(worldSeed);
     this.persistence = new SqliteWorldStore(options?.persistencePath);
-    this.savedProfiles = loadWorldPersistence({
-      store: this.persistence, worldSeed,
-      onHydrate: (file) => this.hydrateWorldFile(file),
-    });
+    this.savedProfiles = loadWorldPersistence({ store: this.persistence, worldSeed, onHydrate: (file) => this.hydrateWorldFile(file) });
+    attachHubCombatHooks({ combat: this.combat, hubs: this.hubs, playerForId: (id) => this.players.get(id) });
   }
 
   private hydrateWorldFile(file: PersistedWorldFile): void {
@@ -73,6 +77,7 @@ export class WorldSim {
       host: { savedProfiles: this.savedProfiles, store: this.persistence },
       player: p,
       discovery: this.combat.discovery.snapshotFor(p.id),
+      hubExtras: this.hubs.exportAccountExtras(p.accountId),
       evictIfPersisted,
     });
   }
@@ -91,7 +96,9 @@ export class WorldSim {
       host: { savedProfiles: this.savedProfiles, store: this.persistence },
       player,
       onHydrateDiscovery: (id, d) => this.combat.discovery.hydratePlayer(id, d),
+      onHydrateHubs: (acct, saved) => this.hubs.hydrateAccount(acct, saved),
     });
+    updatePlayerFogOfWar(player, this.dayPhase);
     if (persistNew && !this.savedProfiles.has(accountId)) this.persistPlayer(player);
   }
 
@@ -210,49 +217,39 @@ export class WorldSim {
   debugSpawnNearPlayer(playerId: string, kind: Parameters<CombatWorld["debugSpawnNearPlayer"]>[1], count = 1): void { const p = this.players.get(playerId); if (p) this.combat.debugSpawnNearPlayer(p, kind, count); }
   handleAdminAction(playerId: string, req: Parameters<CombatWorld["handleAdminAction"]>[1]): void { const p = this.players.get(playerId); if (p && this.combat.handleAdminAction(p, req)) this.persistPlayer(p); }
   handleChestAction(playerId: string, req: Parameters<CombatWorld["handleChestRequest"]>[1]): void { const p = this.players.get(playerId); if (p) { this.combat.handleChestRequest(p, req); this.persistPlayer(p); } }
+  handleHubMessage(playerId: string, msg: ClientMessage): boolean {
+    const p = this.players.get(playerId);
+    if (!p) return false;
+    const ev: WorldEvent[] = [];
+    const mut = this.hubs.handleMessage({ msg, player: p, cache: this.cache, events: ev });
+    for (const e of ev) this.combat.pushEvent(e);
+    if (mut) this.persistPlayer(p);
+    return mut;
+  }
+  drainFogDeltas(playerId: string): FogChunkDelta[] { const p = this.players.get(playerId); return p ? p.pendingFogDeltas.splice(0) : []; }
+  fullFogDeltas(playerId: string): FogChunkDelta[] { const p = this.players.get(playerId); if (!p) return []; p.pendingFogDeltas.splice(0); return exportAllFogDeltas(p.fog); }
   pickupLoot(playerId: string, lootId?: string): void { const p = this.players.get(playerId); if (p && this.combat.pickupLoot(p, lootId)) this.persistPlayer(p); }
   dropItem(playerId: string, req: DropItemRequest): void { const p = this.players.get(playerId); if (p && this.combat.dropPlayerItem(p, req)) this.persistPlayer(p); }
   inventorySnapshot(playerId: string): InventorySnapshot | undefined {
     const p = this.players.get(playerId);
-    return p ? buildInventorySnapshot({
-      state: p.inventory, selectedHotbar: p.selectedHotbar,
-      nearCampfire: isPlayerNearCampfire(this.cache, p),
-      nearWorkbench: isPlayerNearWorkbench(this.cache, p),
-      ackSeq: p.lastActionAckSeq,
-    }) : undefined;
+    return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, gold: p.gold, nearCampfire: isPlayerNearCampfire(this.cache, p), nearWorkbench: isPlayerNearWorkbench(this.cache, p), ackSeq: p.lastActionAckSeq }) : undefined;
   }
-
-  enqueueCommand(cmd: () => void): void {
-    if (this.commandQueue.length < MAX_QUEUED_COMMANDS) this.commandQueue.push(cmd);
-  }
-
-  drainCommands(): void {
-    if (this.commandQueue.length === 0) return;
-    const batch = this.commandQueue.splice(0);
-    for (const cmd of batch) cmd();
-  }
-
+  enqueueCommand(cmd: () => void): void { if (this.commandQueue.length < MAX_QUEUED_COMMANDS) this.commandQueue.push(cmd); }
+  drainCommands(): void { if (this.commandQueue.length === 0) return; for (const cmd of this.commandQueue.splice(0)) cmd(); }
   step(dtSeconds = 1 / TICK_RATE): void {
-    this.drainCommands();
-    this.tick += 1; this.worldClockSec += dtSeconds;
+    this.drainCommands(); this.tick += 1; this.worldClockSec += dtSeconds;
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
     this.chat.step(dtSeconds);
     if (this.zones.stepActiveZones({ dtSeconds, dayPhase: this.dayPhase, worldClockSec: this.worldClockSec })) this.persistence.markDirty();
     if (this.cache.deltaRevision() !== this.lastSavedDeltaRev) { this.lastSavedDeltaRev = this.cache.deltaRevision(); this.persistence.markDirty(); }
     this.persistence.maybeFlush(Date.now(), () => this.buildSaveSnapshot());
   }
-
   combatSnapshots(redactUnopened = false): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(redactUnopened); }
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => {
       const bed = this.combat.structures.respawnPointFor(p.accountId);
-      return buildPlayerSnapshotRecord(p, {
-        hasBedRespawn: bed !== null,
-        ...(bed ? { respawnBedPos: { x: bed.x, y: bed.y } } : {}),
-        bubble: this.chat.activeBubbleFor(p.id),
-        cache: this.cache,
-      });
+      return buildPlayerSnapshotRecord(p, { hasBedRespawn: bed !== null, ...(bed ? { respawnBedPos: { x: bed.x, y: bed.y } } : {}), bubble: this.chat.activeBubbleFor(p.id), cache: this.cache, gold: p.gold });
     });
   }
 }

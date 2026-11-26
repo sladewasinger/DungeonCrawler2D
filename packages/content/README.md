@@ -5,7 +5,8 @@ Tier-2 pure declarative game catalogs and visual palettes (depends only on `@dc2
 ## Architecture & Directories
 | Directory | Covers |
 | --- | --- |
-| [`src/items/`](./src/items/README.md) | `76` item definitions, `5` rarity tiers, `18` prefixes, stat resolver, and seeded biome/POI loot tables |
+| [`src/items/`](./src/items/README.md) | `76` item definitions, `5` rarity tiers, `18` prefixes, stat resolver, pricing/upgrades, and loot tables |
+| [`src/hubs/`](./src/hubs/README.md) | Merchant stock (`MERCHANT_STOCK`), Floor Guide side-quests (`FLOOR_GUIDE_QUESTS`), and rotating 3-Bounty templates |
 | [`src/props/`](./src/props/README.md) | Compile-time-exhaustive `PROP_SPECS` capability registry (`satisfies Record<PropKind, PropSpec>`) |
 | `src/biomes/` | Overworld biome metadata (`BIOME_CATALOG`: names, danger tiers, wildlife rosters, particle themes) |
 | `src/recipes/` | Hand, campfire, and smelting/crafting recipes (`RECIPE_CATALOG`) |

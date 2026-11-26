@@ -78,8 +78,8 @@ describe("3-phase melee timeline, dodge-cancel, input buffer, and heavy charge",
 
   it("holds heavy melee charge past 0.24s, emits heavyCharge, deals 1.65x dmg, and guard-breaks blocking shields", () => {
     const cw = new CombatWorld(new FlatCache(1337));
-    const p = makeFighter({ id: "p1", x: 10.2, y: 0.5 });
-    const defender = makeFighter({ id: "p2", x: 11.4, y: 0.5 });
+    const p = makeFighter({ id: "p1", x: 18.2, y: 0.5 });
+    const defender = makeFighter({ id: "p2", x: 19.4, y: 0.5 });
     defender.aimX = -1; defender.facingX = -1; defender.combat.blocking = true;
     const map = new Map([[p.id, p], [defender.id, defender]]);
 
@@ -102,8 +102,8 @@ describe("3-phase melee timeline, dodge-cancel, input buffer, and heavy charge",
 
     const runUnblocked = (heavy: boolean) => {
       const cw2 = new CombatWorld(new FlatCache(1337));
-      const a2 = makeFighter({ id: "a2", x: 10.2, y: 0.5 });
-      const t2 = makeFighter({ id: "t2", x: 11.4, y: 0.5 });
+      const a2 = makeFighter({ id: "a2", x: 18.2, y: 0.5 });
+      const t2 = makeFighter({ id: "t2", x: 19.4, y: 0.5 });
       const m2 = new Map([[a2.id, a2], [t2.id, t2]]);
       stepCombat({ cw: cw2, p: a2, map: m2, steps: 8, attack: true, attackHold: heavy });
       const midStam = a2.combat.stamina;

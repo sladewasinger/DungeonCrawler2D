@@ -28,3 +28,8 @@ Concise, durable technical gotchas discovered in this repository. Keep architect
 - **Use shared category predicates (`isBowItem`, `isShieldItem`) instead of starter item IDs**: Hardcoding `"bow"` or `"wooden-shield"` breaks higher-tier frontier weapons and shields across input, prediction, combat, and visuals.
 - **Never swallow server `interactQueued` when client `onInteract` also handles local UI**: Client-side interact hooks must return whether a modal/pickup consumed `[E]` and forward unhandled `[E]` presses to the server simulation for Shrines, Waystones, Braziers, Lore Signs, and Beds.
 - **Cache Overworld Map POI scans & throttle redraws**: Scanning multi-chunk POI lists and blitting canvas terrain every `120Hz` frame tanks frame rate; memoize POI windows and redraw on tile change or throttled intervals.
+
+## Tooling & CI Workflows
+
+- **Pass `gh pr create` / `gh pr edit` descriptions via `--body-file` on Windows PowerShell**: Double-quoted `--body "..."` strings interpret PowerShell backtick escapes (e.g., `` `v `` becomes `\u000B` vertical tab in PR descriptions) and mangle markdown backticks; write UTF-8 markdown to a file and pass `--body-file`.
+- **Back-merge `main` into `develop` after squash releases and verify `mergeable`**: After any squash-merged PR into `main`, `git merge-base origin/main origin/develop` lags behind `main` and triggers 3-way conflicts on the next PR touching shared files; sync `develop` with `origin/main` (or branch `hotfix/*` off `origin/main`) and check `gh pr view <num> --json mergeable,mergeStateStatus` immediately after creating a PR.

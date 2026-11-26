@@ -11,7 +11,10 @@ export interface SlotItem {
   readonly itemId: string;
   readonly count: number;
   readonly prefixId?: string | undefined;
+  readonly upgradeLevel?: number | undefined;
 }
+
+export type ArmorUpgradeMap = Partial<Record<ArmorSlotKey, number | undefined>>;
 
 export type InventorySlot = SlotItem | null;
 
@@ -35,12 +38,20 @@ export interface PlayerInventoryState {
   readonly slots: InventorySlot[];
   readonly armor: ArmorEquipment;
   readonly armorPrefixes?: ArmorPrefixMap | undefined;
+  readonly armorUpgrades?: ArmorUpgradeMap | undefined;
 }
 
 export type StackLimitLookup = (itemId: string) => number;
 
-export function makeSlotItem(itemId: string, count: number, prefixId?: string | undefined): SlotItem {
-  return prefixId ? { itemId, count, prefixId } : { itemId, count };
+export function makeSlotItem(
+  itemId: string,
+  count: number,
+  meta?: string | { readonly prefixId?: string | undefined; readonly upgradeLevel?: number | undefined } | undefined,
+): SlotItem {
+  const prefixId = typeof meta === "string" ? meta : meta?.prefixId;
+  const upgradeLevel = typeof meta === "object" ? meta.upgradeLevel : undefined;
+  const base: SlotItem = prefixId ? { itemId, count, prefixId } : { itemId, count };
+  return upgradeLevel && upgradeLevel > 0 ? { ...base, upgradeLevel } : base;
 }
 
 export function createEmptyInventoryState(): PlayerInventoryState {
@@ -50,14 +61,22 @@ export function createEmptyInventoryState(): PlayerInventoryState {
   };
 }
 
-function sameItemIdentity(a: SlotItem, itemId: string, prefixId?: string | undefined): boolean {
-  return a.itemId === itemId && (a.prefixId ?? undefined) === (prefixId ?? undefined);
+function sameItemIdentity(
+  a: SlotItem,
+  target: { readonly itemId: string; readonly prefixId?: string | undefined; readonly upgradeLevel?: number | undefined },
+): boolean {
+  return (
+    a.itemId === target.itemId
+    && (a.prefixId ?? undefined) === (target.prefixId ?? undefined)
+    && (a.upgradeLevel ?? 0) === (target.upgradeLevel ?? 0)
+  );
 }
 
 function fillExistingStacks(input: {
   readonly slots: InventorySlot[];
   readonly itemId: string;
   readonly prefixId?: string | undefined;
+  readonly upgradeLevel?: number | undefined;
   readonly maxStack: number;
   readonly remaining: number;
 }): number {
@@ -65,9 +84,9 @@ function fillExistingStacks(input: {
   if (input.maxStack <= 1) return rem;
   for (let i = 0; i < input.slots.length && rem > 0; i++) {
     const slot = input.slots[i];
-    if (!slot || !sameItemIdentity(slot, input.itemId, input.prefixId) || slot.count >= input.maxStack) continue;
+    if (!slot || !sameItemIdentity(slot, input) || slot.count >= input.maxStack) continue;
     const add = Math.min(rem, input.maxStack - slot.count);
-    input.slots[i] = makeSlotItem(input.itemId, slot.count + add, input.prefixId);
+    input.slots[i] = makeSlotItem(input.itemId, slot.count + add, { prefixId: input.prefixId, upgradeLevel: input.upgradeLevel });
     rem -= add;
   }
   return rem;
@@ -77,6 +96,7 @@ function fillEmptySlots(input: {
   readonly slots: InventorySlot[];
   readonly itemId: string;
   readonly prefixId?: string | undefined;
+  readonly upgradeLevel?: number | undefined;
   readonly maxStack: number;
   readonly remaining: number;
 }): number {
@@ -84,7 +104,7 @@ function fillEmptySlots(input: {
   for (let i = 0; i < input.slots.length && rem > 0; i++) {
     if (input.slots[i] !== null) continue;
     const add = Math.min(rem, input.maxStack);
-    input.slots[i] = makeSlotItem(input.itemId, add, input.prefixId);
+    input.slots[i] = makeSlotItem(input.itemId, add, { prefixId: input.prefixId, upgradeLevel: input.upgradeLevel });
     rem -= add;
   }
   return rem;
@@ -93,26 +113,25 @@ function fillEmptySlots(input: {
 /** Inserts item quantity across slots; maxStack=1 items always take 1 slot each. */
 export function insertIntoSlots(
   slots: InventorySlot[],
-  item: { readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined },
+  item: { readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined; readonly upgradeLevel?: number | undefined },
   maxStackFor: StackLimitLookup,
 ): number {
   const maxStack = Math.max(1, maxStackFor(item.itemId));
   let remaining = Math.max(0, Math.floor(item.count));
-  remaining = fillExistingStacks({ slots, itemId: item.itemId, prefixId: item.prefixId, maxStack, remaining });
-  remaining = fillEmptySlots({ slots, itemId: item.itemId, prefixId: item.prefixId, maxStack, remaining });
+  remaining = fillExistingStacks({ slots, itemId: item.itemId, prefixId: item.prefixId, upgradeLevel: item.upgradeLevel, maxStack, remaining });
+  remaining = fillEmptySlots({ slots, itemId: item.itemId, prefixId: item.prefixId, upgradeLevel: item.upgradeLevel, maxStack, remaining });
   return item.count - remaining;
 }
 
 /** Returns true if at least one unit of `itemId` can fit into `slots`. */
 export function canInsertSlotItem(
   slots: readonly InventorySlot[],
-  itemId: string | { readonly itemId: string; readonly prefixId?: string | undefined },
+  itemId: string | { readonly itemId: string; readonly prefixId?: string | undefined; readonly upgradeLevel?: number | undefined },
   maxStackFor: StackLimitLookup,
 ): boolean {
-  const id = typeof itemId === "string" ? itemId : itemId.itemId;
-  const prefixId = typeof itemId === "string" ? undefined : itemId.prefixId;
-  const maxStack = Math.max(1, maxStackFor(id));
-  return slots.some((slot) => slot === null || (maxStack > 1 && sameItemIdentity(slot, id, prefixId) && slot.count < maxStack));
+  const target = typeof itemId === "string" ? { itemId } : itemId;
+  const maxStack = Math.max(1, maxStackFor(target.itemId));
+  return slots.some((slot) => slot === null || (maxStack > 1 && sameItemIdentity(slot, target) && slot.count < maxStack));
 }
 
 /** Removes up to `count` (or whole stack if omitted) from `slotIndex` and returns what was removed. */
@@ -121,8 +140,8 @@ export function removeFromSlot(slots: InventorySlot[], slotIndex: number, count?
   const cur = slots[slotIndex];
   if (!cur) return null;
   const take = count === undefined ? cur.count : Math.min(cur.count, Math.max(1, Math.floor(count)));
-  slots[slotIndex] = cur.count > take ? makeSlotItem(cur.itemId, cur.count - take, cur.prefixId) : null;
-  return makeSlotItem(cur.itemId, take, cur.prefixId);
+  slots[slotIndex] = cur.count > take ? makeSlotItem(cur.itemId, cur.count - take, { prefixId: cur.prefixId, upgradeLevel: cur.upgradeLevel }) : null;
+  return makeSlotItem(cur.itemId, take, { prefixId: cur.prefixId, upgradeLevel: cur.upgradeLevel });
 }
 
 function isValidSlotIndex(index: number, length: number): boolean {
@@ -137,10 +156,10 @@ function tryMergeStack(input: {
   readonly maxStack: number;
 }): boolean {
   const { slots, move, src, dst, maxStack } = input;
-  if (!sameItemIdentity(dst, src.itemId, src.prefixId) || maxStack <= 1 || dst.count >= maxStack) return false;
+  if (!sameItemIdentity(dst, src) || maxStack <= 1 || dst.count >= maxStack) return false;
   const moved = Math.min(src.count, maxStack - dst.count);
-  slots[move.to] = makeSlotItem(dst.itemId, dst.count + moved, dst.prefixId);
-  slots[move.from] = src.count > moved ? makeSlotItem(src.itemId, src.count - moved, src.prefixId) : null;
+  slots[move.to] = makeSlotItem(dst.itemId, dst.count + moved, { prefixId: dst.prefixId, upgradeLevel: dst.upgradeLevel });
+  slots[move.from] = src.count > moved ? makeSlotItem(src.itemId, src.count - moved, { prefixId: src.prefixId, upgradeLevel: src.upgradeLevel }) : null;
   return true;
 }
 
@@ -181,7 +200,7 @@ export function consumeItemFromSlots(slots: InventorySlot[], itemId: string, cou
     const slot = slots[i];
     if (slot?.itemId !== itemId) continue;
     const take = Math.min(remaining, slot.count);
-    slots[i] = slot.count > take ? makeSlotItem(itemId, slot.count - take, slot.prefixId) : null;
+    slots[i] = slot.count > take ? makeSlotItem(itemId, slot.count - take, { prefixId: slot.prefixId, upgradeLevel: slot.upgradeLevel }) : null;
     remaining -= take;
   }
   return true;

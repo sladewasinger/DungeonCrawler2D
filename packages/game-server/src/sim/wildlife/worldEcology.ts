@@ -23,15 +23,13 @@ import { rallyWolfPack } from "./wolfPackAi.js";
 
 const KIND_SLIME: WildlifeKind = "slime";
 
+type CreatureKillCb = (opts: { readonly killerId?: string | undefined; readonly kind: WildlifeKind; readonly dangerTier: DangerTier; readonly isElite: boolean; readonly x: number; readonly y: number }) => void;
+
 export class WorldEcology {
-  readonly list: WildlifeEntity[] = [];
-  readonly entityGrid = new SpatialHashGrid<WildlifeEntity>(16);
-  readonly loot: LootManager;
-  private readonly spawnedChunks = new Set<string>();
-  private readonly scent = new ScentTrail();
-  private activePlayers: readonly CombatPlayerCandidate[] = [];
-  private nextId = 1;
-  private stepCount = 0;
+  readonly list: WildlifeEntity[] = []; readonly entityGrid = new SpatialHashGrid<WildlifeEntity>(16); readonly loot: LootManager;
+  onCreatureKilled?: CreatureKillCb | undefined;
+  private readonly spawnedChunks = new Set<string>(); private readonly scent = new ScentTrail();
+  private activePlayers: readonly CombatPlayerCandidate[] = []; private nextId = 1; private stepCount = 0;
 
   constructor(private readonly cache: WorldChunkCache) { this.loot = new LootManager(cache); }
   removePlayer(playerId: string): void { this.scent.removePlayer(playerId); }
@@ -129,7 +127,7 @@ export class WorldEcology {
     if (e.corpse || e.hp <= 0) return false;
     const { fatal } = applyDamageToCreature({ ...opts, list: this.list, players: opts.players ?? this.activePlayers });
     this.propagateHitAlerts(e, fatal && Boolean(opts.silentKill), opts.events);
-    if (fatal) this.finalizeDeath(e);
+    if (fatal) this.finalizeDeath(e, opts.actorId);
     return true;
   }
 
@@ -159,11 +157,12 @@ export class WorldEcology {
     }
   }
 
-  private finalizeDeath(e: WildlifeEntity): void {
+  private finalizeDeath(e: WildlifeEntity, killerId?: string): void {
     e.corpse = true; e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
     e.targetPlayerId = null; e.targetKind = null; e.suspicion = 0;
     e.corpseTimer = e.kind === KIND_SLIME ? 0.35 : AI_TUNING.corpseDurationSec;
     spawnScaledEnemyDrops({ e, cache: this.cache, loot: this.loot });
+    this.onCreatureKilled?.({ killerId, kind: e.kind, dangerTier: e.dangerTier, isElite: e.isElite, x: e.x, y: e.y });
     if (e.embeddedArrows > 0) {
       this.loot.spawnLoot({ itemId: "arrow", count: e.embeddedArrows, x: e.x, y: e.y, vx: 0.7, vy: -0.7, manualPickup: true, angle: 0.35 });
       e.embeddedArrows = 0;

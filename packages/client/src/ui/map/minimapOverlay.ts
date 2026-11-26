@@ -1,7 +1,9 @@
 /** Centered parchment Overworld Map (toggled with [M] or hotbar [M] button) showing terrain, POIs, and players. */
 import {
-  PropKind, type DiscoveryStateSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
+  PropKind, isFogTileRevealed,
+  type DiscoveryStateSnapshot, type FogState, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
 } from "@dc2d/engine";
+import { FogMapOverlay, drawSanctuaryAndStairHints } from "./fogOverlay.js";
 import { drawMapPins, formatMapFooterSummary } from "./mapPinRenderer.js";
 import { MinimapTileCache } from "./minimapTileCache.js";
 
@@ -41,6 +43,7 @@ export class MinimapOverlay {
   readonly el: HTMLDivElement;
   private readonly canvas: HTMLCanvasElement;
   private readonly terrainBuf: HTMLCanvasElement;
+  private readonly fogOverlay = new FogMapOverlay(MAP_PX);
   private readonly tileCache = new MinimapTileCache();
   private readonly zoomBtn: HTMLButtonElement;
   private readonly coordsEl: HTMLSpanElement;
@@ -100,24 +103,45 @@ export class MinimapOverlay {
     readonly visible: boolean; readonly cache: WorldChunkCache; readonly local: PlayerSnapshot | undefined;
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
     readonly chests: readonly WorldChestSnapshot[]; readonly discovery?: DiscoveryStateSnapshot | undefined;
+    readonly fog?: FogState | undefined; readonly fogVersion?: number | undefined;
   }): void {
     const wasHidden = this.el.hidden;
-    this.el.hidden = !opts.visible || !opts.local;
-    if (this.el.hidden || !opts.local) { this.lastDrawMs = 0; return; }
+    const show = opts.visible && Boolean(opts.local);
+    this.el.hidden = !show;
+    if (!show || !opts.local) { this.lastDrawMs = 0; return; }
     const { local } = opts;
     const nowMs = performance.now();
     const tx0 = Math.floor(local.x); const ty0 = Math.floor(local.y);
-    const cacheKey = `${opts.cache.worldSeed}:${tx0}:${ty0}:${this.zoom}`;
-    if (!wasHidden && cacheKey === this.terrainCacheKey && nowMs - this.lastDrawMs < 95) return;
+    if (!wasHidden && this.skipFrame(opts, { tx0, ty0, nowMs })) return;
     this.lastDrawMs = nowMs;
     const summary = formatMapFooterSummary({ worldSeed: opts.cache.worldSeed, x: local.x, y: local.y, discovery: opts.discovery });
     this.coordsEl.textContent = `${summary} · (${tx0}, ${ty0})`;
     this.refreshTerrainLayer(opts.cache, tx0, ty0);
     const ctx = this.canvas.getContext("2d");
-    if (!ctx) return;
+    if (ctx) this.renderMapLayers(ctx, { ...opts, local, tx0, ty0, nowMs });
+  }
+
+  private skipFrame(
+    opts: { readonly cache: WorldChunkCache; readonly fogVersion?: number | undefined },
+    v: { readonly tx0: number; readonly ty0: number; readonly nowMs: number },
+  ): boolean {
+    const cacheKey = `${opts.cache.worldSeed}:${v.tx0}:${v.ty0}:${this.zoom}:${opts.fogVersion ?? 0}`;
+    return cacheKey === this.terrainCacheKey && v.nowMs - this.lastDrawMs < 95;
+  }
+
+  private renderMapLayers(ctx: CanvasRenderingContext2D, opts: {
+    readonly cache: WorldChunkCache; readonly local: PlayerSnapshot; readonly players: readonly PlayerSnapshot[];
+    readonly entities: readonly WorldEntitySnapshot[]; readonly chests: readonly WorldChestSnapshot[];
+    readonly discovery?: DiscoveryStateSnapshot | undefined; readonly fog?: FogState | undefined;
+    readonly fogVersion?: number | undefined; readonly tx0: number; readonly ty0: number; readonly nowMs: number;
+  }): void {
+    const { local } = opts;
     ctx.drawImage(this.terrainBuf, 0, 0);
-    drawMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs });
-    this.drawMarkers(ctx, { ...opts, local });
+    this.drawWorldLayer(ctx, opts);
+    if (opts.fog) this.fogOverlay.draw(ctx, { fog: opts.fog, fogVersion: opts.fogVersion ?? 0, worldSeed: opts.cache.worldSeed, tx0: opts.tx0, ty0: opts.ty0, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX });
+    drawSanctuaryAndStairHints({ ctx, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX });
+    drawMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs: opts.nowMs });
+    drawHomeBedPin(ctx, { cx: MAP_PX * 0.5, cy: MAP_PX * 0.5, zoom: this.zoom, local });
     drawPlayerArrow(ctx, local.facingX, local.facingY);
   }
 
@@ -130,17 +154,16 @@ export class MinimapOverlay {
     this.tileCache.paintViewport({ ctx, cache, tx0, ty0, zoom: this.zoom, mapPx: MAP_PX });
   }
 
-  private drawMarkers(ctx: CanvasRenderingContext2D, opts: {
+  private drawWorldLayer(ctx: CanvasRenderingContext2D, opts: {
     readonly cache: WorldChunkCache; readonly local: PlayerSnapshot;
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
-    readonly chests: readonly WorldChestSnapshot[];
+    readonly chests: readonly WorldChestSnapshot[]; readonly fog?: FogState | undefined;
   }): void {
     const view = { cx: MAP_PX * 0.5, cy: MAP_PX * 0.5, zoom: this.zoom, local: opts.local };
     drawCampfireMarkers(ctx, view, opts.cache);
     drawChestMarkers(ctx, view, opts.chests);
-    drawEntityMarkers(ctx, view, opts.entities);
-    drawRemotePlayerMarkers(ctx, view, opts.players);
-    drawHomeBedPin(ctx, view);
+    drawEntityMarkers(ctx, view, { entities: opts.entities, fog: opts.fog });
+    drawRemotePlayerMarkers(ctx, view, { players: opts.players, fog: opts.fog });
   }
 }
 
@@ -186,17 +209,19 @@ function shouldDrawEntityPin(e: WorldEntitySnapshot, local: PlayerSnapshot): boo
   return aggro || Math.hypot(e.x - local.x, e.y - local.y) <= 12;
 }
 
-function drawEntityMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, entities: readonly WorldEntitySnapshot[]): void {
-  for (const e of entities) {
+function drawEntityMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, opts: { readonly entities: readonly WorldEntitySnapshot[]; readonly fog?: FogState | undefined }): void {
+  for (const e of opts.entities) {
+    if (opts.fog && !isFogTileRevealed(opts.fog, e.x, e.y)) continue;
     if (shouldDrawEntityPin(e, v.local)) {
       drawDot(ctx, { px: v.cx + (e.x - v.local.x) * v.zoom, py: v.cy + (e.y - v.local.y) * v.zoom, size: 5, color: COLOR_ENEMY });
     }
   }
 }
 
-function drawRemotePlayerMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, players: readonly PlayerSnapshot[]): void {
-  for (const p of players) {
+function drawRemotePlayerMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, opts: { readonly players: readonly PlayerSnapshot[]; readonly fog?: FogState | undefined }): void {
+  for (const p of opts.players) {
     if (p.id === v.local.id || (p.crouching && !p.attackFlash)) continue;
+    if (opts.fog && !isFogTileRevealed(opts.fog, p.x, p.y)) continue;
     drawDot(ctx, { px: v.cx + (p.x - v.local.x) * v.zoom, py: v.cy + (p.y - v.local.y) * v.zoom, size: 6, color: COLOR_PLAYER_REMOTE });
   }
 }

@@ -6,7 +6,7 @@ export { GORE_STYLES, GORE_SUBSTANCES };
 export type { GoreStyle, GoreSubstance };
 
 export const COMBAT_TUNING = {
-  sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 7.5 },
+  sanctuary: { centerX: 0.5, centerY: 0.5, radiusTiles: 14 },
   vitals: { maxHp: 100, maxStamina: 100, staminaRegenPerSec: 24, blockStaminaRegenMult: 0.45 },
   movement: {
     runSpeedTilesPerSec: 5.6,

@@ -24,9 +24,11 @@ const snapHalfTile = (v: number): number => Math.round(v * 2) * 0.5;
 function computeGhostWorldPoint(player: PlayerSnapshot, cursorWorld?: { readonly x: number; readonly y: number }): { readonly x: number; readonly y: number } {
   if (cursorWorld) return { x: snapHalfTile(cursorWorld.x), y: snapHalfTile(cursorWorld.y) };
   const aimDx = player.aimX ?? player.facingX;
-  const aimDy = (player.aimY ?? player.facingY) || 1;
-  const aimMag = Math.hypot(aimDx, aimDy) || 1;
-  return { x: snapHalfTile(player.x + (aimDx / aimMag) * 1.5), y: snapHalfTile(player.y + (aimDy / aimMag) * 1.5) };
+  const aimDy = player.aimY ?? player.facingY;
+  const aimMag = Math.hypot(aimDx, aimDy);
+  const ux = aimMag > 0 ? aimDx / aimMag : 0;
+  const uy = aimMag > 0 ? aimDy / aimMag : 1;
+  return { x: snapHalfTile(player.x + ux * 1.5), y: snapHalfTile(player.y + uy * 1.5) };
 }
 
 function resolvePlacementTarget(opts: {

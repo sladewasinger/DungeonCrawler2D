@@ -15,6 +15,21 @@ export { PREFIX_CATALOG, eligiblePrefixesForItem, getPrefixDef, prefixGroupsForI
 export type { ItemPerkKind, ItemPrefixDef, PrefixTargetGroup } from "./items/prefixes.js";
 export { resolveItemInstance } from "./items/statResolver.js";
 export type { ResolvedItemStats } from "./items/statResolver.js";
+export {
+  computeItemValue,
+  computeReforgeCost,
+  computeSellPrice,
+  computeUpgradeCost,
+  isItemReforgeableOrUpgradeable,
+  rollGoldDrop,
+} from "./items/pricing.js";
+export type { MaterialCostSpec } from "./items/pricing.js";
+export { MERCHANT_STOCK, findMerchantOffer, resolveMerchantCatalog } from "./hubs/merchantCatalog.js";
+export type { MerchantOfferDef } from "./hubs/merchantCatalog.js";
+export { FLOOR_GUIDE_QUESTS, getGuideQuestDef } from "./hubs/quests.js";
+export type { GuideQuestDef, HubObjectiveKind } from "./hubs/quests.js";
+export { BOUNTY_TEMPLATES, generateFloorBounties, getBountyTemplateDef } from "./hubs/bounties.js";
+export type { BountyTemplateDef } from "./hubs/bounties.js";
 export { RECIPE_CATALOG, getRecipeDef } from "./recipes/recipes.js";
 export type { RecipeDef, RecipeIngredientDef } from "./recipes/recipes.js";
 export {

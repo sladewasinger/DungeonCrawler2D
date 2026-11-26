@@ -147,6 +147,7 @@ export function buildInventorySnapshot(input: {
   readonly selectedHotbar: number;
   readonly nearCampfire: boolean;
   readonly nearWorkbench?: boolean | undefined;
+  readonly gold?: number | undefined;
   readonly ackSeq?: number | undefined;
 }): InventorySnapshot {
   const cloned = cloneInventoryState(input.state);
@@ -154,6 +155,8 @@ export function buildInventorySnapshot(input: {
     slots: cloned.slots,
     armor: cloned.armor,
     ...(cloned.armorPrefixes ? { armorPrefixes: cloned.armorPrefixes } : {}),
+    ...(cloned.armorUpgrades ? { armorUpgrades: cloned.armorUpgrades } : {}),
+    ...(input.gold !== undefined ? { gold: Math.max(0, Math.floor(input.gold)) } : {}),
     selectedHotbar: input.selectedHotbar,
     nearCampfire: input.nearCampfire,
     nearWorkbench: Boolean(input.nearWorkbench),

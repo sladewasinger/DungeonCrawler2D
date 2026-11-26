@@ -83,6 +83,11 @@ export const PropKind = {
   BrazierLit: "brazier-lit",
   HermitHut: "hermit-hut",
   FairyRing: "fairy-ring",
+  StashChest: "stash-chest",
+  BountyBoard: "bounty-board",
+  NpcGuide: "npc-guide",
+  NpcMerchant: "npc-merchant",
+  NpcBlacksmith: "npc-blacksmith",
 } as const;
 
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
@@ -125,7 +130,15 @@ export const PROP_KIND_VALUES = [
   PropKind.BrazierLit,
   PropKind.HermitHut,
   PropKind.FairyRing,
+  PropKind.StashChest,
+  PropKind.BountyBoard,
+  PropKind.NpcGuide,
+  PropKind.NpcMerchant,
+  PropKind.NpcBlacksmith,
 ] as const;
+
+export const NPC_KINDS = ["guide", "merchant", "blacksmith", "bounty-board"] as const;
+export type NpcKind = (typeof NPC_KINDS)[number];
 
 export type BiomeKind =
   | "verdant-forest"
@@ -157,7 +170,8 @@ export type PoiKind =
   | "brazier-vault"
   | "sun-dial-ruin"
   | "hermits-hut"
-  | "tinker-camp";
+  | "tinker-camp"
+  | "safe-room";
 
 export type PoiLayoutKind =
   | "camp-outpost"

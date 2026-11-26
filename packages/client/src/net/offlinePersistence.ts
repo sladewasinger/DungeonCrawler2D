@@ -1,6 +1,7 @@
 /** Seed-keyed localStorage offline world snapshot persistence and 5s throttled flush helper. */
 import {
-  DepletedPropSchema, InventorySnapshotSchema, PlacedStructureSchema, WorldChestSnapshotSchema,
+  ActiveBountyStateSchema, ActiveQuestStateSchema, DepletedPropSchema, InventorySnapshotSchema,
+  PlacedStructureSchema, SlotItemSchema, WorldChestSnapshotSchema,
 } from "@dc2d/engine";
 import { z } from "zod";
 
@@ -35,6 +36,11 @@ export const OfflineWorldSnapshotSchema = z.object({
   beds: z.array(OfflineBedRecordSchema),
   chests: z.array(WorldChestSnapshotSchema),
   player: OfflinePlayerStateSchema,
+  gold: z.number().int().nonnegative().optional(),
+  fogMask: z.string().optional(),
+  stashSlots: z.array(SlotItemSchema.nullable()).length(27).optional(),
+  bounties: z.array(ActiveBountyStateSchema).optional(),
+  quests: z.array(ActiveQuestStateSchema).optional(),
 });
 
 export type OfflineWorldSnapshot = z.infer<typeof OfflineWorldSnapshotSchema>;

@@ -1,5 +1,6 @@
 /** Layout specs for interactive Shrines, Ancient Waystones, and Friendly Sanctuaries. */
 import { PropKind, type PoiKind } from "../types.js";
+import { OUTER_SAFE_ROOM_PROPS } from "./safeRoomLayout.js";
 
 export interface BiomePropSpec {
   readonly kind: PropKind;
@@ -71,5 +72,21 @@ export const SHRINE_AND_FRIENDLY_LAYOUTS: Readonly<Record<string, BiomePoiLayout
       { kind: PropKind.Workbench, dx: -1.5, dy: 0.6, radius: 0.42, blocks: true },
       { kind: PropKind.LoreSign, dx: 1.3, dy: 1.2, radius: 0.25, blocks: true },
     ],
+  },
+  "safe-room": {
+    kind: "safe-room",
+    radiusX: 3,
+    radiusY: 3,
+    floor: "stone",
+    chestOffset: [0, 0],
+    guards: [],
+    props: OUTER_SAFE_ROOM_PROPS.map((p) => ({
+      kind: p.kind,
+      dx: p.x,
+      dy: p.y,
+      radius: p.radius,
+      blocks: p.blocks,
+      light: p.light ? { kind: "campfire" as const, color: p.light.color, radiusPx: p.light.radiusPx, intensity: p.light.intensity } : undefined,
+    })),
   },
 };

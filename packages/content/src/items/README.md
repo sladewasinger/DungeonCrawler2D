@@ -7,4 +7,5 @@ Declarative catalog of all `76` items, five-tier rarities, `18` rolled prefixes,
 - `rarities.ts`: Five-tier `RARITY_META` (`common`..`legendary`) palette, glow colors, and `bumpRarity`.
 - `prefixes.ts`: `PREFIX_CATALOG` (`18` stat/perk prefixes with weapon/tool/armor/offhand/bow target filtering).
 - `statResolver.ts`: Pure `resolveItemInstance` combining base `ItemDef` + prefix modifiers.
+- `pricing.ts`: Deterministic `computeItemValue`, `computeSellPrice`, Blacksmith `computeReforgeCost` / `computeUpgradeCost` (`+1..+3`), and `rollGoldDrop`.
 - `lootTables.ts`: Seeded `rollChestLoot`, `rollEnemyDrop`, and `classifyPoiLootCategory` across all 5 macro biomes & danger tiers.

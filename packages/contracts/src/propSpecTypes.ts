@@ -23,7 +23,10 @@ export type PropInteractionKind =
   | "portal"
   | "lore"
   | "puzzle"
-  | "shrine";
+  | "shrine"
+  | "stash"
+  | "bounty"
+  | "npc";
 
 export interface PropCollisionSpec {
   readonly shape: "none" | "circle" | "aabb";

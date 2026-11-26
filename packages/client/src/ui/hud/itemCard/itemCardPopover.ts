@@ -4,7 +4,7 @@ import { HOTBAR_SLOT_COUNT, type InventorySnapshot, type SlotItem, type WorldChe
 import { getItemIconUrl } from "../../icons/itemIcons.js";
 import { dragSourceKey, isSameDragSource, type DragSource } from "../drag/slotDropResolver.js";
 import { domNode, type HudActions } from "../slotRenderer.js";
-import { buildItemStatLines, findComparisonItem, formatPerkLabels, type StatLine } from "./itemCardCompare.js";
+import { buildItemStatLines, findComparisonItem, formatPerkLabels, resolveUpgradedItemStats, type StatLine } from "./itemCardCompare.js";
 import { ensureItemCardStyles } from "./itemCardStyles.js";
 
 const BTN_PRIMARY = "ow-ic-btn-primary";
@@ -13,7 +13,8 @@ function resolveArmorSlotItem(inv: InventorySnapshot, source: Extract<DragSource
   const itemId = inv.armor[source.armorSlot];
   if (!itemId) return null;
   const prefixId = inv.armorPrefixes?.[source.armorSlot];
-  return prefixId ? { itemId, count: 1, prefixId } : { itemId, count: 1 };
+  const upgradeLevel = inv.armorUpgrades?.[source.armorSlot];
+  return { itemId, count: 1, ...(prefixId ? { prefixId } : {}), ...(upgradeLevel ? { upgradeLevel } : {}) };
 }
 
 function resolveInspectedSlot(opts: {
@@ -52,8 +53,14 @@ function makeActionBtn(label: string, cls: string, onClick: () => void): HTMLBut
   return btn;
 }
 
+const formatCardTitle = (item: SlotItem, baseName: string): string =>
+  `${baseName}${item.upgradeLevel ? ` +${item.upgradeLevel}` : ""}${item.count > 1 ? ` ×${item.count}` : ""}`;
+
+const formatSlotNote = (def: ReturnType<typeof resolveItemInstance>["def"]): string =>
+  def?.armorSlot ? ` · ${def.armorSlot}` : (def?.twoHanded ? " · 2H" : "");
+
 function slotItemFp(item: SlotItem | null): string {
-  return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
+  return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}:${item.upgradeLevel ?? 0}` : "-";
 }
 
 function applyPopoverPosition(el: HTMLElement, opts: {
@@ -170,7 +177,7 @@ export class ItemCardPopover {
     readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined;
   }): void {
     const { mode, source, item, inv, chest } = opts;
-    const resolved = resolveItemInstance(item.itemId, item.prefixId);
+    const resolved = resolveUpgradedItemStats(item.itemId, item);
     const meta = getRarityMeta(resolved.rarity);
     this.el.style.borderColor = meta.borderColor;
     this.el.style.boxShadow = `0 20px 52px rgba(0, 0, 0, 0.8), 0 0 24px ${meta.glowColor}`;
@@ -195,11 +202,10 @@ export class ItemCardPopover {
     const titles = domNode("div", "ow-ic-titles");
     const name = domNode("div", "ow-ic-name");
     name.style.color = meta.color;
-    name.textContent = resolved.displayName + (item.count > 1 ? ` ×${item.count}` : "");
+    name.textContent = formatCardTitle(item, resolved.displayName);
     const sub = domNode("div", "ow-ic-sub");
     sub.style.color = meta.color;
-    const slotNote = resolved.def?.armorSlot ? ` · ${resolved.def.armorSlot}` : (resolved.def?.twoHanded ? " · 2H" : "");
-    sub.textContent = `${meta.label} · ${resolved.def?.category ?? "item"}${slotNote}`;
+    sub.textContent = `${meta.label} · ${resolved.def?.category ?? "item"}${formatSlotNote(resolved.def)}`;
     titles.append(name, sub); head.append(iconWrap, titles);
     return head;
   }

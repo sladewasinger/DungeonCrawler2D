@@ -72,7 +72,8 @@ export function renderSlotContent(
 
 function appendFilledSlotContent(btn: HTMLButtonElement, item: SlotItem): void {
   const resolved = resolveItemInstance(item.itemId, item.prefixId);
-  btn.title = resolved.displayName;
+  const upg = item.upgradeLevel ?? 0;
+  btn.title = upg > 0 ? `${resolved.displayName} +${upg}` : resolved.displayName;
   if (resolved.rarity === "common") delete btn.dataset.rarity;
   else btn.dataset.rarity = resolved.rarity;
   const img = domNode("img", "ow-slot-img");
@@ -80,6 +81,11 @@ function appendFilledSlotContent(btn: HTMLButtonElement, item: SlotItem): void {
   img.alt = btn.title;
   img.draggable = false;
   btn.append(img);
+  if (upg > 0) {
+    const u = domNode("span", "ow-slot-upgrade");
+    u.textContent = `+${upg}`;
+    btn.append(u);
+  }
   if (maxStackForItem(item.itemId) > 1 && item.count > 0) {
     const badge = domNode("span", "ow-slot-count");
     badge.textContent = String(item.count);
@@ -95,7 +101,7 @@ export function slotsFingerprint(slots: readonly InventorySlot[], start: number,
   const parts: string[] = [];
   for (let i = start; i < start + count; i++) {
     const s = slots[i];
-    parts.push(s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""}` : "-");
+    parts.push(s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""}:${s.upgradeLevel ?? 0}` : "-");
   }
   return parts.join("|");
 }

@@ -1,7 +1,9 @@
 /** Shared network input builders, snapshots types, and local stealth flash helpers for WorldClient. */
 import {
-  sampleStealthExposure, isInWorldSanctuary, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot,
-  type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot,
+  sampleStealthExposure, isInWorldSanctuary, type ActiveBountyState, type ActiveQuestState,
+  type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot,
+  type FogState, type GroundLootSnapshot, type InventorySlot, type InventorySnapshot,
+  type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot,
   type WorldChunkCache, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { normalizeDirection } from "./worldPrediction.js";
@@ -36,6 +38,12 @@ export interface WorldViewState {
   readonly groundLoot: readonly GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined;
   readonly events: readonly WorldEvent[]; readonly chatMessages?: readonly ChatEntry[] | undefined;
   readonly discovery?: DiscoveryStateSnapshot | undefined;
+  readonly gold: number;
+  readonly fog: FogState;
+  readonly fogVersion: number;
+  readonly stash: readonly InventorySlot[];
+  readonly bounties: readonly ActiveBountyState[];
+  readonly quests: readonly ActiveQuestState[];
   readonly selfAdmin?: boolean | undefined; readonly pingMs?: number | null | undefined;
 }
 
@@ -204,7 +212,7 @@ function applyOfflineAdminPreview(player: PlayerSnapshot, req: AdminSendRequest)
 }
 
 export interface AdminSendRequest {
-  readonly action: "auth" | "godMode" | "heal" | "give" | "clearWebs" | "teleport";
+  readonly action: "auth" | "godMode" | "heal" | "give" | "giveGold" | "clearWebs" | "teleport";
   readonly enabled?: boolean | undefined;
   readonly itemId?: string | undefined;
   readonly count?: number | undefined;
@@ -225,7 +233,7 @@ export function prepareAdminDispatch(opts: {
   if (req.action === "auth") return { nextPlayer: localPlayer, message: { t: "admin", ...req, seq } };
   const enabled = req.action === "godMode" ? (req.enabled ?? !localPlayer.godMode) : req.enabled;
   const flag = enabled !== undefined ? { enabled } : {};
-  const nextPlayer = shouldPreviewAdminAction({ action: req.action, isServer, isAdmin }) ? applyOfflineAdminPreview(localPlayer, { action: req.action, ...flag }) : localPlayer;
+  const nextPlayer = shouldPreviewAdminAction({ action: req.action, isServer, isAdmin }) ? applyOfflineAdminPreview(localPlayer, { ...req, ...flag }) : localPlayer;
   return { nextPlayer, message: { t: "admin", ...req, ...flag, seq } };
 }
 

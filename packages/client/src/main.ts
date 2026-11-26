@@ -7,6 +7,7 @@ import { EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolv
 import { InputController, type CombatInputsFrame } from "./input/controller.js";
 import { buildClientHudActions, createClientInputHooks, createOverworldModalRouter, handleWorldInteract, mountSettingsForUi } from "./input/worldInteractHooks.js";
 import { saveCharacterPrefs } from "./net/characterPrefs.js";
+import { buildHubUiCallbacks, syncHubOverlayFrame } from "./net/hubClientBridge.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
@@ -15,6 +16,7 @@ import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { DiscoveryOverlay } from "./ui/discovery/discoveryOverlay.js";
 import { findNearestDismantleableProp } from "./ui/discovery/poiPromptHelper.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
+import { HubModalController } from "./ui/hubs/hubModalController.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import { runBootPreloadFlow } from "./ui/loading/bootPreloader.js";
 import { formatCompassBiomeHint } from "./ui/map/mapPinRenderer.js";
@@ -26,7 +28,7 @@ import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
   readonly scene: WorldScene; readonly client: WorldClient; readonly input: InputController; readonly toolbar: AtmosphereToolbar;
-  readonly hud: HudRoot; readonly chat: ChatOverlay; readonly discovery: DiscoveryOverlay; readonly feedback: CombatFeedbackOverlay;
+  readonly hud: HudRoot; readonly hubs: HubModalController; readonly chat: ChatOverlay; readonly discovery: DiscoveryOverlay; readonly feedback: CombatFeedbackOverlay;
   readonly connOverlay: ConnectionStatusOverlay; readonly audio: AudioEngine; readonly settings: SettingsMenu;
   readonly velTracker: EntityVelocityTracker; readonly titleScreen: TitleScreen;
 }
@@ -83,7 +85,8 @@ function syncUiAndAudio(opts: { readonly ctx: AppCtx; readonly view: WorldViewSt
   const lx = local?.x ?? 0; const ly = local?.y ?? 0;
   ctx.audio.handleWorldEvents(events, { x: lx, y: ly });
   ctx.audio.stepFrame({ local, cache: view.cache, dt: opts.dt, dayPhase: view.dayPhase, ...dists });
-  ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance, localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests, discovery: view.discovery });
+  ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance, localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests, discovery: view.discovery, fog: view.fog, fogVersion: view.fogVersion, gold: view.gold });
+  syncHubOverlayFrame({ hubs: ctx.hubs, view, events });
   ctx.chat.pushMessages(opts.chatMessages, performance.now()); ctx.chat.pruneExpired(performance.now());
   ctx.discovery.sync({ x: lx, y: ly, worldSeed: view.cache.worldSeed, events, localPlayerId: view.localPlayerId, nowMs: performance.now(), onChime: () => ctx.audio.playUi("discover") });
   ctx.feedback.sync({ local, events, localId: view.localPlayerId, dt: opts.dt });
@@ -120,7 +123,7 @@ function stepConnectedTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: 
     localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests,
     groundLoot: view.groundLoot, webs: view.webs, events: frameEvents,
     cursorClient: ctx.input.mouseAim(ctx.nowMs),
-    ghostEnabled: ctx.hud.activePanel() === "none" && !ctx.settings.isOpen() && !ctx.chat.isOpen(),
+    ghostEnabled: ctx.hud.activePanel() === "none" && !ctx.hubs.isOpen() && !ctx.settings.isOpen() && !ctx.chat.isOpen(),
   });
   syncUiAndAudio({ ctx, view, events: frameEvents, chatMessages: mergeFrameChat(pre, view), dt: ctx.dt, dists });
 }
@@ -165,6 +168,16 @@ function mountAtmosphereToolbar(opts: {
   });
 }
 
+function mountHubsAndOverlay(opts: {
+  readonly host: HTMLElement; readonly client: WorldClient; readonly audio: AudioEngine;
+  readonly onBeforeOpen: () => void;
+}): HubModalController {
+  return new HubModalController(opts.host, {
+    ...buildHubUiCallbacks(opts.client.hubs(), opts.audio),
+    onBeforeOpen: opts.onBeforeOpen,
+  });
+}
+
 function mountUiControllers(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
   readonly audio: AudioEngine; readonly onReturnToTitle: () => void;
@@ -174,29 +187,29 @@ function mountUiControllers(opts: {
   let settingsRef: SettingsMenu | null = null;
   let modalsRef: ReturnType<typeof createOverworldModalRouter> | null = null;
   let inputRef: InputController | null = null;
+  let hubsRef: HubModalController | null = null;
   const hud = new HudRoot(host, {
     ...buildClientHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }),
-    onPanelOpened: () => { chatRef?.closeInput(); settingsRef?.setOpen(false); },
+    onPanelOpened: () => { hubsRef?.close(); chatRef?.closeInput(); settingsRef?.setOpen(false); },
   });
+  const hubs = mountHubsAndOverlay({ host, client, audio, onBeforeOpen: () => { hud.closePanels(); chatRef?.closeInput(); settingsRef?.setOpen(false); } });
+  hubsRef = hubs;
   const chat = new ChatOverlay(host, (text, shout) => client.sendChat(text, shout));
   chatRef = chat;
   const discovery = new DiscoveryOverlay(host);
   const feedback = new CombatFeedbackOverlay(host);
-  const connOverlay = new ConnectionStatusOverlay(host, {
-    onReconnectNow: () => client.reconnectNow(),
-    onReturnToTitle: () => { modalsRef?.closeAll(); onReturnToTitle(); },
-  });
-  const onInteractWorld = (lootId?: string) => { if (!handleWorldInteract({ client, hud, discovery, audio, lootId })) inputRef?.queueInteract(); };
+  const connOverlay = new ConnectionStatusOverlay(host, { onReconnectNow: () => client.reconnectNow(), onReturnToTitle: () => { modalsRef?.closeAll(); onReturnToTitle(); } });
+  const onInteractWorld = (lootId?: string) => { if (!handleWorldInteract({ client, hud, hubs, discovery, audio, lootId })) inputRef?.queueInteract(); };
   const toolbar = mountAtmosphereToolbar({ host, scene, client, audio, getModals: () => modalsRef });
   const settings = mountSettingsForUi({
     host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m),
-    onOpenChange: (open) => { if (open) { hud.closePanels(); chat.closeInput(); } },
+    onOpenChange: (open) => { if (open) { hud.closePanels(); hubs.close(); chat.closeInput(); } },
   });
   settingsRef = settings;
-  modalsRef = createOverworldModalRouter({ hud, chat, settings });
+  modalsRef = createOverworldModalRouter({ hud, hubs, chat, settings });
   inputRef = createClientInputHooks({ host, scene, client, hud, discovery, audio, settings, modals: modalsRef, onInteractWorld });
   inputRef.setCrouchMode(settings.currentPrefs().crouchMode);
-  return { hud, chat, discovery, feedback, connOverlay, input: inputRef, toolbar, settings, onInteractWorld };
+  return { hud, hubs, chat, discovery, feedback, connOverlay, input: inputRef, toolbar, settings, onInteractWorld };
 }
 
 async function mountOverworldApp(host: HTMLElement, opts: { readonly skipTitle: boolean; readonly offlineOnly: boolean }): Promise<AppCtx> {

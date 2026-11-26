@@ -48,6 +48,7 @@ export const POI_CATALOG: Readonly<Record<PoiKind, PoiCatalogEntry>> = {
   "sun-dial-ruin": { kind: "sun-dial-ruin", displayName: "Sundial Sanctum", flavor: "Ignite twin sun-braziers to claim its relic", category: "puzzle", biomes: MILD_BIOMES, weight: 0.8, hasChest: true, minTier: 2 },
   "hermits-hut": { kind: "hermits-hut", displayName: "Hermit's Sanctuary", flavor: "Safe refuge hearth & herbalist bench", category: "friendly", biomes: [B_VERDANT, B_AUTUMN, B_BOG], weight: 0.85, hasChest: true, isSanctuary: true, loreText: "Hermit's Note: Rest beside my fire, traveler. Ancient cores forge blades that burn the dark." },
   "tinker-camp": { kind: "tinker-camp", displayName: "Tinker's Roadside Camp", flavor: "Friendly wayside workbench & supplies", category: "friendly", biomes: ALL_BIOMES, weight: 0.85, hasChest: true, isSanctuary: true, loreText: "Tinker's Journal: Tap any item slot to inspect stats & prefixes before smelting new ingots!" },
+  "safe-room": { kind: "safe-room", displayName: "Frontier Safe Room", flavor: "Sanctuary outpost with hearth, stash, and wayfarer merchant", category: "friendly", biomes: [B_VERDANT, B_AUTUMN, B_BOG, B_HIGHLANDS], weight: 0.75, hasChest: false, minTier: 2, isSanctuary: true, loreText: "Wayfarer Charter: Stash valuables safely and restack arrows before pushing deeper." },
 };
 
 export const POI_CATALOG_LIST: readonly PoiCatalogEntry[] = Object.values(POI_CATALOG);

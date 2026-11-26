@@ -1,5 +1,8 @@
 /** Persisted snapshot schema definitions and sanitizers. */
-import type { CharacterAppearance, DepletedPropDelta, DiscoveryStateSnapshot, PlacedStructureRecord, PlayerInventoryState } from "@dc2d/engine";
+import type {
+  ActiveBountyState, ActiveQuestState, CharacterAppearance, DepletedPropDelta,
+  DiscoveryStateSnapshot, InventorySlot, PlacedStructureRecord, PlayerInventoryState,
+} from "@dc2d/engine";
 import type { SavedBedBinding } from "./campStructures.js";
 import type { SavedChestRecord } from "../wildlife/loot/lootManager.js";
 
@@ -12,6 +15,11 @@ export interface PersistedPlayerRecord {
   readonly elevation: number;
   readonly appearance: CharacterAppearance;
   readonly inventory: PlayerInventoryState;
+  readonly gold?: number | undefined;
+  readonly fogMask?: string | undefined;
+  readonly stashSlots?: readonly InventorySlot[] | undefined;
+  readonly bounties?: readonly ActiveBountyState[] | undefined;
+  readonly quests?: readonly ActiveQuestState[] | undefined;
   readonly wellFedTimer?: number | undefined;
   readonly invigoratedTimer?: number | undefined;
   readonly restedTimer?: number | undefined;

@@ -4,6 +4,7 @@ import type { Texture } from "pixi.js";
 import { createCampPropTextures, type CampPropTextures } from "../survival/campPropTextures.js";
 import { createBiomePropTextures, type BiomePropTextures } from "./biomes/biomePropTextures.js";
 import { createBiomePoiTextures, type BiomePoiTextures } from "./pois/biomePoiTextures.js";
+import { createSafeRoomPropTextures, type SafeRoomPropTextures } from "./pois/safeRoomTextures.js";
 import {
   makeHdBushVariants, makeHdOakCanopyTexture, makeHdOakTrunkTexture,
   makeHdPineCanopyTexture, makeHdPineTrunkTexture, makeHdTallGrassVariants, makeHdWildflowerVariants,
@@ -18,7 +19,7 @@ import { getLoadedSpriteAsset } from "./spriteManifest.js";
 /** Scale mapping 48 px/tile HD props cleanly to 16 px/tile world space (zero mixels). */
 export const HD_PROP_SCALE = 1 / 3;
 
-export interface PropTextureSet extends CampPropTextures, BiomePropTextures, BiomePoiTextures {
+export interface PropTextureSet extends CampPropTextures, BiomePropTextures, BiomePoiTextures, SafeRoomPropTextures {
   readonly oakTrunk: Texture;
   readonly oakCanopy: Texture;
   readonly pineTrunk: Texture;
@@ -58,6 +59,7 @@ export function createPropTextureSet(): PropTextureSet {
     ruinPillar: pickPoiOrHdFallback("ruin-pillar", makeRuinPillarTexture, makeHdFallbackRuinPillarTexture),
     ...createBiomePropTextures(),
     ...createBiomePoiTextures(),
+    ...createSafeRoomPropTextures(),
   };
 }
 
@@ -95,6 +97,11 @@ const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) 
   [PropKind.BrazierLit]: (p) => p.brazierLit,
   [PropKind.HermitHut]: (p) => p.hermitHut,
   [PropKind.FairyRing]: (p) => p.fairyRing,
+  [PropKind.StashChest]: (p) => p.stashChest,
+  [PropKind.BountyBoard]: (p) => p.bountyBoard,
+  [PropKind.NpcGuide]: (p) => p.npcGuide,
+  [PropKind.NpcMerchant]: (p) => p.npcMerchant,
+  [PropKind.NpcBlacksmith]: (p) => p.npcBlacksmith,
 };
 
 const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [Texture, Texture]>> = {

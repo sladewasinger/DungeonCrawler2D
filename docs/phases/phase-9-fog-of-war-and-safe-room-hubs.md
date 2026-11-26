@@ -1,13 +1,15 @@
 # Phase 9 — Fog-of-War Map, Sanctuary Hubs, Gold Economy & Bounties
 
-> **Status**: 📋 Spec Locked (Ready for Implementation after Phase 8 Pass 2)
+> **Status**: ✅ Complete (Verified via `npm run verify:phase -- phase-9`)
 > **Dependencies**: Phase 8 Pass 2 ✅, Frontier Overhaul (`Phase 8A`) ✅, [Verification Gate](../VERIFICATION-GATE.md)
-> **Primary Touchpoints**:
+> **Shipped Modules**:
 > `@dc2d/content` (`src/hubs/bounties.ts`, `src/hubs/quests.ts`, `src/hubs/merchantCatalog.ts`, `src/items/pricing.ts`),
-> `@dc2d/engine` (`src/world/fog/fogOfWar.ts`, `src/world/pois/safeRoomLayout.ts`, `src/inventory/stashOps.ts`, `src/inventory/upgradeOps.ts`, `src/net/hubSchemas.ts`, `src/net/protocol.ts`),
-> `@dc2d/game-server` (`src/sim/hubs/npcManager.ts`, `src/sim/hubs/bountyTracker.ts`, `src/sim/hubs/stashManager.ts`, `src/sim/survival/persistenceStore.ts`, `src/sim/worldSim.ts`),
-> `@dc2d/client` (`src/ui/map/minimapOverlay.ts`, `src/ui/map/fogOverlay.ts`, `src/ui/hubs/`, `src/render/world/npcs/`, `src/render/textures/pois/safeRoomTextures.ts`, `src/ui/hud/bountyTrackerHud.ts`)
+> `@dc2d/engine` (`src/world/fog/fogOfWar.ts`, `src/world/pois/safeRoomLayout.ts`, `src/inventory/stashOps.ts`, `src/inventory/upgradeOps.ts`, `src/inventory/armorOps.ts`, `src/net/hubSchemas.ts`, `src/net/inventorySchemas.ts`, `src/net/protocol.ts`),
+> `@dc2d/game-server` (`src/sim/hubs/hubCoordinator.ts`, `src/sim/hubs/npcManager.ts`, `src/sim/hubs/bountyTracker.ts`, `src/sim/hubs/stashManager.ts`, `src/net/hubSessionSync.ts`, `src/sim/survival/persistenceStore.ts`, `src/sim/worldSim.ts`),
+> `@dc2d/client` (`src/ui/map/minimapOverlay.ts`, `src/ui/map/fogOverlay.ts`, `src/ui/hubs/`, `src/render/world/npcs/hubNpcOverlay.ts`, `src/render/textures/pois/safeRoomTextures.ts`, `src/net/hubClientBridge.ts`, `src/net/offline/offlineHubs.ts`, `src/net/offlinePersistence.ts`)
 > **Folder-Size Guardrails**: `packages/engine/src/world/`, `packages/client/src/ui/hud/`, `packages/client/src/render/textures/`, and `packages/client/src/render/world/` are saturated — place new modules strictly in subfolders (`world/fog/`, `ui/hubs/`, `render/textures/pois/`, `render/world/npcs/`).
+
+*(Phase-Spec Graduated per `AGENTS.md`: architectural details live in colocated `README.md`s next to the shipped modules above; below is the retained `REQ-P9-*` traceability record and exit gate.)*
 
 ---
 
@@ -95,7 +97,7 @@ Frontier Overhaul already delivered `20` POIs, color-coded `[M]` map pins, and W
 | `REQ-P9-09` | Merchant Sell | `merchantSell` removes target slot item and grants deterministic `computeItemValue` Gold scaling with `rarity`, `prefixId`, and `upgradeLevel`. | `unit`, `sim`, `e2e-desktop` | `packages/content/src/items/pricing.test.ts`, `packages/game-server/src/sim/hubs/hubSim.test.ts`, `e2e/phase-9.spec.ts` |
 | `REQ-P9-10` | Prefix Reforge | `blacksmithReforge` deducts Gold/materials, replaces `prefixId` with a different valid category prefix preserving `upgradeLevel`, and updates `ItemCardPopover` stats. | `unit`, `sim`, `e2e-desktop` | `packages/engine/src/inventory/upgradeOps.test.ts`, `packages/game-server/src/sim/hubs/hubSim.test.ts`, `e2e/phase-9.spec.ts` |
 | `REQ-P9-11` | Gear Upgrade | `blacksmithUpgrade` upgrades gear from `+0` up to `+3` max (`+15%` damage or `+1` defense per level in `computePlayerGearStats`) and rejects `+4` safely. | `unit`, `sim`, `e2e-desktop`, `visual` | `packages/engine/src/inventory/gearStats.test.ts`, `packages/game-server/src/sim/hubs/hubSim.test.ts`, `e2e/phase-9.spec.ts` |
-| `REQ-P9-12` | Bounty Board | `BountyBoard` generates `3` deterministic active bounties per floor cycle, increments live kill/clear/discover counters on server ticks, and pays Gold + reward on claim. | `unit`, `sim`, `e2e-desktop`, `e2e-mobile` | `packages/game-server/src/sim/hubs/bountyTracker.test.ts`, `e2e/phase-9.spec.ts` |
+| `REQ-P9-12` | Bounty Board | `BountyBoard` generates `3` deterministic active bounties per floor cycle, increments live kill/clear/discover counters on server ticks, and pays Gold + reward on claim. | `unit`, `sim`, `e2e-desktop`, `e2e-mobile` | `packages/content/src/hubs/hubCatalog.test.ts`, `packages/game-server/src/sim/hubs/bountyTracker.test.ts`, `e2e/phase-9.spec.ts` |
 | `REQ-P9-13` | Guide Quests | `NpcGuide` offers `>= 4` deterministic floor side-quests with accept/progress/turn-in states and persistent completion flags. | `unit`, `sim`, `e2e-desktop` | `packages/content/src/hubs/hubCatalog.test.ts`, `packages/game-server/src/sim/hubs/hubSim.test.ts`, `e2e/phase-9.spec.ts` |
 | `REQ-P9-14` | Hub Prompts & UI | Approaching NPCs/Bounty Board/Stash within `2.4` tiles displays `[E]`/tap prompts; opening NPC modals works cleanly on `390×844` mobile without clipped buttons. | `e2e-desktop`, `e2e-mobile`, `visual` | `e2e/phase-9.spec.ts` |
 | `REQ-P9-15` | Prop Integrity | All new hub `PropKind`s (`stash-chest`, `bounty-board`, `npc-guide`, `npc-merchant`, `npc-blacksmith`) have valid textures, footprints, and collision specs. | `static`, `unit` | `scripts/verify/content-integrity.mjs`, `packages/client/src/render/textures/pois/safeRoomTextures.test.ts` |

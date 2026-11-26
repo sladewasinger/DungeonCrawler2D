@@ -179,10 +179,10 @@ describe("WorldEcology & POIs", () => {
       override propsNear() { return []; }
     }
     const cliffEco = new WorldEcology(new OneTileWallCache(1337));
-    const wolf = cliffEco.spawnEntity({ kind: "wolf", x: -7.5, y: -6.5, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
+    const wolf = cliffEco.spawnEntity({ kind: "wolf", x: 20.5, y: -6.5, homeRadius: 12, poiId: null, packId: null, packSlot: 0 });
     wolf.facingX = 0;
     wolf.facingY = -1;
-    const cliffPlayer = makePlayer(-7.5, -10.5);
+    const cliffPlayer = makePlayer(20.5, -10.5);
     cliffPlayer.elevation = 1;
     stepEco({ eco: cliffEco, players: [cliffPlayer], ticks: 55 });
     expect(wolf.elevation).toBe(1);

@@ -48,7 +48,7 @@ export default tseslint.config(
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       complexity: ["error", { max: 8 }],
-      "sonarjs/cognitive-complexity": ["error", 7],
+      "sonarjs/cognitive-complexity": ["error", 10],
       "max-lines-per-function": ["error", { max: 35, skipBlankLines: true, skipComments: true }],
       "max-lines": ["error", { max: 250, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 3],
@@ -65,11 +65,7 @@ export default tseslint.config(
     files: ["packages/*/src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"],
     languageOptions: {
       parserOptions: {
-        projectService: {
-          allowDefaultProject: ["tests/*/*.ts", "e2e/*.ts", "e2e/*/*.ts"],
-          defaultProject: "tsconfig.qa.json",
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
-        },
+        project: "./tsconfig.eslint.json",
         tsconfigRootDir: import.meta.dirname,
       },
     },

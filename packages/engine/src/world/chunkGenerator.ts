@@ -3,6 +3,7 @@ import { hashUnit2d } from "../math/noise.js";
 import { chooseBiomeTileProp } from "./biomes/biomeProps.js";
 import { sampleWorldTile, type TileSample } from "./biomeSampler.js";
 import { findChunkPoiFromGrid, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights, type ChunkTileGrid } from "./poiStamper.js";
+import { stampSpawnHubFixtures } from "./pois/safeRoomLayout.js";
 import {
   CHUNK_SIZE,
   GroundKind,
@@ -85,7 +86,7 @@ function pushProp(
 function isProtectedFromRandomProps(wx: number, wy: number, sample: TileSample): boolean {
   if (sample.stairs || sample.ground === GroundKind.DeepWater || sample.ground === GroundKind.ShallowWater) return true;
   if (sample.ground === GroundKind.DirtPath) return true;
-  return Math.hypot(wx, wy) < 5.5;
+  return Math.hypot(wx, wy) < 7.0;
 }
 
 function placeRandomTileProp(ctx: PropBuilderContext): void {
@@ -183,6 +184,7 @@ export function generateChunk(worldSeed: number, cx: number, cy: number): WorldC
   const props: ChunkProp[] = [];
   const lights: PointLightSpec[] = [];
   addSpawnLandmarks({ cx, cy, props, lights });
+  stampSpawnHubFixtures({ cx, cy, props, lights });
   const tileGrid = sampleChunkTileGrid(worldSeed, cx, cy);
   const poi = findChunkPoiFromGrid({ worldSeed, cx, cy, tileGrid });
   applyPreSampledTiles({ worldSeed, cx, cy, tileGrid, poi, ground, elevation, stairs, variant, props, lights });

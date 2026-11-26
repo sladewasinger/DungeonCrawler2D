@@ -8,6 +8,7 @@ import {
 } from "@dc2d/engine";
 import { IDLE_GATE, resolvePendingGate, type PendingGate } from "../actionGate.js";
 import { heldItemForInventory, makeLocalChatEcho, reconcileInventorySnapshot, tickLocalBubbleState } from "../clientInventory.js";
+import { applyServerHubSnapshot, type ClientHubState } from "../hubClientBridge.js";
 import type { LocalSwingTracker } from "../localSwingTracker.js";
 import type { RemotePlayerSmoother } from "../remoteInterp.js";
 import { applyLocalAtmosphere, buildInputMessage, mergeStreamEvents, shouldSendInputFrame, type InputSendState, type StepInputFrame } from "../worldClientHelpers.js";
@@ -42,6 +43,7 @@ export interface ServerSnapshotTarget {
   readonly queuedChat: ChatEntry[];
   readonly swing: LocalSwingTracker;
   discovery?: DiscoveryStateSnapshot | undefined;
+  readonly hub: ClientHubState;
 }
 
 function reconcilePlayersWithGates(opts: {
@@ -104,6 +106,7 @@ export function applyServerSnapshotMessage(t: ServerSnapshotTarget, msg: Extract
   }
   if (msg.selfDiscovery) t.discovery = msg.selfDiscovery;
   reconcilePlayersWithGates({ t, players: msg.players, serverAck, nowMs });
+  applyServerHubSnapshot(t.hub, msg, t.localPlayer);
   applyStreamEntities({ t, msg, serverAck, nowMs });
 }
 

@@ -89,6 +89,7 @@ function stripRemotePrivateFields(out: { -readonly [K in keyof PlayerSnapshot]: 
   delete out.wellFedTimer;
   delete out.restedTimer;
   delete out.godMode;
+  delete out.gold;
 }
 
 type MutablePlayer = { -readonly [K in keyof PlayerSnapshot]: PlayerSnapshot[K] };
@@ -139,14 +140,14 @@ const ARMOR_SIG_KEYS = ["head", "chest", "legs", "feet", "offhand"] as const;
 
 function slotsSig(slots: InventorySnapshot["slots"]): string {
   let out = "";
-  for (const s of slots) out += s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""};` : ";";
+  for (const s of slots) out += s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""}:${s.upgradeLevel ?? 0};` : ";";
   return out;
 }
 
 export function inventorySignature(inv: InventorySnapshot | undefined): string {
   if (!inv) return "";
-  const armor = ARMOR_SIG_KEYS.map((k) => inv.armor[k] ?? "").join(",");
-  return `${inv.selectedHotbar}|${inv.nearCampfire ? 1 : 0}|${inv.nearWorkbench ? 1 : 0}|${inv.ackSeq ?? 0}|${slotsSig(inv.slots)}|${armor}`;
+  const armor = ARMOR_SIG_KEYS.map((k) => `${inv.armor[k] ?? ""}:${inv.armorPrefixes?.[k] ?? ""}:${inv.armorUpgrades?.[k] ?? 0}`).join(",");
+  return `${inv.gold ?? 0}|${inv.selectedHotbar}|${inv.nearCampfire ? 1 : 0}|${inv.nearWorkbench ? 1 : 0}|${inv.ackSeq ?? 0}|${slotsSig(inv.slots)}|${armor}`;
 }
 
 function queryAoiPlayers(opts: {

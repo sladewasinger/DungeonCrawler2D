@@ -6,6 +6,8 @@ import { computePlayerGearStats, type GearPieceStats } from "./gearStats.js";
 import { createEmptyInventoryState, moveOrSwapSlot } from "./slotModel.js";
 
 const CUIRASS_ID = "iron-knight-cuirass";
+const BUCKLER_ID = "runic-buckler";
+const SCYTHE_ID = "bloodmoon-scythe";
 const PREFIX_STALWART = "stalwart";
 const PREFIX_VAMP = "vampiric";
 
@@ -67,9 +69,9 @@ describe("Item prefixes & gear stats", () => {
 
   it("aggregates weapon, armor, prefix, and perk bonuses into real player stats", () => {
     const stats = computePlayerGearStats({
-      armor: { head: null, chest: CUIRASS_ID, legs: null, feet: null, offhand: "runic-buckler" },
+      armor: { head: null, chest: CUIRASS_ID, legs: null, feet: null, offhand: BUCKLER_ID },
       armorPrefixes: { chest: PREFIX_STALWART, offhand: "thorny" },
-      heldItem: { itemId: "bloodmoon-scythe", count: 1, prefixId: "keen" },
+      heldItem: { itemId: SCYTHE_ID, count: 1, prefixId: "keen" },
       lookup: fixtureLookup,
     });
     expect(stats.defense).toBe(19);
@@ -78,5 +80,21 @@ describe("Item prefixes & gear stats", () => {
     expect(stats.lifestealRatio).toBeCloseTo(0.15);
     expect(stats.thornsDamage).toBe(9);
     expect(stats.critChance).toBeCloseTo(0.4);
+  });
+
+  it("[REQ-P9-11] scales +1..+3 held weapon damage by +15%/lv and armor defense by +1/lv", () => {
+    const base = computePlayerGearStats({
+      armor: { head: null, chest: CUIRASS_ID, legs: null, feet: null, offhand: BUCKLER_ID },
+      heldItem: { itemId: SCYTHE_ID, count: 1 },
+      lookup: fixtureLookup,
+    });
+    const upgraded = computePlayerGearStats({
+      armor: { head: null, chest: CUIRASS_ID, legs: null, feet: null, offhand: BUCKLER_ID },
+      armorUpgrades: { chest: 2, offhand: 1 },
+      heldItem: { itemId: SCYTHE_ID, count: 1, upgradeLevel: 3 },
+      lookup: fixtureLookup,
+    });
+    expect(upgraded.defense).toBe(base.defense + 3);
+    expect(upgraded.heldDamage).toBe(Math.round(base.heldDamage * 1.45));
   });
 });

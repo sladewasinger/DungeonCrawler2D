@@ -1,12 +1,15 @@
 /** Hydration and persistence export coordinator linking WorldSim, Harvester, Structures, and LootManager. */
-import { DEFAULT_APPEARANCE, sanitizeCharacterAppearance, type CharacterAppearance, type PlayerInventoryState } from "@dc2d/engine";
+import {
+  DEFAULT_APPEARANCE, createFogState, decodeFogMask, sanitizeCharacterAppearance,
+  type CharacterAppearance, type FogChunkDelta, type FogState, type PlayerInventoryState,
+} from "@dc2d/engine";
 import { issuePlayerCredentials, verifyResumeToken } from "../../net/playerAuth.js";
 import { createCombatState, type PlayerCombatState } from "../combatActions.js";
 import { createStarterInventory } from "../playerInventory.js";
 import { normalizeOwnerKey, type SavedBedBinding } from "./campStructures.js";
 import type { PersistedPlayerRecord, PersistedWorldFile } from "./persistenceStore.js";
 import type { SqliteWorldStore } from "../persistence/sqliteWorldStore.js";
-import { applySavedPlayerRecord, buildPersistedPlayerList, indexSavedPlayers, toPersistedPlayerRecord, type PersistablePlayerInput } from "./playerSurvivalState.js";
+import { applySavedPlayerRecord, buildPersistedPlayerList, indexSavedPlayers, toPersistedPlayerRecord, type PersistablePlayerInput, type PersistedHubExtras } from "./playerSurvivalState.js";
 import type { WorldSim } from "../worldSim.js";
 
 export interface SimPlayer {
@@ -15,7 +18,9 @@ export interface SimPlayer {
   jumpZ: number; jumpVz: number; jumpQueued: boolean; moveX: number; moveY: number; moving: boolean; sprinting: boolean; crouching: boolean;
   stealthVis: number; inCover: boolean; noiseRadius: number; visibility: number; sprintNoiseAcc: number; attackFlashTimer: number;
   torchLit: boolean; inWater: boolean; inDeepWater: boolean; lastAckSeq: number; lastActionAckSeq: number;
-  selectedHotbar: number; inventory: PlayerInventoryState; inventoryRev: number; attackQueued: boolean; attackHold: boolean; bowDrawing: boolean;
+  selectedHotbar: number; inventory: PlayerInventoryState; inventoryRev: number;
+  gold: number; fog: FogState; pendingFogDeltas: FogChunkDelta[]; lastFogTileKey: string; hubRev: number;
+  attackQueued: boolean; attackHold: boolean; bowDrawing: boolean;
   bowReleaseQueued: boolean; blockHeld: boolean; dodgeQueued: boolean; dodgeDirX: number | undefined; dodgeDirY: number | undefined;
   throwPebbleQueued: boolean; interactQueued: boolean; readonly combat: PlayerCombatState; profileHydrated: boolean;
 }
@@ -32,7 +37,9 @@ export function createInitialSimPlayer(opts: {
     jumpZ: 0, jumpVz: 0, jumpQueued: false, moveX: 0, moveY: 0, moving: false, sprinting: false, crouching: false,
     stealthVis: 0.7, inCover: false, noiseRadius: 0.5, visibility: 0.7, sprintNoiseAcc: 0, attackFlashTimer: 0,
     torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
-    selectedHotbar: 0, inventory: createStarterInventory(), inventoryRev: 1, attackQueued: false, attackHold: false, bowDrawing: false,
+    selectedHotbar: 0, inventory: createStarterInventory(), inventoryRev: 1,
+    gold: 0, fog: createFogState(), pendingFogDeltas: [], lastFogTileKey: "", hubRev: 1,
+    attackQueued: false, attackHold: false, bowDrawing: false,
     bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, dodgeDirX: undefined, dodgeDirY: undefined,
     throwPebbleQueued: false, interactQueued: false, combat: createCombatState(), profileHydrated: false,
   };
@@ -80,9 +87,10 @@ export function persistPlayerSnapshotRecord(opts: {
   readonly host: PersistenceHost;
   readonly player: PersistablePlayerInput;
   readonly discovery: PersistedPlayerRecord["discovery"];
+  readonly hubExtras?: PersistedHubExtras | undefined;
   readonly evictIfPersisted?: boolean | undefined;
 }): void {
-  const rec = toPersistedPlayerRecord({ p: opts.player, normalizeName: normalizeOwnerKey, discovery: opts.discovery });
+  const rec = toPersistedPlayerRecord({ p: opts.player, normalizeName: normalizeOwnerKey, discovery: opts.discovery, hubExtras: opts.hubExtras });
   if (opts.evictIfPersisted && opts.host.store.isEnabled()) {
     opts.host.store.savePlayerProfile(rec);
     opts.host.savedProfiles.delete(opts.player.accountId);
@@ -106,14 +114,21 @@ export function loadWorldPersistence(opts: {
 
 export function hydratePlayerProfileIfFound(opts: {
   readonly host: PersistenceHost;
-  readonly player: Parameters<typeof applySavedPlayerRecord>[0] & { readonly id: string; readonly accountId: string; readonly name: string; profileHydrated: boolean };
+  readonly player: Parameters<typeof applySavedPlayerRecord>[0] & {
+    readonly id: string; readonly accountId: string; readonly name: string;
+    fog: FogState; hubRev: number; profileHydrated: boolean;
+  };
   readonly onHydrateDiscovery?: (playerId: string, discovery: PersistedPlayerRecord["discovery"]) => void;
+  readonly onHydrateHubs?: (accountId: string, saved: PersistedPlayerRecord) => void;
 }): void {
   if (opts.player.profileHydrated) return;
   const saved = opts.host.savedProfiles.get(opts.player.accountId) ?? opts.host.store.loadPlayerProfile(opts.player.accountId);
   if (!saved) return;
   applySavedPlayerRecord(opts.player, saved);
+  if (saved.fogMask) opts.player.fog = decodeFogMask(saved.fogMask);
   opts.onHydrateDiscovery?.(opts.player.id, saved.discovery);
+  opts.onHydrateHubs?.(opts.player.accountId, saved);
+  opts.player.hubRev += 1;
   opts.player.profileHydrated = true;
 }
 
@@ -142,7 +157,9 @@ export function buildFullWorldSaveSnapshot(opts: {
     ...(lit?.length ? { litBraziers: lit } : {}),
     players: buildPersistedPlayerList({
       activePlayers: opts.activePlayers, savedProfiles: opts.savedProfiles,
-      normalizeName: normalizeOwnerKey, discoveryFor: (id) => opts.sim.discoverySnapshot(id),
+      normalizeName: normalizeOwnerKey,
+      discoveryFor: (id) => opts.sim.discoverySnapshot(id),
+      hubExtrasFor: (acct) => opts.sim.hubs.exportAccountExtras(acct),
     }),
   };
 }

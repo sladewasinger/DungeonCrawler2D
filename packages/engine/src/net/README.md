@@ -7,4 +7,6 @@ Authoritative Zod wire protocol schemas (`PROTOCOL_VERSION = 1`) and typed packe
 - `worldEventSchemas.ts`: `GoreStyleSchema`, `GoreSubstanceSchema`, `WorldEventSchema`, and creature vocalization cues.
 - `chatSchemas.ts`: Proximity chat constants (`PROXIMITY_CHAT_RADIUS = 16`, `PROXIMITY_SHOUT_RADIUS = 34`, `MAX_CHAT_LENGTH`), bubble, and chat entry schemas.
 - `discoverySchemas.ts`: Biome/POI discovery state and Waystone reveal beacon schemas.
+- `hubSchemas.ts`: Fog-of-War chunk deltas, Active Bounty/Quest state schemas, Sanctuary Stash, Merchant, Blacksmith, Bounty Board, and Floor Guide client action schemas.
+- `inventorySchemas.ts`: Slot item (`upgradeLevel`), armor equipment, prefix/upgrade maps, and inventory snapshot schemas.
 - `sessionActionSchemas.ts`: Ping/pong, drop-item, and use-item schemas.

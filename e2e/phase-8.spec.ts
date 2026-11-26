@@ -23,8 +23,8 @@ async function verifyStationAndGhostFlow(page: Page, project: string): Promise<v
   await expect(page.locator(`${SEL_CRAFT_MODAL} .ow-station-pill:has-text('Workbench')`)).toHaveAttribute(ATTR_ACTIVE, "false");
   await page.locator(`${SEL_CRAFT_MODAL} button:has-text('Close')`).click();
   const spot = findClearHalfPlaneSpots(1, 2)[project === "mobile" ? 1 : 0]!;
-  await teleportPlayer(page, { x: spot.x - 1.5, y: spot.y });
-  if (project === "mobile") await walkTowardPoint(page, { targetX: spot.x - 1.3, targetY: spot.y, project, tolerance: 0.4, maxSteps: 2 });
+  await teleportPlayer(page, { x: project === "mobile" ? spot.x - 2.2 : spot.x - 1.5, y: spot.y });
+  if (project === "mobile") await walkTowardPoint(page, { targetX: spot.x - 1.5, targetY: spot.y, project, tolerance: 0.25, maxSteps: 5 });
   await selectHotbarByItemTitle(page, "Workbench");
   const badge = page.locator(".ow-placement-badge");
   await expect(badge).toBeVisible();

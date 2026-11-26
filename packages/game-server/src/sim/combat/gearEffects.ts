@@ -1,7 +1,7 @@
 /** Server-side RPG gear stat aggregation, crit rolls, on-hit perks, thorns, and elixir use. */
 import { getItemDef, resolveItemInstance } from "@dc2d/content";
 import {
-  applyWellFedDuration, computeArmorDefense, computePlayerGearStats, consumeItemFromSlots, removeFromSlot,
+  applyWellFedDuration, computePlayerGearStats, consumeItemFromSlots, removeFromSlot,
   type AggregatedPlayerGearStats, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -18,6 +18,7 @@ export function resolvePlayerGear(p: CombatPlayerRef): AggregatedPlayerGearStats
   return computePlayerGearStats({
     armor: p.inventory.armor,
     armorPrefixes: p.inventory.armorPrefixes,
+    armorUpgrades: p.inventory.armorUpgrades,
     heldItem: p.inventory.slots[p.selectedHotbar],
     lookup: (itemId, prefixId) => {
       const r = resolveItemInstance(itemId, prefixId);
@@ -27,11 +28,7 @@ export function resolvePlayerGear(p: CombatPlayerRef): AggregatedPlayerGearStats
 }
 
 export function resolveArmorDefenseFor(p: CombatPlayerRef): number {
-  return computeArmorDefense(
-    p.inventory.armor,
-    (id, prefixId) => resolveItemInstance(id, prefixId),
-    p.inventory.armorPrefixes,
-  );
+  return resolvePlayerGear(p).defense;
 }
 
 export function rollCritDamage(baseDamage: number, gear: AggregatedPlayerGearStats): { readonly damage: number; readonly isCrit: boolean } {
