@@ -9,6 +9,7 @@ import {
 } from "../world/playerPoseHelpers.js";
 import { AiIndicatorView, resolveAiVisualEffects } from "./aiStateIndicators.js";
 import { drawCreatureBody } from "./creatureDrawers.js";
+import { EliteVisuals } from "./eliteVisuals.js";
 import { createAnimatorTrackState, sampleAnimatedFrame } from "./entityAnimator.js";
 
 type WorldEntityKind = WorldEntitySnapshot["kind"];
@@ -97,6 +98,7 @@ class EntityView {
   private readonly hpBg = new Graphics();
   private readonly hpFill = new Graphics();
   private readonly indicator: AiIndicatorView;
+  private readonly elite: EliteVisuals;
   private readonly kind: WorldEntityKind;
   private lastX = Number.NaN;
   private lastY = Number.NaN;
@@ -114,14 +116,15 @@ class EntityView {
       this.waterRig.submergedBody.anchor.copyFrom(built.body.anchor);
     }
     this.indicator = new AiIndicatorView(built.hpTopY);
+    this.elite = new EliteVisuals(built.hpTopY);
     this.shadow.ellipse(0, 0, built.shadowRx, Math.max(2.2, built.shadowRx * 0.3)).fill({ color: 0x0c1018, alpha: 0.36 });
     this.hpBg.rect(-9, built.hpTopY, 18, 3).fill({ color: 0x090d14, alpha: 0.85 });
     this.hpBg.visible = false;
     this.hpFill.rect(-8, built.hpTopY + 1, 16, 1.5).fill(0xef4444);
     this.hpFill.visible = false;
-    this.root.addChild(this.shadow, this.indicator.backstabContainer);
+    this.root.addChild(this.elite.aura, this.shadow, this.indicator.backstabContainer);
     if (this.waterRig.submergedBody) this.root.addChild(this.waterRig.submergedMask, this.waterRig.submergedBody);
-    this.root.addChild(this.waterRig.waterRing, this.waterRig.waterMask, this.body, this.waterRig.waterFrontLip, this.hpBg, this.hpFill, this.indicator.container);
+    this.root.addChild(this.waterRig.waterRing, this.waterRig.waterMask, this.body, this.waterRig.waterFrontLip, this.hpBg, this.hpFill, this.indicator.container, this.elite.label);
   }
 
   private syncWaterState(snap: WorldEntitySnapshot, dead: boolean, jumpZ: number): boolean {
@@ -148,6 +151,11 @@ class EntityView {
     this.syncBodyState({ snap, timeSec, moving: moved || timeSec < this.moveHoldUntilSec || snap.aiState === "charge", swimming });
     const hpVisible = this.syncHpBar(snap, dead);
     this.indicator.sync({ snap, timeSec, dead, hpVisible, localPlayer });
+    this.elite.sync(snap, dead, timeSec);
+  }
+
+  private eliteScale(snap: WorldEntitySnapshot, dead: boolean): number {
+    return this.baseScale * (snap.isElite && !dead ? 1.22 : 1);
   }
 
   private syncAnimatedSprite(opts: {
@@ -158,12 +166,13 @@ class EntityView {
     const frame = sampleAnimatedFrame({ animations: this.animations, track: this.animTrack, ...opts });
     if (!frame) return false;
     const fx = resolveAiVisualEffects(opts.snap, opts.timeSec, opts.dead);
+    const sc = this.eliteScale(opts.snap, opts.dead);
     this.body.texture = frame.texture;
     this.body.alpha = fx.alpha;
     this.body.rotation = opts.dead ? 0 : this.liveShakeAngle(opts.snap, opts.timeSec);
     this.body.position.y = opts.dead ? 0 : -(opts.snap.jumpZ ?? 0) * JUMP_VISUAL_PX_PER_TILE + opts.swimBob;
     this.body.tint = resolveBodyTint(opts.snap, opts.timeSec);
-    this.body.scale.set(frame.flipX * this.baseScale, this.baseScale * fx.scaleYMult);
+    this.body.scale.set(frame.flipX * sc, sc * fx.scaleYMult);
     syncSubmergedSprite({
       sub: this.waterRig.submergedBody, src: this.body, swimming: opts.swimming,
       x: this.body.position.x, y: this.body.position.y, rot: this.body.rotation,
@@ -199,13 +208,14 @@ class EntityView {
 
   private applyBodyScale(snap: WorldEntitySnapshot, timeSec: number, dead: boolean): void {
     const flipX = !dead && snap.facingX < -0.1 ? -1 : 1;
+    const sc = this.baseScale * (snap.isElite && !dead ? 1.22 : 1);
     if (!dead && (this.kind === KIND_SLIME_DUMMY || this.kind === KIND_SLIME)) {
       const sy = 1 + Math.sin(timeSec * 4.5 + snap.x) * 0.07;
-      this.body.scale.set((flipX / sy) * this.baseScale, sy * this.baseScale);
+      this.body.scale.set((flipX / sy) * sc, sy * sc);
       return;
     }
     const vScale = resolveAiVisualEffects(snap, timeSec, dead).scaleYMult;
-    this.body.scale.set(flipX * this.baseScale, vScale * this.baseScale);
+    this.body.scale.set(flipX * sc, vScale * sc);
   }
 
   private syncHpBar(snap: WorldEntitySnapshot, dead: boolean): boolean {

@@ -13,6 +13,9 @@ const FRINGE_CODE: Partial<Record<GroundKind, number>> = {
   [GroundKind.DirtPath]: 2,
   [GroundKind.MeadowGrass]: 3,
   [GroundKind.Grass]: 4,
+  [GroundKind.AutumnGrass]: 5,
+  [GroundKind.BogMoss]: 6,
+  [GroundKind.CursedMoss]: 7,
 };
 
 function isWater(kind: GroundKind): boolean {

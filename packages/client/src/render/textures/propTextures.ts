@@ -2,6 +2,7 @@
 import { PropKind } from "@dc2d/engine";
 import type { Texture } from "pixi.js";
 import { createCampPropTextures, type CampPropTextures } from "../survival/campPropTextures.js";
+import { createBiomePropTextures, type BiomePropTextures } from "./biomes/biomePropTextures.js";
 import { makeFallbackKnight } from "./fxPropTextures.js";
 import {
   makeHdBushVariants, makeHdOakCanopyTexture, makeHdOakTrunkTexture,
@@ -18,7 +19,7 @@ import { getLoadedSpriteAsset } from "./spriteManifest.js";
 /** Scale mapping 48 px/tile HD props cleanly to 16 px/tile world space (zero mixels). */
 export const HD_PROP_SCALE = 1 / 3;
 
-export interface PropTextureSet extends CampPropTextures {
+export interface PropTextureSet extends CampPropTextures, BiomePropTextures {
   readonly oakTrunk: Texture;
   readonly oakCanopy: Texture;
   readonly pineTrunk: Texture;
@@ -58,6 +59,7 @@ export function createPropTextureSet(): PropTextureSet {
     tent: pickPoiOrHdFallback("bandit-tent", makeTentTexture, makeHdFallbackTentTexture),
     ruinPillar: pickPoiOrHdFallback("ruin-pillar", makeRuinPillarTexture, makeHdFallbackRuinPillarTexture),
     ...createCampPropTextures(),
+    ...createBiomePropTextures(),
   };
 }
 
@@ -67,5 +69,5 @@ export function isPoiLoadedTexture(kind: PropKind | undefined): boolean {
 }
 
 export function isTreeProp(kind: PropKind): boolean {
-  return kind === PropKind.OakTree || kind === PropKind.PineTree;
+  return kind === PropKind.OakTree || kind === PropKind.PineTree || kind === PropKind.BirchTree || kind === PropKind.MapleTree;
 }

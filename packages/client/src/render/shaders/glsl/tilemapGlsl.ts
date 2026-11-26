@@ -33,6 +33,9 @@ vec4 fringeColor(int code) {
   if (code == 2) return vec4(176.0, 134.0, 92.0, 132.0) / 255.0;
   if (code == 3) return vec4(109.0, 170.0, 75.0, 122.0) / 255.0;
   if (code == 4) return vec4(92.0, 153.0, 72.0, 122.0) / 255.0;
+  if (code == 5) return vec4(140.0, 148.0, 62.0, 122.0) / 255.0;
+  if (code == 6) return vec4(55.0, 104.0, 80.0, 122.0) / 255.0;
+  if (code == 7) return vec4(58.0, 46.0, 84.0, 122.0) / 255.0;
   return vec4(0.0);
 }
 

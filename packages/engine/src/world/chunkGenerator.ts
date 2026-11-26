@@ -1,5 +1,6 @@
 /** Deterministic 32x32 chunk generator for terrain tiles, props, and point lights. */
 import { hashUnit2d } from "../math/noise.js";
+import { chooseBiomeTileProp } from "./biomes/biomeProps.js";
 import { sampleWorldTile, type TileSample } from "./biomeSampler.js";
 import { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights } from "./poiStamper.js";
 import {
@@ -87,58 +88,19 @@ function isProtectedFromRandomProps(wx: number, wy: number, sample: TileSample):
   return Math.hypot(wx, wy) < 5.5;
 }
 
-function placeHighlandProp(opts: {
-  readonly ctx: PropBuilderContext; readonly roll: number; readonly base: { readonly x: number; readonly y: number; readonly elevation: number };
-}): void {
-  const { ctx, roll, base } = opts;
-  if (roll < 0.032) { pushProp(ctx.props, PropKind.CopperVein, { ...base, radius: 0.44, blocks: true }); return; }
-  if (roll < 0.05 && Math.hypot(ctx.wx, ctx.wy) > 24) { pushProp(ctx.props, PropKind.IronVein, { ...base, radius: 0.44, blocks: true }); return; }
-  if (roll < 0.095) { pushProp(ctx.props, PropKind.Boulder, { ...base, radius: 0.42, blocks: true }); return; }
-  if (roll < 0.17) pushProp(ctx.props, PropKind.PineTree, { ...base, radius: 0.36, blocks: true });
-}
-
 function placeRandomTileProp(ctx: PropBuilderContext): void {
   if (isProtectedFromRandomProps(ctx.wx, ctx.wy, ctx.sample)) return;
   const roll = hashUnit2d(ctx.worldSeed + 887, ctx.wx, ctx.wy);
   const px = ctx.wx + 0.5 + (hashUnit2d(ctx.worldSeed + 911, ctx.wx, ctx.wy) - 0.5) * 0.28;
   const py = ctx.wy + 0.5 + (hashUnit2d(ctx.worldSeed + 947, ctx.wx, ctx.wy) - 0.5) * 0.28;
-  const base = { x: px, y: py, elevation: ctx.sample.elevation };
-  if (ctx.sample.ground === GroundKind.CliffStone || ctx.sample.ground === GroundKind.MossStone) {
-    placeHighlandProp({ ctx, roll, base });
-    return;
-  }
-  placeForestOrMeadowProp({ roll, density: ctx.sample.forestDensity, base, ground: ctx.sample.ground, props: ctx.props });
-}
-
-function chooseVegetationProp(input: {
-  readonly roll: number;
-  readonly density: number;
-  readonly ground: GroundKind;
-}): { readonly kind: PropKind; readonly radius: number; readonly blocks: boolean } | null {
-  const { roll, density, ground } = input;
-  if (roll < density * 0.045) return { kind: PropKind.PineTree, radius: 0.38, blocks: true };
-  if (roll < density * 0.11) return { kind: PropKind.OakTree, radius: 0.38, blocks: true };
-  if (roll < density * 0.15) return { kind: PropKind.Bush, radius: 0.34, blocks: true };
-  if (roll < density * 0.165) return { kind: PropKind.Stump, radius: 0.3, blocks: true };
-  if (roll < 0.36) return { kind: PropKind.TallGrass, radius: 0, blocks: false };
-  if (roll < 0.44 && ground === GroundKind.MeadowGrass) return { kind: PropKind.Wildflower, radius: 0, blocks: false };
-  return null;
-}
-
-function placeForestOrMeadowProp(input: {
-  readonly roll: number;
-  readonly density: number;
-  readonly base: { readonly x: number; readonly y: number; readonly elevation: number };
-  readonly ground: GroundKind;
-  readonly props: ChunkProp[];
-}): void {
-  const { roll, density, base, ground, props } = input;
-  if (ground === GroundKind.Sand) {
-    if (roll < 0.04) pushProp(props, PropKind.Boulder, { ...base, radius: 0.38, blocks: true });
-    return;
-  }
-  const choice = chooseVegetationProp({ roll, density, ground });
-  if (choice) pushProp(props, choice.kind, { ...base, ...choice });
+  const choice = chooseBiomeTileProp({
+    biome: ctx.sample.biome,
+    ground: ctx.sample.ground,
+    density: ctx.sample.forestDensity,
+    roll,
+    distOrigin: Math.hypot(ctx.wx, ctx.wy),
+  });
+  if (choice) pushProp(ctx.props, choice.kind, { x: px, y: py, elevation: ctx.sample.elevation, radius: choice.radius, blocks: choice.blocks });
 }
 
 function fillChunkTile(opts: {

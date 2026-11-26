@@ -13,11 +13,25 @@ export const enum GroundKind {
   DirtPath = 6,
   CliffStone = 7,
   MossStone = 8,
+  AutumnGrass = 9,
+  AutumnFloor = 10,
+  BogMud = 11,
+  BogMoss = 12,
+  SlateRock = 13,
+  AshGround = 14,
+  RuinFlagstone = 15,
+  CursedMoss = 16,
 }
 
 export const enum PropKind {
   OakTree = "oak-tree",
   PineTree = "pine-tree",
+  BirchTree = "birch-tree",
+  MapleTree = "maple-tree",
+  DeadTree = "dead-tree",
+  GiantMushroom = "giant-mushroom",
+  BogReed = "bog-reed",
+  CursedCrystal = "cursed-crystal",
   Bush = "bush",
   TallGrass = "tall-grass",
   Boulder = "boulder",
@@ -35,7 +49,14 @@ export const enum PropKind {
   WoodChest = "wood-chest",
 }
 
-export type BiomeKind = "verdant-glade" | "deep-forest" | "riverbank" | "highland-ridge";
+export type BiomeKind =
+  | "verdant-forest"
+  | "autumn-woods"
+  | "misty-bog"
+  | "craggy-highlands"
+  | "cursed-ruinlands";
+
+export type DangerTier = 1 | 2 | 3 | 4;
 export type PoiKind = "bandit-camp" | "ancient-ruins";
 export type PoiLayoutKind =
   | "camp-outpost"

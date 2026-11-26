@@ -16,7 +16,7 @@ export { TERRAIN_TEX_PX } from "./terrainTileDetails.js";
 export const TERRAIN_ATLAS_PAD = 1;
 export const TERRAIN_ATLAS_STRIDE = TERRAIN_TEX_PX + TERRAIN_ATLAS_PAD * 2;
 export const TERRAIN_ATLAS_COLS = 4;
-export const TERRAIN_ATLAS_ROWS = 9;
+export const TERRAIN_ATLAS_ROWS = 17;
 
 export interface TerrainTileAtlas {
   readonly variants: ReadonlyMap<GroundKind, readonly HTMLCanvasElement[]>;
@@ -35,11 +35,21 @@ const GROUND_PALETTES: Readonly<Record<GroundKind, TilePalette>> = {
   [GroundKind.DirtPath]: { base: "#b0865c", mid: "#9e744e", dark: "#7c583a", highlight: "#c79d70", accent: "#d8be98" },
   [GroundKind.CliffStone]: { base: "#7d838c", mid: "#6a7079", dark: "#4c515c", highlight: "#9ba2ac", accent: "#678b54" },
   [GroundKind.MossStone]: { base: "#6e7774", mid: "#5d6664", dark: "#434b4b", highlight: "#8c9690", accent: "#578b42" },
+  [GroundKind.AutumnGrass]: { base: "#8c943e", mid: "#7c8434", dark: "#636928", highlight: "#aeb34c", accent: "#d9923b" },
+  [GroundKind.AutumnFloor]: { base: "#8c4a27", mid: "#7a3e20", dark: "#5c2b16", highlight: "#b56936", accent: "#e2a246" },
+  [GroundKind.BogMud]: { base: "#473b32", mid: "#3b3029", dark: "#2b221d", highlight: "#5c4d41", accent: "#506b48" },
+  [GroundKind.BogMoss]: { base: "#376850", mid: "#2d5744", dark: "#214034", highlight: "#4c8a66", accent: "#58d6b8" },
+  [GroundKind.SlateRock]: { base: "#57606b", mid: "#49515b", dark: "#343a42", highlight: "#76818f", accent: "#9aa5b4" },
+  [GroundKind.AshGround]: { base: "#706b68", mid: "#605b58", dark: "#46423f", highlight: "#8b8580", accent: "#b88a4a" },
+  [GroundKind.RuinFlagstone]: { base: "#474657", mid: "#3a3949", dark: "#272634", highlight: "#626078", accent: "#9f6af2" },
+  [GroundKind.CursedMoss]: { base: "#3a2e54", mid: "#302547", dark: "#211933", highlight: "#544178", accent: "#c084fc" },
 };
 
 const GROUND_KINDS: readonly GroundKind[] = [
   GroundKind.DeepWater, GroundKind.ShallowWater, GroundKind.Sand, GroundKind.Grass,
   GroundKind.MeadowGrass, GroundKind.ForestFloor, GroundKind.DirtPath, GroundKind.CliffStone, GroundKind.MossStone,
+  GroundKind.AutumnGrass, GroundKind.AutumnFloor, GroundKind.BogMud, GroundKind.BogMoss,
+  GroundKind.SlateRock, GroundKind.AshGround, GroundKind.RuinFlagstone, GroundKind.CursedMoss,
 ];
 
 function pickGrainColor(r: number, palette: TilePalette): string | null {
@@ -75,6 +85,8 @@ function scatterSurfaceGrain(input: {
   }
 }
 
+const ROCKY_KINDS = new Set<GroundKind>([GroundKind.CliffStone, GroundKind.MossStone, GroundKind.SlateRock, GroundKind.RuinFlagstone]);
+
 function paintSoftTonalPatches(input: {
   readonly ctx: CanvasRenderingContext2D;
   readonly kind: GroundKind;
@@ -82,7 +94,7 @@ function paintSoftTonalPatches(input: {
   readonly palette: TilePalette;
 }): void {
   const { ctx, kind, variant, palette } = input;
-  const count = kind === GroundKind.CliffStone || kind === GroundKind.MossStone ? 3 : 6;
+  const count = ROCKY_KINDS.has(kind) ? 3 : 6;
   const seed = Number(kind) * 233 + variant * 53;
   for (let i = 0; i < count; i++) {
     const x = Math.floor(seededPixelNoise(seed, i, 1) * TERRAIN_TEX_PX);

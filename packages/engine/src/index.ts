@@ -11,7 +11,8 @@ export {
   worldToChunkCoord,
   worldToLocalCoord,
 } from "./world/types.js";
-export type { BiomeKind, ChunkPoi, ChunkProp, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
+export type { BiomeKind, ChunkPoi, ChunkProp, DangerTier, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
+export { biomeBaseDangerTier, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./world/biomes/macroBiome.js";
 export { sampleWorldTile } from "./world/biomeSampler.js";
 export type { TileSample } from "./world/biomeSampler.js";
 export { generateChunk } from "./world/chunkGenerator.js";

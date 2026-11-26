@@ -18,6 +18,14 @@ const GROUND_RGB: Readonly<Record<number, readonly [number, number, number]>> = 
   [GroundKind.DirtPath]: [140, 91, 54],
   [GroundKind.CliffStone]: [100, 116, 139],
   [GroundKind.MossStone]: [71, 105, 79],
+  [GroundKind.AutumnGrass]: [140, 148, 62],
+  [GroundKind.AutumnFloor]: [140, 74, 39],
+  [GroundKind.BogMud]: [71, 59, 50],
+  [GroundKind.BogMoss]: [55, 104, 80],
+  [GroundKind.SlateRock]: [87, 96, 107],
+  [GroundKind.AshGround]: [112, 107, 104],
+  [GroundKind.RuinFlagstone]: [71, 70, 87],
+  [GroundKind.CursedMoss]: [58, 46, 84],
 };
 
 function drawDot(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly size: number; readonly color: string }): void {

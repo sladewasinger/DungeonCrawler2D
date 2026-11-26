@@ -202,7 +202,7 @@ export function applyCreatureStrikeToPlayer(opts: {
   if (!opts.hitPlayer) return;
   const spec = CREATURE_SPECS[opts.entity.kind];
   applyIncomingPlayerHit({
-    target: opts.hitPlayer, attackerOrigin: opts.entity, attackerId: opts.entity.id, rawDamage: spec.damage,
+    target: opts.hitPlayer, attackerOrigin: opts.entity, attackerId: opts.entity.id, rawDamage: Math.round(spec.damage * opts.entity.damageMult),
     goreStyle: spec.goreStyle, attackerIsPlayer: false, events: opts.events, appliesPoison: opts.entity.kind === "spider",
     shakePx: opts.entity.kind === "golem" ? 3.5 : undefined,
     onParry: () => {

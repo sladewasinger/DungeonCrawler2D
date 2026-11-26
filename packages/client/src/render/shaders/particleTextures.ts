@@ -1,11 +1,14 @@
 /** Cached soft-dot, smoke puff, and water-ring textures plus additive/tint particle styling. */
 import { Sprite, Texture } from "pixi.js";
 
-export type ParticleKind = "mote" | "leaf" | "firefly" | "ember" | "ripple" | "smoke" | "flame";
+export type ParticleKind = "mote" | "leaf" | "autumnLeaf" | "spore" | "wisp" | "firefly" | "ember" | "ripple" | "smoke" | "flame";
 
 const PARTICLE_VISUALS: Readonly<Record<ParticleKind, { tint: number; sx: number; sy: number; additive: boolean }>> = {
   mote: { tint: 0xfef08a, sx: 0.25, sy: 0.25, additive: true },
   leaf: { tint: 0x86efac, sx: 0.4, sy: 0.2, additive: false },
+  autumnLeaf: { tint: 0xf59e0b, sx: 0.42, sy: 0.22, additive: false },
+  spore: { tint: 0x2dd4bf, sx: 0.34, sy: 0.34, additive: true },
+  wisp: { tint: 0xc084fc, sx: 0.38, sy: 0.38, additive: true },
   firefly: { tint: 0xd9f99d, sx: 0.35, sy: 0.35, additive: true },
   ember: { tint: 0xfb923c, sx: 0.26, sy: 0.26, additive: true },
   ripple: { tint: 0xbae6fd, sx: 0.5, sy: 0.3, additive: false },
