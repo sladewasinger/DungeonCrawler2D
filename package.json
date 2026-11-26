@@ -17,11 +17,16 @@
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
     "lint": "eslint . && node scripts/check-folder-size.mjs",
     "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed",
+    "verify:content": "node scripts/verify/content-integrity.mjs",
+    "verify:e2e": "playwright test",
+    "verify:spec": "node scripts/verify/spec-coverage.mjs",
+    "verify:phase": "node scripts/verify/run-phase-gate.mjs",
     "sprite:bake": "node tools/sprite-studio/runBake.mjs",
     "player:bake": "node tools/sprite-studio/runPlayerBake.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.3",
     "eslint": "^10.7.0",

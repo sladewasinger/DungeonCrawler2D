@@ -1,7 +1,7 @@
 # Frontier Overhaul — Master Plan
 
-> **Status**: Specification Locked — Ready for Phased Implementation
-> **Scope**: Item Rarities & Prefixes, Tap-to-Inspect Item Cards, Dynamic Frontier Loot & Elites, 5 Overworld Biomes, 17 New POIs (19 Total), Discovery Banners/Map Pins, and Proximity Chat Speech Bubbles.
+> **Status**: ✅ Complete & Live-Verified (commits `cdb79366`..`cb94d6db`; see [BUG-FIX-LOG.md](BUG-FIX-LOG.md))
+> **Scope**: Item Rarities & Prefixes, Tap-to-Inspect Item Cards, Dynamic Frontier Loot & Elites (5 Danger Tiers), 5 Overworld Biomes, 18 New POIs (20 Total), Discovery Banners/Map Pins, and Proximity Chat Speech Bubbles.
 
 ---
 

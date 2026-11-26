@@ -1,6 +1,6 @@
 # Phase 7 — Weapon-Specific Movesets, Combat Timing & Tactile Feel
 
-> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; `Hero_Punch` combo spritesheet explicitly deferred to [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks))
+> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; `Hero_Punch` combo spritesheet explicitly deferred to [Phase 12 Polish](../ROADMAP.md#phase-12--co-op-polish-adaptive-music-3d-rig-polish--qa-benchmarks))
 > **Primary Touchpoints**:
 > `@dc2d/content` (`src/items/catalog.ts`, `src/recipes/recipes.ts`),
 > `@dc2d/engine` (`src/combat/weapons/weaponMovesets.ts`, `src/combat/combatRules.ts`, `src/net/protocol.ts`),
@@ -107,7 +107,7 @@ Promote `"dagger"`, `"spear"`, and `"greatsword"` from empty engine stubs into f
 - **Non-Weapon Use Guard (`isMeleeItem`)**: Activating non-weapon items (`bandage`, `berry`, `cooked-meat`, `wood`, `map`, placeables, etc.) uses the item without playing a melee weapon swing or slash trail—even when a consumable cannot apply (e.g., bandage at full HP).
 - **Bare-Fist Punching Indicator (`unarmed` `"punch"` motion)**: Empty-handed attacks (`heldItem === null`) cycle alternating `"punch"` combo steps (`sweepDir: 1 | -1`) with forward thrust lunges, alternating knuckle speed-lines + forward fist shockwave arcs (`drawPunchImpact`), and punch thump SFX (`synthWeaponSfx`).
 - **Crisp Hi-DPI Popups & Badges**: Damage/callout popups and ground-loot count badges render at `resolution: 2` with linear texture filtering and `scale = 0.24`, with stealth callouts (`AMBUSH!`, `BACKSTAB!`) offset above damage numbers.
-- **Polish Phase Action Item**: Bake dedicated `Hero_Punch` combo animations into the 3D player spritesheets (tracked in [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks)).
+- **Polish Phase Action Item**: Bake dedicated `Hero_Punch` combo animations into the 3D player spritesheets (tracked in [Phase 12 Polish](../ROADMAP.md#phase-12--co-op-polish-adaptive-music-3d-rig-polish--qa-benchmarks)).
 
 ### 5.2 Torch Ignition & Burn Status (`ignites: true`)
 - Wire `spec.ignites` cleanly into `combatSim.ts` / `creatureAi.ts` / `combatActions.ts`:
