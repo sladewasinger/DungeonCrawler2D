@@ -17,7 +17,7 @@ import {
   type WorldChunkCache,
 } from "@dc2d/engine";
 
-export const CAMPFIRE_CRAFT_RADIUS = 4.0;
+const CAMPFIRE_CRAFT_RADIUS = 4.0;
 
 export function applyLoadoutEntries(
   state: PlayerInventoryState,

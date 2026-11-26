@@ -9,7 +9,7 @@ import type { GripSocket, WeaponGripSockets } from "./heldWeapons.js";
 export type AirborneState = "ground" | "jump" | "fall";
 
 export const ARM_PIVOT_ANCHOR = { x: 2.5 / 11, y: 0.5 } as const;
-export const ARM_WORLD_LEN = 5.5 * CHARACTER_WORLD_SCALE;
+const ARM_WORLD_LEN = 5.5 * CHARACTER_WORLD_SCALE;
 
 export interface ArmPlacement {
   readonly x: number;
@@ -72,7 +72,7 @@ export function buildArmRects(input: {
   return rects;
 }
 
-export function transformWeaponSocket(main: MainHandPlacement, socket: { readonly x: number; readonly y: number }): Point2D {
+function transformWeaponSocket(main: MainHandPlacement, socket: { readonly x: number; readonly y: number }): Point2D {
   const sx = socket.x * main.scaleX;
   const sy = socket.y * main.scaleY;
   const cos = Math.cos(main.rotation);

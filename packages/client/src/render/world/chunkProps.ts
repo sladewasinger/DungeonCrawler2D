@@ -45,7 +45,7 @@ function resolvePoiSpec(kind: PropKind | undefined, tex: Texture): PoiPropSprite
   return getPoiPropSpriteSpec(kind);
 }
 
-export function addPropSprite(
+function addPropSprite(
   parent: Container,
   tex: Texture,
   prop: { readonly x: number; readonly y: number; readonly elevation?: number; readonly kind?: PropKind },

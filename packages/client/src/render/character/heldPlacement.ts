@@ -103,7 +103,7 @@ function resolveDirContext(dx: number, dy: number): ResolvedDirContext {
   return { ax, ay, cardinal };
 }
 
-export function computeSwingLunge(opts: {
+function computeSwingLunge(opts: {
   readonly aimX: number; readonly aimY: number; readonly swingProgress: number; readonly comboStep: number;
   readonly heldItem?: string | null | undefined;
 }): { readonly x: number; readonly y: number; readonly rot: number } {

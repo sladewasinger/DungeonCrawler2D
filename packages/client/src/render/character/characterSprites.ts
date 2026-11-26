@@ -13,7 +13,7 @@ import {
 import { isPlayer3dReady } from "./playerAssets.js";
 import { build3dCharacterPortraitUrl, build3dCharacterSpriteSet } from "./playerCompositor.js";
 
-export type { CharacterAnimState, CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
+export type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./characterTypes.js";
 
 const MAX_CACHED_SETS = 32;

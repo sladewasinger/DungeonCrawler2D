@@ -13,13 +13,13 @@ import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTy
 import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
 
-export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
+export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type SentinelPalettes } from "./playerRecolor.js";
 export {
-  CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES, TARGET_PLAYER_ATLAS_WIDTH,
-  buildTierAtlasPlan, findSlotInPlan, resolveClipTrim,
-  type AtlasFrameSlot, type FrameTrimRect, type PackedTierAtlas,
+  CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES,
+  buildTierAtlasPlan, resolveClipTrim,
+  type AtlasFrameSlot,
 } from "./atlas/playerAtlasPacker.js";
-export { build3dCharacterPortraitUrl, computePortraitCropRect, resolveLayerStack, type PortraitCropRect } from "./atlas/playerPortraitBake.js";
+export { build3dCharacterPortraitUrl, computePortraitCropRect, resolveLayerStack } from "./atlas/playerPortraitBake.js";
 
 interface MutableDirAnim {
   idle: Texture[];

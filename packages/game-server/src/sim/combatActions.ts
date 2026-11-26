@@ -9,7 +9,7 @@ import type { BufferedCombatAction, PendingMeleeSwing } from "./combat/meleeTime
 import { clearPlayerCombatOnFatal } from "./combat/playerCombatHits.js";
 import { stepBurnTarget, stepPoisonTarget } from "./combat/statusEffects.js";
 
-export { applyIncomingPlayerHit, resolveDummyStrikeOnPlayer, resolveMeleeHits, type IncomingHit } from "./combat/playerCombatHits.js";
+export { applyIncomingPlayerHit, resolveDummyStrikeOnPlayer, resolveMeleeHits } from "./combat/playerCombatHits.js";
 
 export interface PlayerCombatState {
   hp: number;

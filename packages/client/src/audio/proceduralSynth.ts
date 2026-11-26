@@ -234,7 +234,7 @@ function scheduleToneTrack(opts: {
   return makeVoiceHandle((t) => osc.stop(t), opts.g);
 }
 
-export function scheduleProceduralTrack(opts: {
+function scheduleProceduralTrack(opts: {
   readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: ProceduralTrackSpec;
   readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number | undefined;
 }): ActiveTrackVoice {

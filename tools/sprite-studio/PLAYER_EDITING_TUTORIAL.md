@@ -4,7 +4,6 @@ This tutorial walks through everything you need to know to sculpt, tweak armor/h
 
 > [!IMPORTANT]
 > - **Save a working copy (or edit `player.blend` directly), and never run `build_player.py` afterward**—running `build_player.py` regenerates `player.blend` from scratch and overwrites any manual Blender edits.
-> - [`player_v2.blend`](player_v2.blend) is preserved separately as an untouched backup/reference rig (`npm run player:bake -- player_v2.blend`).
 
 ---
 

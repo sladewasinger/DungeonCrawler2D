@@ -74,6 +74,7 @@ Every phase specification in `docs/phases/phase-<N>-*.md` must include a `## 5. 
 5. **Repository Quality Gates**:
    - `npm run typecheck` (strict topological TypeScript across all 5 packages + `tsconfig.qa.json`)
    - `npm run lint` (`eslint` with type-aware AST rules + `scripts/check-folder-size.mjs`: `<= 250` lines/file, `<= 35` lines/function, max nesting `3`, `<= 12` direct source/py files per new folder + colocated `README.md`s)
+   - `npm run lint:deadcode` (`knip` zero-unused-files/exports/deps gate)
    - `npm run build` (`@dc2d/game-server` + `@dc2d/client` production bundles)
 
 ### Layer 3 — Real-Browser Playwright E2E & Performance Gate (`e2e/`)

@@ -1,8 +1,8 @@
 /** Tight-packed per-clip trimmed texture-atlas planner split across Core & Secondary hero tiers. */
 
 export const MAX_PLAYER_ATLAS_DIM = 4096;
-export const TARGET_PLAYER_ATLAS_WIDTH = 1536;
-export const ATLAS_SLOT_GUTTER = 4;
+const TARGET_PLAYER_ATLAS_WIDTH = 1536;
+const ATLAS_SLOT_GUTTER = 4;
 
 export const CORE_CLIP_NAMES = ["idle", "walk", "run", "dodge", "attack"] as const;
 export const SECONDARY_CLIP_NAMES = [

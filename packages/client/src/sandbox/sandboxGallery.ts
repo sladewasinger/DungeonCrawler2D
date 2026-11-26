@@ -7,8 +7,8 @@ import { createPropTextureSet, HD_PROP_SCALE, type PropTextureSet } from "../ren
 import { TERRAIN_TEX_PX, createTerrainTileAtlas } from "../render/textures/terrainTextures.js";
 import { LINEUP_SPECS, SANDBOX_LINEUP_DX, SANDBOX_LINEUP_X0, SANDBOX_LINEUP_Y } from "./sandboxAi.js";
 
-export const SANDBOX_W = 48;
-export const SANDBOX_H = 32;
+const SANDBOX_W = 48;
+const SANDBOX_H = 32;
 
 const SWATCH_LIST: readonly { readonly kind: GroundKind; readonly label: string }[] = [
   { kind: GroundKind.Grass, label: "Grass" },

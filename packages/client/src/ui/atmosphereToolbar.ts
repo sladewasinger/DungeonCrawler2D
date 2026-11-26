@@ -4,6 +4,7 @@ import { periodForPhase, type EntityKind } from "@dc2d/engine";
 import type { ConnectionMode } from "../net/worldClient.js";
 import { FpsCounter, PingCounter } from "./fpsCounter.js";
 import { onFullscreenStateChange, shouldShowFullscreenPrompt, toggleFullscreen } from "./fullscreen.js";
+import { parseStaticSvg } from "./dom/staticSvg.js";
 import { DebugSpawnPopover } from "./hud/debugSpawnPopover.js";
 import type { ActiveHudPanel } from "./hud/hudRoot.js";
 import { CompassBadge } from "./map/compassBadge.js";
@@ -186,7 +187,9 @@ function buildFullscreenBtn(): HTMLButtonElement {
   b.type = "button";
   b.setAttribute("aria-label", "Fullscreen");
   b.title = "Enter Fullscreen";
-  b.innerHTML = `${EXPAND_SVG}<span>Fullscreen</span>`;
+  const label = document.createElement("span");
+  label.textContent = "Fullscreen";
+  b.append(parseStaticSvg(EXPAND_SVG), label);
   b.addEventListener("pointerdown", (e) => e.stopPropagation());
   b.addEventListener("click", () => { void toggleFullscreen(); });
   return b;
@@ -211,7 +214,7 @@ function iconBtn(opts: { readonly svg: string; readonly label: string; readonly 
   b.type = "button";
   b.setAttribute("aria-label", opts.label);
   b.title = opts.label;
-  b.innerHTML = opts.svg;
+  b.append(parseStaticSvg(opts.svg));
   b.addEventListener("click", opts.onClick);
   return b;
 }

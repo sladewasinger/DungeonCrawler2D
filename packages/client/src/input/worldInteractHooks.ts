@@ -39,7 +39,7 @@ export function buildClientHudActions(client: WorldClient, audio: AudioEngine, t
   };
 }
 
-export function tryTapWorldInteract(opts: {
+function tryTapWorldInteract(opts: {
   readonly clientX: number; readonly clientY: number; readonly scene: WorldScene;
   readonly client: WorldClient; readonly hud: HudRoot; readonly discovery: DiscoveryOverlay; readonly audio: AudioEngine;
 }): void {

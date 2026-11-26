@@ -20,7 +20,7 @@ export interface WaterSubmergeRig {
   readonly submergedBody: Sprite | null;
 }
 
-export function makeWaterRing(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
+function makeWaterRing(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
   const g = new Graphics();
   const cy = m.cutY + m.bowPx * 0.55;
   g.ellipse(0, cy, m.halfW * 0.9, m.bowPx * 1.1).stroke({ color: 0xbae6fd, width: 1.1, alpha: 0.62 });
@@ -29,7 +29,7 @@ export function makeWaterRing(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics 
   return g;
 }
 
-export function makeWaterFrontLip(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
+function makeWaterFrontLip(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
   const g = new Graphics();
   const edgeX = m.halfW * 0.78;
   g.moveTo(-edgeX, m.cutY).quadraticCurveTo(0, m.cutY + m.bowPx * 2, edgeX, m.cutY)
@@ -38,7 +38,7 @@ export function makeWaterFrontLip(m: WaterlineMetrics = PLAYER_WATERLINE): Graph
   return g;
 }
 
-export function makeWaterMask(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
+function makeWaterMask(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
   const g = new Graphics();
   g.moveTo(-48, -96).lineTo(48, -96).lineTo(48, m.cutY).lineTo(m.halfW, m.cutY)
     .quadraticCurveTo(0, m.cutY + m.bowPx * 2, -m.halfW, m.cutY).lineTo(-48, m.cutY).closePath().fill(0xffffff);
@@ -46,7 +46,7 @@ export function makeWaterMask(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics 
   return g;
 }
 
-export function makeUnderwaterMask(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
+function makeUnderwaterMask(m: WaterlineMetrics = PLAYER_WATERLINE): Graphics {
   const g = new Graphics();
   g.moveTo(-48, m.cutY).lineTo(-m.halfW, m.cutY).quadraticCurveTo(0, m.cutY + m.bowPx * 2, m.halfW, m.cutY)
     .lineTo(48, m.cutY).lineTo(48, 36).lineTo(-48, 36).closePath().fill(0xffffff);

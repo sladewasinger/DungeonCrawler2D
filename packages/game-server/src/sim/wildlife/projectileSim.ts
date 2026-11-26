@@ -2,7 +2,7 @@
 import { PROP_SPECS } from "@dc2d/content";
 import {
   GroundKind, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache, isInWorldSanctuary,
-  playerProjectileHurtbox, projectileHitsHurtbox, projectileHurtbox, segmentHitsEllipse,
+  entityHurtbox, playerHurtbox, projectileHitsHurtbox, segmentHitsEllipse,
   type ChunkProp, type GoreStyle, type ProjectileSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, type CombatPlayerRef } from "../combatActions.js";
@@ -82,7 +82,7 @@ function hitDummy(ctx: RayHitCtx, dummies: readonly SimEntity[], ecology: WorldE
     const t = projectileHitsHurtbox({
       x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
       projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
-      box: projectileHurtbox(d, d.kind, ctx.cache),
+      box: entityHurtbox(d, d.kind, ctx.cache),
     });
     if (t === null) continue;
     damageDummy({ entity: d, damage: ctx.pr.damage, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
@@ -127,7 +127,7 @@ function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: Wild
 function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology, players: Map<string, CombatPlayerRef>): boolean {
   for (const w of ecology.list) {
     if (w.corpse || w.hp <= 0) continue;
-    const t = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: projectileHurtbox(w, w.kind, ctx.cache) });
+    const t = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: entityHurtbox(w, w.kind, ctx.cache) });
     if (t === null) continue;
     applyWildlifeArrowHit({ ctx, w, t, ecology, players }); return true;
   }
@@ -137,7 +137,7 @@ function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology, players: Map<string,
 function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boolean {
   for (const p of players.values()) {
     if (p.id === ctx.pr.ownerId) continue;
-    const hitT = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: playerProjectileHurtbox(p, ctx.cache) });
+    const hitT = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: playerHurtbox(p, ctx.cache) });
     if (hitT === null) continue;
     if (isInWorldSanctuary(ctx.cache, ctx.pr.originX, ctx.pr.originY) || isInWorldSanctuary(ctx.cache, p.x, p.y)) return true;
     applyIncomingPlayerHit({
@@ -199,7 +199,7 @@ function stepPebbleProjectile(opts: {
     const onStairs = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y)).stairs;
     const hit = ecology.list.find((w) => !w.corpse && w.hp > 0 && projectileHitsHurtbox({
       x0, y0, x1: pr.x, y1: pr.y, projectileElevation: pr.elevation, projectileOnStairs: onStairs,
-      box: projectileHurtbox(w, w.kind, cache),
+      box: entityHurtbox(w, w.kind, cache),
     }) !== null);
     if (hit) {
       hit.staggerTimer = Math.max(hit.staggerTimer, 0.35);

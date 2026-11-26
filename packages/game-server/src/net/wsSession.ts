@@ -87,7 +87,7 @@ function buildOptionalSnapshotFields(opts: {
   };
 }
 
-export function buildClientSnapshot(input: {
+function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
 }): ServerMessage {
   const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
@@ -101,7 +101,7 @@ export function buildClientSnapshot(input: {
   };
 }
 
-export function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
+function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
   const { projectiles, entities, chests, groundLoot, webs } = sim.combatSnapshots();
   const chatMessages = includeEvents ? sim.drainChatMessages() : [];
   return {

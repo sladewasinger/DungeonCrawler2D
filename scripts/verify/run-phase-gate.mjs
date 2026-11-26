@@ -33,14 +33,15 @@ function main() {
   const target = process.argv[2] ?? "all-completed";
   const vitestBin = resolve(ROOT, "node_modules/vitest/vitest.mjs");
   const steps = [
-    ["1/8 TypeScript check", NPM_CMD, ["run", "typecheck"]],
-    ["2/8 ESLint & folder-size check", NPM_CMD, ["run", "lint"]],
-    ["3/8 Production build", NPM_CMD, ["run", "build"]],
-    ["4/8 Vitest suite (JSON report)", process.execPath, [vitestBin, "run", "--reporter=default", "--reporter=json", "--outputFile=.verify-reports/vitest.json"]],
-    ["5/8 Static content & contract audit", NPM_CMD, ["run", "verify:content"]],
-    ["6/8 Documentation integrity check", NPM_CMD, ["run", "verify:docs"]],
-    ["7/8 Playwright Desktop & Mobile E2E", NPM_CMD, ["run", "verify:e2e"]],
-    [`8/8 Spec REQ coverage (${target})`, NPM_CMD, ["run", "verify:spec", "--", target]],
+    ["1/9 TypeScript check", NPM_CMD, ["run", "typecheck"]],
+    ["2/9 ESLint & folder-size check", NPM_CMD, ["run", "lint"]],
+    ["3/9 Dead-code & unused exports (knip)", NPM_CMD, ["run", "lint:deadcode"]],
+    ["4/9 Production build", NPM_CMD, ["run", "build"]],
+    ["5/9 Vitest suite (JSON report)", process.execPath, [vitestBin, "run", "--reporter=default", "--reporter=json", "--outputFile=.verify-reports/vitest.json"]],
+    ["6/9 Static content & contract audit", NPM_CMD, ["run", "verify:content"]],
+    ["7/9 Documentation integrity check", NPM_CMD, ["run", "verify:docs"]],
+    ["8/9 Playwright Desktop & Mobile E2E", NPM_CMD, ["run", "verify:e2e"]],
+    [`9/9 Spec REQ coverage (${target})`, NPM_CMD, ["run", "verify:spec", "--", target]],
   ];
   for (const [label, cmd, args] of steps) runStep({ label, cmd, args, startMs });
   writeFeedback(true, performance.now() - startMs);

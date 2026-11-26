@@ -27,8 +27,8 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  applyWorldEventsBatch, bindViewportRectSync, buildSceneFxSinks, collectActorParticleEmitters, collectWaterActors,
-  nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
+  applyWorldEventsBatch, bindSceneContextAndViewport, buildSceneFxSinks, collectActorParticleEmitters,
+  collectWaterActors, estimateManagedTextureStats, nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
 export type { SceneAudioDistances } from "./sceneHelpers.js";
@@ -41,7 +41,7 @@ export interface SceneFrameInput {
   readonly webs?: WorldWebSnapshot | undefined; readonly events?: readonly WorldEvent[];
 }
 
-export const CAMERA_TUNING = { defaultZoom: BASE_CAMERA_ZOOM, minZoom: 2.0, maxZoom: 8.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
+ const CAMERA_TUNING = { defaultZoom: BASE_CAMERA_ZOOM, minZoom: 2.0, maxZoom: 8.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
 
 export class WorldScene {
   private readonly sceneRoot = new Container();
@@ -61,6 +61,7 @@ export class WorldScene {
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
   private readonly shaderErrors: readonly string[];
+  private webglContextLost = false;
   private interactHandler: ((lootId?: string) => void) | null = null;
   private qualityId: QualityPresetId = defaultQualityPreset();
   private camX = 0.5;
@@ -95,14 +96,13 @@ export class WorldScene {
       { terrain: createTerrainTileAtlas(), props: createPropTextureSet() },
     );
     this.shaderErrors = reportShaderDiagnostics(app.renderer, [
-      { name: "tilemap", glProgram: getTilemapGlProgram() },
-      { name: "water", filter: this.waterEffect.filter },
-      { name: "wind", filter: this.canopyWind.filter },
-      { name: "lighting", filter: this.lighting.filter },
+      { name: "tilemap", glProgram: getTilemapGlProgram() }, { name: "water", filter: this.waterEffect.filter },
+      { name: "wind", filter: this.canopyWind.filter }, { name: "lighting", filter: this.lighting.filter },
     ]);
-    this.unbindViewportSync = bindViewportRectSync(app.canvas, () => {
-      const r = this.app.canvas.getBoundingClientRect();
-      this.canvasRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+    this.unbindViewportSync = bindSceneContextAndViewport({
+      canvas: app.canvas,
+      onContextLoss: (lost) => { this.webglContextLost = lost; },
+      onRectSync: () => { const r = this.app.canvas.getBoundingClientRect(); this.canvasRect = { left: r.left, top: r.top, width: r.width, height: r.height }; },
     });
   }
 
@@ -138,7 +138,8 @@ export class WorldScene {
   qualityPreset(): QualityPresetId { return this.qualityId; }
   currentZoom(): number { return this.zoom; }
   getDiagnosticState() {
-    return { canvasWidth: this.app.screen.width, canvasHeight: this.app.screen.height, chunkCount: this.chunks.mountedCount(), shaderErrors: this.shaderErrors };
+    const tex = estimateManagedTextureStats("managedTextures" in this.app.renderer.texture ? this.app.renderer.texture : {});
+    return { canvasWidth: this.app.screen.width, canvasHeight: this.app.screen.height, chunkCount: this.chunks.mountedCount(), shaderErrors: this.shaderErrors, webglContextLost: this.webglContextLost, ...tex };
   }
   setZoom(zoom: number): void { this.zoom = sanitizeCameraZoom(zoom); }
   adjustZoom(factor: number): void { this.zoom = stepCameraZoom(this.zoom, factor); }

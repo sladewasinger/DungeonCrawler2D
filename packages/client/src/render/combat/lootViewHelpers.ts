@@ -5,7 +5,7 @@ import { Container, Graphics, Sprite, Text } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 
-export function findTapChestAt(opts: {
+function findTapChestAt(opts: {
   readonly chests: readonly WorldChestSnapshot[]; readonly world: { readonly x: number; readonly y: number }; readonly me: PlayerSnapshot;
 }): WorldChestSnapshot | undefined {
   return opts.chests.find((c) => {
@@ -14,7 +14,7 @@ export function findTapChestAt(opts: {
   });
 }
 
-export function findTapManualLootAt(opts: {
+function findTapManualLootAt(opts: {
   readonly groundLoot: readonly GroundLootSnapshot[]; readonly world: { readonly x: number; readonly y: number }; readonly me: PlayerSnapshot;
 }): GroundLootSnapshot | undefined {
   return opts.groundLoot.find((g) => {

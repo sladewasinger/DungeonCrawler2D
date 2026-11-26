@@ -4,7 +4,7 @@ import { LAIR_AND_PUZZLE_LAYOUTS } from "./lairAndPuzzleLayouts.js";
 import { MICRO_SCENE_LAYOUTS } from "./microLayouts.js";
 import { SHRINE_AND_FRIENDLY_LAYOUTS, type FrontierPoiLayoutSpec } from "./shrineLayouts.js";
 
-export const FRONTIER_POI_LAYOUTS: Readonly<Record<string, FrontierPoiLayoutSpec>> = {
+const FRONTIER_POI_LAYOUTS: Readonly<Record<string, FrontierPoiLayoutSpec>> = {
   ...SHRINE_AND_FRIENDLY_LAYOUTS,
   ...MICRO_SCENE_LAYOUTS,
   ...LAIR_AND_PUZZLE_LAYOUTS,
@@ -31,7 +31,7 @@ export function frontierPoiFloorGround(spec: FrontierPoiLayoutSpec): GroundKind 
   return FLOOR_BY_THEME[spec.floor];
 }
 
-export function brazierIdForPoi(poiId: string, idx: number): string {
+function brazierIdForPoi(poiId: string, idx: number): string {
   return `brazier:${poiId}:${idx}`;
 }
 

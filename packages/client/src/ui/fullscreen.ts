@@ -11,11 +11,11 @@ export function isFullscreenActive(): boolean {
   return typeof document !== "undefined" && Boolean(document.fullscreenElement);
 }
 
-export function isCoarsePointerDevice(): boolean {
+function isCoarsePointerDevice(): boolean {
   return isCoarsePrimaryDevice();
 }
 
-export function isStandaloneDisplayMode(): boolean {
+function isStandaloneDisplayMode(): boolean {
   return typeof window !== "undefined" && Boolean(window.matchMedia?.("(display-mode: standalone)").matches);
 }
 

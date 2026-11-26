@@ -19,14 +19,14 @@ export function computeWeightedProgress(range: readonly [number, number], ratio:
   return range[0] + (range[1] - range[0]) * safe;
 }
 
-export function yieldToPaint(): Promise<void> {
+function yieldToPaint(): Promise<void> {
   if (typeof requestAnimationFrame === "function") {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
   return Promise.resolve();
 }
 
-export async function preloadCoreGameAssets(onProgress: BootProgressCallback): Promise<void> {
+async function preloadCoreGameAssets(onProgress: BootProgressCallback): Promise<void> {
   let manifestDone = 0;
   let manifestTotal = 0;
   let playerDone = 0;
@@ -68,7 +68,7 @@ function warmHeroSpritesAndPortraits(appearance: CharacterAppearance): void {
   }
 }
 
-export async function warmGameplayTexturesAndHero(opts: {
+async function warmGameplayTexturesAndHero(opts: {
   readonly appearance: CharacterAppearance;
   readonly onProgress: BootProgressCallback;
 }): Promise<void> {
