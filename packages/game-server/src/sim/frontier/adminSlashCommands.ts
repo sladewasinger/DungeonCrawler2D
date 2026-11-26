@@ -63,14 +63,27 @@ function runClearBagCmd(sim: WorldSim, playerId: string): string {
   return "Cleared backpack slots.";
 }
 
+function findRingSpot(opts: {
+  readonly cache: WorldChunkCache; readonly r: number; readonly steps: number; readonly match: (wx: number, wy: number) => boolean;
+}): { readonly x: number; readonly y: number } | null {
+  for (let step = 0; step < opts.steps; step++) {
+    const ang = (step / opts.steps) * Math.PI * 2;
+    const wx = Math.round(Math.cos(ang) * opts.r);
+    const wy = Math.round(Math.sin(ang) * opts.r);
+    if (opts.match(wx, wy) && isDryTile(opts.cache, wx, wy)) return { x: wx + 0.5, y: wy + 0.5 };
+  }
+  return null;
+}
+
 function findBiomeSpot(cache: WorldChunkCache, target: BiomeKind): { readonly x: number; readonly y: number } | null {
-  for (let r = 16; r <= 560; r += 16) {
-    for (let step = 0; step < 16; step++) {
-      const ang = (step / 16) * Math.PI * 2;
-      const wx = Math.round(Math.cos(ang) * r);
-      const wy = Math.round(Math.sin(ang) * r);
-      if (sampleMacroBiome(cache.worldSeed, wx, wy) === target && isDryTile(cache, wx, wy)) return { x: wx + 0.5, y: wy + 0.5 };
-    }
+  const match = (wx: number, wy: number) => sampleMacroBiome(cache.worldSeed, wx, wy) === target;
+  for (let r = 32; r <= 640; r += 32) {
+    const hit = findRingSpot({ cache, r, steps: 20, match });
+    if (hit) return hit;
+  }
+  for (let r = 736; r <= 4400; r += 96) {
+    const hit = findRingSpot({ cache, r, steps: 24, match });
+    if (hit) return hit;
   }
   return null;
 }
@@ -149,6 +162,22 @@ function runTpCmd(sim: WorldSim, playerId: string, args: readonly string[]): str
   return `Teleported to (${x}, ${y}).`;
 }
 
+const TIER_TARGET_RADIUS: Readonly<Record<number, number>> = { 1: 10, 2: 1050, 3: 2060, 4: 3580, 5: 6080 };
+
+function runTierCmd(sim: WorldSim, playerId: string, args: readonly string[]): string {
+  const tier = Math.floor(Number(args[0]));
+  const baseR = TIER_TARGET_RADIUS[tier];
+  if (baseR === undefined) return "Usage: /tier <1|2|3|4|5>";
+  for (let dr = 0; dr <= 160; dr += 20) {
+    const hit = findRingSpot({ cache: sim.cache, r: baseR + dr, steps: 16, match: () => true });
+    if (hit) {
+      teleportTo({ sim, playerId, x: hit.x, y: hit.y });
+      return `Teleported to Danger Tier ${tier} (${Math.round(hit.x)}, ${Math.round(hit.y)}).`;
+    }
+  }
+  return `No dry tile found near Tier ${tier}.`;
+}
+
 function runGodCmd(sim: WorldSim, playerId: string, args: readonly string[]): string {
   const flag = args[0] === "on" ? true : (args[0] === "off" ? false : undefined);
   sim.handleAdminAction(playerId, { action: "godMode", enabled: flag });
@@ -164,13 +193,14 @@ function runTimeCmd(sim: WorldSim, args: readonly string[]): string {
 }
 
 const SLASH_HANDLERS: Readonly<Record<string, (sim: WorldSim, id: string, args: readonly string[]) => string>> = {
-  help: () => "Commands: /god /heal /give <id> [n] /fillbag [id] /clearbag /tp <x> <y> /biome <name> /poi <kind> /time <preset>",
+  help: () => "Commands: /god /heal /give <id> [n] /fillbag [id] /clearbag /tp <x> <y> /tier <1-5> /biome <name> /poi <kind> /time <preset>",
   god: runGodCmd,
   heal: (sim, id) => { sim.handleAdminAction(id, { action: "heal" }); return "Healed."; },
   give: runGiveCmd,
   fillbag: runFillBagCmd,
   clearbag: runClearBagCmd,
   tp: runTpCmd,
+  tier: runTierCmd,
   biome: (sim, id, args) => runBiomeCmd(sim, id, args[0] ?? ""),
   poi: (sim, id, args) => runPoiCmd(sim, id, args[0] ?? "chest"),
   time: (sim, _id, args) => runTimeCmd(sim, args),

@@ -4,11 +4,12 @@ import { computeDangerTier, createEmptyChestSlots, hashUnit2d, sampleMacroBiome,
 import type { WildlifeEntity, WildlifeKind } from "../creatureSpecs.js";
 import type { LootManager } from "../lootManager.js";
 
-const TIER_SCALE: Readonly<Record<DangerTier, { readonly hp: number; readonly dmg: number }>> = {
-  1: { hp: 1.0, dmg: 1.0 },
-  2: { hp: 1.25, dmg: 1.15 },
-  3: { hp: 1.55, dmg: 1.3 },
-  4: { hp: 1.9, dmg: 1.5 },
+const TIER_SCALE: Readonly<Record<DangerTier, { readonly hp: number; readonly dmg: number; readonly speed: number }>> = {
+  1: { hp: 1.0, dmg: 1.0, speed: 1.0 },
+  2: { hp: 1.55, dmg: 1.35, speed: 1.04 },
+  3: { hp: 2.5, dmg: 1.9, speed: 1.09 },
+  4: { hp: 4.1, dmg: 2.75, speed: 1.14 },
+  5: { hp: 6.8, dmg: 4.0, speed: 1.20 },
 };
 
 const ELITE_TITLES: Readonly<Record<WildlifeKind, string>> = {
@@ -23,9 +24,11 @@ const ELITE_TITLES: Readonly<Record<WildlifeKind, string>> = {
   slime: "King Slime",
 };
 
-export function dangerTierStatScale(tier: DangerTier, isElite: boolean): { readonly hpMult: number; readonly dmgMult: number } {
+export function dangerTierStatScale(tier: DangerTier, isElite: boolean): { readonly hpMult: number; readonly dmgMult: number; readonly speedMult: number } {
   const base = TIER_SCALE[tier];
-  return isElite ? { hpMult: base.hp * 2.6, dmgMult: base.dmg * 1.45 } : { hpMult: base.hp, dmgMult: base.dmg };
+  return isElite
+    ? { hpMult: base.hp * 2.8, dmgMult: base.dmg * 1.5, speedMult: base.speed * 1.05 }
+    : { hpMult: base.hp, dmgMult: base.dmg, speedMult: base.speed };
 }
 
 export function defaultEliteTitle(kind: WildlifeKind): string {
@@ -37,8 +40,10 @@ export function pickBiomeWildlifeKind(biome: BiomeKind, roll: number): WildlifeK
   return roster[Math.floor(roll * roster.length) % roster.length] ?? "wolf";
 }
 
+const WANDERING_ELITE_CHANCE: Readonly<Record<DangerTier, number>> = { 1: 0, 2: 0, 3: 0.06, 4: 0.12, 5: 0.20 };
+
 export function shouldSpawnWanderingElite(tier: DangerTier, roll: number): boolean {
-  return tier >= 3 && roll < 0.08;
+  return roll < WANDERING_ELITE_CHANCE[tier];
 }
 
 export function buildChunkWildlifeSpawns(opts: {

@@ -38,7 +38,7 @@ function chooseBog(roll: number, ground: GroundKind): PropChoice | null {
 
 function chooseHighland(roll: number, distOrigin: number): PropChoice | null {
   if (roll < 0.036) return { kind: PropKind.CopperVein, radius: 0.44, blocks: true };
-  if (roll < 0.064 && distOrigin > 24) return { kind: PropKind.IronVein, radius: 0.44, blocks: true };
+  if (roll < 0.064 && distOrigin >= 900) return { kind: PropKind.IronVein, radius: 0.44, blocks: true };
   if (roll < 0.115) return { kind: PropKind.Boulder, radius: 0.42, blocks: true };
   return roll < 0.175 ? { kind: PropKind.PineTree, radius: 0.36, blocks: true } : null;
 }

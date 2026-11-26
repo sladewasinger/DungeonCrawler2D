@@ -129,7 +129,7 @@ export class MinimapOverlay {
     btn.addEventListener("pointerdown", (e) => e.stopPropagation());
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.zoom = this.zoom >= 4 ? 2 : this.zoom + 1;
+      this.zoom = this.zoom >= 4 ? 1 : this.zoom + 1;
       btn.textContent = `${this.zoom}×`;
       this.terrainCacheKey = "";
     });
@@ -176,11 +176,12 @@ export class MinimapOverlay {
     const ctx = this.terrainBuf.getContext("2d");
     if (!ctx) return;
     const img = ctx.createImageData(MAP_PX, MAP_PX);
-    const step = this.zoom;
-    const half = Math.floor(MAP_PX / (2 * step));
-    for (let dy = -half; dy < half; dy++) {
-      for (let dx = -half; dx < half; dx++) {
-        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * step, py: (dy + half) * step, step });
+    const paintStep = this.zoom < 2 ? 2 : this.zoom;
+    const tileStep = this.zoom < 2 ? 2 : 1;
+    const half = Math.floor(MAP_PX / (2 * this.zoom));
+    for (let dy = -half; dy < half; dy += tileStep) {
+      for (let dx = -half; dx < half; dx += tileStep) {
+        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * this.zoom, py: (dy + half) * this.zoom, step: paintStep });
       }
     }
     ctx.putImageData(img, 0, 0);

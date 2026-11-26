@@ -6,20 +6,21 @@ import { createStarterInventory } from "../playerInventory.js";
 import { LootManager } from "../wildlife/lootManager.js";
 import { WorldSim } from "../worldSim.js";
 import { executeAdminSlashCommand } from "./adminSlashCommands.js";
+import { dangerTierStatScale } from "../wildlife/loot/eliteScaling.js";
 import { DiscoveryTracker } from "./discoveryTracker.js";
 import { PoiInteractionManager } from "./poiInteractions.js";
 
-function findPoiInRow(q: { readonly worldSeed: number; readonly cy: number; readonly r: number; readonly kind: string }): ChunkPoi | null {
-  for (let cx = -q.r; cx <= q.r; cx++) {
+function findPoiInRow(q: { readonly worldSeed: number; readonly cxStart: number; readonly cxEnd: number; readonly cy: number; readonly kind: string }): ChunkPoi | null {
+  for (let cx = q.cxStart; cx <= q.cxEnd; cx++) {
     const poi = findChunkPoi(q.worldSeed, cx, q.cy);
     if (poi?.kind === q.kind) return poi;
   }
   return null;
 }
 
-function findFirstPoiOfKind(worldSeed: number, kind: string): ChunkPoi | null {
+function findFirstPoiOfKind(worldSeed: number, kind: string, cxBounds: readonly [number, number] = [-18, 18]): ChunkPoi | null {
   for (let cy = -18; cy <= 18; cy++) {
-    const hit = findPoiInRow({ worldSeed, cy, r: 18, kind });
+    const hit = findPoiInRow({ worldSeed, cxStart: cxBounds[0], cxEnd: cxBounds[1], cy, kind });
     if (hit) return hit;
   }
   return null;
@@ -56,7 +57,7 @@ describe("frontier discovery, shrines, waystones & brazier vaults", () => {
   });
 
   it("keeps brazier vault chest sealed until all braziers are ignited with a Torch", () => {
-    const vault = findFirstPoiOfKind(1337, "brazier-vault");
+    const vault = findFirstPoiOfKind(1337, "brazier-vault", [64, 96]);
     expect(vault).not.toBeNull();
     if (!vault || !vault.brazierPositions?.length) return;
     const cache = new WorldChunkCache(1337);
@@ -103,5 +104,15 @@ describe("frontier discovery, shrines, waystones & brazier vaults", () => {
     sim.handleChestAction(id, { t: "chestTransfer", chestId: chestPoi.id, from: "chest", fromSlot: first.idx, to: "inv", toSlot: 0, quick: true });
     expect(sim.inventorySnapshot(id)?.slots[9]?.itemId).toBe(first.itemId);
     expect(TOTAL_INVENTORY_SLOTS).toBe(36);
+  });
+
+  it("scales enemy HP, damage, and speed exponentially across Danger Tiers 1 through 5", () => {
+    const t1 = dangerTierStatScale(1, false);
+    const t3 = dangerTierStatScale(3, false);
+    const t5 = dangerTierStatScale(5, false);
+    expect(t3.hpMult).toBeGreaterThan(t1.hpMult * 2);
+    expect(t5.hpMult).toBeGreaterThanOrEqual(6.5);
+    expect(t5.dmgMult).toBeGreaterThanOrEqual(3.5);
+    expect(t5.speedMult).toBeGreaterThan(t1.speedMult);
   });
 });

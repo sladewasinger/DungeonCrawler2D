@@ -33,13 +33,14 @@ const GEAR_BY_RARITY: Readonly<Record<ItemRarity, readonly string[]>> = {
 };
 
 const TIER_WEIGHTS: Readonly<Record<ContentDangerTier, readonly [ItemRarity, number][]>> = {
-  1: [["common", 0.70], ["uncommon", 0.26], ["rare", 0.04]],
-  2: [["common", 0.35], ["uncommon", 0.44], ["rare", 0.18], ["epic", 0.03]],
-  3: [["common", 0.12], ["uncommon", 0.38], ["rare", 0.34], ["epic", 0.14], ["legendary", 0.02]],
-  4: [["uncommon", 0.22], ["rare", 0.42], ["epic", 0.28], ["legendary", 0.08]],
+  1: [["common", 0.90], ["uncommon", 0.10]],
+  2: [["common", 0.58], ["uncommon", 0.36], ["rare", 0.06]],
+  3: [["common", 0.25], ["uncommon", 0.48], ["rare", 0.24], ["epic", 0.03]],
+  4: [["uncommon", 0.30], ["rare", 0.48], ["epic", 0.20], ["legendary", 0.02]],
+  5: [["rare", 0.38], ["epic", 0.48], ["legendary", 0.14]],
 };
 
-const PREFIX_CHANCE: Readonly<Record<ContentDangerTier, number>> = { 1: 0.2, 2: 0.4, 3: 0.65, 4: 0.85 };
+const PREFIX_CHANCE: Readonly<Record<ContentDangerTier, number>> = { 1: 0.08, 2: 0.18, 3: 0.35, 4: 0.58, 5: 0.85 };
 const HIGH_POIS = new Set<string>(["broodmother-hollow", "orc-totem-ring", "golem-forge", "cursed-obelisk", "brazier-vault", "sun-dial-ruin"]);
 const FRIENDLY_POIS = new Set<string>(["hermits-hut", "tinker-camp"]);
 const ITEM_ANCIENT_CORE = "ancient-core";
@@ -125,23 +126,30 @@ function appendChestSupplies(opts: {
 }
 
 function appendChestMaterials(opts: {
-  readonly out: RolledLootEntry[]; readonly isVault: boolean; readonly biome: ContentBiomeId; readonly rng: () => number;
+  readonly out: RolledLootEntry[]; readonly isVault: boolean; readonly biome: ContentBiomeId; readonly tier: ContentDangerTier; readonly rng: () => number;
 }): void {
   const mats = BIOME_MATERIALS[opts.biome];
   const matSlots = opts.isVault ? 2 : 1 + Math.floor(opts.rng() * 2);
   for (let i = 0; i < matSlots; i++) opts.out.push({ itemId: pick(mats, opts.rng), count: 2 + Math.floor(opts.rng() * 4) });
-  if (opts.isVault) opts.out.push({ itemId: ITEM_ANCIENT_CORE, count: 1 });
+  if (opts.isVault && opts.tier >= 3) opts.out.push({ itemId: ITEM_ANCIENT_CORE, count: 1 });
 }
 
 function vaultMinRarity(isVault: boolean, tier: ContentDangerTier): ItemRarity | undefined {
   if (!isVault) return undefined;
-  return tier >= 3 ? "epic" : "rare";
+  if (tier >= 4) return "epic";
+  return tier >= 3 ? "rare" : "uncommon";
+}
+
+function chestGearSlots(opts: { readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: ContentDangerTier; readonly rng: () => number }): number {
+  if (opts.isVault) return opts.tier >= 5 || opts.rng() < 0.5 ? 2 : 1;
+  if (opts.cat === "micro" || opts.cat === "friendly") return opts.rng() < 0.55 ? 1 : 0;
+  return 1;
 }
 
 function appendChestGear(opts: {
-  readonly out: RolledLootEntry[]; readonly isVault: boolean; readonly tier: ContentDangerTier; readonly rng: () => number;
+  readonly out: RolledLootEntry[]; readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: ContentDangerTier; readonly rng: () => number;
 }): void {
-  const gearSlots = opts.isVault ? 2 : 1 + (opts.rng() < 0.45 ? 1 : 0);
+  const gearSlots = chestGearSlots(opts);
   const baseMin = vaultMinRarity(opts.isVault, opts.tier);
   for (let i = 0; i < gearSlots; i++) {
     const rarity = rollRarity(opts.tier, opts.rng, i === 0 ? baseMin : undefined);
@@ -161,17 +169,22 @@ export function rollChestLoot(opts: {
   const cat = classifyPoiLootCategory(opts.poiKind);
   const isVault = cat === "lair" || cat === "puzzle";
   appendChestSupplies({ out, cat, tier: opts.dangerTier, rng });
-  appendChestMaterials({ out, isVault, biome: opts.biome, rng });
-  appendChestGear({ out, isVault, tier: opts.dangerTier, rng });
+  appendChestMaterials({ out, isVault, biome: opts.biome, tier: opts.dangerTier, rng });
+  appendChestGear({ out, cat, isVault, tier: opts.dangerTier, rng });
   return out;
 }
 
 const MEAT_MOBS = new Set<string>(["wolf", "boar", "bear"]);
 
+function eliteDropMinRarity(tier: ContentDangerTier): ItemRarity {
+  if (tier >= 4) return "epic";
+  return tier >= 3 ? "rare" : "uncommon";
+}
+
 function appendEliteEnemyDrops(out: RolledLootEntry[], dangerTier: ContentDangerTier, rng: () => number): RolledLootEntry[] {
-  out.push({ itemId: dangerTier >= 3 ? ITEM_ANCIENT_CORE : "sunstone", count: 1 + (rng() < 0.4 ? 1 : 0) });
-  const rar = rollRarity(dangerTier, rng, dangerTier >= 3 ? "rare" : "uncommon");
-  pushRolledGear({ out, rarity: rar, prefixChance: 0.9, rng });
+  out.push({ itemId: dangerTier >= 3 ? ITEM_ANCIENT_CORE : "sunstone", count: 1 + (dangerTier >= 4 && rng() < 0.4 ? 1 : 0) });
+  const rar = rollRarity(dangerTier, rng, eliteDropMinRarity(dangerTier));
+  pushRolledGear({ out, rarity: rar, prefixChance: Math.min(0.95, PREFIX_CHANCE[dangerTier] + 0.2), rng });
   return out;
 }
 
@@ -188,8 +201,8 @@ export function rollEnemyDrop(opts: {
   if (MEAT_MOBS.has(opts.kind)) out.push({ itemId: "raw-meat", count: opts.kind === "bear" ? 2 : 1 });
   out.push({ itemId: pick(mats, rng), count: opts.isElite ? 2 : 1 });
   if (opts.isElite) return appendEliteEnemyDrops(out, opts.dangerTier, rng);
-  if (rng() < 0.04 + opts.dangerTier * 0.03) {
-    pushRolledGear({ out, rarity: rollRarity(opts.dangerTier, rng, "uncommon"), prefixChance: PREFIX_CHANCE[opts.dangerTier], rng });
+  if (rng() < 0.015 + opts.dangerTier * 0.015) {
+    pushRolledGear({ out, rarity: rollRarity(opts.dangerTier, rng), prefixChance: PREFIX_CHANCE[opts.dangerTier], rng });
   }
   return out;
 }

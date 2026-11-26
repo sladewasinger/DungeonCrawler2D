@@ -1,7 +1,7 @@
 /** Deterministic sparse Overworld POI stamper spanning 20 diverse frontier landmarks. */
 import { hashUnit2d } from "../math/noise.js";
 import { sampleWorldTile } from "./biomeSampler.js";
-import { sampleMacroBiome } from "./biomes/macroBiome.js";
+import { computeDangerTier, sampleMacroBiome } from "./biomes/macroBiome.js";
 import {
   POI_LAYOUTS, layoutFloorGround, isInsidePoiLayoutMask, stampPoiLayoutPropsAndLights,
 } from "./poiLayouts.js";
@@ -44,8 +44,11 @@ function chooseChunkPoiLayout(worldSeed: number, cx: number, cy: number): PoiLay
   if (fixed === "skip") return null;
   if (fixed) return fixed;
   if (!isSparseMacroCellWinner(worldSeed, cx, cy) || hashUnit2d(worldSeed + 607, cx, cy) >= 0.44) return null;
-  const biome = sampleMacroBiome(worldSeed, cx * CHUNK_SIZE + 16, cy * CHUNK_SIZE + 16);
-  const kind = pickBiomeWeightedPoiKind({ worldSeed, cx, cy, biome });
+  const wx = cx * CHUNK_SIZE + 16;
+  const wy = cy * CHUNK_SIZE + 16;
+  const biome = sampleMacroBiome(worldSeed, wx, wy);
+  const dangerTier = computeDangerTier(biome, wx, wy);
+  const kind = pickBiomeWeightedPoiKind({ worldSeed, cx, cy, biome, dangerTier });
   return pickLayoutForKind({ worldSeed, cx, cy, kind });
 }
 

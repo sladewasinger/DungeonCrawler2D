@@ -1,9 +1,17 @@
-/** Deterministic low-frequency 5-biome macro sampling and frontier DangerTier scaling. */
-import { clamp, fbm2d } from "../../math/noise.js";
+/** Deterministic low-frequency 5-biome macro sampling and 5-tier distance progression. */
 import type { BiomeKind, DangerTier } from "../types.js";
+import { fbm2d } from "../../math/noise.js";
 
-export const SPAWN_SAFE_BIOME_RADIUS = 28;
-const CURSED_FRONTIER_RADIUS = 70;
+export const SPAWN_SAFE_BIOME_RADIUS = 220;
+const BIOME_NOISE_FREQ = 0.0024;
+const RUIN_NOISE_FREQ = 0.0025;
+
+export const TIER_DISTANCES = {
+  2: 1000,
+  3: 2000,
+  4: 3500,
+  5: 6000,
+} as const;
 
 const BASE_TIERS: Readonly<Record<BiomeKind, DangerTier>> = {
   "verdant-forest": 1,
@@ -19,34 +27,35 @@ export function biomeBaseDangerTier(biome: BiomeKind): DangerTier {
 
 export function distanceDangerTier(wx: number, wy: number): DangerTier {
   const r = Math.hypot(wx, wy);
-  if (r < 48) return 1;
-  if (r < 112) return 2;
-  if (r < 192) return 3;
-  return 4;
+  if (r < TIER_DISTANCES[2]) return 1;
+  if (r < TIER_DISTANCES[3]) return 2;
+  if (r < TIER_DISTANCES[4]) return 3;
+  if (r < TIER_DISTANCES[5]) return 4;
+  return 5;
 }
 
-export function computeDangerTier(biome: BiomeKind, wx: number, wy: number): DangerTier {
-  const base = BASE_TIERS[biome];
-  const dist = distanceDangerTier(wx, wy);
-  return clamp(Math.max(dist, base), 1, 4) as DangerTier;
+export function computeDangerTier(_biome: BiomeKind, wx: number, wy: number): DangerTier {
+  return distanceDangerTier(wx, wy);
 }
 
 function isCursedRegion(dist: number, ruinNoise: number): boolean {
-  return (dist > CURSED_FRONTIER_RADIUS && ruinNoise > 0.64) || (dist > 110 && ruinNoise > 0.56);
+  if (dist >= TIER_DISTANCES[5] && ruinNoise > 0.38) return true;
+  if (dist >= TIER_DISTANCES[4] && ruinNoise > 0.50) return true;
+  return dist >= TIER_DISTANCES[3] && ruinNoise > 0.60;
 }
 
 function pickOuterBiome(q: { readonly dist: number; readonly temp: number; readonly moist: number; readonly ruinNoise: number }): BiomeKind {
   if (isCursedRegion(q.dist, q.ruinNoise)) return "cursed-ruinlands";
-  if (q.temp < 0.36 && q.moist < 0.52) return "craggy-highlands";
-  if (q.moist > 0.62) return "misty-bog";
-  return q.temp > 0.56 ? "autumn-woods" : "verdant-forest";
+  if (q.dist >= TIER_DISTANCES[2] && q.temp < 0.42 && q.moist < 0.56) return "craggy-highlands";
+  if (q.moist > 0.60) return "misty-bog";
+  return q.temp > 0.54 ? "autumn-woods" : "verdant-forest";
 }
 
 export function sampleMacroBiome(worldSeed: number, wx: number, wy: number): BiomeKind {
   const dist = Math.hypot(wx, wy);
   if (dist < SPAWN_SAFE_BIOME_RADIUS) return "verdant-forest";
-  const temp = fbm2d({ seed: worldSeed + 709, x: wx * 0.0085, y: wy * 0.0085, octaves: 3 });
-  const moist = fbm2d({ seed: worldSeed + 821, x: wx * 0.0085, y: wy * 0.0085, octaves: 3 });
-  const ruinNoise = fbm2d({ seed: worldSeed + 991, x: wx * 0.009, y: wy * 0.009, octaves: 2 });
+  const temp = fbm2d({ seed: worldSeed + 709, x: wx * BIOME_NOISE_FREQ, y: wy * BIOME_NOISE_FREQ, octaves: 3 });
+  const moist = fbm2d({ seed: worldSeed + 821, x: wx * BIOME_NOISE_FREQ, y: wy * BIOME_NOISE_FREQ, octaves: 3 });
+  const ruinNoise = fbm2d({ seed: worldSeed + 991, x: wx * RUIN_NOISE_FREQ, y: wy * RUIN_NOISE_FREQ, octaves: 2 });
   return pickOuterBiome({ dist, temp, moist, ruinNoise });
 }

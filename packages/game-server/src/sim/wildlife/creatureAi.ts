@@ -90,19 +90,19 @@ function stepBoarEngage(input: StepCreatureInput, target: CombatTarget): void {
     return;
   }
   e.aiState = ST_CHASE;
-  moveCreatureToward({ cache, e, tx: boar.steer.x, ty: boar.steer.y, speed: CREATURE_SPECS.boar.speed * boar.steer.speedMult, dt, stopRadius: 1.0, sep });
+  moveCreatureToward({ cache, e, tx: boar.steer.x, ty: boar.steer.y, speed: CREATURE_SPECS.boar.speed * boar.steer.speedMult * e.speedMult, dt, stopRadius: 1.0, sep });
 }
 
 function steerOrChargeTarget(input: StepCreatureInput, target: CombatTarget): void {
   const { cache, e, allEntities, timeSec, dt } = input;
   if (e.kind === "boar") { stepBoarEngage(input, target); return; }
   const goblinSteer = steerGoblinAllyRetreat(e, target, allEntities);
-  if (goblinSteer) { moveCreatureToward({ cache, e, tx: goblinSteer.x, ty: goblinSteer.y, speed: CREATURE_SPECS.goblin.speed * goblinSteer.speedMult, dt }); return; }
+  if (goblinSteer) { moveCreatureToward({ cache, e, tx: goblinSteer.x, ty: goblinSteer.y, speed: CREATURE_SPECS.goblin.speed * goblinSteer.speedMult * e.speedMult, dt }); return; }
   if (stepMeleeAttack(input, target)) return;
   const spec = CREATURE_SPECS[e.kind];
   const steer = e.kind === "wolf" ? stepWolfHiveMind({ cache, e, target, entities: allEntities, timeSec }) : (e.aiState = ST_CHASE, { x: target.x, y: target.y, speedMult: 1.0 });
   const stopRadius = e.kind === "wolf" && e.aiState === "flank" ? 0.16 : Math.max(0.75, spec.range * 0.68);
-  moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult, dt, stopRadius, sep: combineSepCohesion(e, allEntities) });
+  moveCreatureToward({ cache, e, tx: steer.x, ty: steer.y, speed: spec.speed * steer.speedMult * e.speedMult, dt, stopRadius, sep: combineSepCohesion(e, allEntities) });
 }
 
 function enterReturnState(e: WildlifeEntity): void {
@@ -207,7 +207,7 @@ function stepScavengeHold(input: StepCreatureInput): boolean {
   if (!spec.scavenger || isCreatureAggro(e) || e.hitTimer > 0 || e.alertedTimer > 0 || e.provokedTimer > 0) return false;
   const forage = stepBearScavenge({ e, foods, dt, ...(onConsumeFood ? { onConsume: onConsumeFood } : {}) });
   if (!forage) return false;
-  moveCreatureToward({ cache, e, tx: forage.x, ty: forage.y, speed: spec.speed * forage.speedMult, dt });
+  moveCreatureToward({ cache, e, tx: forage.x, ty: forage.y, speed: spec.speed * forage.speedMult * e.speedMult, dt });
   return true;
 }
 

@@ -15,7 +15,7 @@ const CATEGORY_PIN: Readonly<Record<PoiCategory, { readonly color: string; reado
   ruins: { color: "#94a3b8", shape: "diamond" },
 };
 
-const ROMAN: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
+const ROMAN: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
 
 function drawPinGlyph(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly color: string; readonly shape: string }): void {
   const { px, py, color, shape } = opts;
@@ -86,7 +86,7 @@ function drawWindowPoiPins(opts: {
   readonly localX: number; readonly localY: number; readonly zoom: number; readonly mapPx: number;
   readonly discovered: ReadonlySet<string>;
 }): void {
-  const halfChunks = Math.min(3, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
+  const halfChunks = Math.min(4, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
   const pcx = Math.floor(opts.localX / 32);
   const pcy = Math.floor(opts.localY / 32);
   const center = opts.mapPx * 0.5;
@@ -128,7 +128,8 @@ export function formatCompassBiomeHint(worldSeed: number, x: number, y: number):
   const biome = sampleMacroBiome(worldSeed, x, y);
   const entry = getBiomeEntry(biome);
   const tier = computeDangerTier(biome, x, y);
-  return `${entry.displayName} · T${ROMAN[tier] ?? tier}`;
+  const dist = Math.round(Math.hypot(x, y));
+  return `${entry.displayName} · T${ROMAN[tier] ?? tier} · ${dist}m`;
 }
 
 export function formatMapFooterSummary(opts: {
