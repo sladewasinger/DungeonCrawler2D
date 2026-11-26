@@ -49,7 +49,6 @@ export class SlotDragManager {
     this.chestSlots = opts.chestSlots ?? null;
   }
 
-  activeTapSource(): DragSource | null { return null; }
   clearTapSelection(): void { this.emitHover(null); }
 
   hoveredFilledSource(): DragSource | null {
@@ -123,6 +122,7 @@ export class SlotDragManager {
 
   private updateMouseHover(e: PointerEvent): void {
     if (e.pointerType !== "mouse" || this.tracker) return;
+    if (!(e.target instanceof Element) || !e.target.closest(ZONE_SELECTOR)) { this.emitHover(null); return; }
     const hit = hoveredSlotElAt(e.clientX, e.clientY);
     if (!hit || !this.itemIdFor(hit.source)) { this.emitHover(null); return; }
     this.emitHover({ source: hit.source, rect: hit.el.getBoundingClientRect() });

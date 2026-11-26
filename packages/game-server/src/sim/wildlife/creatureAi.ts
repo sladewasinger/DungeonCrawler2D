@@ -1,7 +1,7 @@
 /** Shared wildlife perception, sanctuary leash, locked windups, multi-faction targeting, and combat loop. */
 import { AI_TUNING, STEALTH_TUNING, WorldChunkCache, canReachMeleeTarget, type WorldEvent } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { stepBurnTarget, stepPoisonTarget } from "../combat/statusEffects.js";
+import { stepBleedTarget, stepBurnTarget, stepPoisonTarget } from "../combat/statusEffects.js";
 import { holdsSpiderConcealedAmbush, stepSpiderPursuitActions } from "../webs/webCocoon.js";
 import { CREATURE_SPECS, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_CHASE, ST_DEAD, ST_IDLE, ST_INVESTIGATE, ST_PATROL, ST_RETURN, type WildlifeEntity } from "./creatureSpecs.js";
 import { clearNavPath, faceTarget, findReturnReaggroPlayer, stepIdleJumpArc, stepKnockbackVelocity, syncCreatureWaterState } from "./creatureNavigation.js";
@@ -26,7 +26,8 @@ export interface StepCreatureInput {
 function decayTimers(e: WildlifeEntity, dt: number): void {
   e.hitTimer = Math.max(0, e.hitTimer - dt); e.staggerTimer = Math.max(0, e.staggerTimer - dt);
   if (e.staggerTimer === 0) e.parried = false;
-  e.stunnedTimer = Math.max(0, e.stunnedTimer - dt); e.bleedTimer = Math.max(0, e.bleedTimer - dt);
+  e.stunnedTimer = Math.max(0, e.stunnedTimer - dt);
+  if (e.bleedDamagePerTick <= 0) e.bleedTimer = Math.max(0, e.bleedTimer - dt);
   e.attackCooldown = Math.max(0, e.attackCooldown - dt); e.alertedTimer = Math.max(0, e.alertedTimer - dt);
   e.navTimer = Math.max(0, e.navTimer - dt); e.provokedTimer = Math.max(0, e.provokedTimer - dt);
   e.vocalCooldown = Math.max(0, e.vocalCooldown - dt); e.spottedPopTimer = Math.max(0, e.spottedPopTimer - dt);
@@ -205,7 +206,7 @@ function stepScavengeHold(input: StepCreatureInput): boolean {
   const { cache, e, foods, onConsumeFood, dt } = input;
   const spec = CREATURE_SPECS[e.kind];
   if (!spec.scavenger || isCreatureAggro(e) || e.hitTimer > 0 || e.alertedTimer > 0 || e.provokedTimer > 0) return false;
-  const forage = stepBearScavenge({ e, foods, dt, ...(onConsumeFood ? { onConsume: onConsumeFood } : {}) });
+  const forage = stepBearScavenge({ e, foods, dt, cache, ...(onConsumeFood ? { onConsume: onConsumeFood } : {}) });
   if (!forage) return false;
   moveCreatureToward({ cache, e, tx: forage.x, ty: forage.y, speed: spec.speed * forage.speedMult * e.speedMult, dt });
   return true;
@@ -214,7 +215,7 @@ function stepScavengeHold(input: StepCreatureInput): boolean {
 function stepChargeOrForage(input: StepCreatureInput): boolean {
   const { cache, e, allEntities, players, events, dt, onStrike } = input;
   if (stepHowlHold(input)) return true;
-  const chargeTarget = e.targetPlayerId ? resolveLockedTarget({ id: e.targetPlayerId, players, allEntities }) : null;
+  const chargeTarget = e.targetPlayerId ? resolveLockedTarget({ id: e.targetPlayerId, players, allEntities, cache }) : null;
   if (stepBoarCommittedCharge({ cache, e, target: chargeTarget, dt, onStrike: (ent, t) => onStrike(ent, t as CombatTarget), events })) return true;
   return stepScavengeHold(input);
 }
@@ -222,15 +223,13 @@ function stepChargeOrForage(input: StepCreatureInput): boolean {
 function handleUnseenTurn(input: StepCreatureInput): void {
   const unseen = { cache: input.cache, e: input.e, allEntities: input.allEntities, players: input.players, dt: input.dt, enterReturn: enterReturnState };
   if (stepLostSightGrace(unseen)) return;
-  redirectSearchByHearing(unseen);
-  decayUnseenSuspicion(input.e, input.dt); input.e.bluffTimer = 0;
-  stepInvestigateOrPatrol(input);
+  redirectSearchByHearing(unseen); decayUnseenSuspicion(input.e, input.dt); input.e.bluffTimer = 0; stepInvestigateOrPatrol(input);
 }
 
 function stepCommittedMeleeWindup(input: StepCreatureInput): boolean {
   const { e } = input;
   if (e.telegraphTimer <= 0 || (e.kind === "boar" && e.aiState === ST_CHARGE)) return false;
-  const locked = e.targetPlayerId ? resolveLockedTarget({ id: e.targetPlayerId, players: input.players, allEntities: input.allEntities }) : null;
+  const locked = e.targetPlayerId ? resolveLockedTarget({ id: e.targetPlayerId, players: input.players, allEntities: input.allEntities, cache: input.cache }) : null;
   if (!locked) { e.telegraphTimer = 0; return false; }
   finishWindupStrike(input); return true;
 }
@@ -239,8 +238,7 @@ function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   const { cache, e, allEntities, players, dayPhase, dt } = input;
   stepCreatureStrikeWindow({ cache, e, players, allEntities, dt, onStrike: input.onStrike });
   if (e.aiState === ST_RETURN) { e.telegraphTimer = 0; stepCommittedReturn(input); return; }
-  if (stepChargeOrForage(input)) return;
-  if (stepCommittedMeleeWindup(input)) return;
+  if (stepChargeOrForage(input) || stepCommittedMeleeWindup(input)) return;
   scanAlliesAndCorpses({ cache, e, allEntities, players });
   const perceived = findBestHostileTarget({ cache, e, players, allEntities });
   if (!perceived) { handleUnseenTurn(input); return; }
@@ -249,27 +247,30 @@ function stepActiveWildlifeTurn(input: StepCreatureInput): void {
   else stepInvestigateOrPatrol(input);
 }
 
+function stepWildlifeStatuses(input: StepCreatureInput): boolean {
+  const { e, dt, events, onBurnKill } = input;
+  const onTickDamage = (dmg: number): void => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) onBurnKill?.(e); };
+  stepBurnTarget({ target: e, dt, kind: e.kind, x: e.x, y: e.y, targetId: e.id, events, onTickDamage });
+  if (e.hp > 0 && !e.corpse) stepPoisonTarget({ target: e, dt, x: e.x, y: e.y, targetId: e.id, events, onTickDamage });
+  if (e.hp > 0 && !e.corpse) stepBleedTarget({ target: e, dt, x: e.x, y: e.y, targetId: e.id, events, onTickDamage });
+  return e.hp > 0 && !e.corpse;
+}
+
 export function stepWildlifeEntity(input: StepCreatureInput): boolean {
   const { e, dt } = input;
   e.jumpStepped = false;
   if (e.hp <= 0 || e.corpse) {
     e.aiState = ST_DEAD; e.telegraphTimer = 0; e.strikeTimer = 0;
-    e.spottedPopTimer = 0; e.howlTimer = 0; e.bluffTimer = 0;
-    e.corpseTimer = Math.max(0, e.corpseTimer - dt);
+    e.spottedPopTimer = 0; e.howlTimer = 0; e.bluffTimer = 0; e.corpseTimer = Math.max(0, e.corpseTimer - dt);
     return e.corpseTimer > 0;
   }
-  decayTimers(e, dt);
-  syncCreatureWaterState(input.cache, e);
-  stepBurnTarget({ target: e, dt, kind: e.kind, x: e.x, y: e.y, targetId: e.id, events: input.events, onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) input.onBurnKill?.(e); } });
-  if (e.hp <= 0 || e.corpse) return true;
-  stepPoisonTarget({ target: e, dt, x: e.x, y: e.y, targetId: e.id, events: input.events, onTickDamage: (dmg) => { e.hp = Math.max(0, e.hp - dmg); if (e.hp <= 0) input.onBurnKill?.(e); } });
-  if (e.hp <= 0 || e.corpse) return true;
+  decayTimers(e, dt); syncCreatureWaterState(input.cache, e);
+  if (!stepWildlifeStatuses(input)) return true;
   stepKnockbackVelocity(input.cache, e, dt);
   if (e.staggerTimer > 0) {
     e.telegraphTimer = 0; e.strikeTimer = 0; e.bluffTimer = 0;
     stepIdleJumpArc(e, dt); return true;
   }
-  stepActiveWildlifeTurn(input);
-  stepIdleJumpArc(e, dt);
+  stepActiveWildlifeTurn(input); stepIdleJumpArc(e, dt);
   return true;
 }

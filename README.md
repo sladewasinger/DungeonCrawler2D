@@ -49,7 +49,8 @@ Requires **Node.js `>= 22`**.
 
 ```bash
 npm install
-npm run dev               # Starts @dc2d/game-server (watch on :4000) + Vite client (--host 0.0.0.0)
+npm run dev               # Starts @dc2d/game-server (watch on 127.0.0.1:4000) + Vite client (127.0.0.1:5173)
+npm run dev:lan           # Opt-in 0.0.0.0 LAN binding for phone testing on local Wi-Fi
 npm run typecheck         # Strict TypeScript check across all 4 workspaces
 npm run lint:working-tree # Fast ESLint + folder-size check for changed/untracked files
 npm run lint              # Full-repository ESLint + folder-size standards gate
@@ -61,7 +62,7 @@ node tools/smoke-production.mjs http://localhost:5173 # Smoke-test HTML + /ws pr
 
 ### Local network (LAN) & phone testing
 
-`npm run dev` exposes Vite on all network interfaces (`--host 0.0.0.0`, default port `5173`, auto-incrementing if busy) and proxies `/ws` to `http://127.0.0.1:4000` so browsers and phones only need one HTTP URL:
+`npm run dev:lan` exposes Vite and the game server on all network interfaces (`0.0.0.0`, default port `5173`, auto-incrementing if busy) and proxies `/ws` to `http://127.0.0.1:4000` so browsers and phones only need one HTTP URL (`npm run dev` binds to `127.0.0.1` by default):
 
 1. Check the `Network: http://<your-LAN-IP>:<port>/` line printed by Vite when `npm run dev` starts.
 2. Open that URL on your phone **including the explicit `http://` prefix and colon before the port** (for example `http://192.168.50.60:5173/`). Omitting `http://` can trigger mobile auto-HTTPS (`ERR_SSL_PROTOCOL_ERROR`).

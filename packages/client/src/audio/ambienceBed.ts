@@ -51,10 +51,6 @@ export class AmbienceBed {
   private bioTimer = 2.5;
   private fireTimer = 0.7;
   private tensionTimer = 0.5;
-  private readonly samples = new Map<string, AudioBuffer>();
-
-  registerSample(key: string, buf: AudioBuffer): void { this.samples.set(key, buf); }
-  sample(key: string): AudioBuffer | undefined { return this.samples.get(key); }
 
   update(input: AmbienceStepInput): void {
     this.ensureBeds(input.ctx, input.sfxDst, input.musicDst);

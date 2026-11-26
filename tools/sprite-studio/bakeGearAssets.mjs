@@ -5,8 +5,9 @@ import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, measureS
 import { decodePng, encodeLosslessWebp, encodePng } from "./pngCodec.mjs";
 
 const RAW_DIR = process.argv[2];
-const GEAR_OUT = "D:/repos/dungeoncrawler2D/packages/client/public/assets/gear";
-const MANIFEST_PATH = "D:/repos/dungeoncrawler2D/packages/client/public/assets/sprite-manifest.json";
+const REPO_ASSETS = path.resolve(import.meta.dirname, "../../packages/client/public/assets");
+const GEAR_OUT = path.join(REPO_ASSETS, "gear");
+const MANIFEST_PATH = path.join(REPO_ASSETS, "sprite-manifest.json");
 const REVIEW_OUT = process.argv[3] ?? "";
 const SCALE = 0.3333;
 

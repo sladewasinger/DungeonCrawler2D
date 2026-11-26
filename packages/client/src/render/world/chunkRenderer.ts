@@ -143,12 +143,12 @@ export class ChunkRenderer {
     for (const snap of players) {
       let view = this.playerViews.get(snap.id);
       if (!view) {
-        view = new PlayerView(this.atlases.props.torchFrames[0]!, snap);
+        view = new PlayerView(snap);
         this.playerViews.set(snap.id, view);
         this.layers.ysort.addChild(view.root);
       }
       const { visualElev, sortBoost } = playerVisualElevation({ cache, x: snap.x, y: snap.y, baseElev: snap.elevation });
-      view.sync({ snap, torchFrames: this.atlases.props.torchFrames, timeSec, visualElev, sortBoost });
+      view.sync({ snap, timeSec, visualElev, sortBoost });
     }
   }
 
@@ -158,9 +158,11 @@ export class ChunkRenderer {
     const px = loc.cx * CHUNK_SIZE * TILE_PX;
     const py = loc.cy * CHUNK_SIZE * TILE_PX;
     baked.ground.mesh.position.set(px, py);
-    baked.water.mesh.position.set(px, py);
     this.layers.ground.addChild(baked.ground.mesh);
-    this.layers.water.addChild(baked.water.mesh);
+    if (baked.water) {
+      baked.water.mesh.position.set(px, py);
+      this.layers.water.addChild(baked.water.mesh);
+    }
 
     const target = {
       grassSprites: [] as { sprite: Sprite; wx: number; wy: number }[],
@@ -187,7 +189,7 @@ export class ChunkRenderer {
 
   private unmountChunk(entry: MountedChunk): void {
     entry.ground.dispose();
-    entry.water.dispose();
+    entry.water?.dispose();
     for (const s of entry.grassSprites) s.sprite.destroy();
     for (const s of entry.ysortSprites) {
       const isCliff = this.cliffSprites.delete(s);

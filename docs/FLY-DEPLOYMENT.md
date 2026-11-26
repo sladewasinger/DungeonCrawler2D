@@ -123,7 +123,7 @@ Run from the repository root (`C:\repos\DungeonCrawler2D`):
 1. **Generate a scoped deploy token** from your local terminal:
 
    ```powershell
-   fly tokens create deploy -x 999999h
+   fly tokens create deploy -a dungeoncrawler2d-server -x 2160h
    ```
 
 2. **Add the GitHub Repository Secret:**

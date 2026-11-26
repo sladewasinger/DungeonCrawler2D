@@ -1,5 +1,5 @@
 /** A* waypoint following, prop avoidance, true-velocity facing sync, and knockback physics. */
-import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, closestObstacleCorePoint, findTilePath, hasElevationLineOfSight, isInSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
+import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, closestObstacleCorePoint, findTilePath, hasElevationLineOfSight, isInWorldSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 
 export interface MoveCreatureOpts {
@@ -104,7 +104,7 @@ export function matchesReturnReaggro<
 >(
   cache: WorldChunkCache, e: WildlifeEntity, p: T,
 ): boolean {
-  if ((e.kind === "spider" && (p.combat?.cocoonProgress ?? 0) >= 1) || isInSanctuary(p.x, p.y) || !inReturnReaggroZone(cache, e, p)) return false;
+  if ((e.kind === "spider" && (p.combat?.cocoonProgress ?? 0) >= 1) || isInWorldSanctuary(cache, p.x, p.y) || !inReturnReaggroZone(cache, e, p)) return false;
   return hasElevationLineOfSight({ cache, fromX: e.x, fromY: e.y, fromElev: e.elevation, toX: p.x, toY: p.y, toElev: p.elevation });
 }
 

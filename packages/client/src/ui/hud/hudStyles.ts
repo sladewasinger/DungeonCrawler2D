@@ -92,7 +92,6 @@ const HUD_CSS = `
 }
 .ow-bag-slot { width: var(--ow-bag-slot); height: var(--ow-bag-slot); }
 .ow-slot[data-selected="true"] { border-color: #f59e0b; background: rgba(120, 53, 15, 0.45); box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55); }
-.ow-slot[data-tap-source="true"] { border-color: #38bdf8; box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.65); }
 .ow-slot-img { width: 72%; height: 72%; image-rendering: pixelated; pointer-events: none; }
 .ow-slot-key { position: absolute; left: 4px; top: 2px; font-size: 10px; font-weight: 700; color: rgba(203, 213, 225, 0.65); pointer-events: none; }
 .ow-slot-hint { font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(148, 163, 184, 0.72); pointer-events: none; }

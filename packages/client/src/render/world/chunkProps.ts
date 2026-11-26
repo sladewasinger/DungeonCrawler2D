@@ -23,7 +23,7 @@ export interface MountedChunk {
   readonly cy: number;
   readonly revision?: number;
   readonly ground: TilemapLayerHandle;
-  readonly water: TilemapLayerHandle;
+  readonly water?: TilemapLayerHandle | undefined;
   readonly grassSprites: readonly { sprite: Sprite; wx: number; wy: number }[];
   readonly ysortSprites: readonly Sprite[];
   readonly canopySprites: readonly { sprite: Sprite; wx: number; wy: number }[];
@@ -75,7 +75,6 @@ const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) 
   [PropKind.IronVein]: (p) => p.ironVein,
   [PropKind.Workbench]: (p) => p.workbench,
   [PropKind.Bed]: (p) => p.bed,
-  [PropKind.WoodChest]: (p) => p.woodChest,
   [PropKind.DeadTree]: (p) => p.deadTree,
   [PropKind.GiantMushroom]: (p) => p.giantMushroom,
   [PropKind.BogReed]: (p) => p.bogReed,

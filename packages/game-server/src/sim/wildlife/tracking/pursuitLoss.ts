@@ -1,5 +1,5 @@
 /** Unseen target handling, short LOS grace, pursuit momentum drop, and audio search redirection. */
-import { WorldChunkCache, isInSanctuary } from "@dc2d/engine";
+import { WorldChunkCache, isInWorldSanctuary } from "@dc2d/engine";
 import { CREATURE_SPECS, ST_CHASE, type WildlifeEntity } from "../creatureSpecs.js";
 import { moveCreatureToward, type CombatPlayerCandidate } from "../creatureBehaviors.js";
 import { findHeardHostilePlayer, resolveLockedTarget, type CombatTarget } from "../factionTargeting.js";
@@ -58,8 +58,8 @@ function dropPursuitToSearch(input: UnseenTurnInput): void {
 
 function isTargetSafeOrGone(input: UnseenTurnInput): boolean {
   const { e, players, allEntities, enterReturn } = input;
-  if (!e.targetPlayerId || resolveLockedTarget({ id: e.targetPlayerId, players, allEntities })) return false;
-  if (e.targetKind === "player" && players.some((p) => p.id === e.targetPlayerId && isInSanctuary(p.x, p.y))) {
+  if (!e.targetPlayerId || resolveLockedTarget({ id: e.targetPlayerId, players, allEntities, cache: input.cache })) return false;
+  if (e.targetKind === "player" && players.some((p) => p.id === e.targetPlayerId && isInWorldSanctuary(input.cache, p.x, p.y))) {
     enterReturn(e);
     return true;
   }

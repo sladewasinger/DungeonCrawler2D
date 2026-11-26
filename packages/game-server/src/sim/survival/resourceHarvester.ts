@@ -1,7 +1,7 @@
 /** Authoritative harvestable prop HP tracking, tool-gated gathering drops, and stump/node regrowth. */
 import {
   PropKind, WorldChunkCache, computeHarvestDamage, getHarvestNodeSpec, isWithinSector, propFootprintCenter,
-  rollHarvestDrops, sampleMacroBiome, type ChunkProp, type DepletedPropDelta, type HarvestToolKind, type WorldEvent,
+  rollHarvestDrops, sampleMacroBiome, worldToChunkCoord, type ChunkProp, type DepletedPropDelta, type HarvestToolKind, type WorldEvent,
 } from "@dc2d/engine";
 import type { LootManager } from "../wildlife/lootManager.js";
 
@@ -82,7 +82,10 @@ export class ResourceHarvester {
       return;
     }
     this.hpByProp.delete(prop.id);
-    const delta: DepletedPropDelta = { propId: prop.id, replacementKind: spec.replacementKind, regrowAtSec: timeSec + spec.regrowSec };
+    const delta: DepletedPropDelta = {
+      propId: prop.id, replacementKind: spec.replacementKind, regrowAtSec: timeSec + spec.regrowSec,
+      cx: worldToChunkCoord(Math.floor(prop.x)), cy: worldToChunkCoord(Math.floor(prop.y)),
+    };
     this.depleted.set(prop.id, delta);
     cache.setDepletedProp(delta);
     events.push({ kind: "harvestBreak", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY, value: spec.maxHp, actorId: attacker.id, ...meta, sweepDir });

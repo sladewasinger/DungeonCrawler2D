@@ -77,6 +77,7 @@ export class CombatWorld {
   removePlayer(playerId: string): void {
     this.ecology.removePlayer(playerId);
     this.discovery.removePlayer(playerId);
+    this.webs.removePlayer(playerId);
   }
 
   stepPlayerAction(req: CombatStepRequest): void {
@@ -132,10 +133,10 @@ export class CombatWorld {
   }
 
   respawnPlayerNow(p: CombatPlayerRef, spot?: RespawnSpot | null): void { forceRespawnPlayer(p, this.events, spot); }
-  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly itemId: string; readonly x: number; readonly y: number }): boolean {
+  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly itemId: string; readonly x: number; readonly y: number }): boolean {
     return Boolean(this.structures.placeStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events }));
   }
-  setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly structureId: string }): boolean {
+  setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean {
     return this.structures.bindNearestBed({ ...opts, events: this.events });
   }
 
@@ -146,10 +147,7 @@ export class CombatWorld {
     const c = p.combat;
     const sw = c.pendingSwing;
     if (!sw) { this.flushBufferedAction(p, input); return; }
-    if (shouldHoldHeavyWindup(sw, Boolean(input.attackHold), dt)) {
-      advanceHeavyCharge({ state: c, swing: sw, dt, pos: p, events: this.events });
-      return;
-    }
+    if (shouldHoldHeavyWindup(sw, Boolean(input.attackHold), dt)) { advanceHeavyCharge({ state: c, swing: sw, dt, pos: p, events: this.events }); return; }
     const prev = sw.elapsedSec;
     sw.elapsedSec = Math.min(sw.durationSec, prev + dt);
     c.swingTimer = Math.max(0, sw.durationSec - sw.elapsedSec);
@@ -159,8 +157,7 @@ export class CombatWorld {
       this.poiInteractions.hitBraziersInSector({ attacker: p, heldItemId: slot?.itemId ?? null, prefixId: slot?.prefixId, cache: this.cache, loot: this.ecology.loot, events: this.events });
     }
     if (sw.elapsedSec >= sw.durationSec - 1e-6) {
-      c.pendingSwing = null; c.swingTimer = 0; c.heavyCharge = 0;
-      this.flushBufferedAction(p, input);
+      c.pendingSwing = null; c.swingTimer = 0; c.heavyCharge = 0; this.flushBufferedAction(p, input);
     }
   }
 
@@ -174,8 +171,7 @@ export class CombatWorld {
 
   private tryConsumeAttackBuffer(p: CombatPlayerRef): void {
     const heldId = p.inventory.slots[p.selectedHotbar]?.itemId ?? null;
-    if (!isMeleeItem(heldId) || isBowItemId(heldId)) { p.combat.bufferedAction = null; return; }
-    if (startTrackedMeleeSwing({ p, heldId, events: this.events })) p.combat.bufferedAction = null;
+    if (!isMeleeItem(heldId) || isBowItemId(heldId) || startTrackedMeleeSwing({ p, heldId, events: this.events })) p.combat.bufferedAction = null;
   }
 
   private flushBufferedAction(p: CombatPlayerRef, input: CombatInputFlags): void {
@@ -242,7 +238,7 @@ export class CombatWorld {
   }
 
   private handleCreatureStrike(players: Map<string, CombatPlayerRef>, entity: WildlifeEntity, targetId: string): void {
-    applyCreatureStrikeToPlayer({ hitPlayer: players.get(targetId), entity, events: this.events });
+    applyCreatureStrikeToPlayer({ hitPlayer: players.get(targetId), entity, cache: this.cache, events: this.events });
   }
 
   moveMultiplier(p: CombatPlayerRef): number { return computePlayerMoveMultiplier(p); }

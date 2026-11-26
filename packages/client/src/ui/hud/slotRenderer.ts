@@ -46,12 +46,10 @@ export function renderSlotContent(
     readonly keyLabel?: string | undefined;
     readonly emptyHint?: string | undefined;
     readonly selected?: boolean | undefined;
-    readonly tapSource?: boolean | undefined;
   },
 ): void {
   btn.replaceChildren();
   btn.dataset.selected = String(Boolean(opts.selected));
-  btn.dataset.tapSource = String(Boolean(opts.tapSource));
 
   if (opts.keyLabel) {
     const key = domNode("span", "ow-slot-key");

@@ -4,11 +4,6 @@ import { Texture } from "pixi.js";
 
 export type PixelRect = readonly [x: number, y: number, w: number, h: number, color: string];
 
-export interface OutlineOptions {
-  readonly color?: string;
-  readonly thickness?: 1;
-}
-
 export function createPixelCanvas(
   width: number,
   height: number,

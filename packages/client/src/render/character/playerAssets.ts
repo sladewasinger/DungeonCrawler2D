@@ -6,8 +6,6 @@ import type { FacingDir } from "./characterTypes.js";
 
 export type AssetProgressCallback = (loaded: number, total: number) => void;
 
-export interface ShoulderSocket { readonly x: number; readonly y: number; readonly behind: boolean; }
-export interface FrameSockets { readonly left: ShoulderSocket; readonly right: ShoulderSocket; }
 export interface HandSocket { readonly x: number; readonly y: number; readonly angle: number; readonly behind: boolean; }
 export interface FrameHandSockets { readonly left: HandSocket; readonly right: HandSocket; }
 export interface PlayerClipLayout {
@@ -31,9 +29,6 @@ export interface PlayerRigMeta {
   readonly layers: readonly string[];
   readonly bowOverlay?: { readonly path: string; readonly cols: number; readonly rows: number; readonly frameWidth: number; readonly frameHeight: number } | undefined;
   readonly bakeVersion?: number | undefined;
-  readonly sockets: Readonly<
-    Record<"male" | "female", Readonly<Record<string, Readonly<Record<FacingDir, readonly FrameSockets[]>>>>>
-  >;
   readonly handSockets?: Readonly<
     Record<"male" | "female", Readonly<Record<string, Readonly<Record<FacingDir, readonly FrameHandSockets[]>>>>>
   >;
@@ -223,10 +218,6 @@ export function getPlayerPortraitLayer(layerId: string): HTMLCanvasElement | nul
   return portraitLayerCanvases.get(layerId) ?? null;
 }
 
-function mirrorSocket(s: ShoulderSocket): ShoulderSocket {
-  return { x: -s.x, y: s.y, behind: s.behind };
-}
-
 function mirrorHandSocket(h: HandSocket): HandSocket {
   return {
     x: -h.x, y: h.y,
@@ -244,15 +235,6 @@ function pickTrackFrame<T>(
   const frames = byBody?.[opts.body]?.[opts.clip]?.[opts.dir];
   if (!frames?.length) return null;
   return frames[opts.frameIdx % frames.length] ?? null;
-}
-
-export function sampleShoulderSockets(opts: {
-  readonly body: "male" | "female"; readonly clip: string; readonly dir: FacingDir;
-  readonly frameIdx: number; readonly flipX: boolean;
-}): FrameSockets | null {
-  const raw = pickTrackFrame(rigMeta?.sockets, opts);
-  if (!raw) return null;
-  return opts.flipX ? { left: mirrorSocket(raw.right), right: mirrorSocket(raw.left) } : raw;
 }
 
 export function sampleHandSockets(opts: {

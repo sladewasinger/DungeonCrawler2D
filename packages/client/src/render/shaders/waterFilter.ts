@@ -46,6 +46,8 @@ export class WaterSurfaceEffect {
   }
 
   update(params: WaterUpdateParams): void {
+    this.filter.enabled = params.enabled;
+    if (!this.filter.enabled) return;
     const u = this.uniforms.uniforms;
     u.uTime = params.timeSec;
     u.uEnabled = params.enabled ? 1 : 0;

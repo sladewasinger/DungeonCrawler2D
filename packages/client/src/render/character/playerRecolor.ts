@@ -185,10 +185,6 @@ export function applyRecolorPass(opts: {
   data.set(aligned);
 }
 
-export function computeSelOutRgb(r: number, g: number, b: number): RgbTriad {
-  return [Math.max(10, Math.round(r * 0.22 + 5)), Math.max(9, Math.round(g * 0.20 + 3)), Math.max(15, Math.round(b * 0.26 + 9))];
-}
-
 interface FlatDiskOffsets {
   readonly dx: Int8Array; readonly dy: Int8Array; readonly dSq: Uint16Array; readonly len: number;
 }

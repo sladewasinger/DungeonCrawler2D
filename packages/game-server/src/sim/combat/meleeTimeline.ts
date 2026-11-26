@@ -14,6 +14,7 @@ export interface PendingMeleeSwing {
   readonly range: number;
   readonly halfArcRad: number;
   readonly goreStyle: GoreStyle;
+  readonly harvestPower: number;
   readonly shieldPoke: boolean;
   readonly durationSec: number;
   elapsedSec: number;
@@ -65,7 +66,7 @@ export function buildPendingSwing(opts: {
   readonly state: SwingInitState;
   readonly heldId: string | null;
   readonly archetype: WeaponArchetype;
-  readonly stats: { readonly cost: number; readonly damage: number; readonly range: number; readonly halfArc: number; readonly gore: GoreStyle };
+  readonly stats: { readonly cost: number; readonly damage: number; readonly range: number; readonly halfArc: number; readonly gore: GoreStyle; readonly harvestPower?: number | undefined };
   readonly aim: { readonly x: number; readonly y: number };
   readonly shieldPoke: boolean;
 }): PendingMeleeSwing | null {
@@ -82,6 +83,7 @@ export function buildPendingSwing(opts: {
   state.actionCooldown = shieldPoke ? durationSec * 0.9 : spec.swingDurationSec * spec.cooldownRatio;
   const pending: PendingMeleeSwing = {
     heldId, archetype, stepIndex, moveset, spec, shieldPoke, durationSec,
+    harvestPower: stats.harvestPower ?? moveset.harvestPower,
     baseDamage: Math.round(stats.damage * spec.damageMult * (shieldPoke ? MELEE_FEEL_TUNING.shieldPokeDamageMult : 1)),
     range: stats.range * spec.rangeMult,
     halfArcRad: stats.halfArc * spec.arcMult,

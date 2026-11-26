@@ -20,7 +20,7 @@ export const COMBAT_TUNING = {
   movementMults: { dodge: 1.9, swing: 0.55, block: 0.6, bowDraw: 0.78, shallowWater: 0.78, deepWater: 0.56, exhaustedSwim: 0.36 },
   swim: { staminaDrainPerSec: 7, idleTreadRegenPerSec: 4 },
   dodge: { staminaCost: 22, durationSec: 0.30, iframeSec: 0.24, cooldownSec: 0.55 },
-  melee: { comboWindowSec: 0.65, swingSec: 0.26, comboDamageMult: [1.0, 1.1, 1.45] as const },
+  melee: { swingSec: 0.26 },
   defense: { parryWindowSec: 0.22, parryStaggerSec: 1.45, blockStaminaDrain: 10, hitIframeSec: 0.42 },
   bow: { maxChargeSec: 0.85, minSpeedTilesPerSec: 11, extraSpeedTilesPerSec: 9, minDamageMult: 0.55, extraDamageMult: 0.8, staminaCost: 10 },
   bleed: { durationSec: 3.5 },
@@ -39,9 +39,7 @@ export const DODGE_IFRAME_SEC = COMBAT_TUNING.dodge.iframeSec;
 export const DODGE_COOLDOWN_SEC = COMBAT_TUNING.dodge.cooldownSec;
 export const DODGE_SPEED_MULT = COMBAT_TUNING.movementMults.dodge;
 
-export const COMBO_WINDOW_SEC = COMBAT_TUNING.melee.comboWindowSec;
 export const COMBO_SWING_SEC = COMBAT_TUNING.melee.swingSec;
-export const COMBO_DAMAGE_MULT = COMBAT_TUNING.melee.comboDamageMult;
 
 export const PARRY_WINDOW_SEC = COMBAT_TUNING.defense.parryWindowSec;
 export const PARRY_STAGGER_SEC = COMBAT_TUNING.defense.parryStaggerSec;
@@ -54,13 +52,19 @@ export interface Vec2Like {
   readonly y: number;
 }
 
+export interface SanctuaryPoiSource {
+  poisNear(x: number, y: number): readonly { readonly centerX: number; readonly centerY: number; readonly radiusX: number; readonly radiusY: number; readonly isSanctuary?: boolean | undefined }[];
+}
+
 export function isInSanctuary(x: number, y: number): boolean {
   return Math.hypot(x - SANCTUARY_CENTER.x, y - SANCTUARY_CENTER.y) <= SANCTUARY_RADIUS;
 }
 
-export function comboMultiplier(step: number): number {
-  const idx = Math.max(0, Math.min(COMBO_DAMAGE_MULT.length - 1, step - 1));
-  return COMBO_DAMAGE_MULT[idx] ?? 1.0;
+export function isInWorldSanctuary(cache: SanctuaryPoiSource, x: number, y: number): boolean {
+  if (isInSanctuary(x, y)) return true;
+  return cache.poisNear(x, y).some(
+    (poi) => Boolean(poi.isSanctuary) && Math.hypot(x - poi.centerX, y - poi.centerY) <= Math.max(poi.radiusX, poi.radiusY) + 1.5,
+  );
 }
 
 export function evaluateBowShot(chargeSec: number): {

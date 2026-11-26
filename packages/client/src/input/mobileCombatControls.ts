@@ -27,7 +27,6 @@ const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
   "herb-tea": "EAT",
   axe: "CHOP",
   pickaxe: "MINE",
-  map: "MAP",
   stone: "TOSS",
 };
 
@@ -66,7 +65,6 @@ export class MobileCombatControls {
   private readonly sneakBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
   private readonly handlers: MobileCombatHandlers;
-  private heldItem: string | null = null;
   private isBowHeld = false;
   private atkPointerId: number | null = null;
   private atkOrigin = { x: 0, y: 0 };
@@ -115,7 +113,6 @@ export class MobileCombatControls {
   }
 
   setGear(gear: { readonly heldItem: string | null; readonly offhandItem?: string | null | undefined; readonly hasShield: boolean }): void {
-    this.heldItem = gear.heldItem;
     this.isBowHeld = isBowItem(gear.heldItem);
     this.atkBtn.textContent = actionLabelForHeldItem(gear.heldItem);
     this.atkBtn.dataset.role = gear.heldItem && HEAL_OR_EAT_ITEMS.has(gear.heldItem) ? "heal" : (gear.heldItem ?? "none");
@@ -144,7 +141,6 @@ export class MobileCombatControls {
     this.atkBtn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       this.atkBtn.setPointerCapture?.(e.pointerId);
-      if (this.heldItem === "map" && this.handlers.onMapTap) { this.handlers.onMapTap(); return; }
       this.atkPointerId = e.pointerId;
       this.atkBtn.dataset.active = "true";
       if (!this.isBowHeld) { this.attackQueued = true; return; }

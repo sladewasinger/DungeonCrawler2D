@@ -11,10 +11,6 @@ export function activeStudioTracks(tracks: readonly SoundTrackSpec[]): readonly 
   return activeProceduralTracks(tracks);
 }
 
-export function totalTracksDurationSec(tracks: readonly SoundTrackSpec[]): number {
-  return exactTracksDurationSec(tracks);
-}
-
 function writeAsciiTag(view: DataView, off: number, tag: string): void {
   for (let i = 0; i < tag.length; i++) view.setUint8(off + i, tag.charCodeAt(i));
 }

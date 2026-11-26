@@ -9,10 +9,14 @@ import { synthCombatCue, synthImpact, synthSwing, synthUi, type CombatCueKind } 
 import { synthHarvestSfx } from "./weapons/synthWeaponSfx.js";
 
 const UI_DISCOVERY_EVENTS = new Set<WorldEvent["kind"]>(["poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead"]);
+const UNLOCK_EVENTS = ["pointerdown", "mousedown", "keydown", "touchstart", "click"] as const;
+const MAX_CONCURRENT_VOICES = 24;
+const VOICE_WINDOW_MS = 450;
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
   private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
   private readonly bed = new AmbienceBed();
@@ -20,11 +24,14 @@ export class AudioEngine {
   private tension = 0;
   private readonly gaitClock = createGaitClock();
   private prevAirborne = false;
+  private activeVoices = 0;
+  private unlockListenersAttached = true;
+
+  private readonly handleUnlock = (): void => { this.ensureUnlocked(); };
 
   constructor() {
-    const unlock = (): void => { this.ensureUnlocked(); };
-    for (const evt of ["pointerdown", "mousedown", "keydown", "touchstart", "click"] as const) {
-      window.addEventListener(evt, unlock, { capture: true, passive: true });
+    for (const evt of UNLOCK_EVENTS) {
+      window.addEventListener(evt, this.handleUnlock, { capture: true, passive: true });
     }
   }
 
@@ -36,32 +43,27 @@ export class AudioEngine {
     this.syncGains();
   }
 
-  async preloadSample(key: string, url: string): Promise<void> {
-    if (!this.ctx) return;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const decoded = await this.ctx.decodeAudioData(await res.arrayBuffer());
-      this.bed.registerSample(key, decoded);
-    } catch {
-      // Optional asset missing or decode skipped cleanly.
-    }
-  }
-
   playUi(kind: "click" | "equip" | "craft" | "open" | "discover"): void {
     this.ensureUnlocked();
     if (!this.ctx || !this.sfxGain) return;
     synthUi(this.ctx, this.sfxGain, kind);
   }
 
-  handleWorldEvents(events: readonly WorldEvent[], listener: { readonly x: number; readonly y: number }): void {
+  private playSpatialWorldEvent(ev: WorldEvent, listener: { readonly x: number; readonly y: number }): void {
     if (!this.ctx || !this.sfxGain) return;
-    for (const ev of events) {
-      const mix = computeSpatialMix({ dx: ev.x - listener.x, dy: ev.y - listener.y });
-      if (!mix.audible) continue;
-      const node = createSpatialBus({ ctx: this.ctx, dst: this.sfxGain, mix });
-      this.dispatchWorldEvent(ev, node);
-    }
+    if (UI_DISCOVERY_EVENTS.has(ev.kind)) { this.playUi("discover"); return; }
+    if (this.activeVoices >= MAX_CONCURRENT_VOICES) return;
+    const mix = computeSpatialMix({ dx: ev.x - listener.x, dy: ev.y - listener.y });
+    if (!mix.audible) return;
+    const node = createSpatialBus({ ctx: this.ctx, dst: this.sfxGain, mix });
+    this.activeVoices += 1;
+    setTimeout(() => { this.activeVoices = Math.max(0, this.activeVoices - 1); }, VOICE_WINDOW_MS);
+    this.dispatchWorldEvent(ev, node);
+  }
+
+  handleWorldEvents(events: readonly WorldEvent[], listener: { readonly x: number; readonly y: number }): void {
+    if (!this.ctx || !this.sfxGain || this.prefs.muted || this.prefs.sfx <= 0.001) return;
+    for (const ev of events) this.playSpatialWorldEvent(ev, listener);
   }
 
   stepFrame(input: {
@@ -94,7 +96,6 @@ export class AudioEngine {
       dst: opts.dst,
       kind: opts.kind,
       vocal: opts.vocal,
-      sampleOverride: this.bed.sample(`creature:${opts.kind}:${opts.vocal}`),
       gainScale: opts.gainScale,
       delaySec: opts.delaySec,
     });
@@ -194,6 +195,14 @@ export class AudioEngine {
     }
   }
 
+  private detachUnlockListeners(): void {
+    if (!this.unlockListenersAttached) return;
+    this.unlockListenersAttached = false;
+    for (const evt of UNLOCK_EVENTS) {
+      window.removeEventListener(evt, this.handleUnlock, { capture: true });
+    }
+  }
+
   private ensureUnlocked(): void {
     if (!this.ctx) {
       const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -202,13 +211,24 @@ export class AudioEngine {
       this.masterGain = this.ctx.createGain();
       this.musicGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
+      this.compressor = this.ctx.createDynamicsCompressor();
+      this.compressor.threshold.value = -6;
+      this.compressor.knee.value = 12;
+      this.compressor.ratio.value = 12;
+      this.compressor.attack.value = 0.003;
+      this.compressor.release.value = 0.15;
       this.musicGain.connect(this.masterGain);
       this.sfxGain.connect(this.masterGain);
-      this.masterGain.connect(this.ctx.destination);
+      this.masterGain.connect(this.compressor);
+      this.compressor.connect(this.ctx.destination);
       this.syncGains();
     }
+    if (this.ctx.state === "running") { this.detachUnlockListeners(); return; }
     if (this.ctx.state === "suspended") {
-      void this.ctx.resume().then(() => this.syncGains()).catch(() => {});
+      void this.ctx.resume().then(() => {
+        this.syncGains();
+        if (this.ctx?.state === "running") this.detachUnlockListeners();
+      }).catch(() => {});
     }
   }
 

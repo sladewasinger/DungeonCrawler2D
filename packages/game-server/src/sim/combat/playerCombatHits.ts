@@ -3,7 +3,7 @@ import { getItemDef, resolveBlockMode } from "@dc2d/content";
 import {
   BLEED_DURATION_SEC, HIT_IFRAME_SEC, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
   attackHitboxHitsHurtbox, buildPlayerAttackHitbox, computeMitigatedDamage,
-  entityHurtbox, isInSanctuary, isSharpWeapon, isWithinSector, playerHurtbox,
+  entityHurtbox, isInSanctuary, isInWorldSanctuary, isSharpWeapon, isWithinSector, playerHurtbox,
   type EllipseHurtbox, type GoreStyle, type WeaponArchetype, type WorldChunkCache, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -14,6 +14,7 @@ import { resolveArmorDefenseFor } from "./gearEffects.js";
 import { igniteBurnable, inflictPoison } from "./statusEffects.js";
 
 export interface IncomingHit {
+  readonly cache?: WorldChunkCache | undefined;
   readonly target: CombatPlayerRef;
   readonly attackerOrigin: { readonly x: number; readonly y: number };
   readonly attackerId: string;
@@ -101,6 +102,7 @@ function resolveBlockedHit(hit: IncomingHit): void {
 function shouldIgnoreIncomingHit(hit: IncomingHit): boolean {
   if (hit.target.combat.invulnTimer > 0 || hit.target.combat.respawnTimer > 0) return true;
   if (!hit.attackerIsPlayer) return false;
+  if (hit.cache) return isInWorldSanctuary(hit.cache, hit.attackerOrigin.x, hit.attackerOrigin.y) || isInWorldSanctuary(hit.cache, hit.target.x, hit.target.y);
   return isInSanctuary(hit.attackerOrigin.x, hit.attackerOrigin.y) || isInSanctuary(hit.target.x, hit.target.y);
 }
 
@@ -236,7 +238,7 @@ function hitPlayerTargets(input: MeleePassInput, dir: { readonly x: number; read
     if (!hitsMeleeOrSlam(input, playerHurtbox(other, input.cache), dir)) continue;
     input.hitTargetIds?.add(other.id);
     applyIncomingPlayerHit({
-      target: other, attackerOrigin: input.attacker, attackerId: input.attacker.id,
+      cache: input.cache, target: other, attackerOrigin: input.attacker, attackerId: input.attacker.id,
       rawDamage: input.rawDamage, goreStyle: input.goreStyle, comboStep: input.comboStep, sweepDir: input.sweepDir,
       attackerIsPlayer: true, events: input.events, ignites: input.ignites, heavy: input.heavy,
       weaponArchetype: input.weaponArchetype, hitstopSec: input.hitstopSec, shakePx: input.shakePx,

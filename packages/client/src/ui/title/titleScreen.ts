@@ -42,6 +42,7 @@ export class TitleScreen {
   private appearance: CharacterAppearance;
   private open = true;
   private lastCacheRev = -1;
+  private previewTimer: number | null = null;
 
   constructor(private readonly host: HTMLElement, private readonly opts: TitleScreenOptions) {
     ensureTitleStyles();
@@ -57,9 +58,20 @@ export class TitleScreen {
     this.root.append(card);
     host.append(this.root);
     this.refreshPreview();
-    window.setInterval(() => {
+    this.startPreviewPoll();
+  }
+
+  private startPreviewPoll(): void {
+    if (this.previewTimer !== null) return;
+    this.previewTimer = window.setInterval(() => {
       if (this.open && getCharacterCacheRevision() !== this.lastCacheRev) this.refreshPreview();
     }, 200);
+  }
+
+  private stopPreviewPoll(): void {
+    if (this.previewTimer === null) return;
+    window.clearInterval(this.previewTimer);
+    this.previewTimer = null;
   }
 
   isOpen(): boolean { return this.open; }
@@ -72,12 +84,14 @@ export class TitleScreen {
     this.host.dataset.titleOpen = "true";
     this.root.hidden = false;
     this.refreshPreview();
+    this.startPreviewPoll();
   }
 
   dismiss(): void {
     this.open = false;
     this.root.hidden = true;
     delete this.host.dataset.titleOpen;
+    this.stopPreviewPoll();
   }
 
   private buildNameInput(initial: string): HTMLInputElement {

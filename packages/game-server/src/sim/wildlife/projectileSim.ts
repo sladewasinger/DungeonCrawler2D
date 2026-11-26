@@ -1,10 +1,11 @@
 /** Authoritative swept-segment arrow and arcing pebble simulation, trunk embedding, and recovery. */
 import {
-  GroundKind, PARRY_STAGGER_SEC, PropKind, STEALTH_TUNING, WorldChunkCache, isInSanctuary,
+  GroundKind, PARRY_STAGGER_SEC, PropKind, STEALTH_TUNING, WorldChunkCache, isInWorldSanctuary,
   playerProjectileHurtbox, projectileHitsHurtbox, projectileHurtbox, segmentHitsEllipse,
   type ChunkProp, type GoreStyle, type ProjectileSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, type CombatPlayerRef } from "../combatActions.js";
+import { applyPerkEffectsToTarget } from "../combat/gearEffects.js";
 import { damageDummy, type SimEntity } from "../dummySim.js";
 import { createWebProjectile, stepWebProjectile } from "../webs/webCocoon.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
@@ -14,28 +15,28 @@ import type { WorldEcology } from "./worldEcology.js";
 
 export { createWebProjectile };
 
+export type ProjectileElement = "none" | "fire" | "poison";
+
 export interface SimProjectile {
-  readonly id: string;
-  readonly ownerId: string;
-  readonly kind: "arrow" | "pebble" | "web";
-  readonly originX: number;
-  readonly originY: number;
-  x: number;
-  y: number;
-  z: number;
-  readonly vx: number;
-  readonly vy: number;
-  vz: number;
-  readonly elevation: number;
-  readonly charge: number;
-  readonly damage: number;
-  readonly noiseRadius?: number | undefined;
+  readonly id: string; readonly ownerId: string; readonly kind: "arrow" | "pebble" | "web";
+  readonly originX: number; readonly originY: number; x: number; y: number; z: number;
+  readonly vx: number; readonly vy: number; vz: number; readonly elevation: number;
+  readonly charge: number; readonly damage: number; readonly noiseRadius?: number | undefined;
+  readonly element?: ProjectileElement | undefined; readonly lifestealRatio?: number | undefined;
+  readonly burnDamage?: number | undefined; readonly poisonDamage?: number | undefined; readonly bleedDamage?: number | undefined;
   ttl: number;
 }
 
 const DRIP_GORE: GoreStyle = "drip";
-const WOOD_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.Palisade]);
-const STONE_PROPS = new Set<PropKind>([PropKind.RuinPillar]);
+const WOOD_PROPS = new Set<PropKind>([
+  PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree,
+  PropKind.GreatStump, PropKind.Palisade, PropKind.HermitHut, PropKind.BrokenCart, PropKind.SunkenBoat, PropKind.BoneTotem,
+]);
+const TREE_TRUNK_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree]);
+const STONE_PROPS = new Set<PropKind>([
+  PropKind.RuinPillar, PropKind.Boulder, PropKind.CopperVein, PropKind.IronVein,
+  PropKind.CursedCrystal, PropKind.CursedObelisk, PropKind.RunicForge,
+]);
 const PEBBLE_GRAVITY = 22;
 const PEBBLE_FLIGHT_SEC = 0.48;
 const PEBBLE_Z0 = 0.55;
@@ -47,13 +48,14 @@ interface RayHitCtx {
 
 export function createArrowProjectile(opts: {
   readonly id: string; readonly p: CombatPlayerRef; readonly speed: number; readonly charge: number; readonly damage: number;
+  readonly perks?: { readonly element?: ProjectileElement; readonly lifestealRatio?: number; readonly burnDamage?: number; readonly poisonDamage?: number; readonly bleedDamage?: number };
 }): SimProjectile {
   const { p } = opts;
   return {
     id: opts.id, ownerId: p.id, kind: "arrow", originX: p.x, originY: p.y,
     x: p.x + p.aimX * 0.45, y: p.y + p.aimY * 0.45, z: 0.45,
     vx: p.aimX * opts.speed, vy: p.aimY * opts.speed, vz: 0,
-    elevation: p.elevation, charge: opts.charge, damage: opts.damage, ttl: 0.95,
+    elevation: p.elevation, charge: opts.charge, damage: opts.damage, ttl: 0.95, ...opts.perks,
   };
 }
 
@@ -98,31 +100,44 @@ function hitDummy(ctx: RayHitCtx, dummies: readonly SimEntity[], ecology: WorldE
   return false;
 }
 
-function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: WildlifeEntity; readonly t: number; readonly ecology: WorldEcology }): void {
-  const { ctx, w, t, ecology } = opts;
+function hasArrowPerk(pr: SimProjectile): boolean {
+  return Boolean(pr.lifestealRatio || pr.burnDamage || pr.poisonDamage || pr.bleedDamage);
+}
+
+const orZero = (v: number | undefined): number => v ?? 0;
+
+function applyArrowPerksOnWildlife(opts: { readonly ctx: RayHitCtx; readonly w: WildlifeEntity; readonly dmg: number; readonly players?: Map<string, CombatPlayerRef> | undefined }): void {
+  const { ctx, w, dmg, players } = opts;
+  if (!hasArrowPerk(ctx.pr)) return;
+  const owner = players?.get(ctx.pr.ownerId);
+  const attackerPos = owner ?? { x: ctx.pr.originX, y: ctx.pr.originY };
+  const attackerCombat = (owner?.combat ?? { hp: 0, maxHp: 100 }) as CombatPlayerRef["combat"];
+  const perks = {
+    lifestealRatio: orZero(ctx.pr.lifestealRatio), burnDamage: orZero(ctx.pr.burnDamage),
+    poisonDamage: orZero(ctx.pr.poisonDamage), bleedDamage: orZero(ctx.pr.bleedDamage),
+  };
+  applyPerkEffectsToTarget({ attackerId: ctx.pr.ownerId, attackerPos, attackerCombat, perks, target: w, damageDealt: dmg, events: ctx.events });
+}
+
+function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: WildlifeEntity; readonly t: number; readonly ecology: WorldEcology; readonly players?: Map<string, CombatPlayerRef> }): void {
+  const { ctx, w, t, ecology, players } = opts;
   const isStone = CREATURE_SPECS[w.kind].substance === "stone";
   const unaware = UNAWARE_STATES.has(w.aiState) && w.targetPlayerId === null;
   const dmg = unaware ? Math.round(ctx.pr.damage * STEALTH_TUNING.ambushBowDamageMult) : ctx.pr.damage;
   if (!isStone) w.embeddedArrows += 1;
   if (unaware) ctx.events.push({ kind: "ambushShot", x: w.x, y: w.y, value: dmg, actorId: ctx.pr.ownerId, targetId: w.id });
   ecology.damageEntity({ entity: w, damage: dmg, dirX: ctx.dx, dirY: ctx.dy, goreStyle: DRIP_GORE, actorId: ctx.pr.ownerId, events: ctx.events });
+  applyArrowPerksOnWildlife({ ctx, w, dmg, players });
   if (!isStone) return;
-  const hx = ctx.x0 + (ctx.pr.x - ctx.x0) * t;
-  const hy = ctx.y0 + (ctx.pr.y - ctx.y0) * t;
-  ctx.events.push({ kind: "arrowRicochet", x: hx, y: hy, dirX: -ctx.dx, dirY: -ctx.dy });
+  ctx.events.push({ kind: "arrowRicochet", x: ctx.x0 + (ctx.pr.x - ctx.x0) * t, y: ctx.y0 + (ctx.pr.y - ctx.y0) * t, dirX: -ctx.dx, dirY: -ctx.dy });
 }
 
-function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology): boolean {
+function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology, players: Map<string, CombatPlayerRef>): boolean {
   for (const w of ecology.list) {
     if (w.corpse || w.hp <= 0) continue;
-    const t = projectileHitsHurtbox({
-      x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
-      projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
-      box: projectileHurtbox(w, w.kind, ctx.cache),
-    });
+    const t = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: projectileHurtbox(w, w.kind, ctx.cache) });
     if (t === null) continue;
-    applyWildlifeArrowHit({ ctx, w, t, ecology });
-    return true;
+    applyWildlifeArrowHit({ ctx, w, t, ecology, players }); return true;
   }
   return false;
 }
@@ -130,16 +145,13 @@ function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology): boolean {
 function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boolean {
   for (const p of players.values()) {
     if (p.id === ctx.pr.ownerId) continue;
-    const hitT = projectileHitsHurtbox({
-      x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y,
-      projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs,
-      box: playerProjectileHurtbox(p, ctx.cache),
-    });
+    const hitT = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: playerProjectileHurtbox(p, ctx.cache) });
     if (hitT === null) continue;
-    if (isInSanctuary(ctx.pr.originX, ctx.pr.originY) || isInSanctuary(p.x, p.y)) return true;
+    if (isInWorldSanctuary(ctx.cache, ctx.pr.originX, ctx.pr.originY) || isInWorldSanctuary(ctx.cache, p.x, p.y)) return true;
     applyIncomingPlayerHit({
-      target: p, attackerOrigin: { x: ctx.pr.originX, y: ctx.pr.originY }, attackerId: ctx.pr.ownerId,
-      rawDamage: ctx.pr.damage, goreStyle: DRIP_GORE, attackerIsPlayer: true, events: ctx.events,
+      cache: ctx.cache, target: p, attackerOrigin: { x: ctx.pr.originX, y: ctx.pr.originY }, attackerId: ctx.pr.ownerId,
+      rawDamage: ctx.pr.damage, goreStyle: DRIP_GORE, attackerIsPlayer: true,
+      ignites: (ctx.pr.burnDamage ?? 0) > 0, appliesPoison: (ctx.pr.poisonDamage ?? 0) > 0, events: ctx.events,
       onParry: () => { const owner = players.get(ctx.pr.ownerId); if (owner) owner.combat.staggerTimer = PARRY_STAGGER_SEC; },
     });
     return true;
@@ -148,8 +160,7 @@ function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boole
 }
 
 function propImpactBox(prop: ChunkProp) {
-  const isTree = prop.kind === PropKind.OakTree || prop.kind === PropKind.PineTree;
-  if (isTree) return { cx: prop.x, cy: prop.y, rx: 0.24, ry: 0.18 };
+  if (TREE_TRUNK_PROPS.has(prop.kind)) return { cx: prop.x, cy: prop.y, rx: 0.24, ry: 0.18 };
   return { cx: prop.x, cy: prop.y - 0.15, rx: prop.radius + 0.12, ry: prop.radius + 0.28 };
 }
 
@@ -220,7 +231,7 @@ function stepArrowProjectile(opts: {
   const tile = cache.tileAt(Math.floor(pr.x), Math.floor(pr.y));
   if (tile.elevation > pr.elevation) { events.push({ kind: "arrowRicochet", x: x0, y: y0, dirX: -pr.vx / spd, dirY: -pr.vy / spd }); return false; }
   const ctx: RayHitCtx = { cache, pr, x0, y0, dx: pr.vx / spd, dy: pr.vy / spd, onStairs: tile.stairs, events };
-  if (hitDummy(ctx, dummies, ecology) || hitWildlife(ctx, ecology) || hitPlayer(ctx, players)) return false;
+  if (hitDummy(ctx, dummies, ecology) || hitWildlife(ctx, ecology, players) || hitPlayer(ctx, players)) return false;
   if (cache.propsNear(pr.x, pr.y).some((prop) => testPropImpact(ctx, prop, ecology))) return false;
   if (pr.ttl > 0) return true;
   if (tile.ground !== GroundKind.DeepWater) {
@@ -252,6 +263,6 @@ export function stepProjectileList(opts: {
 export function serializeProjectiles(projectiles: readonly SimProjectile[]): ProjectileSnapshot[] {
   return projectiles.map((pr) => ({
     id: pr.id, ownerId: pr.ownerId, kind: pr.kind, z: pr.z,
-    x: pr.x, y: pr.y, vx: pr.vx, vy: pr.vy, elevation: pr.elevation, charge: pr.charge, element: "none",
+    x: pr.x, y: pr.y, vx: pr.vx, vy: pr.vy, elevation: pr.elevation, charge: pr.charge, element: pr.element ?? "none",
   }));
 }

@@ -36,10 +36,8 @@ function checkAcquisitionPaths(items) {
     "packages/content/src/recipes/recipes.ts",
     "packages/content/src/recipes/frontierRecipes.ts",
     "packages/engine/src/survival/harvestRules.ts",
-    "packages/game-server/src/sim/wildlife/creatureSpecs.ts",
   ].map((p) => readFileSync(resolve(ROOT, p), "utf8")).concat(starterBlock).join("\n");
   return items
-    .filter((item) => item.id !== "map")
     .filter((item) => !sources.includes(`"${item.id}"`))
     .map((item) => `Item '${item.id}' has no acquisition path (recipe/loot/harvest/starter)`);
 }

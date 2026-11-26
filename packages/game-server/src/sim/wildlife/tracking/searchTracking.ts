@@ -1,5 +1,5 @@
 /** Structured 3-phase investigation, pursuit momentum projection, and animal scent following. */
-import { AI_TUNING, GroundKind, WorldChunkCache, findTilePath, isInSanctuary } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, WorldChunkCache, findTilePath, isInWorldSanctuary } from "@dc2d/engine";
 import { CREATURE_SPECS, ST_INVESTIGATE, type SearchPhase, type WildlifeEntity } from "../creatureSpecs.js";
 import { clearNavPath, isClearSpot, moveCreatureToward } from "../creatureNavigation.js";
 import type { ScentTrail } from "../scentTrail.js";
@@ -21,7 +21,7 @@ export interface Pt2 {
 }
 
 function isWalkableClueSpot(cache: WorldChunkCache, baseElev: number, pt: Pt2): boolean {
-  if (isInSanctuary(pt.x, pt.y)) return false;
+  if (isInWorldSanctuary(cache, pt.x, pt.y)) return false;
   const tile = cache.tileAt(Math.floor(pt.x), Math.floor(pt.y));
   if (tile.ground === GroundKind.DeepWater || Math.abs(tile.elevation - baseElev) > 1) return false;
   return isClearSpot(cache, { x: pt.x, y: pt.y, pad: 0.34 });

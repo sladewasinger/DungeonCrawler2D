@@ -128,6 +128,7 @@ function evictOldestIfFull(): void {
   const evicted = spriteCache.get(oldestKey);
   spriteCache.delete(oldestKey);
   destroySpriteSet(evicted);
+  cacheRevision += 1;
 }
 
 function buildFallbackSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {

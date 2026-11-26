@@ -6,7 +6,7 @@ import {
   CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES, buildTierAtlasPlan, computePortraitCropRect,
   resolveClipTrim, resolveSentinelPalettes, type AtlasFrameSlot,
 } from "../character/playerCompositor.js";
-import { applyRecolorPass, applyUnifiedSelOut, computeSelOutRgb } from "../character/playerRecolor.js";
+import { applyRecolorPass, applyUnifiedSelOut } from "../character/playerRecolor.js";
 import { needsSecondaryAnimTier } from "./playerPoseHelpers.js";
 
 function assertSlotsDisjointWithGutter(slots: readonly AtlasFrameSlot[], gutter = 4): void {
@@ -78,7 +78,7 @@ describe("3D portrait crop and fast in-place recolor/sel-out passes", () => {
     sel[cp] = 200; sel[cp + 1] = 100; sel[cp + 2] = 50; sel[cp + 3] = 255;
     applyUnifiedSelOut({ data: sel, width: 5, height: 5, solidRadiusPx: 1 });
 
-    const expectedEdge = [...computeSelOutRgb(200, 100, 50), 255];
+    const expectedEdge = [49, 23, 22, 255];
     const north = (1 * 5 + 2) * 4;
     expect([sel[north], sel[north + 1], sel[north + 2], sel[north + 3]]).toEqual(expectedEdge);
     expect([sel[cp], sel[cp + 1], sel[cp + 2], sel[cp + 3]]).toEqual([200, 100, 50, 255]);

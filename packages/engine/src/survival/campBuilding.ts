@@ -1,4 +1,5 @@
 /** Pure camp structure definitions, prop/light converters, and placement validity rules. */
+import { SANCTUARY_CENTER, SANCTUARY_RADIUS } from "../combat/combatRules.js";
 import type { WorldChunkCache } from "../world/collision.js";
 import { closestObstacleCorePoint, propCollisionOffsetY, propStructureShape } from "../world/propFootprints.js";
 import { GroundKind, PropKind, type ChunkProp, type PointLightSpec } from "../world/types.js";
@@ -67,12 +68,23 @@ function structurePlacementBlocked(opts: {
   return false;
 }
 
+const SANCTUARY_BUILD_MARGIN = 4;
+const POI_BUILD_MARGIN = 1.5;
+
+function isInBuildExclusionZone(cache: WorldChunkCache, x: number, y: number): boolean {
+  if (Math.hypot(x - SANCTUARY_CENTER.x, y - SANCTUARY_CENTER.y) <= SANCTUARY_RADIUS + SANCTUARY_BUILD_MARGIN) return true;
+  return cache.poisNear(x, y).some((poi) =>
+    Math.hypot(x - poi.centerX, y - poi.centerY) <= Math.max(poi.radiusX, poi.radiusY) + POI_BUILD_MARGIN,
+  );
+}
+
 export function canPlaceStructure(opts: {
   readonly cache: WorldChunkCache; readonly x: number; readonly y: number;
   readonly playerX: number; readonly playerY: number; readonly playerElev: number; readonly kind: StructureKind;
 }): boolean {
   const dist = Math.hypot(opts.x - opts.playerX, opts.y - opts.playerY);
   if (dist < 0.8 || dist > 3.6) return false;
+  if (isInBuildExclusionZone(opts.cache, opts.x, opts.y)) return false;
   const tile = opts.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y));
   if (tile.ground === GroundKind.DeepWater || tile.ground === GroundKind.ShallowWater || tile.elevation !== opts.playerElev) return false;
   return !structurePlacementBlocked(opts);

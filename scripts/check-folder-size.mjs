@@ -9,6 +9,7 @@ const toBaselineKey = (directory) => directory.split(sep).join("/");
 const MAX_DIRECT_FILES = 12;
 const ROOT = process.cwd();
 const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 const ROOTS = ["packages", "scripts", "tests", "tools"];
 const BASELINE = JSON.parse(readFileSync(new URL("./folder-size-baseline.json", import.meta.url), "utf8"));
 const IGNORED_DIRECTORIES = new Set(["node_modules", "dist", "build", ".vite", "coverage"]);
@@ -27,7 +28,7 @@ function collectEntry(directory, entry, files) {
     collectFiles(path, files);
     return;
   }
-  if (SOURCE_FILE.test(entry.name)) files.push(path);
+  if (SOURCE_FILE.test(entry.name) && !TEST_FILE.test(entry.name)) files.push(path);
 }
 
 function countsByDirectory() {
@@ -57,7 +58,7 @@ function changedDirectories() {
     }
   });
   return new Set(output
-    .filter((file) => SOURCE_FILE.test(file))
+    .filter((file) => SOURCE_FILE.test(file) && !TEST_FILE.test(file))
     .map((file) => toBaselineKey(relative(ROOT, resolve(ROOT, file, "..")))));
 }
 

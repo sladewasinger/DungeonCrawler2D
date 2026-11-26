@@ -3,7 +3,7 @@ import {
   BACKPACK_SLOT_COUNT, CHEST_SLOT_COUNT, HOTBAR_SLOT_COUNT, getPoiCatalogEntry,
   type InventorySnapshot, type PoiKind, type WorldChestSnapshot,
 } from "@dc2d/engine";
-import type { DragSource, SlotDragManager } from "./slotDragManager.js";
+import type { SlotDragManager } from "./slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_DIV = "div";
@@ -13,11 +13,6 @@ const CLS_SLOT = "ow-slot ow-bag-slot";
 function chestTitleForKind(poiKind: string): string {
   if (poiKind === "player-chest") return "Storage Chest";
   return getPoiCatalogEntry(poiKind as PoiKind).displayName;
-}
-
-function tapFp(tap: DragSource | null): string {
-  if (!tap) return "-";
-  return `${tap.kind}:${tap.kind === "armor" ? tap.armorSlot : tap.index}`;
 }
 
 export class ChestModal {
@@ -79,45 +74,35 @@ export class ChestModal {
     return pane;
   }
 
-  sync(opts: {
-    readonly chest: WorldChestSnapshot | undefined; readonly inv: InventorySnapshot;
-    readonly open: boolean; readonly tapSource: DragSource | null;
-  }): void {
+  sync(opts: { readonly chest: WorldChestSnapshot | undefined; readonly inv: InventorySnapshot; readonly open: boolean }): void {
     this.el.hidden = !opts.open || !opts.chest;
     if (this.el.hidden || !opts.chest) { this.noticeEl.hidden = true; return; }
     this.titleEl.textContent = chestTitleForKind(opts.chest.poiKind);
     const cFp = slotsFingerprint(opts.chest.slots, 0, CHEST_SLOT_COUNT);
     const bFp = slotsFingerprint(opts.inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
-    const fp = `${opts.chest.id}#${cFp}#${bFp}#${tapFp(opts.tapSource)}`;
+    const fp = `${opts.chest.id}#${cFp}#${bFp}`;
     if (fp === this.lastFp) return;
     this.lastFp = fp;
-    syncSlotGrid(this.chestButtons, { cache: this.chestKeys, slots: opts.chest.slots, offset: 0, tapKind: "chest", tapSource: opts.tapSource });
-    syncSlotGrid(this.bagButtons, { cache: this.bagKeys, slots: opts.inv.slots, offset: HOTBAR_SLOT_COUNT, tapKind: "slot", tapSource: opts.tapSource });
+    syncSlotGrid(this.chestButtons, { cache: this.chestKeys, slots: opts.chest.slots, offset: 0 });
+    syncSlotGrid(this.bagButtons, { cache: this.bagKeys, slots: opts.inv.slots, offset: HOTBAR_SLOT_COUNT });
   }
 }
 
 function syncSingleCell(btn: HTMLButtonElement | undefined, opts: {
-  readonly cache: string[]; readonly index: number;
-  readonly item: InventorySnapshot["slots"][number] | null; readonly tap: boolean;
+  readonly cache: string[]; readonly index: number; readonly item: InventorySnapshot["slots"][number] | null;
 }): void {
   if (!btn) return;
   const key = opts.item ? `${opts.item.itemId}:${opts.item.count}:${opts.item.prefixId ?? ""}` : "-";
-  if (opts.cache[opts.index] === key) { btn.dataset.tapSource = String(opts.tap); return; }
+  if (opts.cache[opts.index] === key) return;
   opts.cache[opts.index] = key;
-  renderSlotContent(btn, { item: opts.item, tapSource: opts.tap });
+  renderSlotContent(btn, { item: opts.item });
 }
 
 function syncSlotGrid(buttons: readonly HTMLButtonElement[], opts: {
-  readonly cache: string[]; readonly slots: InventorySnapshot["slots"];
-  readonly offset: number; readonly tapKind: "chest" | "slot"; readonly tapSource: DragSource | null;
+  readonly cache: string[]; readonly slots: InventorySnapshot["slots"]; readonly offset: number;
 }): void {
-  const tapIdx = opts.tapSource?.kind === opts.tapKind ? opts.tapSource.index : -1;
   for (let i = 0; i < buttons.length; i++) {
-    syncSingleCell(buttons[i], {
-      cache: opts.cache, index: i,
-      item: opts.slots[opts.offset + i] ?? null,
-      tap: tapIdx === opts.offset + i,
-    });
+    syncSingleCell(buttons[i], { cache: opts.cache, index: i, item: opts.slots[opts.offset + i] ?? null });
   }
 }
 

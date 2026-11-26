@@ -1,6 +1,6 @@
 /** Authoritative multiplayer WebSocket client with auto-reconnect, lifecycle probes, and input throttling. */
 import { AI_TUNING, CHAT_BUBBLE_DURATION_SEC, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
-import { loadCharacterPrefs, sanitizeCharacterName, saveCharacterPrefs } from "./characterPrefs.js";
+import { loadCharacterPrefs, readStoredAuthToken, sanitizeCharacterName, saveCharacterPrefs, writeStoredAuthToken } from "./characterPrefs.js";
 import { applyChestTakeAll, applyChestTransfer, applyCraftRecipe, applyDropToClientState, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor, applyUseItemClient, createStarterInventorySnapshot, findNearestChest, heldItemForInventory } from "./clientInventory.js";
 import { LocalSwingTracker } from "./localSwingTracker.js";
 import { RemotePlayerSmoother } from "./remoteInterp.js";
@@ -98,7 +98,14 @@ export class WorldClient {
     this.ws = ws;
     this.connectTimer = window.setTimeout(() => { if (this.ws === ws && this.mode !== "server") this.handleSocketDrop(); }, HANDSHAKE_TIMEOUT_MS);
   }
-  private sendHello(): void { this.send({ t: "hello", version: PROTOCOL_VERSION, name: this.localPlayer.name, appearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE }); }
+  private sendHello(): void {
+    const auth = readStoredAuthToken();
+    this.send({
+      t: "hello", version: PROTOCOL_VERSION, name: this.localPlayer.name,
+      appearance: this.localPlayer.appearance ?? DEFAULT_APPEARANCE,
+      ...(auth ? { accountId: auth.accountId, resumeToken: auth.resumeToken } : {}),
+    });
+  }
   private clearTimer(key: "connectTimer" | "reconnectTimer" | "probeTimer"): void { const id = this[key]; if (id !== null) { window.clearTimeout(id); this[key] = null; } }
   private clearSocketTimers(): void { this.clearTimer("connectTimer"); this.clearTimer("reconnectTimer"); this.clearTimer("probeTimer"); }
   private resetStreamState(resetId: boolean): void {
@@ -136,6 +143,7 @@ export class WorldClient {
     this.webs = target.webs; this.chests = target.chests; this.queuedEvents = target.queuedEvents; this.discovery = target.discovery;
   }
   private applyWelcome(msg: Extract<ServerMessage, { t: "welcome" }>): void {
+    if (msg.accountId && msg.resumeToken) writeStoredAuthToken({ accountId: msg.accountId, resumeToken: msg.resumeToken });
     this.clearSocketTimers(); this.mode = "server"; this.reconnectAttempt = 0;
     this.localPlayerId = msg.playerId; this.localPlayer = { ...this.localPlayer, id: msg.playerId };
     this.gates = createIdleGates(); this.cache = new WorldChunkCache(msg.worldSeed);

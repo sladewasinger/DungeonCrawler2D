@@ -1,4 +1,5 @@
 /** Localhost Visual Asset & Terrain Diorama Sandbox orchestrator (/?sandbox=1). */
+import { isShieldItem } from "@dc2d/content";
 import { DEFAULT_APPEARANCE, TILE_PX, clamp, sampleDayNight } from "@dc2d/engine";
 import { Application, Container } from "pixi.js";
 import { AudioEngine } from "../audio/audioEngine.js";
@@ -48,8 +49,8 @@ function buildSandboxHudActions(sim: SandboxSim, audio: AudioEngine): HudActions
     onUnequipArmor: (r) => { sim.unequipArmor(r); audio.playUi("equip"); },
     onChestTransfer: (r) => { if (r.chestId) { sim.chestTransfer({ ...r, chestId: r.chestId }); audio.playUi("click"); } },
     onChestTakeAll: (id) => { sim.chestTakeAll(id); audio.playUi("equip"); },
-    onCraft: () => {},
-    onSetCharacter: () => {},
+    onCraft: (id) => { if (sim.craftRecipe(id)) audio.playUi("craft"); },
+    onSetCharacter: (c) => sim.setCharacter(c),
     onToggleTorch: () => { sim.toggleTorch(); audio.playUi("click"); },
     onDropItem: (req) => { sim.dropItem(req); audio.playUi("click"); },
   };
@@ -138,7 +139,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
     jump: st.input.consumeJump(), bowDraw: combat.bowDraw, bowRelease: combat.bowRelease,
   });
   const pl = st.poseTuner.applyPreview(cur.player);
-  st.input.setGearState({ heldItem: pl.heldItem ?? null, hasShield: cur.inventory.armor.offhand === "wooden-shield" });
+  st.input.setGearState({ heldItem: pl.heldItem ?? null, hasShield: isShieldItem(cur.inventory.armor.offhand) });
   st.camX += (pl.x - st.camX) * Math.min(1, dt * 8);
   st.camY += (pl.y - pl.elevation * 0.625 - 2.2 - st.camY) * Math.min(1, dt * 8);
   const sw = st.rig.app.screen.width; const sh = st.rig.app.screen.height;
@@ -147,9 +148,9 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
     cam.position.set(sw * 0.5, sh * 0.5); cam.pivot.set(st.camX * TILE_PX, st.camY * TILE_PX); cam.scale.set(st.zoom);
   }
   const timeSec = nowMs / 1000;
-  st.playerView ??= (() => { const pv = new PlayerView(st.gallery.propsAtlas.torchFrames[0]!, pl); st.rig.ysortCam.addChild(pv.root); return pv; })();
+  st.playerView ??= (() => { const pv = new PlayerView(pl); st.rig.ysortCam.addChild(pv.root); return pv; })();
   const { visualElev, sortBoost } = playerVisualElevation({ cache: st.sim.cache, x: pl.x, y: pl.y, baseElev: pl.elevation });
-  st.playerView.sync({ snap: pl, torchFrames: st.gallery.propsAtlas.torchFrames, timeSec, visualElev, sortBoost });
+  st.playerView.sync({ snap: pl, timeSec, visualElev, sortBoost });
   st.entities.sync(st.rig.ysortCam, cur.entities, timeSec);
   st.pickups.sync({ chests: cur.chests, groundLoot: [], local: pl, timeSec });
   st.gallery.animate(timeSec);

@@ -23,7 +23,6 @@ export interface CreatureVocalPlayOpts {
   readonly dst: AudioNode;
   readonly kind: CreatureVoiceKind;
   readonly vocal: CreatureVocalKind;
-  readonly sampleOverride?: AudioBuffer | undefined;
   readonly gainScale?: number | undefined;
   readonly delaySec?: number | undefined;
 }
@@ -34,18 +33,6 @@ export function isWildlifeVoiceKind(kind: unknown): kind is CreatureVoiceKind {
 
 export function getCreatureVoiceSpec(kind: CreatureVoiceKind, vocal: CreatureVocalKind): readonly VoiceLayer[] {
   return ALL_VOICE_SPECS[kind][vocal];
-}
-
-function playSampleOverride(opts: {
-  readonly ctx: AudioContext; readonly dst: AudioNode; readonly buffer: AudioBuffer; readonly gainScale: number;
-}): void {
-  const src = opts.ctx.createBufferSource();
-  src.buffer = opts.buffer;
-  src.playbackRate.value = 0.94 + Math.random() * 0.12;
-  const g = opts.ctx.createGain();
-  g.gain.value = Math.max(0.05, Math.min(1.5, opts.gainScale));
-  src.connect(g).connect(opts.dst);
-  src.start();
 }
 
 function playVocalLayer(opts: {
@@ -100,10 +87,6 @@ function playVoiceLayer(opts: {
 
 export function synthCreatureVocal(opts: CreatureVocalPlayOpts): void {
   const gainScale = opts.gainScale ?? 1;
-  if (opts.sampleOverride) {
-    playSampleOverride({ ctx: opts.ctx, dst: opts.dst, buffer: opts.sampleOverride, gainScale });
-    return;
-  }
   if (playSavedStudioPreset({
     ctx: opts.ctx, dst: opts.dst, presetId: `creature-${opts.kind}-${opts.vocal}`,
     gainScale, delaySec: opts.delaySec, pitchJitter: 0.06,

@@ -142,7 +142,7 @@ function paintFallbackItem(ctx: CanvasRenderingContext2D): void {
 
 const PAINTERS: Readonly<Record<string, (ctx: CanvasRenderingContext2D, id: string) => void>> = {
   sword: paintSword, bow: paintBow, axe: paintAxe, pickaxe: paintPickaxe,
-  torch: paintTorch, map: paintMap, "wooden-shield": paintShield,
+  torch: paintTorch, "wooden-shield": paintShield,
   "leather-hood": paintLeatherArmor, "leather-tunic": paintLeatherArmor,
   "leather-leggings": paintLeatherArmor, "leather-boots": paintLeatherArmor,
   bandage: paintBandage, "raw-meat": paintMeat, "cooked-meat": paintMeat,
@@ -157,6 +157,17 @@ function buildItemCanvas(itemId: string): HTMLCanvasElement {
   (PAINTERS[itemId] ?? paintFallbackItem)(ctx, itemId);
   stampSelOutOutline(ctx, { w: 32, h: 32, solidPx: 1.4 });
   return canvas;
+}
+
+export function makeMapUiIconUrl(): string {
+  const cached = iconUrlCache.get("__ui_map__");
+  if (cached) return cached;
+  const { canvas, ctx } = createPixelCanvas(32, 32);
+  paintMap(ctx);
+  stampSelOutOutline(ctx, { w: 32, h: 32, solidPx: 1.4 });
+  const url = canvas.toDataURL();
+  iconUrlCache.set("__ui_map__", url);
+  return url;
 }
 
 export function getItemIconUrl(itemId: string): string {

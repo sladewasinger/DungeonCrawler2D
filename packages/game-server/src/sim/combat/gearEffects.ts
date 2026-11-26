@@ -54,14 +54,37 @@ export function computeGearStrikeOutcome(opts: {
   return { damage, hitstopSec, shakePx };
 }
 
-function applyOnHitLifesteal(opts: {
-  readonly attacker: CombatPlayerRef; readonly ratio: number; readonly damageDealt: number; readonly events: WorldEvent[];
+export type PerkTarget = WildlifeEntity;
+
+function applyStatusPerks(
+  perks: { readonly bleedDamage: number; readonly burnDamage: number; readonly poisonDamage: number },
+  target: WildlifeEntity,
+  events: WorldEvent[],
+): void {
+  if (perks.bleedDamage > 0) {
+    target.bleedTimer = Math.max(target.bleedTimer, 3.5);
+    target.bleedDamagePerTick = Math.max(target.bleedDamagePerTick, perks.bleedDamage);
+  }
+  if (perks.burnDamage > 0) igniteBurnable({ target, x: target.x, y: target.y, targetId: target.id, damagePerTick: perks.burnDamage, events });
+  if (perks.poisonDamage > 0) inflictPoison(target, { damagePerTick: perks.poisonDamage });
+}
+
+export function applyPerkEffectsToTarget(opts: {
+  readonly attackerId: string;
+  readonly attackerPos: { readonly x: number; readonly y: number };
+  readonly attackerCombat: CombatPlayerRef["combat"];
+  readonly perks: { readonly lifestealRatio: number; readonly bleedDamage: number; readonly burnDamage: number; readonly poisonDamage: number };
+  readonly target: WildlifeEntity;
+  readonly damageDealt: number;
+  readonly events: WorldEvent[];
 }): void {
-  const { attacker, ratio, damageDealt, events } = opts;
-  if (ratio <= 0 || damageDealt <= 0 || attacker.combat.hp <= 0) return;
-  const heal = Math.max(1, Math.round(damageDealt * ratio));
-  attacker.combat.hp = Math.min(attacker.combat.maxHp, attacker.combat.hp + heal);
-  events.push({ kind: "heal", x: attacker.x, y: attacker.y, value: heal, actorId: attacker.id });
+  const { attackerId, attackerPos, attackerCombat, perks, target, damageDealt, events } = opts;
+  if (perks.lifestealRatio > 0 && damageDealt > 0 && attackerCombat.hp > 0) {
+    const heal = Math.max(1, Math.round(damageDealt * perks.lifestealRatio));
+    attackerCombat.hp = Math.min(attackerCombat.maxHp, attackerCombat.hp + heal);
+    events.push({ kind: "heal", x: attackerPos.x, y: attackerPos.y, value: heal, actorId: attackerId });
+  }
+  if (target.hp > 0 && !target.corpse) applyStatusPerks(perks, target, events);
 }
 
 export function applyPlayerOnHitPerks(opts: {
@@ -72,11 +95,7 @@ export function applyPlayerOnHitPerks(opts: {
   readonly events: WorldEvent[];
 }): void {
   const { attacker, gear, target, damageDealt, events } = opts;
-  applyOnHitLifesteal({ attacker, ratio: gear.lifestealRatio, damageDealt, events });
-  if (target.hp <= 0 || target.corpse) return;
-  if (gear.bleedDamage > 0) target.bleedTimer = Math.max(target.bleedTimer, 3.5);
-  if (gear.burnDamage > 0) igniteBurnable({ target, x: target.x, y: target.y, targetId: target.id, events });
-  if (gear.poisonDamage > 0) inflictPoison(target);
+  applyPerkEffectsToTarget({ attackerId: attacker.id, attackerPos: attacker, attackerCombat: attacker.combat, perks: gear, target, damageDealt, events });
 }
 
 export function applyThornsToCreature(opts: {
