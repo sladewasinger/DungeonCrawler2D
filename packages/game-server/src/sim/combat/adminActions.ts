@@ -1,14 +1,16 @@
 /** Dev/admin cheat actions for live combat, web, and item testing. */
 import { getItemDef, maxStackForItem } from "@dc2d/content";
-import { insertIntoSlots, type WorldEvent } from "@dc2d/engine";
+import { WorldChunkCache, insertIntoSlots, type WorldEvent } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
 
 export interface AdminActionRequest {
-  readonly action: "godMode" | "heal" | "give" | "clearWebs";
+  readonly action: "godMode" | "heal" | "give" | "clearWebs" | "teleport";
   readonly enabled?: boolean | undefined;
   readonly itemId?: string | undefined;
   readonly count?: number | undefined;
+  readonly x?: number | undefined;
+  readonly y?: number | undefined;
 }
 
 function clearPlayerStatusAndVitals(p: CombatPlayerRef): void {
@@ -40,10 +42,18 @@ function applyGiveItem(p: CombatPlayerRef, itemId?: string, count = 1): boolean 
   return insertIntoSlots(p.inventory.slots, { itemId, count }, maxStackForItem) > 0;
 }
 
+function applyTeleport(p: CombatPlayerRef, cache: WorldChunkCache, req: AdminActionRequest): boolean {
+  if (req.x === undefined || req.y === undefined || !Number.isFinite(req.x) || !Number.isFinite(req.y)) return false;
+  p.x = req.x;
+  p.y = req.y;
+  p.elevation = cache.tileAt(Math.floor(req.x), Math.floor(req.y)).elevation;
+  return true;
+}
+
 export function applyAdminAction(opts: {
-  readonly player: CombatPlayerRef; readonly webs: WorldWebNetwork; readonly events: WorldEvent[]; readonly req: AdminActionRequest;
+  readonly player: CombatPlayerRef; readonly cache: WorldChunkCache; readonly webs: WorldWebNetwork; readonly events: WorldEvent[]; readonly req: AdminActionRequest;
 }): boolean {
-  const { player, webs, events, req } = opts;
+  const { player, cache, webs, events, req } = opts;
   if (req.action === "godMode") return applyGodToggle(player, req.enabled);
   if (req.action === "heal") {
     clearPlayerStatusAndVitals(player);
@@ -51,5 +61,6 @@ export function applyAdminAction(opts: {
     return false;
   }
   if (req.action === "clearWebs") { clearPlayerWebsOnly(player, webs); return false; }
+  if (req.action === "teleport") return applyTeleport(player, cache, req);
   return req.action === "give" && applyGiveItem(player, req.itemId, req.count);
 }

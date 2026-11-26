@@ -97,7 +97,7 @@ describe("snapshotFilter", () => {
   });
 
   it("produces distinct signatures when inventory state changes", () => {
-    const base = { slots: [{ itemId: "sword", count: 1 }], selectedHotbar: 0, armor: { head: null, chest: null, legs: null, feet: null, offhand: null }, nearCampfire: false, ackSeq: 1 };
+    const base = { slots: [{ itemId: "sword", count: 1 }], selectedHotbar: 0, armor: { head: null, chest: null, legs: null, feet: null, offhand: null }, nearCampfire: false, nearWorkbench: false, ackSeq: 1 };
     expect(inventorySignature(base)).toBe(inventorySignature({ ...base }));
     expect(inventorySignature(base)).not.toBe(inventorySignature({ ...base, nearCampfire: true }));
   });

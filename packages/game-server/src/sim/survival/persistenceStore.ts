@@ -13,7 +13,9 @@ export interface PersistedPlayerRecord {
   readonly appearance: CharacterAppearance;
   readonly inventory: PlayerInventoryState;
   readonly wellFedTimer?: number | undefined;
+  readonly invigoratedTimer?: number | undefined;
   readonly restedTimer?: number | undefined;
+  readonly hotTimer?: number | undefined;
   readonly discovery?: DiscoveryStateSnapshot | undefined;
 }
 

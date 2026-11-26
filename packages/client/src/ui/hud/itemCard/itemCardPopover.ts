@@ -25,7 +25,7 @@ function resolveInspectedSlot(opts: {
 }
 
 const isConsumable = (def: ReturnType<typeof resolveItemInstance>["def"]): boolean =>
-  Boolean(def && (def.healHp || def.wellFedSec || def.buffEffect || def.curesStatuses));
+  Boolean(def && (def.healHp || def.hotHp || def.wellFedSec || def.invigoratedSec || def.buffEffect || def.curesStatuses));
 
 function buildStatNode(line: StatLine): HTMLDivElement {
   const row = domNode("div", "ow-ic-stat");

@@ -69,6 +69,10 @@ export class WorldDeltaOverlay {
     }
     const delta = this.depleted.get(prop.id);
     if (!delta) { outProps.push(prop); return; }
+    if (delta.replacementKind === prop.kind) {
+      outProps.push({ ...prop, depleted: true });
+      return;
+    }
     if (delta.replacementKind !== null) {
       outProps.push({ ...prop, kind: delta.replacementKind, radius: 0.3, blocksMovement: true });
     }

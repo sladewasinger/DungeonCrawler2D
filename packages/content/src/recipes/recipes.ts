@@ -42,7 +42,7 @@ const BASE_RECIPES: readonly RecipeDef[] = [
     id: "craft-iron-greatsword",
     outputItemId: "iron-greatsword",
     outputCount: 1,
-    requiresCampfire: true,
+    requiresWorkbench: true,
     ingredients: [
       { itemId: ITEM_WOOD, count: 2 },
       { itemId: "iron-ore", count: 4 },
@@ -71,7 +71,6 @@ const BASE_RECIPES: readonly RecipeDef[] = [
     id: "craft-torch",
     outputItemId: "torch",
     outputCount: 2,
-    requiresCampfire: true,
     ingredients: [
       { itemId: ITEM_WOOD, count: 2 },
       { itemId: ITEM_FLINT, count: 1 },
@@ -159,18 +158,21 @@ const BASE_RECIPES: readonly RecipeDef[] = [
     id: "craft-storage-chest",
     outputItemId: "storage-chest",
     outputCount: 1,
+    requiresWorkbench: true,
     ingredients: [{ itemId: ITEM_WOOD, count: 6 }],
   },
   {
     id: "craft-camp-bed",
     outputItemId: "camp-bed",
     outputCount: 1,
+    requiresWorkbench: true,
     ingredients: [{ itemId: ITEM_WOOD, count: 6 }, { itemId: ITEM_HERB, count: 3 }],
   },
   {
     id: "craft-wood-palisade",
     outputItemId: "wood-palisade",
     outputCount: 2,
+    requiresWorkbench: true,
     ingredients: [{ itemId: ITEM_WOOD, count: 4 }],
   },
 ];

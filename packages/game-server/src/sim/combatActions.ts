@@ -1,6 +1,6 @@
 /** Player combat state, timer decay, consumables, respawn, and incoming-hit delegation. */
 import {
-  COMBAT_TUNING, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC,
+  COMBAT_TUNING, MAX_PLAYER_HP, MAX_PLAYER_STAMINA, SANCTUARY_CENTER, STAMINA_REGEN_PER_SEC, SURVIVAL_BUFF_TUNING,
   type PlayerInventoryState, type WorldEvent,
 } from "@dc2d/engine";
 import { resolveBlockMode } from "@dc2d/content";
@@ -48,8 +48,11 @@ export interface PlayerCombatState {
   actionCooldown: number;
   pebbleCooldown: number;
   wellFedTimer: number;
+  invigoratedTimer: number;
   restedTimer: number;
+  hotTimer: number;
   hearthWarmSec: number;
+  exhaustDelayTimer: number;
   buffKind: "swiftness" | "vigor" | "shadow" | null;
   buffTimer: number;
   godMode: boolean;
@@ -89,7 +92,8 @@ export function createCombatState(): PlayerCombatState {
     invulnTimer: 0, staggerTimer: 0, bleedTimer: 0, burnTimer: 0, burnTickAcc: 0,
     poisonTimer: 0, poisonTickAcc: 0, poisonLocked: false, webSlowTimer: 0,
     webStick: 0, webStuckSec: 0, cocoonProgress: 0, cocoonHp: 0, cocoonBurning: false, parried: false,
-    hitTimer: 0, respawnTimer: 0, actionCooldown: 0, pebbleCooldown: 0, wellFedTimer: 0, restedTimer: 0, hearthWarmSec: 0,
+    hitTimer: 0, respawnTimer: 0, actionCooldown: 0, pebbleCooldown: 0,
+    wellFedTimer: 0, invigoratedTimer: 0, restedTimer: 0, hotTimer: 0, hearthWarmSec: 0, exhaustDelayTimer: 0,
     buffKind: null, buffTimer: 0,
     godMode: false, pendingSwing: null, bufferedAction: null,
   };
@@ -174,7 +178,8 @@ function syncGearAndVigorVitals(p: CombatPlayerRef): number {
   const c = p.combat;
   const gear = resolvePlayerGear(p);
   const vigorBonus = c.buffTimer > 0 && c.buffKind === "vigor" ? 25 : 0;
-  c.maxHp = MAX_PLAYER_HP + gear.maxHpBonus + vigorBonus;
+  const fedBonus = c.wellFedTimer > 0 ? SURVIVAL_BUFF_TUNING.wellFedMaxHpBonus : 0;
+  c.maxHp = MAX_PLAYER_HP + gear.maxHpBonus + vigorBonus + fedBonus;
   c.maxStamina = MAX_PLAYER_STAMINA + gear.maxStaminaBonus;
   c.hp = Math.min(c.hp, c.maxHp);
   c.stamina = Math.min(c.stamina, c.maxStamina);
@@ -188,12 +193,20 @@ function computeStaminaRegenRate(p: CombatPlayerRef, gearStamRegen: number): num
   return c.blocking ? baseRate * 0.45 : baseRate;
 }
 
-function stepVitalsRegen(p: CombatPlayerRef, gearStamRegen: number, dt: number): void {
-  const c = p.combat;
+function applyVigorBuffRegen(c: CombatPlayerRef["combat"], dt: number): void {
   if (c.buffTimer > 0 && c.buffKind === "vigor" && c.respawnTimer <= 0) {
     c.hp = Math.min(c.maxHp, c.hp + 1.5 * dt);
   }
+}
+
+function stepVitalsRegen(p: CombatPlayerRef, gearStamRegen: number, dt: number): void {
+  const c = p.combat;
+  applyVigorBuffRegen(c, dt);
   if (c.swingTimer > 0 || c.dodgeTimer > 0) return;
+  if (c.stamina <= 0.05 && c.exhaustDelayTimer <= 0) {
+    c.exhaustDelayTimer = 0.6 * (c.invigoratedTimer > 0 ? SURVIVAL_BUFF_TUNING.invigoratedExhaustionDelayMult : 1);
+  }
+  if (c.exhaustDelayTimer > 0) { c.exhaustDelayTimer = Math.max(0, c.exhaustDelayTimer - dt); return; }
   if (p.inDeepWater) { stepDeepWaterStamina(p, dt); return; }
   c.stamina = Math.min(c.maxStamina, c.stamina + computeStaminaRegenRate(p, gearStamRegen) * dt);
 }

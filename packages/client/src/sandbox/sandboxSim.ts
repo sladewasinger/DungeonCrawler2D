@@ -211,7 +211,7 @@ export class SandboxSim {
 
   dropItem(req: DropItemRequest): void {
     const next = applyDropToClientState({
-      inv: { ...this.inv, selectedHotbar: this.selectedHotbar, nearCampfire: true }, chests: this.chests, req,
+      inv: { ...this.inv, selectedHotbar: this.selectedHotbar, nearCampfire: true, nearWorkbench: true }, chests: this.chests, req,
     });
     this.inv = { ...this.inv, slots: next.inv.slots, armor: next.inv.armor };
     this.chests = [...next.chests];
@@ -268,7 +268,7 @@ export class SandboxSim {
     }));
     return {
       player: this.player,
-      inventory: { slots: this.inv.slots, selectedHotbar: this.selectedHotbar, armor: this.inv.armor, nearCampfire: true },
+      inventory: { slots: this.inv.slots, selectedHotbar: this.selectedHotbar, armor: this.inv.armor, nearCampfire: true, nearWorkbench: true },
       entities: this.actors.map((a) => a.snap),
       chests: this.chests,
       projectiles: this.projectiles.map((pr) => pr.snap),

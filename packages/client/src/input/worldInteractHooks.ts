@@ -7,12 +7,15 @@ import type { WorldScene } from "../render/world/worldScene.js";
 import type { AtmosphereToolbar } from "../ui/atmosphereToolbar.js";
 import type { ChatOverlay } from "../ui/chat/chatOverlay.js";
 import type { DiscoveryOverlay } from "../ui/discovery/discoveryOverlay.js";
-import { sealedVaultHint } from "../ui/discovery/poiPromptHelper.js";
+import {
+  findNearestDismantleableProp, resolveWorldInteractPrompt, sealedVaultHint,
+} from "../ui/discovery/poiPromptHelper.js";
 import type { HudRoot } from "../ui/hud/hudRoot.js";
 import type { HudActions } from "../ui/hud/slotRenderer.js";
 import { SettingsMenu } from "../ui/settings/settingsMenu.js";
 import { isLocalDebugOrigin, type SettingsPrefs } from "../ui/settings/settingsPrefs.js";
 import { InputController } from "./controller.js";
+import { isTouchInputActive } from "./inputMode.js";
 
 export function buildClientHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: () => void): HudActions {
   return {
@@ -65,6 +68,16 @@ function handleNearestChestInteract(opts: { readonly client: WorldClient; readon
   return false;
 }
 
+function handlePromptKindAction(opts: {
+  readonly prompt: NonNullable<ReturnType<typeof resolveWorldInteractPrompt>>;
+  readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine;
+}): boolean {
+  const { prompt, client, hud, audio } = opts;
+  if (prompt.kind === "workbench" || prompt.kind === "campfire") { hud.toggleCrafting(); audio.playUi("open"); return true; }
+  if (prompt.kind === "bed" && prompt.prop) { client.setRespawnBed(prompt.prop.id); audio.playUi("equip"); return true; }
+  return false;
+}
+
 export function handleWorldInteract(opts: {
   readonly client: WorldClient; readonly hud: HudRoot; readonly discovery: DiscoveryOverlay;
   readonly audio: AudioEngine; readonly lootId?: string | undefined;
@@ -76,8 +89,31 @@ export function handleWorldInteract(opts: {
   const snap = client.snapshot();
   const me = snap.players.find((p) => p.id === snap.localPlayerId);
   const manual = me ? findManualLootInReach(snap.groundLoot, me) : undefined;
-  if (!manual) return false;
-  client.pickupLoot(manual.id); audio.playUi("equip");
+  if (manual) { client.pickupLoot(manual.id); audio.playUi("equip"); return true; }
+  const prompt = resolveWorldInteractPrompt({ nearestChest: undefined, nearestLoot: undefined, local: me, cache: snap.cache, touch: isTouchInputActive() });
+  return prompt ? handlePromptKindAction({ prompt, client, hud, audio }) : false;
+}
+
+function handleWorldDismantle(opts: { readonly client: WorldClient; readonly audio: AudioEngine }): void {
+  const snap = opts.client.snapshot();
+  const me = snap.players.find((p) => p.id === snap.localPlayerId);
+  const target = findNearestDismantleableProp(snap.cache, me);
+  if (!target) return;
+  opts.client.dismantleStructure(target.id);
+  opts.audio.playUi("click");
+}
+
+function handlePlaceGhost(opts: {
+  readonly scene: WorldScene; readonly client: WorldClient; readonly discovery: DiscoveryOverlay; readonly audio: AudioEngine;
+}): boolean {
+  const target = opts.scene.currentPlacementTarget();
+  if (!target) return false;
+  if (!target.valid) {
+    opts.discovery.showNotice("Cannot Place", target.reason ?? "Blocked");
+    return true;
+  }
+  opts.client.placeStructure({ itemId: target.itemId, x: target.x, y: target.y, rotation: target.rotation });
+  opts.audio.playUi("equip");
   return true;
 }
 
@@ -121,6 +157,7 @@ export function mountSettingsForUi(opts: {
     onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
     onRespawn: () => { client.respawn(); audio.playUi("open"); },
     onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
+    onResetLocalWorld: () => { client.resetOfflineWorld(); hud.closePanels(); audio.playUi("open"); },
     onPrefsChange: (p) => applySettingsPrefs({ prefs: p, toolbar, scene, onCrouchMode }),
     onOpenChange,
   });
@@ -145,6 +182,9 @@ export function createClientInputHooks(opts: {
     onToggleCharacter: () => { modals.toggle("character"); audio.playUi("open"); },
     onToggleMap: () => { modals.toggle("minimap"); audio.playUi("open"); },
     onInteract: () => onInteractWorld(),
+    onDismantle: () => handleWorldDismantle({ client, audio }),
+    onRotateGhost: () => { scene.cyclePlacementRotation(); audio.playUi("click"); },
+    onPlaceGhost: () => handlePlaceGhost({ scene, client, discovery, audio }),
     onOpenChat: () => modals.open("chat"),
     onWorldTap: (cx, cy) => tryTapWorldInteract({ clientX: cx, clientY: cy, scene, client, hud, discovery, audio }),
     onClosePanels: () => { modals.closeAll(); },

@@ -15,6 +15,9 @@ export interface MobileCombatState {
 export interface MobileCombatHandlers {
   readonly onMapTap?: () => void;
   readonly onJump?: () => void;
+  readonly onRotateGhost?: () => void;
+  readonly onDismantle?: () => void;
+  readonly onPlaceGhost?: () => boolean;
 }
 
 const ITEM_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -64,7 +67,10 @@ export class MobileCombatControls {
   private readonly rollBtn: HTMLButtonElement;
   private readonly sneakBtn: HTMLButtonElement;
   private readonly blockBtn: HTMLButtonElement;
+  private readonly rotBtn: HTMLButtonElement;
+  private readonly dismantleBtn: HTMLButtonElement;
   private readonly handlers: MobileCombatHandlers;
+  private hasPlaceable = false;
   private isBowHeld = false;
   private atkPointerId: number | null = null;
   private atkOrigin = { x: 0, y: 0 };
@@ -85,16 +91,26 @@ export class MobileCombatControls {
     this.sneakBtn = makeCombatBtn("ow-roll-btn ow-sneak-btn", "SNEAK", "Toggle crouch sneak");
     this.blockBtn = makeCombatBtn("ow-block-btn", "BLOCK", "Raise shield block");
     this.blockBtn.hidden = true;
+    this.rotBtn = makeCombatBtn("ow-roll-btn ow-rot-btn", "ROT", "Rotate placement");
+    this.rotBtn.hidden = true;
+    this.dismantleBtn = makeCombatBtn("ow-roll-btn ow-dismantle-btn", "DISMANTLE", "Dismantle nearby structure");
+    this.dismantleBtn.hidden = true;
     const primaryRow = document.createElement("div");
     primaryRow.className = "ow-combat-row ow-combat-row-primary";
     primaryRow.append(this.blockBtn, this.atkBtn, this.jumpBtn);
     const utilityRow = document.createElement("div");
     utilityRow.className = "ow-combat-row ow-combat-row-utility";
-    utilityRow.append(this.sneakBtn, this.rollBtn);
+    utilityRow.append(this.rotBtn, this.dismantleBtn, this.sneakBtn, this.rollBtn);
     cluster.append(primaryRow, utilityRow);
     host.append(cluster);
     this.bindAtk();
     this.bindRollAndBlock();
+  }
+
+  setBuildContext(opts: { readonly hasPlaceable: boolean; readonly nearDismantle: boolean }): void {
+    this.hasPlaceable = opts.hasPlaceable;
+    this.rotBtn.hidden = !opts.hasPlaceable;
+    this.dismantleBtn.hidden = !opts.nearDismantle;
   }
 
   setCrouching(next: boolean): void {
@@ -143,6 +159,9 @@ export class MobileCombatControls {
       this.atkBtn.setPointerCapture?.(e.pointerId);
       this.atkPointerId = e.pointerId;
       this.atkBtn.dataset.active = "true";
+      if (this.hasPlaceable && this.handlers.onPlaceGhost?.()) {
+        this.atkPointerId = null; this.atkBtn.dataset.active = "false"; return;
+      }
       if (!this.isBowHeld) { this.attackQueued = true; return; }
       this.atkOrigin = { x: e.clientX, y: e.clientY };
       this.atkDragAim = undefined;
@@ -169,6 +188,8 @@ export class MobileCombatControls {
     this.jumpBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onJump?.(); });
     this.rollBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.dodgeQueued = true; });
     this.sneakBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.setCrouching(!this.crouching); });
+    this.rotBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onRotateGhost?.(); });
+    this.dismantleBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.handlers.onDismantle?.(); });
     this.blockBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); this.blockBtn.setPointerCapture?.(e.pointerId); this.setBlockHeld(true); });
     const endBlock = (): void => this.setBlockHeld(false);
     this.blockBtn.addEventListener("pointerup", endBlock);

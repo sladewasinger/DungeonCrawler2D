@@ -1,8 +1,8 @@
 /** Extracted combat movement multipliers, active swing pass dispatch, and input buffer helpers. */
 import { getItemDef, isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
-  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  computeCharacterMoveMultiplier, evaluateBowShot, isInSanctuary, isInWorldSanctuary, isSharpWeapon,
+  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, SURVIVAL_BUFF_TUNING, WorldChunkCache,
+  clamp, computeCharacterMoveMultiplier, evaluateBowShot, isInSanctuary, isInWorldSanctuary, isSharpWeapon,
   playerFootSegment, resolveMovement, resolveWeaponArchetype,
   type GoreStyle, type SlotItem, type WorldEvent,
 } from "@dc2d/engine";
@@ -98,7 +98,9 @@ export function buildPlayerCombatExtras(p: CombatPlayerRef, cache?: WorldChunkCa
     blocking: c.blocking, dodging: c.dodgeTimer > 0, invulnTimer: c.invulnTimer, staggerTimer: c.staggerTimer,
     bleedTimer: c.bleedTimer, burnTimer: c.burnTimer, poisonTimer: c.poisonTimer, poisonLocked: c.poisonLocked,
     webSlowTimer: c.webSlowTimer, webStick: Number(c.webStick.toFixed(2)), cocoonProgress: Number(c.cocoonProgress.toFixed(2)),
-    hitTimer: c.hitTimer, respawnTimer: c.respawnTimer, wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer,
+    hitTimer: c.hitTimer, respawnTimer: c.respawnTimer,
+    wellFedTimer: c.wellFedTimer, invigoratedTimer: c.invigoratedTimer, restedTimer: c.restedTimer, hotTimer: c.hotTimer,
+    hearthWarmProgress: clamp(c.hearthWarmSec / SURVIVAL_BUFF_TUNING.restedChargeSec, 0, 1),
     inSanctuary: cache ? isInWorldSanctuary(cache, p.x, p.y) : isInSanctuary(p.x, p.y), ...buildGearCombatExtras(p),
   };
 }

@@ -156,7 +156,9 @@ const HUD_CSS = `
     border-bottom: 0;
   }
   .ow-vitals {
-    bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 12px);
+    bottom: calc(env(safe-area-inset-bottom) + var(--ow-slot-size) + 10px);
+    padding: 2px 6px;
+    gap: 4px;
   }
   .ow-stamina-rail {
     left: max(8px, env(safe-area-inset-left));

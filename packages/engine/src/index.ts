@@ -211,12 +211,16 @@ export {
 } from "./survival/harvestRules.js";
 export type { HarvestDropSpec, HarvestNodeSpec } from "./survival/harvestRules.js";
 export {
-  STRUCTURE_KINDS, STRUCTURE_SPECS, canPlaceStructure, structureToChunkProp, structureToPointLight,
+  PALISADE_MAX_HP, STRUCTURE_KINDS, STRUCTURE_SPECS, canPlaceStructure,
+  structureToChunkProp, structureToPointLight, validateStructurePlacement,
 } from "./survival/campBuilding.js";
-export type { PlacedStructureRecord, StructureKind, StructureSpec } from "./survival/campBuilding.js";
-export { SURVIVAL_BUFF_TUNING, computeSurvivalRegen } from "./survival/survivalBuffs.js";
+export type {
+  PlacedStructureRecord, StructureKind, StructurePlacementReason, StructurePlacementValidation, StructureSpec,
+} from "./survival/campBuilding.js";
+export { SURVIVAL_BUFF_TUNING, applyWellFedDuration, computeSurvivalRegen } from "./survival/survivalBuffs.js";
 export { WorldDeltaOverlay } from "./survival/worldDeltas.js";
 export type { DepletedPropDelta, WorldDeltaSnapshot } from "./survival/worldDeltas.js";
 export {
-  ClientPlaceStructureSchema, ClientSetRespawnBedSchema, DepletedPropSchema, PlacedStructureSchema, WorldDeltaSnapshotSchema,
+  ClientDismantleStructureSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
+  DepletedPropSchema, PlacedStructureSchema, WorldDeltaSnapshotSchema,
 } from "./net/worldDeltaSchemas.js";

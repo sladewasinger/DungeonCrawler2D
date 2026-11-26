@@ -1,7 +1,7 @@
 /** Server-side RPG gear stat aggregation, crit rolls, on-hit perks, thorns, and elixir use. */
 import { getItemDef, resolveItemInstance } from "@dc2d/content";
 import {
-  computeArmorDefense, computePlayerGearStats, consumeItemFromSlots, removeFromSlot,
+  applyWellFedDuration, computeArmorDefense, computePlayerGearStats, consumeItemFromSlots, removeFromSlot,
   type AggregatedPlayerGearStats, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -112,12 +112,14 @@ export function applyThornsToCreature(opts: {
   });
 }
 
+function hasConsumableBuff(def: NonNullable<ReturnType<typeof getItemDef>>): boolean {
+  return Boolean(def.buffEffect || def.curesStatuses || def.wellFedSec || def.invigoratedSec || def.hotDurationSec);
+}
+
 function canUseConsumableDef(p: CombatPlayerRef, itemId: string): boolean {
   const def = getItemDef(itemId);
   if (!def || p.combat.actionCooldown > 0 || p.combat.respawnTimer > 0) return false;
-  const hasBuff = Boolean(def.buffEffect || def.curesStatuses);
-  if (def.wellFedSec || hasBuff) return true;
-  return Boolean(def.healHp && p.combat.hp < p.combat.maxHp);
+  return hasConsumableBuff(def) || Boolean(def.healHp && p.combat.hp < p.combat.maxHp);
 }
 
 function clearPlayerCombatStatuses(c: CombatPlayerRef["combat"]): void {
@@ -132,21 +134,28 @@ function applyBuffIfPresent(c: CombatPlayerRef["combat"], buff: NonNullable<Retu
   c.buffTimer = Math.max(c.buffTimer, buff.durationSec);
 }
 
-function applyHealAndFed(c: CombatPlayerRef["combat"], heal: number, fed: number): void {
-  if (heal > 0) c.hp = Math.min(c.maxHp, c.hp + heal);
-  if (fed > 0) c.wellFedTimer = Math.max(c.wellFedTimer, fed);
+function applyDurationBuffs(c: CombatPlayerRef["combat"], def: NonNullable<ReturnType<typeof getItemDef>>): void {
+  if (def.wellFedSec) c.wellFedTimer = applyWellFedDuration(c.wellFedTimer, def.wellFedSec);
+  if (def.invigoratedSec) c.invigoratedTimer = Math.max(c.invigoratedTimer, def.invigoratedSec);
+  if (def.hotDurationSec) c.hotTimer = Math.max(c.hotTimer, def.hotDurationSec);
+}
+
+function consumableEventValue(def: NonNullable<ReturnType<typeof getItemDef>>, heal: number): number {
+  if (heal > 0) return heal;
+  const buffSec = (def.wellFedSec ?? 0) + (def.invigoratedSec ?? 0) + (def.hotDurationSec ?? 0);
+  return Math.round(buffSec / 10) || 1;
 }
 
 function applyConsumableDefEffects(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): void {
   const def = getItemDef(itemId);
   if (!def) return;
-  const heal = def.healHp || 0;
-  const fed = def.wellFedSec || 0;
-  applyHealAndFed(p.combat, heal, fed);
+  const heal = def.healHp ?? 0;
+  if (heal > 0) p.combat.hp = Math.min(p.combat.maxHp, p.combat.hp + heal);
+  applyDurationBuffs(p.combat, def);
   if (def.curesStatuses) clearPlayerCombatStatuses(p.combat);
   applyBuffIfPresent(p.combat, def.buffEffect);
   p.combat.actionCooldown = 0.45;
-  events.push({ kind: "heal", x: p.x, y: p.y, value: heal || Math.round(fed / 10) || 1, actorId: p.id });
+  events.push({ kind: "heal", x: p.x, y: p.y, value: consumableEventValue(def, heal), actorId: p.id });
 }
 
 export function useConsumableByItemId(p: CombatPlayerRef, itemId: string, events: WorldEvent[]): boolean {

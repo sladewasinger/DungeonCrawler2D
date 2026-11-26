@@ -3,6 +3,7 @@ import {
   computeTrackWindow, exactTracksDurationSec, fillNoiseSamples, normalizeTrackSpec,
   type ProceduralTrackSpec,
 } from "./proceduralSynth.js";
+import { buildHarvestSfxSpec, renderHarvestSfxSamples, type HarvestSfxFamily } from "./weapons/synthWeaponSfx.js";
 
 function meanStepDelta(samples: Float32Array): number {
   let acc = 0;
@@ -56,5 +57,21 @@ describe("proceduralSynth", () => {
     expect(computeTrackWindow(longHold, 0.05)?.holdSec).toBeCloseTo(0.25, 4);
     expect(computeTrackWindow(longHold, 0.2)?.holdSec).toBeCloseTo(0.194, 4);
     expect(computeTrackWindow(longHold, 0.45)?.holdSec).toBe(0);
+  });
+
+  it("[REQ-P8-07] synthesizes distinct audible buffers within 1.0 peak across wood, stone, ore, and forage", () => {
+    const families: readonly HarvestSfxFamily[] = ["wood", "stone", "ore", "forage"];
+    const freqs = new Set<number>();
+    for (const fam of families) {
+      const spec = buildHarvestSfxSpec(fam, fam === "wood");
+      freqs.add(spec.toneF0);
+      const samples = renderHarvestSfxSamples(fam, fam === "wood");
+      let peak = 0; let energy = 0;
+      for (const s of samples) { peak = Math.max(peak, Math.abs(s)); energy += s * s; }
+      expect(peak).toBeGreaterThan(0.05);
+      expect(peak).toBeLessThanOrEqual(1.0);
+      expect(energy).toBeGreaterThan(0.5);
+    }
+    expect(freqs.size).toBe(4);
   });
 });

@@ -87,6 +87,30 @@ function verifyRestedBuffNearCampfire(): void {
   expect(sim.snapshots().find((p) => p.id === id)?.restedTimer).toBeGreaterThan(100);
 }
 
+function buildAndTestBedRespawn(sim: WorldSim, id: string): number {
+  sim.grantPlayerItems(id, [
+    { slot: 11, itemId: "wood", count: 16 }, { slot: 12, itemId: "stone", count: 4 },
+    { slot: 14, itemId: "raw-meat", count: 3 }, { slot: 15, itemId: "herb", count: 4 },
+  ]);
+  expect(sim.craftRecipe(id, "craft-camp-bed")).toBe(false);
+  expect(sim.craftRecipe(id, "craft-workbench")).toBe(true);
+  let seq = walkAlongX({ sim, id, startSeq: 1, moveX: 1, maxSteps: 90, stopWhen: (x) => x >= 16.5 });
+  const wbSpot = findClearSpotAround(sim, id, "workbench");
+  expect(sim.placeStructure(id, { itemId: "workbench", x: wbSpot.x, y: wbSpot.y })).toBe(true);
+  expect(sim.inventorySnapshot(id)?.nearWorkbench).toBe(true);
+  expect(sim.craftRecipe(id, "craft-camp-bed")).toBe(true);
+  expect(sim.placeStructure(id, { itemId: "camp-bed", x: 1.5, y: 1.2 })).toBe(false);
+  const spot = findClearSpotAround(sim, id, "bed");
+  expect(sim.placeStructure(id, { itemId: "camp-bed", x: spot.x, y: spot.y })).toBe(true);
+  sim.queueInput(id, { seq: seq++, moveX: -1, moveY: 0 });
+  sim.step();
+  sim.respawnPlayer(id);
+  const respawned = sim.snapshots().find((p) => p.id === id);
+  expect(respawned?.x).toBeCloseTo(spot.x, 2);
+  expect(respawned?.respawnBedPos?.x).toBeCloseTo(spot.x, 2);
+  return seq;
+}
+
 describe("Phase 8 gathering, camp building, survival buffs, and persistence", () => {
   it("chops trees with Axe into stumps and drops wood loot", () => {
     const sim = new WorldSim(1337);
@@ -109,7 +133,7 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
     expect(sim.cache.getChunk(cx, cy).props.find((p) => p.id === tree.id)?.kind).toBe(PropKind.Stump);
   });
 
-  it("places camp bed for custom respawn, activates Well-Fed/Rested buffs, and persists across reboots", () => {
+  it("[REQ-P8-14] places camp bed for custom respawn, activates Well-Fed/Rested buffs, and persists across reboots", () => {
     const dir = mkdtempSync(join(tmpdir(), "dc2d-save-"));
     const savePath = join(dir, "world.json");
     let sim: WorldSim | undefined;
@@ -117,21 +141,7 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
     try {
       sim = new WorldSim(1337, { persistencePath: savePath });
       const id = sim.addPlayer("Builder");
-      sim.grantPlayerItems(id, [
-        { slot: 11, itemId: "wood", count: 8 },
-        { slot: 14, itemId: "raw-meat", count: 3 },
-        { slot: 15, itemId: "herb", count: 4 },
-      ]);
-      expect(sim.craftRecipe(id, "craft-camp-bed")).toBe(true);
-      expect(sim.placeStructure(id, { itemId: "camp-bed", x: 1.5, y: 1.2 })).toBe(false);
-      let seq = walkAlongX({ sim, id, startSeq: 1, moveX: 1, maxSteps: 90, stopWhen: (x) => x >= 16.5 });
-      const spot = findClearSpotAround(sim, id, "bed");
-      expect(sim.placeStructure(id, { itemId: "camp-bed", x: spot.x, y: spot.y })).toBe(true);
-      sim.queueInput(id, { seq: seq++, moveX: -1, moveY: 0 });
-      sim.step();
-      sim.respawnPlayer(id);
-      const respawned = sim.snapshots().find((p) => p.id === id);
-      expect(respawned?.x).toBeCloseTo(spot.x, 2);
+      let seq = buildAndTestBedRespawn(sim, id);
 
       seq = walkAlongX({ sim, id, startSeq: seq, moveX: -1, maxSteps: 95, stopWhen: (x) => x <= 1.2 });
       sim.queueInput(id, { seq: seq++, moveX: 0, moveY: -0.5, aimX: 0, aimY: -1 });

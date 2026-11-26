@@ -1,6 +1,7 @@
 /** Centered HP bar + Sanctuary, fixed-width symbol-only Skyrim Stealth Eye, buffs/debuffs & Stamina rail. */
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
 import { parseStaticSvg } from "../dom/staticSvg.js";
+import { BuffTray } from "./buffs/buffTray.js";
 import { domNode } from "./slotRenderer.js";
 
 const ACTIVE_ALERT_STATES = new Set(["chase", "flank", "charge", "alert"]);
@@ -50,10 +51,14 @@ function trappedLabel(player: PlayerSnapshot): string {
   return (player.webStick ?? 0) >= 0.85 ? "STUCK" : "";
 }
 
+const ceilTimer = (n: number | undefined): number => Math.ceil(n ?? 0);
+
 function readBuffFields(player: PlayerSnapshot) {
   return {
-    fed: Math.ceil(player.wellFedTimer ?? 0), rest: Math.ceil(player.restedTimer ?? 0),
-    buffKind: player.shrineBuff?.kind ?? "", buffSec: Math.ceil(player.shrineBuff?.remainingSec ?? 0),
+    fed: ceilTimer(player.wellFedTimer), rest: ceilTimer(player.restedTimer),
+    invig: ceilTimer(player.invigoratedTimer), hot: ceilTimer(player.hotTimer),
+    warmProg: Math.max(0, Math.min(1, player.hearthWarmProgress ?? 0)),
+    buffKind: player.shrineBuff?.kind ?? "", buffSec: ceilTimer(player.shrineBuff?.remainingSec),
   };
 }
 
@@ -73,7 +78,7 @@ function readStealthAndBuffs(player: PlayerSnapshot) {
 }
 
 function readVitals(player: PlayerSnapshot | undefined) {
-  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, vis: 1, cover: false, lit: false, fed: 0, rest: 0, poison: 0, poisonLocked: false, trapped: "", burn: 0, god: false, buffKind: "", buffSec: 0 };
+  if (!player) return { hp: 100, maxHp: 100, stam: 100, maxStam: 100, safe: true, vis: 1, cover: false, lit: false, fed: 0, rest: 0, invig: 0, hot: 0, warmProg: 0, poison: 0, poisonLocked: false, trapped: "", burn: 0, god: false, buffKind: "", buffSec: 0 };
   return {
     hp: Math.max(0, Math.round(player.hp ?? 100)), maxHp: Math.max(1, Math.round(player.maxHp ?? 100)),
     stam: Math.max(0, Math.round(player.stamina ?? 100)), maxStam: Math.max(1, Math.round(player.maxStamina ?? 100)),
@@ -96,11 +101,6 @@ function resolveStealthTier(vis: number, threat: "calm" | "suspect" | "spotted")
   return vis <= 0.66 ? "shaded" : "exposed";
 }
 
-function syncStatusPill(el: HTMLSpanElement, secs: number, label: string): void {
-  el.hidden = secs <= 0;
-  if (secs > 0) el.textContent = `${label} ${secs}s`;
-}
-
 export class VitalsBar {
   readonly el: HTMLDivElement;
   readonly staminaRail: HTMLDivElement;
@@ -110,13 +110,10 @@ export class VitalsBar {
   private readonly sanctuaryPill: HTMLSpanElement;
   private readonly stealthPill: HTMLSpanElement;
   private readonly stealthDom: StealthEyeDom;
-  private readonly fedPill: HTMLSpanElement;
-  private readonly restedPill: HTMLSpanElement;
-  private readonly poisonPill: HTMLSpanElement;
-  private readonly trappedPill: HTMLSpanElement;
-  private readonly burnPill: HTMLSpanElement;
-  private readonly godPill: HTMLSpanElement;
-  private readonly shrineBuffPill: HTMLSpanElement;
+  private readonly buffTray: BuffTray;
+  private readonly warmingBar: HTMLDivElement;
+  private readonly warmingFill: HTMLDivElement;
+  private readonly warmingLabel: HTMLSpanElement;
   private lastKey = "";
   private lastStealthKey = "";
 
@@ -126,23 +123,21 @@ export class VitalsBar {
     this.hpFill = domNode("div", "ow-vbar-fill");
     this.hpText = domNode("span", "ow-vbar-text");
     hpWrap.append(this.hpFill, this.hpText);
-    this.fedPill = domNode("span", "ow-buff-pill ow-buff-fed"); this.fedPill.hidden = true;
-    this.restedPill = domNode("span", "ow-buff-pill ow-buff-rested"); this.restedPill.hidden = true;
-    this.poisonPill = domNode("span", "ow-buff-pill ow-buff-poison"); this.poisonPill.hidden = true;
-    this.trappedPill = domNode("span", "ow-buff-pill ow-buff-web"); this.trappedPill.hidden = true;
-    this.burnPill = domNode("span", "ow-buff-pill ow-buff-burn"); this.burnPill.hidden = true;
-    this.godPill = domNode("span", "ow-buff-pill ow-buff-god"); this.godPill.textContent = "GOD"; this.godPill.hidden = true;
-    this.shrineBuffPill = domNode("span", "ow-buff-pill ow-buff-shrine"); this.shrineBuffPill.hidden = true;
+    this.buffTray = new BuffTray(host);
     this.stealthPill = domNode("span", "ow-stealth-pill");
     this.stealthDom = createStealthEyeDom(this.stealthPill);
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill"); this.sanctuaryPill.textContent = "Sanctuary";
-    this.el.append(hpWrap, this.fedPill, this.restedPill, this.shrineBuffPill, this.poisonPill, this.trappedPill, this.burnPill, this.godPill, this.stealthPill, this.sanctuaryPill);
+    this.el.append(hpWrap, this.buffTray.el, this.stealthPill, this.sanctuaryPill);
+    this.warmingBar = domNode("div", "ow-warming-bar"); this.warmingBar.hidden = true;
+    this.warmingFill = domNode("div", "ow-warming-fill");
+    this.warmingLabel = domNode("span", "ow-warming-label");
+    this.warmingBar.append(this.warmingFill, this.warmingLabel);
     this.staminaRail = domNode("div", "ow-stamina-rail");
     this.staminaRail.setAttribute("aria-label", "Stamina");
     this.stamFill = domNode("div", "ow-stamina-fill");
     this.stamFill.dataset.tier = "high";
     this.staminaRail.append(this.stamFill);
-    host.append(this.el, this.staminaRail);
+    host.append(this.el, this.warmingBar, this.staminaRail);
     this.syncStealthEye({ vis: 0.8, cover: false, lit: false, threat: "calm", open: resolveEyeOpenness(0.8, "calm"), openStep: 8, tier: "exposed" });
   }
 
@@ -152,7 +147,8 @@ export class VitalsBar {
     const open = resolveEyeOpenness(v.vis, threat);
     const openStep = Math.round(open * 10);
     const tier = resolveStealthTier(v.vis, threat);
-    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.cover}:${v.lit}:${openStep}:${tier}:${v.fed}:${v.rest}:${v.buffKind}:${v.buffSec}:${v.poison}:${v.poisonLocked}:${v.trapped}:${v.burn}:${v.god}`;
+    const wp = Math.round(v.warmProg * 20);
+    const key = `${v.hp}/${v.maxHp}:${v.stam}/${v.maxStam}:${v.safe}:${v.cover}:${v.lit}:${openStep}:${tier}:${v.fed}:${v.invig}:${v.rest}:${v.hot}:${wp}:${v.buffKind}:${v.buffSec}:${v.poison}:${v.poisonLocked}:${v.trapped}:${v.burn}:${v.god}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
     this.syncBars(v);
@@ -166,19 +162,17 @@ export class VitalsBar {
     this.stamFill.style.height = `${stamPct}%`;
     this.stamFill.dataset.tier = staminaTierForPct(stamPct);
     this.sanctuaryPill.hidden = !v.safe;
-    syncStatusPill(this.fedPill, v.fed, "FED");
-    syncStatusPill(this.restedPill, v.rest, "REST");
-    this.shrineBuffPill.hidden = v.buffSec <= 0 || !v.buffKind;
-    if (!this.shrineBuffPill.hidden) {
-      this.shrineBuffPill.dataset.kind = v.buffKind;
-      this.shrineBuffPill.textContent = `${v.buffKind.toUpperCase()} ${v.buffSec}s`;
+    this.buffTray.sync({
+      wellFedSec: v.fed, invigoratedSec: v.invig, restedSec: v.rest, hotSec: v.hot,
+      shrineKind: v.buffKind, shrineSec: v.buffSec, poisonSec: v.poison, poisonLocked: v.poisonLocked,
+      stuckText: v.trapped, burnSec: v.burn, god: v.god,
+    });
+    const warming = v.warmProg > 0 && v.warmProg < 1 && v.rest <= 0;
+    this.warmingBar.hidden = !warming;
+    if (warming) {
+      this.warmingFill.style.width = `${Math.round(v.warmProg * 100)}%`;
+      this.warmingLabel.textContent = `Warming ${(v.warmProg * 5).toFixed(1)}s`;
     }
-    this.poisonPill.hidden = v.poison <= 0 && !v.poisonLocked;
-    if (!this.poisonPill.hidden) this.poisonPill.textContent = v.poisonLocked ? "POISONED" : `POISONED ${v.poison}s`;
-    this.trappedPill.hidden = v.trapped.length === 0;
-    if (v.trapped) this.trappedPill.textContent = v.trapped;
-    syncStatusPill(this.burnPill, v.burn, "BURNING");
-    this.godPill.hidden = !v.god;
   }
 
   private syncStealthEye(opts: {

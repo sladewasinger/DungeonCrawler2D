@@ -26,7 +26,7 @@ export function computeDesiredPlayerDir(p: {
 
 function updateHearthWarmth(c: CombatPlayerRef["combat"], nearCampfire: boolean, dt: number): void {
   if (!nearCampfire || c.hitTimer > 0) { c.hearthWarmSec = Math.max(0, c.hearthWarmSec - dt * 2); return; }
-  c.hearthWarmSec += dt;
+  c.hearthWarmSec = Math.min(SURVIVAL_BUFF_TUNING.restedChargeSec, c.hearthWarmSec + dt);
   if (c.hearthWarmSec >= SURVIVAL_BUFF_TUNING.restedChargeSec) {
     c.restedTimer = Math.max(c.restedTimer, SURVIVAL_BUFF_TUNING.restedDurationSec);
   }
@@ -37,10 +37,15 @@ export function stepPlayerSurvivalBuffs(opts: {
 }): void {
   const c = opts.p.combat;
   c.wellFedTimer = Math.max(0, c.wellFedTimer - opts.dt);
+  c.invigoratedTimer = Math.max(0, c.invigoratedTimer - opts.dt);
   c.restedTimer = Math.max(0, c.restedTimer - opts.dt);
+  c.hotTimer = Math.max(0, c.hotTimer - opts.dt);
   updateHearthWarmth(c, opts.nearCampfire, opts.dt);
   if (c.respawnTimer > 0) return;
-  const regen = computeSurvivalRegen({ wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer, hitTimer: c.hitTimer });
+  const regen = computeSurvivalRegen({
+    wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer,
+    invigoratedTimer: c.invigoratedTimer, hotTimer: c.hotTimer, hitTimer: c.hitTimer,
+  });
   if (regen.hpPerSec > 0) c.hp = Math.min(c.maxHp, c.hp + regen.hpPerSec * opts.dt);
   if (regen.staminaBonusPerSec > 0 && c.swingTimer <= 0 && c.dodgeTimer <= 0) {
     c.stamina = Math.min(c.maxStamina, c.stamina + regen.staminaBonusPerSec * opts.dt);
@@ -54,7 +59,9 @@ export function applySavedPlayerRecord(p: CombatPlayerRef & { x: number; y: numb
   p.appearance = sanitizeCharacterAppearance(rec.appearance);
   p.inventory = cloneInventoryState(rec.inventory);
   p.combat.wellFedTimer = rec.wellFedTimer ?? 0;
+  p.combat.invigoratedTimer = rec.invigoratedTimer ?? 0;
   p.combat.restedTimer = rec.restedTimer ?? 0;
+  p.combat.hotTimer = rec.hotTimer ?? 0;
 }
 
 export interface PersistablePlayerInput {
@@ -84,7 +91,9 @@ export function toPersistedPlayerRecord(opts: {
     appearance: p.appearance,
     inventory: cloneInventoryState(p.inventory),
     wellFedTimer: p.combat.wellFedTimer,
+    invigoratedTimer: p.combat.invigoratedTimer,
     restedTimer: p.combat.restedTimer,
+    hotTimer: p.combat.hotTimer,
     ...(opts.discovery ? { discovery: opts.discovery } : {}),
   };
 }
@@ -138,7 +147,10 @@ export function buildPlayerSnapshotRecord(
     readonly attackFlashTimer: number; readonly torchLit: boolean; readonly inWater: boolean;
     readonly inDeepWater: boolean; readonly lastAckSeq: number;
   },
-  extra: { readonly hasBedRespawn: boolean; readonly bubble: PlayerBubble | undefined; readonly cache?: WorldChunkCache | undefined },
+  extra: {
+    readonly hasBedRespawn: boolean; readonly respawnBedPos?: { readonly x: number; readonly y: number } | undefined;
+    readonly bubble: PlayerBubble | undefined; readonly cache?: WorldChunkCache | undefined;
+  },
 ): PlayerSnapshot {
   return {
     id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
@@ -146,6 +158,7 @@ export function buildPlayerSnapshotRecord(
     stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0, torchLit: p.torchLit,
     inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq, heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
     appearance: p.appearance, armor: { ...p.inventory.armor }, hasBedRespawn: extra.hasBedRespawn,
+    ...(extra.respawnBedPos ? { respawnBedPos: extra.respawnBedPos } : {}),
     ...(extra.bubble ? { activeBubble: extra.bubble } : {}), ...playerCombatExtras(p, extra.cache),
   };
 }

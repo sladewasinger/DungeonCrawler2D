@@ -9,7 +9,7 @@ import { EntityRenderer } from "../combat/entitySprites.js";
 import type { ShadowCaster } from "../shaders/castShadows.js";
 import type { PropTextureSet } from "../textures/propTextures.js";
 import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
-import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "./chunkProps.js";
+import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type MountedPropEntry, type WorldLayers } from "./chunkProps.js";
 import { ELEVATION_LIFT_PX, bakeElevatedChunkRows, playerVisualElevation } from "./cliffStrips.js";
 import { PlayerView } from "./player/playerSprite.js";
 import { buildChunkTilemapMeshes } from "./tileBuilder.js";
@@ -59,6 +59,14 @@ export class ChunkRenderer {
   ) {}
 
   mountedCount(): number { return this.mounted.size; }
+  propTextureSet(): PropTextureSet { return this.atlases.props; }
+  findMountedProp(propId: string): MountedPropEntry | undefined {
+    for (const chunk of this.mounted.values()) {
+      const hit = chunk.propSprites.get(propId);
+      if (hit) return hit;
+    }
+    return undefined;
+  }
 
   syncVisibleChunks(cache: WorldChunkCache, focus: { readonly x: number; readonly y: number; readonly radius: number }): void {
     const centerCx = worldToChunkCoord(Math.floor(focus.x));
@@ -184,6 +192,7 @@ export class ChunkRenderer {
       ysortSprites: [] as Sprite[],
       canopySprites: [] as { sprite: Sprite; wx: number; wy: number }[],
       animatedProps: [] as { sprite: Sprite; kind: PropKind; phase: number }[],
+      propSprites: new Map<string, MountedPropEntry>(),
       casters: [] as ShadowCaster[],
     };
     for (const strip of bakeElevatedChunkRows(cache, this.atlases.terrain, loc)) {
@@ -195,7 +204,7 @@ export class ChunkRenderer {
       this.cliffSprites.add(sp);
       target.ysortSprites.push(sp);
     }
-    for (const prop of chunk.props) mountChunkProp({ prop, layers: this.layers, propsAtlas: this.atlases.props, target });
+    for (const prop of chunk.props) mountChunkProp({ prop, layers: this.layers, propsAtlas: this.atlases.props, target, cache });
     this.mounted.set(loc.key, {
       key: loc.key, cx: loc.cx, cy: loc.cy, revision: cache.chunkRevision(loc.cx, loc.cy),
       ground: baked.ground, water: baked.water, ...target, lights: chunk.lights,

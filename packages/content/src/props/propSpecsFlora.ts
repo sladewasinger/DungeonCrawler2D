@@ -74,7 +74,7 @@ export const FLORA_AND_ROCK_PROP_SPECS = {
     kind: PropKind.Bush, category: CAT_FOLIAGE, collision: { shape: SHAPE_CIRCLE, offsetY: -0.26 },
     blocksLineOfSight: false, foliageOcclusion: { radius: 0.68, weight: 0.3 }, stealth: STEALTH_COVER,
     combatSurface: SURF_NONE, spiderWebAnchor: false,
-    harvest: { kind: PropKind.Bush, maxHp: 20, requiredTool: TOOL_FORAGE, replacementKind: null, regrowSec: 120, drops: [{ itemId: "berry", min: 1, max: 3 }, { itemId: ITEM_WOOD, min: 0, max: 1 }] },
+    harvest: { kind: PropKind.Bush, maxHp: 20, requiredTool: TOOL_FORAGE, replacementKind: PropKind.Bush, regrowSec: 120, drops: [{ itemId: "berry", min: 1, max: 3 }, { itemId: ITEM_WOOD, min: 0, max: 1 }] },
   },
   [PropKind.TallGrass]: {
     kind: PropKind.TallGrass, category: CAT_FOLIAGE, collision: { shape: SHAPE_NONE, offsetY: 0 },

@@ -190,23 +190,31 @@ function applyOfflineHeal(player: PlayerSnapshot): PlayerSnapshot {
   };
 }
 
-function applyOfflineAdminPreview(player: PlayerSnapshot, req: { readonly action: string; readonly enabled?: boolean }): PlayerSnapshot {
+function applyOfflineTeleport(player: PlayerSnapshot, req: { readonly x?: number | undefined; readonly y?: number | undefined }): PlayerSnapshot {
+  if (req.x === undefined || req.y === undefined || !Number.isFinite(req.x) || !Number.isFinite(req.y)) return player;
+  return { ...player, x: req.x, y: req.y, jumpZ: 0, jumpVz: 0 };
+}
+
+function applyOfflineAdminPreview(player: PlayerSnapshot, req: AdminSendRequest): PlayerSnapshot {
   if (req.action === "godMode") return toggleOfflineGod(player, req.enabled);
   if (req.action === "heal") return applyOfflineHeal(player);
   if (req.action === "clearWebs") return { ...player, webStick: 0, cocoonProgress: 0, poisonLocked: false };
+  if (req.action === "teleport") return applyOfflineTeleport(player, req);
   return player;
 }
 
 export interface AdminSendRequest {
-  readonly action: "auth" | "godMode" | "heal" | "give" | "clearWebs";
+  readonly action: "auth" | "godMode" | "heal" | "give" | "clearWebs" | "teleport";
   readonly enabled?: boolean | undefined;
   readonly itemId?: string | undefined;
   readonly count?: number | undefined;
   readonly token?: string | undefined;
+  readonly x?: number | undefined;
+  readonly y?: number | undefined;
 }
 
 function shouldPreviewAdminAction(opts: { readonly action: AdminSendRequest["action"]; readonly isServer: boolean; readonly isAdmin: boolean }): boolean {
-  return !opts.isServer || (opts.action === "godMode" && opts.isAdmin);
+  return !opts.isServer || ((opts.action === "godMode" || opts.action === "teleport") && opts.isAdmin);
 }
 
 export function prepareAdminDispatch(opts: {

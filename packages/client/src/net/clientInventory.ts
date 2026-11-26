@@ -152,11 +152,14 @@ export function makeLocalChatEcho(opts: {
   };
 }
 
+function isUsableConsumableDef(def: ReturnType<typeof getItemDef>): boolean {
+  if (!def) return false;
+  return Boolean(def.healHp || def.hotHp || def.hotDurationSec || def.wellFedSec || def.invigoratedSec || def.buffEffect || def.curesStatuses);
+}
+
 export function applyUseItemClient(inv: InventorySnapshot, slotIndex: number): InventorySnapshot {
   const item = inv.slots[slotIndex];
-  if (!item) return inv;
-  const def = getItemDef(item.itemId);
-  if (!def || (!def.healHp && !def.wellFedSec && !def.buffEffect && !def.curesStatuses)) return inv;
+  if (!item || !isUsableConsumableDef(getItemDef(item.itemId))) return inv;
   const nextSlots = inv.slots.map((s) => (s ? { ...s } : null));
   if (!removeFromSlot(nextSlots, slotIndex, 1)) return inv;
   return { ...inv, slots: nextSlots };
@@ -211,7 +214,7 @@ export function reconcileInventorySnapshot(input: {
     return { inventory: input.incoming, clearedPending: true };
   }
   return {
-    inventory: { ...input.current, nearCampfire: input.incoming.nearCampfire },
+    inventory: { ...input.current, nearCampfire: input.incoming.nearCampfire, nearWorkbench: input.incoming.nearWorkbench },
     clearedPending: false,
   };
 }

@@ -12,7 +12,7 @@ const WORLD_EVENT_KINDS = [
   "poisonTick", "webSpit", "webCut", "cocoonWrap", "cocoonBreak",
   "arrowFire", "arrowEmbed", "arrowRicochet", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot",
   "creatureVocal", "playerLeave", "distract", "backstab", "ambushShot", "wolfHowl", "bearBluff", "boarCrash",
-  "pebbleLand", "harvestHit", "harvestBreak", "placeStructure", "bedSet",
+  "pebbleLand", "harvestHit", "harvestBreak", "placeStructure", "dismantleStructure", "bedSet",
   "poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead",
 ] as const;
 
@@ -23,6 +23,8 @@ export const WorldEventSchema = z.object({
   dirX: z.number().optional(),
   dirY: z.number().optional(),
   value: z.number().optional(),
+  hpRatio: z.number().min(0).max(1).optional(),
+  reason: z.string().max(64).optional(),
   actorId: z.string().optional(),
   targetId: z.string().optional(),
   comboStep: z.number().int().optional(),

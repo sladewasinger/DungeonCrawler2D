@@ -35,6 +35,8 @@ export interface ChunkProp {
   readonly x: number;
   readonly y: number;
   readonly variant: number;
+  readonly rotation?: number | undefined;
+  readonly depleted?: boolean | undefined;
   readonly elevation: number;
   readonly radius: number;
   readonly blocksMovement: boolean;

@@ -3,19 +3,19 @@ import { craftRecipeInState } from "../inventory/crafting.js";
 import { createEmptyInventoryState } from "../inventory/slotModel.js";
 import { WorldChunkCache } from "../world/collision.js";
 import { GroundKind, PropKind } from "../world/types.js";
-import { canPlaceStructure } from "./campBuilding.js";
+import { PALISADE_MAX_HP, canPlaceStructure, validateStructurePlacement } from "./campBuilding.js";
 import { computeHarvestDamage, rollHarvestDrops } from "./harvestRules.js";
-import { computeSurvivalRegen } from "./survivalBuffs.js";
+import { applyWellFedDuration, computeSurvivalRegen } from "./survivalBuffs.js";
 import { WorldDeltaOverlay } from "./worldDeltas.js";
 
 class FlatCampCache extends WorldChunkCache {
   override tileAt(wx: number) {
-    return { ground: Math.floor(wx) === 10 ? GroundKind.DeepWater : GroundKind.Grass, elevation: 0, stairs: false };
+    return { ground: Math.floor(wx) === 15 ? GroundKind.DeepWater : GroundKind.Grass, elevation: 0, stairs: false };
   }
 }
 
 describe("Phase 8 engine survival rules and chunk deltas", () => {
-  it("computes tool-gated harvest damage and ore requirements", () => {
+  it("[REQ-P8-05] computes tool-gated harvest damage and ore requirements", () => {
     expect(computeHarvestDamage({ nodeKind: PropKind.OakTree, toolKind: "wood", toolPower: 28 })).toBe(28);
     expect(computeHarvestDamage({ nodeKind: PropKind.OakTree, toolKind: "none", toolPower: 0 })).toBe(6);
     expect(computeHarvestDamage({ nodeKind: PropKind.IronVein, toolKind: "wood", toolPower: 28 })).toBe(0);
@@ -28,7 +28,7 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     const cache = new FlatCampCache(1337);
     expect(canPlaceStructure({ cache, x: 4, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
     expect(canPlaceStructure({ cache, x: 14, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
-    expect(canPlaceStructure({ cache, x: 10.5, y: 0, playerX: 9, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
+    expect(canPlaceStructure({ cache, x: 15.5, y: 0, playerX: 14, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
     expect(canPlaceStructure({ cache, x: 12.5, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toBe(false);
 
     const rev0 = cache.chunkRevision(0, 0);
@@ -81,7 +81,7 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     expect(updated.lights.some((l) => l.id === `${brazierId}-light`)).toBe(true);
   });
 
-  it("enforces sanctuary POI exclusion, workbench crafting gate, and ingredient prefix preservation", () => {
+  it("[REQ-P8-09][REQ-P8-12][REQ-P8-15] validates placement reasons, palisade maxHp, and buff separation", () => {
     const poiCache = new (class extends FlatCampCache {
       override poisNear() {
         return [{ id: "poi-shrine", kind: "ancient-waystone" as const, layout: "ancient-waystone" as const, cx: 0, cy: 0, centerX: 40, centerY: 40, radiusX: 5, radiusY: 5, elevation: 0, chestX: 40, chestY: 40, isSanctuary: true }];
@@ -99,5 +99,15 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     expect(craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: true, nearWorkbench: false, maxStackFor: () => 5 })).toBeNull();
     const crafted = craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: false, nearWorkbench: true, maxStackFor: () => 5 });
     expect(crafted?.slots[0]).toEqual({ itemId: "sword", count: 1, prefixId: "keen" });
+
+    expect(PALISADE_MAX_HP).toBe(80);
+    expect(validateStructurePlacement({ cache: poiCache, x: 12.6, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Too Close" });
+    expect(validateStructurePlacement({ cache: poiCache, x: 20, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Too Far" });
+    expect(validateStructurePlacement({ cache: poiCache, x: 15.5, y: 0, playerX: 14, playerY: 0, playerElev: 0, kind: "bed" })).toEqual({ ok: false, reason: "Water" });
+    expect(applyWellFedDuration(240, 45)).toBe(240);
+    const fullBuff = computeSurvivalRegen({ wellFedTimer: 10, restedTimer: 0, invigoratedTimer: 30, hotTimer: 2, hitTimer: 1 });
+    expect(fullBuff.maxHpBonus).toBe(15);
+    expect(fullBuff.staminaBonusPerSec).toBe(24);
+    expect(fullBuff.hpPerSec).toBeCloseTo(13.75, 2);
   });
 });

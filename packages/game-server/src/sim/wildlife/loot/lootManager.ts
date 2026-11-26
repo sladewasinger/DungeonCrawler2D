@@ -53,6 +53,17 @@ export class LootManager {
     this.chests.set(opts.id, { id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation, opened: false, slots: createEmptyChestSlots() });
   }
 
+  isChestEmpty(chestId: string): boolean {
+    const chest = this.chests.get(chestId);
+    if (!chest) return true;
+    this.ensurePopulated(chest);
+    return chest.slots.every((s) => s === null);
+  }
+
+  unregisterChest(chestId: string): void {
+    this.chests.delete(chestId);
+  }
+
   exportChests(): readonly SavedChestRecord[] {
     return Array.from(this.chests.values(), (c) => {
       this.ensurePopulated(c);

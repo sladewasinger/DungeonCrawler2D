@@ -1,13 +1,14 @@
 # Phase 8 — Gathering Feedback, Workbench Gating, Camp Building UX & Offline Persistence
 
-> **Status**: 🚧 Pass 1 Landed (`98a4f883`) — **Pass 2 Spec Locked (Pending Verification Gate Tooling & Implementation)**
+> **Status**: ✅ Complete (Pass 1 + Pass 2 verified via `npm run verify:phase -- phase-8`)
 > **Dependencies**: Phase 7 ✅, Frontier Overhaul (`Phase 8A`) ✅, [Verification Gate](../VERIFICATION-GATE.md)
-> **Primary Touchpoints**:
+> **Shipped Modules**:
 > `@dc2d/content` (`src/items/catalog.ts`, `src/recipes/recipes.ts`, `src/recipes/gearRecipes.ts`),
 > `@dc2d/engine` (`src/survival/harvestRules.ts`, `src/survival/campBuilding.ts`, `src/survival/survivalBuffs.ts`, `src/survival/worldDeltas.ts`, `src/net/protocol.ts`, `src/net/worldDeltaSchemas.ts`, `src/net/worldEventSchemas.ts`),
 > `@dc2d/game-server` (`src/sim/survival/resourceHarvester.ts`, `src/sim/survival/campStructures.ts`, `src/sim/survival/playerSurvivalState.ts`, `src/sim/survival/worldPersistenceSync.ts`, `src/sim/combatSim.ts`, `src/sim/worldSim.ts`),
-> `@dc2d/client` (`src/render/survival/campPropTextures.ts`, `src/render/survival/harvestFxLayer.ts`, `src/render/survival/placementGhostLayer.ts`, `src/render/world/chunkProps.ts`, `src/ui/hud/buffs/`, `src/ui/hud/craftingPanel.ts`, `src/ui/map/minimapOverlay.ts`, `src/net/offlinePersistence.ts`, `src/ui/settings/`)
-> **Folder-Size Guardrails**: `packages/client/src/ui/hud/` is at `12` direct files — place new buff icon tray modules under `packages/client/src/ui/hud/buffs/`. Keep `packages/engine/src/survival/`, `packages/game-server/src/sim/survival/`, and `packages/client/src/render/survival/` at `<= 12` direct files.
+> `@dc2d/client` (`src/render/survival/campPropTextures.ts`, `src/render/survival/harvestFxLayer.ts`, `src/render/survival/placementGhostLayer.ts`, `src/render/survival/propHitVisuals.ts`, `src/render/world/chunkProps.ts`, `src/ui/hud/buffs/`, `src/ui/hud/craftingPanel.ts`, `src/ui/map/minimapOverlay.ts`, `src/net/offlinePersistence.ts`, `src/net/offline/`)
+
+*(Phase-Spec Graduated per `AGENTS.md`: architectural details live in colocated `README.md`s next to the modules above; below is the retained `REQ-P8-*` traceability record and exit gate.)*
 
 ---
 

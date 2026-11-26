@@ -57,6 +57,9 @@ export interface ItemDef {
   readonly placeStructure?: PlaceableStructureKind;
   readonly healHp?: number;
   readonly wellFedSec?: number;
+  readonly invigoratedSec?: number;
+  readonly hotHp?: number;
+  readonly hotDurationSec?: number;
   readonly goreStyle?: GoreStyle;
   readonly twoHanded?: boolean;
   readonly visualLayer?: ItemVisualLayerSpec;
@@ -146,10 +149,10 @@ const BASE_ITEMS: readonly ItemDef[] = [
     description: "Pitch-soaked firebrand that ignites foes, burns spiderwebs, and lights ancient braziers.",
   },
   { id: "bandage", name: "Bandage", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "common", healHp: 25, description: "Clean linen wrap restoring 25 HP." },
-  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "common", healHp: 40, wellFedSec: 180, description: "Seared campfire cut restoring 40 HP and granting Well-Fed." },
+  { id: "cooked-meat", name: "Cooked Meat", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "common", healHp: 40, wellFedSec: 240, description: "Seared campfire cut restoring 40 HP and granting Well-Fed." },
   { id: "berry", name: "Wild Berries", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "common", healHp: 12, wellFedSec: 45, description: "Sweet forest berries offering quick nourishment." },
-  { id: "herb-tea", name: "Herbal Tea", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "uncommon", healHp: 22, wellFedSec: 150, description: "Warm steeped tea refreshing health and endurance." },
-  { id: "healing-salve", name: "Herbal Salve", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "uncommon", healHp: 50, description: "Concentrated green poultice restoring 50 HP." },
+  { id: "herb-tea", name: "Herbal Tea", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "uncommon", healHp: 22, invigoratedSec: 180, description: "Warm steeped tea refreshing health and granting Invigorated stamina recovery." },
+  { id: "healing-salve", name: "Herbal Salve", category: CAT_CONSUMABLE, maxStack: STACK_LIMIT, rarity: "uncommon", hotHp: 55, hotDurationSec: 4, description: "Concentrated green poultice healing 55 HP over 4 seconds." },
   { id: "camp-campfire", name: "Campfire Kit", category: CAT_TOOL, maxStack: STACK_LIMIT, rarity: "common", placeStructure: "campfire", description: "Placeable stone hearth for cooking, smelting, and Rested warmth." },
   { id: "standing-torch", name: "Standing Torch", category: CAT_TOOL, maxStack: STACK_LIMIT, rarity: "common", placeStructure: "torch", description: "Tall camp post illuminating dark clearings and keeping wolves wary." },
   { id: "storage-chest", name: "Storage Chest", category: CAT_TOOL, maxStack: STACK_LIMIT, rarity: "common", placeStructure: "wood-chest", description: "27-slot timber coffer for stashing frontier hauls." },

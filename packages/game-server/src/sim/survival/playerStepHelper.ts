@@ -84,7 +84,7 @@ export function stepPlayerTick(opts: {
     throwPebble: p.throwPebbleQueued, interactQueued: p.interactQueued,
   };
   combat.stepPlayerAction({ player: p, players, playerName: p.name, respawnPos: combat.structures.respawnPointFor(p.accountId), dt: dtSeconds, input });
-  stepPlayerSurvivalBuffs({ p, nearCampfire: isPlayerNearCampfire(cache, p.x, p.y), dt: dtSeconds });
+  stepPlayerSurvivalBuffs({ p, nearCampfire: isPlayerNearCampfire(cache, p), dt: dtSeconds });
   p.jumpQueued = false; p.attackQueued = false; p.bowReleaseQueued = false; p.dodgeQueued = false;
   p.dodgeDirX = undefined; p.dodgeDirY = undefined; p.throwPebbleQueued = false; p.interactQueued = false;
   movePlayerBody({ p, cache, combat, dtSeconds });

@@ -8,6 +8,13 @@ import { GroundKind, PropKind, type ChunkProp, type PointLightSpec } from "../wo
 export { STRUCTURE_KINDS };
 export type { StructureKind };
 
+export const PALISADE_MAX_HP = 80;
+
+export type StructurePlacementReason = "Too Close" | "Too Far" | "Water" | "Wrong Elevation" | "Blocked";
+export type StructurePlacementValidation =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: StructurePlacementReason };
+
 export interface PlacedStructureRecord {
   readonly id: string;
   readonly kind: StructureKind;
@@ -16,6 +23,8 @@ export interface PlacedStructureRecord {
   readonly y: number;
   readonly elevation: number;
   readonly ownerName: string;
+  readonly rotation?: number | undefined;
+  readonly hp?: number | undefined;
 }
 
 export interface StructureSpec {
@@ -23,6 +32,7 @@ export interface StructureSpec {
   readonly propKind: PropKind;
   readonly radius: number;
   readonly blocksMovement: boolean;
+  readonly maxHp?: number | undefined;
   readonly lightColor?: number | undefined;
   readonly lightRadiusPx?: number | undefined;
   readonly lightIntensity?: number | undefined;
@@ -34,13 +44,14 @@ export const STRUCTURE_SPECS: Readonly<Record<StructureKind, StructureSpec>> = {
   "wood-chest": { kind: "wood-chest", propKind: PropKind.WoodChest, radius: 0.45, blocksMovement: true },
   workbench: { kind: "workbench", propKind: PropKind.Workbench, radius: 0.56, blocksMovement: true },
   bed: { kind: "bed", propKind: PropKind.Bed, radius: 0.46, blocksMovement: true },
-  palisade: { kind: "palisade", propKind: PropKind.Palisade, radius: 0.48, blocksMovement: true },
+  palisade: { kind: "palisade", propKind: PropKind.Palisade, radius: 0.48, blocksMovement: true, maxHp: PALISADE_MAX_HP },
 };
 
 export function structureToChunkProp(rec: PlacedStructureRecord): ChunkProp {
   const spec = STRUCTURE_SPECS[rec.kind];
   return {
     id: rec.id, kind: spec.propKind, x: rec.x, y: rec.y, variant: 0,
+    ...(rec.rotation !== undefined ? { rotation: rec.rotation } : {}),
     elevation: rec.elevation, radius: spec.radius, blocksMovement: spec.blocksMovement,
   };
 }
@@ -79,14 +90,23 @@ function isInBuildExclusionZone(cache: WorldChunkCache, x: number, y: number): b
   );
 }
 
+export function validateStructurePlacement(opts: {
+  readonly cache: WorldChunkCache; readonly x: number; readonly y: number;
+  readonly playerX: number; readonly playerY: number; readonly playerElev: number; readonly kind: StructureKind;
+}): StructurePlacementValidation {
+  const dist = Math.hypot(opts.x - opts.playerX, opts.y - opts.playerY);
+  if (dist < 0.8) return { ok: false, reason: "Too Close" };
+  if (dist > 3.6) return { ok: false, reason: "Too Far" };
+  if (isInBuildExclusionZone(opts.cache, opts.x, opts.y)) return { ok: false, reason: "Blocked" };
+  const tile = opts.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y));
+  if (tile.ground === GroundKind.DeepWater || tile.ground === GroundKind.ShallowWater) return { ok: false, reason: "Water" };
+  if (tile.elevation !== opts.playerElev) return { ok: false, reason: "Wrong Elevation" };
+  return structurePlacementBlocked(opts) ? { ok: false, reason: "Blocked" } : { ok: true };
+}
+
 export function canPlaceStructure(opts: {
   readonly cache: WorldChunkCache; readonly x: number; readonly y: number;
   readonly playerX: number; readonly playerY: number; readonly playerElev: number; readonly kind: StructureKind;
 }): boolean {
-  const dist = Math.hypot(opts.x - opts.playerX, opts.y - opts.playerY);
-  if (dist < 0.8 || dist > 3.6) return false;
-  if (isInBuildExclusionZone(opts.cache, opts.x, opts.y)) return false;
-  const tile = opts.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y));
-  if (tile.ground === GroundKind.DeepWater || tile.ground === GroundKind.ShallowWater || tile.elevation !== opts.playerElev) return false;
-  return !structurePlacementBlocked(opts);
+  return validateStructurePlacement(opts).ok;
 }

@@ -1,5 +1,5 @@
 /** Zero-mixel 3x HD-pixel (48 px/tile) world prop texture atlas with bold Borderlands outlines. */
-import { PropKind } from "@dc2d/engine";
+import { PropKind, type ChunkProp } from "@dc2d/engine";
 import type { Texture } from "pixi.js";
 import { createCampPropTextures, type CampPropTextures } from "../survival/campPropTextures.js";
 import { createBiomePropTextures, type BiomePropTextures } from "./biomes/biomePropTextures.js";
@@ -10,8 +10,7 @@ import {
 } from "./hd/hdFoliageTextures.js";
 import { makeHdCampfireFrames, makeHdTorchFrames } from "./hd/hdFireTextures.js";
 import {
-  makeHdBoulderVariants, makeHdFallbackPalisadeTexture,
-  makeHdFallbackRuinPillarTexture, makeHdFallbackTentTexture, makeHdStumpTexture,
+  makeHdBoulderVariants, makeHdFallbackRuinPillarTexture, makeHdFallbackTentTexture, makeHdStumpTexture,
 } from "./hd/hdPropTextures.js";
 import { makePalisadeTexture, makeRuinPillarTexture, makeTentTexture } from "./poiPropTextures.js";
 import { getLoadedSpriteAsset } from "./spriteManifest.js";
@@ -31,7 +30,6 @@ export interface PropTextureSet extends CampPropTextures, BiomePropTextures, Bio
   readonly stump: Texture;
   readonly campfireFrames: readonly Texture[];
   readonly torchFrames: readonly Texture[];
-  readonly palisade: Texture;
   readonly tent: Texture;
   readonly ruinPillar: Texture;
 }
@@ -41,6 +39,7 @@ function pickPoiOrHdFallback(assetKey: string, pngFn: () => Texture, hdFn: () =>
 }
 
 export function createPropTextureSet(): PropTextureSet {
+  const camp = createCampPropTextures();
   return {
     oakTrunk: makeHdOakTrunkTexture(),
     oakCanopy: makeHdOakCanopyTexture(),
@@ -53,10 +52,10 @@ export function createPropTextureSet(): PropTextureSet {
     stump: makeHdStumpTexture(),
     campfireFrames: makeHdCampfireFrames(),
     torchFrames: makeHdTorchFrames(),
-    palisade: pickPoiOrHdFallback("palisade", makePalisadeTexture, makeHdFallbackPalisadeTexture),
+    ...camp,
+    palisade: pickPoiOrHdFallback("palisade", makePalisadeTexture, () => camp.palisade),
     tent: pickPoiOrHdFallback("bandit-tent", makeTentTexture, makeHdFallbackTentTexture),
     ruinPillar: pickPoiOrHdFallback("ruin-pillar", makeRuinPillarTexture, makeHdFallbackRuinPillarTexture),
-    ...createCampPropTextures(),
     ...createBiomePropTextures(),
     ...createBiomePoiTextures(),
   };
@@ -64,4 +63,57 @@ export function createPropTextureSet(): PropTextureSet {
 
 export function isTreeProp(kind: PropKind): boolean {
   return kind === PropKind.OakTree || kind === PropKind.PineTree || kind === PropKind.BirchTree || kind === PropKind.MapleTree;
+}
+
+const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) => Texture>> = {
+  [PropKind.Boulder]: (p, v) => p.boulder[v % p.boulder.length]!,
+  [PropKind.Bush]: (p, v) => p.bush[v % p.bush.length]!,
+  [PropKind.Campfire]: (p) => p.campfireFrames[0]!,
+  [PropKind.Torch]: (p) => p.torchFrames[0]!,
+  [PropKind.Palisade]: (p) => p.palisade,
+  [PropKind.Tent]: (p) => p.tent,
+  [PropKind.RuinPillar]: (p) => p.ruinPillar,
+  [PropKind.CopperVein]: (p) => p.copperVein,
+  [PropKind.IronVein]: (p) => p.ironVein,
+  [PropKind.Workbench]: (p) => p.workbench,
+  [PropKind.Bed]: (p) => p.bed,
+  [PropKind.DeadTree]: (p) => p.deadTree,
+  [PropKind.GiantMushroom]: (p) => p.giantMushroom,
+  [PropKind.BogReed]: (p) => p.bogReed,
+  [PropKind.CursedCrystal]: (p) => p.cursedCrystal,
+  [PropKind.ShrineAltar]: (p) => p.shrineAltar,
+  [PropKind.Waystone]: (p) => p.waystone,
+  [PropKind.Gravestone]: (p) => p.gravestone,
+  [PropKind.BrokenCart]: (p) => p.brokenCart,
+  [PropKind.GreatStump]: (p) => p.greatStump,
+  [PropKind.SunkenBoat]: (p) => p.sunkenBoat,
+  [PropKind.LoreSign]: (p) => p.loreSign,
+  [PropKind.BoneTotem]: (p) => p.boneTotem,
+  [PropKind.RunicForge]: (p) => p.runicForge,
+  [PropKind.CursedObelisk]: (p) => p.cursedObelisk,
+  [PropKind.BrazierUnlit]: (p) => p.brazierUnlit,
+  [PropKind.BrazierLit]: (p) => p.brazierLit,
+  [PropKind.HermitHut]: (p) => p.hermitHut,
+  [PropKind.FairyRing]: (p) => p.fairyRing,
+};
+
+const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [Texture, Texture]>> = {
+  [PropKind.PineTree]: (p) => [p.pineTrunk, p.pineCanopy],
+  [PropKind.BirchTree]: (p) => [p.birchTrunk, p.birchCanopy],
+  [PropKind.MapleTree]: (p) => [p.mapleTrunk, p.mapleCanopy],
+};
+
+export const REGISTERED_PROP_RENDER_KINDS: readonly PropKind[] = [
+  ...(Object.keys(PROP_TEX_BY_KIND) as PropKind[]),
+  ...(Object.keys(TREE_TEXTURES) as PropKind[]),
+  PropKind.OakTree, PropKind.Stump, PropKind.TallGrass, PropKind.Wildflower, PropKind.WoodChest,
+];
+
+export function resolvePropTexture(prop: ChunkProp, p: PropTextureSet): Texture {
+  if (prop.kind === PropKind.Bush && prop.depleted) return p.bushStripped;
+  return PROP_TEX_BY_KIND[prop.kind]?.(p, prop.variant) ?? p.stump;
+}
+
+export function resolveTreeTextures(kind: PropKind, p: PropTextureSet): readonly [Texture, Texture] {
+  return TREE_TEXTURES[kind]?.(p) ?? [p.oakTrunk, p.oakCanopy];
 }

@@ -140,11 +140,30 @@ export class MinimapOverlay {
     drawChestMarkers(ctx, view, opts.chests);
     drawEntityMarkers(ctx, view, opts.entities);
     drawRemotePlayerMarkers(ctx, view, opts.players);
+    drawHomeBedPin(ctx, view);
   }
 }
 
 interface MarkerView {
   readonly cx: number; readonly cy: number; readonly zoom: number; readonly local: PlayerSnapshot;
+}
+
+function drawHomeBedPin(ctx: CanvasRenderingContext2D, v: MarkerView): void {
+  const bed = v.local.respawnBedPos;
+  if (!bed) return;
+  const px = v.cx + (bed.x - v.local.x) * v.zoom;
+  const py = v.cy + (bed.y - v.local.y) * v.zoom;
+  if (px < -6 || py < -6 || px > MAP_PX + 6 || py > MAP_PX + 6) return;
+  ctx.save();
+  ctx.fillStyle = "#090d14";
+  ctx.fillRect(Math.round(px - 6), Math.round(py - 5), 12, 10);
+  ctx.fillStyle = "#4ade80";
+  ctx.fillRect(Math.round(px - 5), Math.round(py - 4), 10, 8);
+  ctx.fillStyle = "#dc2626";
+  ctx.fillRect(Math.round(px - 4), Math.round(py - 2), 8, 5);
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(Math.round(px - 4), Math.round(py - 3), 3, 2);
+  ctx.restore();
 }
 
 function drawCampfireMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, cache: WorldChunkCache): void {

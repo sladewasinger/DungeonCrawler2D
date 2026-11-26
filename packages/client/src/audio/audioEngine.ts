@@ -6,12 +6,18 @@ import { isWildlifeVoiceKind, synthCreatureVocal, type CreatureVoiceKind } from 
 import { computeSpatialMix, createSpatialBus } from "./spatialMix.js";
 import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
 import { synthCombatCue, synthImpact, synthSwing, synthUi, type CombatCueKind } from "./synthSfx.js";
-import { synthHarvestSfx } from "./weapons/synthWeaponSfx.js";
+import { synthDismantleSfx, synthHarvestSfx, type HarvestSfxFamily } from "./weapons/synthWeaponSfx.js";
 
 const UI_DISCOVERY_EVENTS = new Set<WorldEvent["kind"]>(["poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead"]);
 const UNLOCK_EVENTS = ["pointerdown", "mousedown", "keydown", "touchstart", "click"] as const;
 const MAX_CONCURRENT_VOICES = 24;
 const VOICE_WINDOW_MS = 450;
+
+function resolveHarvestFamily(ev: WorldEvent): HarvestSfxFamily {
+  if (ev.comboStep === 3) return "forage";
+  if (ev.comboStep === 2) return ev.sweepDir === 1 || ev.sweepDir === 2 ? "ore" : "stone";
+  return ev.substance === "stone" ? "stone" : "wood";
+}
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -147,16 +153,24 @@ export class AudioEngine {
     }
   }
 
+  private dispatchHarvestOrDismantle(ev: WorldEvent, dst: AudioNode): boolean {
+    if (!this.ctx) return false;
+    if (ev.kind === "harvestHit" || ev.kind === "harvestBreak") {
+      synthHarvestSfx({ ctx: this.ctx, dst, family: resolveHarvestFamily(ev), broken: ev.kind === "harvestBreak", clinkOnly: Boolean(ev.reason) });
+      return true;
+    }
+    if (ev.kind !== "dismantleStructure") return false;
+    if (!ev.reason) synthDismantleSfx(this.ctx, dst);
+    return true;
+  }
+
   private dispatchWorldEvent(ev: WorldEvent, dst: AudioNode): void {
     if (!this.ctx) return;
     if (ev.kind === "hit") { this.dispatchHitEvent(ev, dst); return; }
     if (ev.kind === "swing") { this.dispatchSwingEvent(ev, dst); return; }
     if (ev.kind === "telegraph") { this.dispatchTelegraphEvent(ev, dst); return; }
     if (ev.kind === "creatureVocal") { this.dispatchVocalEvent(ev, dst); return; }
-    if (ev.kind === "harvestHit" || ev.kind === "harvestBreak") {
-      synthHarvestSfx({ ctx: this.ctx, dst, stone: ev.substance === "stone", broken: ev.kind === "harvestBreak" });
-      return;
-    }
+    if (this.dispatchHarvestOrDismantle(ev, dst)) return;
     this.dispatchCueOrSplash({ kind: ev.kind, dst, value: ev.value });
   }
 

@@ -252,7 +252,7 @@ export class WorldEcology {
     this.scent.samplePlayers(opts.players.map((p) => ({
       id: p.id, x: p.x, y: p.y, elevation: p.elevation, moving: p.moving,
       crouching: p.crouching, sprinting: p.sprinting, inWater: p.inWater, inDeepWater: p.inDeepWater,
-      bleedTimer: p.combat.bleedTimer, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y),
+      bleedTimer: p.combat.bleedTimer, nearCampfire: isPlayerNearCampfire(this.cache, p),
     })), this.cache);
     const foods = collectScavengeFoods(this.list, this.loot.groundLoot, isScavengeLootId);
     runEcologyEntityLoop({

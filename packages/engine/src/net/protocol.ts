@@ -6,7 +6,10 @@ import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { ChatEntrySchema, ClientChatSchema, PlayerBubbleSchema, type ChatEntry, type PlayerBubble } from "./chatSchemas.js";
 import { DiscoveryStateSchema, type DiscoveryStateSnapshot, type RevealedBeacon } from "./discoverySchemas.js";
 import { ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
-import { ClientPickupLootSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
+import {
+  ClientDismantleStructureSchema, ClientPickupLootSchema, ClientPlaceStructureSchema,
+  ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema,
+} from "./worldDeltaSchemas.js";
 import { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema, type CreatureVocalKind, type WorldEvent } from "./worldEventSchemas.js";
 
 export {
@@ -43,7 +46,7 @@ export const InventorySnapshotSchema = z.object({
   armorPrefixes: ArmorPrefixesSchema.optional(),
   selectedHotbar: HotbarIndexSchema,
   nearCampfire: z.boolean(),
-  nearWorkbench: z.boolean().optional(),
+  nearWorkbench: z.boolean(),
   ackSeq: SeqSchema,
 });
 
@@ -108,17 +111,21 @@ export const ClientChestTransferSchema = z.object({
 export const ClientChestTakeAllSchema = z.object({ t: z.literal("chestTakeAll"), chestId: z.string().min(1).max(64), seq: SeqSchema });
 export const ClientDebugSpawnSchema = z.object({ t: z.literal("debugSpawn"), kind: z.enum(ENTITY_KINDS), count: z.number().int().min(1).max(10).optional(), seq: SeqSchema });
 export const ClientAdminSchema = z.object({
-  t: z.literal("admin"), action: z.enum(["auth", "godMode", "heal", "give", "clearWebs"]),
+  t: z.literal("admin"), action: z.enum(["auth", "godMode", "heal", "give", "clearWebs", "teleport"]),
   enabled: z.boolean().optional(), itemId: z.string().min(1).max(48).optional(),
-  count: z.number().int().min(1).max(99).optional(), token: z.string().min(1).max(256).optional(), seq: SeqSchema,
+  count: z.number().int().min(1).max(99).optional(), token: z.string().min(1).max(256).optional(),
+  x: z.number().finite().min(-1_000_000).max(1_000_000).optional(),
+  y: z.number().finite().min(-1_000_000).max(1_000_000).optional(),
+  seq: SeqSchema,
 });
 
 export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientHelloSchema, ClientSetAppearanceSchema, ClientInputSchema, ClientRespawnSchema, ClientTorchToggleSchema,
   ClientSetDayPhaseSchema, ClientMoveSlotSchema, ClientEquipArmorSchema, ClientUnequipArmorSchema,
   ClientSelectHotbarSchema, ClientCraftSchema, ClientOpenChestSchema, ClientChestTransferSchema,
-  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
-  ClientPickupLootSchema, ClientDropItemSchema, ClientUseItemSchema, ClientChatSchema, ClientPingSchema,
+  ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema,
+  ClientDismantleStructureSchema, ClientSetRespawnBedSchema, ClientPickupLootSchema, ClientDropItemSchema,
+  ClientUseItemSchema, ClientChatSchema, ClientPingSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -139,9 +146,10 @@ export const PlayerSnapshotSchema = z.object({
   webStick: z.number().optional(), cocoonProgress: z.number().optional(), hitTimer: z.number().optional(),
   respawnTimer: z.number().optional(), inSanctuary: z.boolean().optional(), crouching: z.boolean().optional(),
   stealthVis: z.number().optional(), inCover: z.boolean().optional(), attackFlash: z.boolean().optional(),
-  wellFedTimer: z.number().optional(), restedTimer: z.number().optional(),
-  hasBedRespawn: z.boolean().optional(), godMode: z.boolean().optional(),
-  activeBubble: PlayerBubbleSchema.optional(), moveSpeedMult: z.number().optional(),
+  wellFedTimer: z.number().optional(), invigoratedTimer: z.number().optional(), restedTimer: z.number().optional(),
+  hotTimer: z.number().optional(), hearthWarmProgress: z.number().min(0).max(1).optional(),
+  hasBedRespawn: z.boolean().optional(), respawnBedPos: z.object({ x: z.number(), y: z.number() }).optional(),
+  godMode: z.boolean().optional(), activeBubble: PlayerBubbleSchema.optional(), moveSpeedMult: z.number().optional(),
   glowRadiusBonus: z.number().optional(), shrineBuff: z.object({ kind: z.string(), remainingSec: z.number() }).optional(),
 });
 

@@ -17,6 +17,9 @@ function oreVariantCode(kind: PropKind): number {
   return 0;
 }
 
+const FORAGE_INTERACT_RANGE = 2.2;
+const PICKAXE_GATED_VEINS = new Set<PropKind>([PropKind.CopperVein, PropKind.IronVein, PropKind.CursedCrystal]);
+
 export class ResourceHarvester {
   private readonly hpByProp = new Map<string, number>();
   private readonly depleted = new Map<string, DepletedPropDelta>();
@@ -28,7 +31,7 @@ export class ResourceHarvester {
     let best: ChunkProp | null = null;
     let bestDist = Infinity;
     for (const prop of opts.cache.propsNear(opts.x, opts.y)) {
-      if (!getHarvestNodeSpec(prop.kind)) continue;
+      if (prop.depleted || !getHarvestNodeSpec(prop.kind)) continue;
       const center = propFootprintCenter(prop);
       const effRange = opts.range + prop.radius + 0.15;
       const dist = Math.hypot(center.x - opts.x, center.y - opts.y);
@@ -42,6 +45,33 @@ export class ResourceHarvester {
       best = prop;
     }
     return best;
+  }
+
+  private findForageableProp(
+    cache: WorldChunkCache,
+    player: { readonly x: number; readonly y: number; readonly elevation: number },
+  ): ChunkProp | null {
+    let best: ChunkProp | null = null;
+    let bestDist = FORAGE_INTERACT_RANGE;
+    for (const prop of cache.propsNear(player.x, player.y)) {
+      if (prop.depleted || prop.elevation !== player.elevation) continue;
+      if (getHarvestNodeSpec(prop.kind)?.requiredTool !== "forage") continue;
+      const d = Math.hypot(prop.x - player.x, prop.y - player.y);
+      if (d <= bestDist) { bestDist = d; best = prop; }
+    }
+    return best;
+  }
+
+  forageNearestProp(opts: {
+    readonly cache: WorldChunkCache; readonly loot: LootManager;
+    readonly player: { readonly id: string; readonly x: number; readonly y: number; readonly aimX: number; readonly aimY: number; readonly elevation: number };
+    readonly timeSec: number; readonly events: WorldEvent[];
+  }): boolean {
+    const best = this.findForageableProp(opts.cache, opts.player);
+    const spec = best ? getHarvestNodeSpec(best.kind) : undefined;
+    if (!best || !spec) return false;
+    this.applyNodeDamage({ prop: best, dmg: spec.maxHp, spec, cache: opts.cache, loot: opts.loot, attacker: opts.player, timeSec: opts.timeSec, events: opts.events });
+    return true;
   }
 
   hitHarvestableInSector(opts: {
@@ -59,7 +89,10 @@ export class ResourceHarvester {
     if (!spec) return false;
     const dmg = computeHarvestDamage({ nodeKind: prop.kind, toolKind: opts.toolKind, toolPower: opts.toolPower });
     if (dmg <= 0) {
-      opts.events.push({ kind: "arrowRicochet", x: prop.x, y: prop.y, dirX: -opts.attacker.aimX, dirY: -opts.attacker.aimY, actorId: opts.attacker.id });
+      opts.events.push({
+        kind: "arrowRicochet", x: prop.x, y: prop.y, dirX: -opts.attacker.aimX, dirY: -opts.attacker.aimY,
+        actorId: opts.attacker.id, ...(PICKAXE_GATED_VEINS.has(prop.kind) ? { reason: "Requires Pickaxe!" } : {}),
+      });
       return true;
     }
     this.applyNodeDamage({ prop, dmg, spec, ...opts });
@@ -86,7 +119,10 @@ export class ResourceHarvester {
     const sweepDir = oreVariantCode(prop.kind);
     if (remaining > 0) {
       this.recordPartialHp(prop.id, remaining);
-      events.push({ kind: "harvestHit", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY, value: dmg, actorId: attacker.id, ...meta, sweepDir });
+      events.push({
+        kind: "harvestHit", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY,
+        value: dmg, hpRatio: Math.max(0, Math.min(1, remaining / spec.maxHp)), targetId: prop.id, actorId: attacker.id, ...meta, sweepDir,
+      });
       return;
     }
     this.hpByProp.delete(prop.id);
@@ -96,7 +132,7 @@ export class ResourceHarvester {
     };
     this.depleted.set(prop.id, delta);
     cache.setDepletedProp(delta);
-    events.push({ kind: "harvestBreak", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY, value: spec.maxHp, actorId: attacker.id, ...meta, sweepDir });
+    events.push({ kind: "harvestBreak", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY, value: spec.maxHp, targetId: prop.id, actorId: attacker.id, ...meta, sweepDir });
     const drops = rollHarvestDrops(prop.kind);
     if (prop.kind === PropKind.IronVein && sampleMacroBiome(cache.worldSeed, prop.x, prop.y) === "craggy-highlands" && Math.random() < 0.3) {
       drops.push({ itemId: "sunstone", count: 1 });

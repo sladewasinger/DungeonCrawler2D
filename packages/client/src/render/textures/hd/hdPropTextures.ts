@@ -60,20 +60,6 @@ export function makeHdStumpTexture(): Texture {
   return canvasToNearestTexture(canvas);
 }
 
-export function makeHdFallbackPalisadeTexture(): Texture {
-  const w = 60; const h = 96;
-  const { canvas, ctx } = createPixelCanvas(w, h);
-  for (const sx of [16, 30, 44]) {
-    fillEllipsePixel(ctx, { cx: sx, cy: 20, rx: 5, ry: 7, color: "#784928" });
-    ctx.fillStyle = "#683e20"; ctx.fillRect(sx - 6, 20, 12, 66);
-    ctx.fillStyle = "#8a5630"; ctx.fillRect(sx - 3, 20, 4, 65);
-  }
-  ctx.fillStyle = "#4b2c15"; ctx.fillRect(10, 42, 40, 6);
-  ctx.fillStyle = "#b58b52"; ctx.fillRect(12, 41, 4, 8); ctx.fillRect(42, 41, 4, 8);
-  stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.propSolidPx });
-  return canvasToNearestTexture(canvas);
-}
-
 export function makeHdFallbackTentTexture(): Texture {
   const w = 132; const h = 102;
   const { canvas, ctx } = createPixelCanvas(w, h);

@@ -2,8 +2,9 @@
 import { isBowItem, resolveBlockMode } from "@dc2d/content";
 import { COMBAT_TUNING } from "@dc2d/engine";
 import {
-  HOTBAR_DIGIT_MAP, assembleCombatFrame, createJoystickDom, isEditingText, isGuardedBrowserCombo,
-  isUiTarget, nextCrouchState, type CombatInputsFrame, type InputCallbacks,
+  applyControllerKeyboardAction, applyPriorityKeyboardAction, assembleCombatFrame, computeTouchStickVector,
+  createJoystickDom, isEditingText, isGuardedBrowserCombo, isUiTarget, nextCrouchState,
+  type CombatInputsFrame, type InputCallbacks,
 } from "./inputHelpers.js";
 import {
   activeInputMode, isTouchInputActive, setActiveInputMode, shouldSwitchToDesktopOnMouseMove, syncInputModeFromPointerDown,
@@ -36,6 +37,9 @@ export class InputController {
   private rightMouseDown = false;
   private isBowHeld = false;
   private canBlock = false;
+  private hasPlaceable = false;
+  private eHoldTimer: number | null = null;
+  private eHoldFired = false;
   private enabled = true;
   private readonly callbacks: InputCallbacks;
   private readonly stickEl: HTMLDivElement;
@@ -51,6 +55,9 @@ export class InputController {
     this.mobileCombat = new MobileCombatControls(host, {
       onMapTap: () => callbacks.onToggleMap?.(),
       onJump: () => { this.jumpQueued = true; this.syncCrouch(false); },
+      onRotateGhost: () => callbacks.onRotateGhost?.(),
+      onDismantle: () => callbacks.onDismantle?.(),
+      onPlaceGhost: () => callbacks.onPlaceGhost?.() ?? false,
     });
     this.bindKeyboard(callbacks);
     this.bindPointer(host, callbacks);
@@ -58,6 +65,10 @@ export class InputController {
   }
 
   setCrouchMode(mode: "toggle" | "hold"): void { this.crouchMode = mode; }
+  setBuildContext(opts: { readonly hasPlaceable: boolean; readonly nearDismantle: boolean }): void {
+    this.hasPlaceable = opts.hasPlaceable;
+    this.mobileCombat.setBuildContext(opts);
+  }
   setGearState(gear: { readonly heldItem: string | null; readonly offhandItem?: string | null | undefined; readonly hasShield: boolean }): void {
     this.isBowHeld = isBowItem(gear.heldItem);
     const offhand = gear.offhandItem !== undefined ? gear.offhandItem : (gear.hasShield ? "wooden-shield" : null);
@@ -126,50 +137,50 @@ export class InputController {
     });
     window.addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
+      if (e.code === "KeyE") this.finishInteractKeyUp(callbacks);
       if (e.code === "KeyC" && this.crouchMode === "hold") this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "release"));
     });
     window.addEventListener("blur", () => this.resetHeldInputs());
   }
 
+  private clearInteractHold(): void {
+    if (this.eHoldTimer !== null) { window.clearTimeout(this.eHoldTimer); this.eHoldTimer = null; }
+  }
+
+  private finishInteractKeyUp(callbacks: InputCallbacks): void {
+    const fired = this.eHoldFired;
+    this.eHoldFired = false;
+    this.clearInteractHold();
+    if (fired || !this.enabled) return;
+    if (!callbacks.onInteract) this.interactQueued = true;
+    callbacks.onInteract?.();
+  }
+
   private resetHeldInputs(): void {
+    this.clearInteractHold();
+    this.eHoldFired = false;
     this.keys.clear(); this.leftMouseDown = false; this.rightMouseDown = false;
     this.pointerId = null; this.touchVector = { x: 0, y: 0 }; this.stickEl.style.display = "none";
     this.mobileCombat.resetHeldInputs();
     this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "blur"));
   }
 
-  private handlePriorityKey(e: KeyboardEvent, callbacks: InputCallbacks): boolean {
-    const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
-    if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return true; }
-    const special: Readonly<Record<string, () => void>> = {
-      Tab: () => { e.preventDefault(); callbacks.onToggleInventory(); },
-      Enter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
-      NumpadEnter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
-      Space: () => { e.preventDefault(); this.jumpQueued = true; this.syncCrouch(false); },
-      ControlLeft: () => { this.dodgeQueued = true; },
-      ControlRight: () => { this.dodgeQueued = true; },
-    };
-    const fn = special[e.code];
-    if (!fn) return false;
-    fn();
-    return true;
-  }
-
   private handleShortcut(e: KeyboardEvent, callbacks: InputCallbacks): void {
-    if (this.handlePriorityKey(e, callbacks)) return;
-    const actions: Readonly<Record<string, () => void>> = {
-      KeyE: () => { if (!callbacks.onInteract) this.interactQueued = true; callbacks.onInteract?.(); },
-      KeyC: () => this.syncCrouch(nextCrouchState(this.crouchMode, this.crouching, "press")),
-      KeyQ: () => { callbacks.onDropItem?.(); },
-      Delete: () => { callbacks.onDropItem?.(); },
-      Backspace: () => { callbacks.onDropItem?.(); },
-      KeyX: () => { this.throwPebbleQueued = true; },
-      KeyH: callbacks.onToggleCharacter,
-      KeyF: callbacks.onToggleTorch,
-      KeyM: () => { callbacks.onToggleMap?.(); },
-      Escape: callbacks.onClosePanels,
-    };
-    actions[e.code]?.();
+    const handledPriority = applyPriorityKeyboardAction({
+      e, callbacks,
+      onJump: () => { this.jumpQueued = true; this.syncCrouch(false); },
+      onDodge: () => { this.dodgeQueued = true; },
+    });
+    if (handledPriority) return;
+    applyControllerKeyboardAction({
+      code: e.code, e, callbacks, crouch: { mode: this.crouchMode, value: this.crouching },
+      onThrowPebble: () => { this.throwPebbleQueued = true; },
+      onSyncCrouch: (next) => this.syncCrouch(next),
+      onInteractHoldStart: () => {
+        this.clearInteractHold(); this.eHoldFired = false;
+        this.eHoldTimer = window.setTimeout(() => { this.eHoldTimer = null; this.eHoldFired = true; callbacks.onDismantle?.(); }, 600);
+      },
+    });
   }
 
   private bindPointer(host: HTMLElement, callbacks: InputCallbacks): void {
@@ -191,12 +202,19 @@ export class InputController {
     this.lastMouseMove = null;
   }
 
+  private handleLeftMouseButton(): void {
+    if (this.hasPlaceable && this.callbacks.onPlaceGhost?.()) return;
+    this.leftMouseDown = true;
+    if (!this.isBowHeld) this.attackQueued = true;
+  }
+
   private onMouseDown(e: PointerEvent): void {
-    if (e.pointerType !== "mouse" || isUiTarget(e.target) || performance.now() - this.lastTouchAtMs <= 500) return;
+    const blocked = e.pointerType !== "mouse" || isUiTarget(e.target) || performance.now() - this.lastTouchAtMs <= 500;
+    if (blocked) return;
     this.mouseClient = { x: e.clientX, y: e.clientY };
     this.mouseMovedAtMs = performance.now();
-    if (e.button === 0) { this.leftMouseDown = true; if (!this.isBowHeld) this.attackQueued = true; }
-    else if (e.button === 2) { this.rightMouseDown = true; }
+    if (e.button === 0) this.handleLeftMouseButton();
+    else if (e.button === 2) this.rightMouseDown = true;
   }
 
   private onMouseUp(e: PointerEvent): void {
@@ -234,19 +252,10 @@ export class InputController {
 
   private moveTouch(e: PointerEvent): void {
     if (e.pointerId !== this.pointerId) return;
-    const maxRadius = 46;
-    const dx = e.clientX - this.origin.x;
-    const dy = e.clientY - this.origin.y;
-    const dist = Math.hypot(dx, dy);
-    this.touchMaxDist = Math.max(this.touchMaxDist, dist);
-    const clamped = Math.min(dist, maxRadius);
-    const nx = dist > 2 ? dx / dist : 0;
-    const ny = dist > 2 ? dy / dist : 0;
-    this.knobEl.style.transform = `translate(calc(-50% + ${nx * clamped}px), calc(-50% + ${ny * clamped}px))`;
-    const strength = clamped / maxRadius;
-    const dz = COMBAT_TUNING.movement.joystickDeadzone;
-    const analogSpeed = strength > dz ? 0.22 + ((strength - dz) / (1 - dz)) * 0.78 : 0;
-    this.touchVector = analogSpeed > 0 ? { x: nx * analogSpeed, y: ny * analogSpeed } : { x: 0, y: 0 };
+    const step = computeTouchStickVector({ dx: e.clientX - this.origin.x, dy: e.clientY - this.origin.y, maxRadius: 46, deadzone: COMBAT_TUNING.movement.joystickDeadzone });
+    this.touchMaxDist = Math.max(this.touchMaxDist, step.dist);
+    this.knobEl.style.transform = `translate(calc(-50% + ${step.kx}px), calc(-50% + ${step.ky}px))`;
+    this.touchVector = step.vector;
   }
 
   private endTouch(e: PointerEvent, completed: boolean): void {

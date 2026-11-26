@@ -1,6 +1,7 @@
 /** Dedicated crafting panel showing craftable recipes by default (optional Show Locked toggle). */
 import { RECIPE_CATALOG, getItemDef, maxStackForItem, type RecipeDef } from "@dc2d/content";
 import { canCraftRecipe, countItemInSlots, type InventorySnapshot } from "@dc2d/engine";
+import { ensureBuffTrayStyles } from "./buffs/buffStyles.js";
 import { getItemIconUrl } from "../icons/itemIcons.js";
 import { domNode, slotsFingerprint } from "./slotRenderer.js";
 
@@ -8,12 +9,16 @@ const TAG_DIV = "div";
 const TAG_BTN = "button";
 const TAG_SPAN = "span";
 const CLS_PILL = "ow-pill";
+const CLS_STATION_PILL = "ow-station-pill";
 const CLS_SUB = "ow-craft-sub";
 
 export class CraftingPanel {
   readonly el: HTMLElement;
   private readonly listEl: HTMLDivElement;
+  private readonly stationsWrap: HTMLDivElement;
+  private readonly handBadge: HTMLSpanElement;
   private readonly campfireBadge: HTMLSpanElement;
+  private readonly workbenchBadge: HTMLSpanElement;
   private readonly lockedToggleBtn: HTMLButtonElement;
   private showLocked = false;
   private lastFingerprint = "";
@@ -23,9 +28,14 @@ export class CraftingPanel {
     private readonly onCraft: (recipeId: string) => void,
     nav: { readonly onClose: () => void; readonly onOpenInventory: () => void },
   ) {
+    ensureBuffTrayStyles();
     this.el = domNode("section", "ow-modal ow-craft-modal");
     this.el.hidden = true;
-    this.campfireBadge = domNode(TAG_SPAN, CLS_SUB);
+    this.stationsWrap = domNode(TAG_DIV, "ow-craft-stations");
+    this.handBadge = domNode(TAG_SPAN, CLS_STATION_PILL); this.handBadge.textContent = "Hand"; this.handBadge.dataset.active = "true";
+    this.campfireBadge = domNode(TAG_SPAN, CLS_STATION_PILL); this.campfireBadge.textContent = "Campfire";
+    this.workbenchBadge = domNode(TAG_SPAN, CLS_STATION_PILL); this.workbenchBadge.textContent = "Workbench";
+    this.stationsWrap.append(this.handBadge, this.campfireBadge, this.workbenchBadge);
     this.lockedToggleBtn = domNode(TAG_BTN, CLS_PILL);
     this.lockedToggleBtn.type = TAG_BTN;
     this.lockedToggleBtn.addEventListener("click", () => {
@@ -47,7 +57,7 @@ export class CraftingPanel {
     left.style.gap = "8px";
     const title = domNode(TAG_SPAN);
     title.textContent = "Crafting";
-    left.append(title, this.campfireBadge);
+    left.append(title, this.stationsWrap);
 
     const right = domNode(TAG_DIV);
     right.style.display = "flex";
@@ -73,8 +83,8 @@ export class CraftingPanel {
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
 
-    const stations = [inv.nearCampfire ? "Campfire" : "", inv.nearWorkbench ? "Workbench" : ""].filter(Boolean);
-    this.campfireBadge.textContent = stations.length > 0 ? `· ${stations.join(" + ")} Nearby` : "· Hand Crafting";
+    this.campfireBadge.dataset.active = String(inv.nearCampfire);
+    this.workbenchBadge.dataset.active = String(Boolean(inv.nearWorkbench));
     this.lockedToggleBtn.dataset.active = String(this.showLocked);
     this.lockedToggleBtn.textContent = this.showLocked ? "Show Locked: ON" : "Show Locked";
     this.renderRecipes(inv);

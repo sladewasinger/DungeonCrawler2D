@@ -100,6 +100,7 @@ export class CombatWorld {
   private handleInteract(p: CombatPlayerRef, playerName: string): void {
     if (this.ecology.openChest(p, undefined, this.events)) return;
     if (this.ecology.pickupManualLoot(p, undefined, this.events)) return;
+    if (this.harvester.forageNearestProp({ cache: this.cache, loot: this.ecology.loot, player: p, timeSec: this.simTimeSec, events: this.events })) return;
     if (this.poiInteractions.interactWithPoi({ player: p, cache: this.cache, loot: this.ecology.loot, discovery: this.discovery, simTimeSec: this.simTimeSec, events: this.events })) return;
     this.structures.bindNearestBed({ player: p, playerName, events: this.events });
   }
@@ -134,8 +135,11 @@ export class CombatWorld {
   }
 
   respawnPlayerNow(p: CombatPlayerRef, spot?: RespawnSpot | null): void { forceRespawnPlayer(p, this.events, spot); }
-  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly itemId: string; readonly x: number; readonly y: number }): boolean {
+  placeStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): boolean {
     return Boolean(this.structures.placeStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events }));
+  }
+  dismantleStructure(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean {
+    return this.structures.dismantleStructure({ ...opts, cache: this.cache, loot: this.ecology.loot, events: this.events });
   }
   setRespawnBed(opts: { readonly player: CombatPlayerRef; readonly playerName: string; readonly accountId?: string | undefined; readonly structureId: string }): boolean {
     return this.structures.bindNearestBed({ ...opts, events: this.events });
@@ -221,19 +225,17 @@ export class CombatWorld {
     }
     stepTrainingDummies({
       dummies: this.dummies, dt, players: targets, events: this.events,
-      onStrike: (entity, target, dmg) => {
-        const hitPlayer = players.get(target.id);
-        if (hitPlayer) resolveDummyStrikeOnPlayer({ entity, target: hitPlayer, damage: dmg, events: this.events });
-      },
+      onStrike: (entity, target, dmg) => { const hit = players.get(target.id); if (hit) resolveDummyStrikeOnPlayer({ entity, target: hit, damage: dmg, events: this.events }); },
     });
     this.webs.step({ cache: this.cache, players: targets, dt });
+    const preEcoEvents = this.events.length;
     this.ecology.step({
-      dt, timeSec, dayPhase,
+      dt, timeSec, dayPhase, events: this.events,
       players: targets.filter((p) => p.combat.respawnTimer <= 0).map((p) => Object.assign(p, { moving: Boolean(p.moving) })),
-      events: this.events,
       onStrike: (entity, target) => this.handleCreatureStrike(players, entity, target.id),
       spawnWeb: (spider, target) => this.projectiles.push(createWebProjectile({ id: `p${this.nextProjId++}`, spider, targetX: target.x, targetY: target.y })),
     });
+    this.structures.damagePalisadesFromEvents({ events: this.events, fromIdx: preEcoEvents, cache: this.cache });
     stepProjectileList({ cache: this.cache, projectiles: this.projectiles, dummies: this.dummies, ecology: this.ecology, players, events: this.events, webs: this.webs, dt });
     return discoveredAny;
   }
@@ -241,7 +243,6 @@ export class CombatWorld {
   private handleCreatureStrike(players: Map<string, CombatPlayerRef>, entity: WildlifeEntity, targetId: string): void {
     applyCreatureStrikeToPlayer({ hitPlayer: players.get(targetId), entity, cache: this.cache, events: this.events });
   }
-
   moveMultiplier(p: CombatPlayerRef): number { return computePlayerMoveMultiplier(p); }
   pushEvent(ev: WorldEvent): void { this.events.push(ev); }
   snapshots(redactUnopened = false) {
@@ -250,13 +251,12 @@ export class CombatWorld {
   }
   drainEvents(): WorldEvent[] { const out = this.events; this.events = []; return out; }
   debugSpawnNearPlayer(p: CombatPlayerRef, kind: Parameters<WorldEcology["debugSpawnNearPlayer"]>[1], count = 1): void { this.ecology.debugSpawnNearPlayer(p, kind, count); }
-  handleAdminAction(p: CombatPlayerRef, req: AdminActionRequest): boolean { return applyAdminAction({ player: p, webs: this.webs, events: this.events, req }); }
+  handleAdminAction(p: CombatPlayerRef, req: AdminActionRequest): boolean { return applyAdminAction({ player: p, cache: this.cache, webs: this.webs, events: this.events, req }); }
   handleChestRequest(p: CombatPlayerRef, req: { readonly t: "openChest" | "chestTransfer" | "chestTakeAll"; readonly chestId: string; readonly from?: "chest" | "inv"; readonly fromSlot?: number; readonly to?: "chest" | "inv"; readonly toSlot?: number; readonly quick?: boolean | undefined }): void {
     if (req.t === "openChest") this.ecology.openChest(p, req.chestId, this.events);
     else if (req.t === "chestTransfer") this.ecology.transferChest(p, req as Parameters<WorldEcology["transferChest"]>[1]);
     else this.ecology.takeAllChest(p, req.chestId, this.events);
   }
-
   private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {
     tryExecutePlayerDodge({ p, moveX, moveY, cost: DODGE_STAMINA_COST, durSec: DODGE_DURATION_SEC, iframeSec: DODGE_IFRAME_SEC, cdSec: DODGE_COOLDOWN_SEC, events: this.events });
   }

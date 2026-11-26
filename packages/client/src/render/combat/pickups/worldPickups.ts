@@ -1,7 +1,9 @@
 /** Renders POI chests, floating Open/Pickup/POI prompts, and ground loot/arrow views. */
 import { AI_TUNING, TILE_PX, type GroundLootSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache } from "@dc2d/engine";
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite, type Texture } from "pixi.js";
+import { isTouchInputActive } from "../../../input/inputMode.js";
 import { resolveWorldInteractPrompt } from "../../../ui/discovery/poiPromptHelper.js";
+import { HD_PROP_SCALE } from "../../textures/propTextures.js";
 import { getLoadedSpriteAsset } from "../../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../../world/cliffStrips.js";
 import { createGroundLootView, syncGroundLootView, type LootView } from "./lootViewHelpers.js";
@@ -54,11 +56,22 @@ function syncChestHighlight(view: ChestView, highlighted: boolean, sealed: boole
   else if (highlighted) view.highlight.ellipse(0, -1, 11, 4.5).stroke({ color: 0xfde047, width: 1.5 });
 }
 
-function syncChestViewVisual(view: ChestView, c: WorldChestSnapshot, highlighted: boolean): void {
+function resolveChestTextureAndScale(c: WorldChestSnapshot, hdWood?: { readonly closed: Texture; readonly open: Texture }) {
+  if (c.poiKind === "player-chest" && hdWood) {
+    return { texture: c.opened ? hdWood.open : hdWood.closed, scale: HD_PROP_SCALE, anchorX: 0.5, anchorY: 0.9 };
+  }
+  return getLoadedSpriteAsset(chestSpriteKey(c));
+}
+
+function syncChestViewVisual(opts: {
+  readonly view: ChestView; readonly c: WorldChestSnapshot;
+  readonly highlighted: boolean; readonly hdWood?: { readonly closed: Texture; readonly open: Texture } | undefined;
+}): void {
+  const { view, c, highlighted, hdWood } = opts;
   const sealed = Boolean(c.sealed);
   const key = `${chestSpriteKey(c)}:${sealed}`;
   if (view.sprite) {
-    const asset = view.lastKey.split(":")[0] !== key.split(":")[0] ? getLoadedSpriteAsset(chestSpriteKey(c)) : null;
+    const asset = view.lastKey.split(":")[0] !== key.split(":")[0] ? resolveChestTextureAndScale(c, hdWood) : null;
     if (asset) { view.sprite.texture = asset.texture; view.sprite.scale.set(asset.scale); view.sprite.anchor.set(asset.anchorX, asset.anchorY); }
     syncChestHighlight(view, highlighted, sealed);
   } else if (view.fallback && (view.lastKey !== key || view.lastHighlight !== highlighted)) {
@@ -81,6 +94,7 @@ export class WorldPickupsRenderer {
   private readonly lootViews = new Map<string, LootView>();
   private readonly promptBtn: HTMLButtonElement;
   private nearLootId: string | undefined;
+  private hdWoodChests: { readonly closed: Texture; readonly open: Texture } | undefined;
 
   constructor(host: HTMLElement, onInteract: (lootId?: string) => void) {
     this.container.sortableChildren = true;
@@ -94,6 +108,8 @@ export class WorldPickupsRenderer {
     this.promptBtn.addEventListener("click", (e) => { e.stopPropagation(); onInteract(this.nearLootId); });
     host.append(this.promptBtn);
   }
+
+  setHdWoodChests(tex: { readonly closed: Texture; readonly open: Texture }): void { this.hdWoodChests = tex; }
 
   private ensurePromptStyle(): void {
     if (document.getElementById("ow-chest-prompt-css")) return;
@@ -113,9 +129,10 @@ export class WorldPickupsRenderer {
     const nearChest = this.syncChests(opts.chests, opts.local);
     const nearLoot = this.syncGroundLoot(opts.groundLoot, opts.local, opts.timeSec);
     this.nearLootId = nearChest ? undefined : nearLoot?.id;
-    const prompt = resolveWorldInteractPrompt({ nearestChest: nearChest, nearestLoot: nearLoot, local: opts.local, cache: opts.cache });
+    const prompt = resolveWorldInteractPrompt({ nearestChest: nearChest, nearestLoot: nearLoot, local: opts.local, cache: opts.cache, touch: isTouchInputActive() });
     this.promptBtn.hidden = !prompt;
-    if (!prompt) return;
+    if (!prompt) { this.promptBtn.textContent = ""; delete this.promptBtn.dataset.kind; return; }
+    this.promptBtn.dataset.kind = prompt.kind;
     this.promptBtn.textContent = prompt.label;
     this.promptBtn.style.borderColor = prompt.locked ? "rgba(249, 115, 22, 0.75)" : "rgba(250, 204, 21, 0.55)";
     this.promptBtn.style.color = prompt.locked ? "#fdba74" : "#fde047";
@@ -129,7 +146,7 @@ export class WorldPickupsRenderer {
       const dist = local ? Math.hypot(c.x - local.x, c.y - local.y) : 99;
       if (dist <= bestDist) { bestDist = dist; nearestOpenable = c; }
       const view = this.chestViews.get(c.id) ?? this.createChestView(c);
-      syncChestViewVisual(view, c, c.id === nearestOpenable?.id);
+      syncChestViewVisual({ view, c, highlighted: c.id === nearestOpenable?.id, hdWood: this.hdWoodChests });
       view.root.position.set(c.x * TILE_PX, c.y * TILE_PX - c.elevation * ELEVATION_LIFT_PX);
       view.root.zIndex = Math.round(c.y * TILE_PX) + c.elevation * 2;
     }
@@ -141,7 +158,7 @@ export class WorldPickupsRenderer {
     const shadow = new Graphics();
     shadow.ellipse(0, 1, 9, 3).fill({ color: 0x090d14, alpha: 0.35 });
     const highlight = new Graphics();
-    const asset = getLoadedSpriteAsset(chestSpriteKey(c));
+    const asset = resolveChestTextureAndScale(c, this.hdWoodChests);
     const sprite = asset ? new Sprite(asset.texture) : null;
     const fallback = asset ? null : new Graphics();
     if (sprite && asset) { sprite.anchor.set(asset.anchorX, asset.anchorY); sprite.scale.set(asset.scale); }

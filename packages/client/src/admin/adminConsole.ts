@@ -18,6 +18,7 @@ export interface AdminConsoleApi {
   god(enabled?: boolean): boolean;
   heal(): void;
   give(itemId: string, count?: number): void;
+  tp(x: number, y: number): void;
   clearWebs(): void;
   time(phaseOrPreset: number | "dawn" | "day" | "golden" | "dusk" | "night", paused?: boolean): void;
   state(): Record<string, unknown>;
@@ -44,6 +45,7 @@ function logHelp(): void {
     "  admin.god(enabled?)          — Toggle unlimited health & stamina/sprint (or pass true/false)",
     "  admin.heal()                 — Full HP/stamina & clear poison, burn, bleed, web, cocoon",
     "  admin.give(itemId, count=1)  — Grant inventory item (e.g. 'torch', 'sword', 'bow', 'arrow')",
+    "  admin.tp(x, y)               — Teleport hero to world tile coordinates (x, y)",
     "  admin.clearWebs()            — Clear nearby spider webs and release cocoon",
     "  admin.time(phase|preset)     — Set time ('dawn'|'day'|'golden'|'dusk'|'night' or 0..1)",
     "  admin.state()                — Inspect live hero, admin auth, & world status",
@@ -82,7 +84,7 @@ function runGive(client: WorldClient, itemId: string, count = 1): void {
     console.warn(`${LOG_PREFIX} Unknown itemId '${itemId}'. Items: ${ids}`);
     return;
   }
-  if (!requireServerMode(client, "giving items") || !requireAuthorized(client, "giving items")) return;
+  if (!client.isOfflineOnly() && (!requireServerMode(client, "giving items") || !requireAuthorized(client, "giving items"))) return;
   const n = Math.max(1, Math.min(99, Math.round(count)));
   client.sendAdmin({ action: "give", itemId, count: n });
   console.info(`${LOG_PREFIX} Granted ${n}x ${itemId}.`);
@@ -93,6 +95,16 @@ function runTime(client: WorldClient, phaseOrPreset: number | string, paused = t
   const phase = typeof phaseOrPreset === "string" ? (TIME_PRESETS[phaseOrPreset] ?? 0.46) : phaseOrPreset;
   client.setDayPhase(phase, paused);
   console.info(`${LOG_PREFIX} Day phase set to ${phase.toFixed(2)} (paused=${paused}).`);
+}
+
+function runTeleport(client: WorldClient, pos: { readonly x: number; readonly y: number }): void {
+  if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
+    console.warn(`${LOG_PREFIX} Pass finite coordinates: admin.tp(x, y)`);
+    return;
+  }
+  if (!client.isOfflineOnly() && (!requireServerMode(client, "teleporting") || !requireAuthorized(client, "teleporting"))) return;
+  client.sendAdmin({ action: "teleport", x: pos.x, y: pos.y });
+  console.info(`${LOG_PREFIX} Teleported hero to (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}).`);
 }
 
 function readAdminState(client: WorldClient): Record<string, unknown> {
@@ -115,6 +127,7 @@ export function installAdminConsole(client: WorldClient, opts?: { readonly silen
     god: (enabled) => runGod(client, enabled),
     heal: () => { if (requireAuthorized(client, "healing")) { client.sendAdmin({ action: "heal" }); console.info(`${LOG_PREFIX} Hero healed and cleared of debuffs.`); } },
     give: (itemId, count) => runGive(client, itemId, count),
+    tp: (x, y) => runTeleport(client, { x, y }),
     clearWebs: () => { if (requireAuthorized(client, "clearing webs")) { client.sendAdmin({ action: "clearWebs" }); console.info(`${LOG_PREFIX} Cleared nearby webs & cocoon.`); } },
     time: (phase, paused) => runTime(client, phase, paused),
     state: () => readAdminState(client),

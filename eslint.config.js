@@ -68,6 +68,7 @@ export default tseslint.config(
         projectService: {
           allowDefaultProject: ["tests/*/*.ts", "e2e/*.ts", "e2e/*/*.ts"],
           defaultProject: "tsconfig.qa.json",
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
         },
         tsconfigRootDir: import.meta.dirname,
       },

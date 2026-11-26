@@ -17,7 +17,7 @@ import {
   type WorldChunkCache,
 } from "@dc2d/engine";
 
-const CAMPFIRE_CRAFT_RADIUS = 4.0;
+const STATION_CRAFT_RADIUS = 2.8;
 
 export function applyLoadoutEntries(
   state: PlayerInventoryState,
@@ -36,23 +36,39 @@ export function createStarterInventory(): PlayerInventoryState {
   return state;
 }
 
-function isNearPropKind(opts: { readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly kind: PropKind }): boolean {
-  const maxDistSq = CAMPFIRE_CRAFT_RADIUS * CAMPFIRE_CRAFT_RADIUS;
-  for (const prop of opts.cache.propsNear(opts.x, opts.y)) {
-    if (prop.kind !== opts.kind) continue;
-    const dx = prop.x - opts.x;
-    const dy = prop.y - opts.y;
-    if (dx * dx + dy * dy <= maxDistSq) return true;
+export interface StationQueryPos {
+  readonly x: number;
+  readonly y: number;
+  readonly elevation?: number | undefined;
+}
+
+function matchesStationProp(
+  prop: { readonly kind: PropKind; readonly x: number; readonly y: number; readonly elevation?: number | undefined },
+  opts: { readonly pos: StationQueryPos; readonly kind: PropKind; readonly maxDistSq: number },
+): boolean {
+  if (prop.kind !== opts.kind) return false;
+  if (opts.pos.elevation !== undefined && prop.elevation !== opts.pos.elevation) return false;
+  const dx = prop.x - opts.pos.x;
+  const dy = prop.y - opts.pos.y;
+  return dx * dx + dy * dy <= opts.maxDistSq;
+}
+
+function isNearPropKind(opts: {
+  readonly cache: WorldChunkCache; readonly pos: StationQueryPos; readonly kind: PropKind;
+}): boolean {
+  const maxDistSq = STATION_CRAFT_RADIUS * STATION_CRAFT_RADIUS;
+  for (const prop of opts.cache.propsNear(opts.pos.x, opts.pos.y)) {
+    if (matchesStationProp(prop, { pos: opts.pos, kind: opts.kind, maxDistSq })) return true;
   }
   return false;
 }
 
-export function isPlayerNearCampfire(cache: WorldChunkCache, x: number, y: number): boolean {
-  return isNearPropKind({ cache, x, y, kind: PropKind.Campfire });
+export function isPlayerNearCampfire(cache: WorldChunkCache, pos: StationQueryPos): boolean {
+  return isNearPropKind({ cache, pos, kind: PropKind.Campfire });
 }
 
-export function isPlayerNearWorkbench(cache: WorldChunkCache, x: number, y: number): boolean {
-  return isNearPropKind({ cache, x, y, kind: PropKind.Workbench });
+export function isPlayerNearWorkbench(cache: WorldChunkCache, pos: StationQueryPos): boolean {
+  return isNearPropKind({ cache, pos, kind: PropKind.Workbench });
 }
 
 export function movePlayerInventorySlot(

@@ -174,6 +174,7 @@ export function buildMessageHandlers(ctx: {
     chestTransfer: () => msg.t === "chestTransfer" && sim.handleChestAction(playerId, msg),
     chestTakeAll: () => msg.t === "chestTakeAll" && sim.handleChestAction(playerId, msg),
     placeStructure: () => msg.t === "placeStructure" && sim.placeStructure(playerId, msg),
+    dismantleStructure: () => msg.t === "dismantleStructure" && sim.dismantleStructure(playerId, msg.structureId),
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
     dropItem: () => msg.t === "dropItem" && sim.dropItem(playerId, msg),

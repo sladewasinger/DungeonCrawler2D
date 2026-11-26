@@ -113,12 +113,14 @@ describe("WorldSim", () => {
       { slot: 12, itemId: "stone", count: 6 },
       { slot: 14, itemId: "raw-meat", count: 3 },
     ]);
+    sim.queueInput(id, { seq: 1, moveX: 1, moveY: -1 });
+    for (let i = 0; i < 4; i++) sim.step();
     expect(must(sim.inventorySnapshot(id)).nearCampfire).toBe(true);
     expect(sim.craftRecipe(id, "craft-axe")).toBe(true);
     expect(sim.craftRecipe(id, "craft-cooked-meat")).toBe(true);
 
     sim.queueInput(id, { seq: 2, moveX: -1, moveY: 0 });
-    for (let i = 0; i < 60; i++) sim.step();
+    for (let i = 0; i < 65; i++) sim.step();
     expect(must(sim.inventorySnapshot(id)).nearCampfire).toBe(false);
     expect(sim.craftRecipe(id, "craft-cooked-meat")).toBe(false);
   });

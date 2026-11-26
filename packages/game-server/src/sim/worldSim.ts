@@ -180,13 +180,23 @@ export class WorldSim {
   craftRecipe(playerId: string, recipeId: string): boolean {
     const p = this.players.get(playerId);
     if (!p) return false;
-    const u = craftPlayerRecipe(p.inventory, { recipeId, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), nearWorkbench: isPlayerNearWorkbench(this.cache, p.x, p.y) });
+    const u = craftPlayerRecipe(p.inventory, {
+      recipeId,
+      nearCampfire: isPlayerNearCampfire(this.cache, p),
+      nearWorkbench: isPlayerNearWorkbench(this.cache, p),
+    });
     if (!u) return false;
     p.inventory = u; this.persistPlayer(p); return true;
   }
-  placeStructure(playerId: string, req: { readonly itemId: string; readonly x: number; readonly y: number }): boolean {
+  placeStructure(playerId: string, req: { readonly itemId: string; readonly x: number; readonly y: number; readonly rotation?: number | undefined }): boolean {
     const p = this.players.get(playerId);
     const ok = p ? this.combat.placeStructure({ player: p, playerName: p.name, accountId: p.accountId, ...req }) : false;
+    if (p && ok) this.persistPlayer(p);
+    return ok;
+  }
+  dismantleStructure(playerId: string, structureId: string): boolean {
+    const p = this.players.get(playerId);
+    const ok = p ? this.combat.dismantleStructure({ player: p, playerName: p.name, accountId: p.accountId, structureId }) : false;
     if (p && ok) this.persistPlayer(p);
     return ok;
   }
@@ -204,7 +214,12 @@ export class WorldSim {
   dropItem(playerId: string, req: DropItemRequest): void { const p = this.players.get(playerId); if (p && this.combat.dropPlayerItem(p, req)) this.persistPlayer(p); }
   inventorySnapshot(playerId: string): InventorySnapshot | undefined {
     const p = this.players.get(playerId);
-    return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), nearWorkbench: isPlayerNearWorkbench(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq }) : undefined;
+    return p ? buildInventorySnapshot({
+      state: p.inventory, selectedHotbar: p.selectedHotbar,
+      nearCampfire: isPlayerNearCampfire(this.cache, p),
+      nearWorkbench: isPlayerNearWorkbench(this.cache, p),
+      ackSeq: p.lastActionAckSeq,
+    }) : undefined;
   }
 
   enqueueCommand(cmd: () => void): void {
@@ -230,10 +245,14 @@ export class WorldSim {
   combatSnapshots(redactUnopened = false): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(redactUnopened); }
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
   snapshots(): PlayerSnapshot[] {
-    return Array.from(this.players.values(), (p) => buildPlayerSnapshotRecord(p, {
-      hasBedRespawn: this.combat.structures.hasBedFor(p.accountId),
-      bubble: this.chat.activeBubbleFor(p.id),
-      cache: this.cache,
-    }));
+    return Array.from(this.players.values(), (p) => {
+      const bed = this.combat.structures.respawnPointFor(p.accountId);
+      return buildPlayerSnapshotRecord(p, {
+        hasBedRespawn: bed !== null,
+        ...(bed ? { respawnBedPos: { x: bed.x, y: bed.y } } : {}),
+        bubble: this.chat.activeBubbleFor(p.id),
+        cache: this.cache,
+      });
+    });
   }
 }

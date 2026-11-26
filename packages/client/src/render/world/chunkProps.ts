@@ -1,10 +1,10 @@
 /** Prop mounting with elevation lift, foliage rustling, canopy fading, and animated fire helpers. */
-import { PropKind, TILE_PX, type ChunkProp, type PlayerSnapshot, type PointLightSpec } from "@dc2d/engine";
+import { PropKind, TILE_PX, type ChunkProp, type PlayerSnapshot, type PointLightSpec, type WorldChunkCache } from "@dc2d/engine";
 import { Container, Sprite, type Texture } from "pixi.js";
 import { shadowCasterForProp, type ShadowCaster } from "../shaders/castShadows.js";
 import type { TilemapLayerHandle } from "../shaders/tilemapMesh.js";
 import { getPoiPropSpriteSpec, type PoiPropSpriteSpec } from "../textures/poiPropTextures.js";
-import { HD_PROP_SCALE, isTreeProp, type PropTextureSet } from "../textures/propTextures.js";
+import { HD_PROP_SCALE, isTreeProp, resolvePropTexture, resolveTreeTextures, type PropTextureSet } from "../textures/propTextures.js";
 
 const grassBendState = new WeakMap<Sprite, number>();
 import { ELEVATION_LIFT_PX } from "./cliffStrips.js";
@@ -15,6 +15,15 @@ export interface WorldLayers {
   readonly grass: Container;
   readonly ysort: Container;
   readonly canopy: Container;
+}
+
+export interface MountedPropEntry {
+  readonly sprite: Sprite;
+  readonly canopy?: Sprite | undefined;
+  readonly kind: PropKind;
+  readonly baseX: number;
+  readonly baseY: number;
+  readonly elevation: number;
 }
 
 export interface MountedChunk {
@@ -28,6 +37,7 @@ export interface MountedChunk {
   readonly ysortSprites: readonly Sprite[];
   readonly canopySprites: readonly { sprite: Sprite; wx: number; wy: number }[];
   readonly animatedProps: readonly { sprite: Sprite; kind: PropKind; phase: number }[];
+  readonly propSprites: ReadonlyMap<string, MountedPropEntry>;
   readonly lights: readonly PointLightSpec[];
   readonly casters: readonly ShadowCaster[];
 }
@@ -37,6 +47,7 @@ interface MountTarget {
   readonly ysortSprites: Sprite[];
   readonly canopySprites: { sprite: Sprite; wx: number; wy: number }[];
   readonly animatedProps: { sprite: Sprite; kind: PropKind; phase: number }[];
+  readonly propSprites: Map<string, MountedPropEntry>;
   readonly casters: ShadowCaster[];
 }
 
@@ -63,57 +74,7 @@ function addPropSprite(
   return sprite;
 }
 
-const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) => Texture>> = {
-  [PropKind.Boulder]: (p, v) => p.boulder[v % p.boulder.length]!,
-  [PropKind.Bush]: (p, v) => p.bush[v % p.bush.length]!,
-  [PropKind.Campfire]: (p) => p.campfireFrames[0]!,
-  [PropKind.Torch]: (p) => p.torchFrames[0]!,
-  [PropKind.Palisade]: (p) => p.palisade,
-  [PropKind.Tent]: (p) => p.tent,
-  [PropKind.RuinPillar]: (p) => p.ruinPillar,
-  [PropKind.CopperVein]: (p) => p.copperVein,
-  [PropKind.IronVein]: (p) => p.ironVein,
-  [PropKind.Workbench]: (p) => p.workbench,
-  [PropKind.Bed]: (p) => p.bed,
-  [PropKind.DeadTree]: (p) => p.deadTree,
-  [PropKind.GiantMushroom]: (p) => p.giantMushroom,
-  [PropKind.BogReed]: (p) => p.bogReed,
-  [PropKind.CursedCrystal]: (p) => p.cursedCrystal,
-  [PropKind.ShrineAltar]: (p) => p.shrineAltar,
-  [PropKind.Waystone]: (p) => p.waystone,
-  [PropKind.Gravestone]: (p) => p.gravestone,
-  [PropKind.BrokenCart]: (p) => p.brokenCart,
-  [PropKind.GreatStump]: (p) => p.greatStump,
-  [PropKind.SunkenBoat]: (p) => p.sunkenBoat,
-  [PropKind.LoreSign]: (p) => p.loreSign,
-  [PropKind.BoneTotem]: (p) => p.boneTotem,
-  [PropKind.RunicForge]: (p) => p.runicForge,
-  [PropKind.CursedObelisk]: (p) => p.cursedObelisk,
-  [PropKind.BrazierUnlit]: (p) => p.brazierUnlit,
-  [PropKind.BrazierLit]: (p) => p.brazierLit,
-  [PropKind.HermitHut]: (p) => p.hermitHut,
-  [PropKind.FairyRing]: (p) => p.fairyRing,
-};
-
-const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [Texture, Texture]>> = {
-  [PropKind.PineTree]: (p) => [p.pineTrunk, p.pineCanopy],
-  [PropKind.BirchTree]: (p) => [p.birchTrunk, p.birchCanopy],
-  [PropKind.MapleTree]: (p) => [p.mapleTrunk, p.mapleCanopy],
-};
-
-export const REGISTERED_PROP_RENDER_KINDS: readonly PropKind[] = [
-  ...(Object.keys(PROP_TEX_BY_KIND) as PropKind[]),
-  ...(Object.keys(TREE_TEXTURES) as PropKind[]),
-  PropKind.OakTree,
-  PropKind.Stump,
-  PropKind.TallGrass,
-  PropKind.Wildflower,
-  PropKind.WoodChest,
-];
-
-function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
-  return PROP_TEX_BY_KIND[prop.kind]?.(p, prop.variant) ?? p.stump;
-}
+export { REGISTERED_PROP_RENDER_KINDS } from "../textures/propTextures.js";
 
 function mountTreeProp(input: {
   readonly prop: ChunkProp;
@@ -122,12 +83,14 @@ function mountTreeProp(input: {
   readonly target: MountTarget;
 }): void {
   const { prop, layers, propsAtlas, target } = input;
-  const [trunkTex, canopyTex] = TREE_TEXTURES[prop.kind]?.(propsAtlas) ?? [propsAtlas.oakTrunk, propsAtlas.oakCanopy];
-  target.ysortSprites.push(addPropSprite(layers.ysort, trunkTex, prop));
+  const [trunkTex, canopyTex] = resolveTreeTextures(prop.kind, propsAtlas);
+  const trunk = addPropSprite(layers.ysort, trunkTex, prop);
+  target.ysortSprites.push(trunk);
   const crown = addPropSprite(layers.canopy, canopyTex, {
     x: prop.x, y: prop.y - 0.38, elevation: prop.elevation,
   });
   target.canopySprites.push({ sprite: crown, wx: prop.x, wy: prop.y });
+  target.propSprites.set(prop.id, { sprite: trunk, canopy: crown, kind: prop.kind, baseX: trunk.x, baseY: trunk.y, elevation: prop.elevation });
 }
 
 function mountFoliageProp(input: {
@@ -139,26 +102,64 @@ function mountFoliageProp(input: {
   const { prop, layers, propsAtlas, target } = input;
   const list = prop.kind === PropKind.TallGrass ? propsAtlas.tallGrass : propsAtlas.wildflower;
   const parent = prop.elevation > 0 ? layers.ysort : layers.grass;
-  target.grassSprites.push({ sprite: addPropSprite(parent, list[prop.variant % list.length]!, prop), wx: prop.x, wy: prop.y });
+  const sp = addPropSprite(parent, list[prop.variant % list.length]!, prop);
+  target.grassSprites.push({ sprite: sp, wx: prop.x, wy: prop.y });
+  target.propSprites.set(prop.id, { sprite: sp, kind: prop.kind, baseX: sp.x, baseY: sp.y, elevation: prop.elevation });
 }
 
-export function mountChunkProp(input: {
-  readonly prop: ChunkProp;
-  readonly layers: WorldLayers;
-  readonly propsAtlas: PropTextureSet;
-  readonly target: MountTarget;
+function applyBedRotation(sprite: Sprite, prop: ChunkProp): void {
+  if (!prop.rotation || prop.kind !== PropKind.Bed) return;
+  if (prop.rotation >= 2) sprite.scale.x = -Math.abs(sprite.scale.x);
+  if (prop.rotation % 2 === 1) sprite.rotation = 0.14;
+}
+
+function applyMountedPropBehavior(input: {
+  readonly prop: ChunkProp; readonly sprite: Sprite; readonly cache?: WorldChunkCache | undefined;
+  readonly layers: WorldLayers; readonly propsAtlas: PropTextureSet; readonly target: MountTarget;
 }): void {
-  const { prop, layers, propsAtlas, target } = input;
-  const caster = shadowCasterForProp(prop);
-  if (caster) target.casters.push(caster);
-  if (prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower) { mountFoliageProp(input); return; }
-  if (isTreeProp(prop.kind)) { mountTreeProp(input); return; }
-  if (prop.kind === PropKind.WoodChest) return;
-  const sprite = addPropSprite(layers.ysort, propTextureFor(prop, propsAtlas), prop);
+  const { prop, sprite, cache, layers, propsAtlas, target } = input;
+  applyBedRotation(sprite, prop);
   target.ysortSprites.push(sprite);
+  target.propSprites.set(prop.id, { sprite, kind: prop.kind, baseX: sprite.x, baseY: sprite.y, elevation: prop.elevation });
+  if (prop.kind === PropKind.Palisade && cache) mountPalisadeRails({ prop, cache, layers, propsAtlas, target });
   if (prop.kind === PropKind.Campfire || prop.kind === PropKind.Torch) {
     target.animatedProps.push({ sprite, kind: prop.kind, phase: prop.variant });
   }
+}
+
+function isOrderedAdjacentPalisade(prop: ChunkProp, n: ChunkProp): boolean {
+  if (n.kind !== PropKind.Palisade || n.id === prop.id) return false;
+  const ordered = prop.x < n.x || (prop.x === n.x && prop.y < n.y);
+  return ordered && Math.hypot(n.x - prop.x, n.y - prop.y) <= 1.2;
+}
+
+function mountPalisadeRails(opts: {
+  readonly prop: ChunkProp; readonly cache: WorldChunkCache; readonly layers: WorldLayers;
+  readonly propsAtlas: PropTextureSet; readonly target: MountTarget;
+}): void {
+  const { prop, cache, layers, propsAtlas, target } = opts;
+  for (const n of cache.propsNear(prop.x, prop.y)) {
+    if (!isOrderedAdjacentPalisade(prop, n)) continue;
+    const horiz = Math.abs(n.x - prop.x) >= Math.abs(n.y - prop.y);
+    const tex = horiz ? propsAtlas.palisadeRailH : propsAtlas.palisadeRailV;
+    const rail = addPropSprite(layers.ysort, tex, { x: (prop.x + n.x) * 0.5, y: (prop.y + n.y) * 0.5, elevation: prop.elevation });
+    rail.anchor.set(0.5, 0.72);
+    target.ysortSprites.push(rail);
+  }
+}
+
+export function mountChunkProp(input: {
+  readonly prop: ChunkProp; readonly layers: WorldLayers; readonly propsAtlas: PropTextureSet;
+  readonly target: MountTarget; readonly cache?: WorldChunkCache | undefined;
+}): void {
+  const { prop, layers, propsAtlas } = input;
+  const caster = shadowCasterForProp(prop);
+  if (caster) input.target.casters.push(caster);
+  if (prop.kind === PropKind.TallGrass || prop.kind === PropKind.Wildflower) { mountFoliageProp(input); return; }
+  if (isTreeProp(prop.kind)) { mountTreeProp(input); return; }
+  if (prop.kind === PropKind.WoodChest) return;
+  const sprite = addPropSprite(layers.ysort, resolvePropTexture(prop, propsAtlas), prop);
+  applyMountedPropBehavior({ ...input, sprite });
 }
 
 function animateFireSprite(anim: { sprite: Sprite; kind: PropKind; phase: number }, propsAtlas: PropTextureSet, timeSec: number): void {

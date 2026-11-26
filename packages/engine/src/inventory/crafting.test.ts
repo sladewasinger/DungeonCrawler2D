@@ -97,4 +97,24 @@ describe("inventory armorOps & crafting", () => {
     expect(countItemInSlots(cooked.slots, ITEM_COOKED_MEAT)).toBe(1);
     expect(countItemInSlots(cooked.slots, ITEM_RAW_MEAT)).toBe(1);
   });
+
+  it("[REQ-P8-01][REQ-P8-03] rejects workbench recipes without workbench and consumes zero ingredients", () => {
+    const inv = createEmptyInventoryState();
+    insertIntoSlots(inv.slots, { itemId: ITEM_WOOD, count: 6 }, maxStackFor);
+    const wbRecipe: CraftRecipe = {
+      id: "craft-storage-chest",
+      outputItemId: "storage-chest",
+      outputCount: 1,
+      requiresWorkbench: true,
+      ingredients: [{ itemId: ITEM_WOOD, count: 6 }],
+    };
+    expect(canCraftRecipe({ slots: inv.slots, recipe: wbRecipe, nearCampfire: true, nearWorkbench: false, maxStackFor })).toBe(false);
+    expect(craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: true, nearWorkbench: false, maxStackFor })).toBeNull();
+    expect(countItemInSlots(inv.slots, ITEM_WOOD)).toBe(6);
+
+    const crafted = craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: false, nearWorkbench: true, maxStackFor });
+    if (!crafted) throw new Error("expected workbench craft to succeed");
+    expect(countItemInSlots(crafted.slots, "storage-chest")).toBe(1);
+    expect(countItemInSlots(crafted.slots, ITEM_WOOD)).toBe(0);
+  });
 });

@@ -1,7 +1,7 @@
 /** WebSocket connection, lifecycle, and snapshot helper utilities for WorldClient. */
 import { isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
-  DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, STEALTH_TUNING, ServerMessageSchema, computePlayerGearStats,
+  DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, PROTOCOL_VERSION, STEALTH_TUNING, ServerMessageSchema, computePlayerGearStats,
   type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
   type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldChunkCache,
   type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
@@ -137,7 +137,8 @@ export interface StepLoopMutable {
 }
 
 export interface StepLoopContext {
-  readonly state: StepLoopMutable; readonly isServer: boolean; readonly cache: WorldChunkCache; readonly dayPhase: number;
+  readonly state: StepLoopMutable; readonly isServer: boolean; readonly offlinePlayable?: boolean | undefined;
+  readonly cache: WorldChunkCache; readonly dayPhase: number;
   readonly inventory: InventorySnapshot; readonly swing: LocalSwingTracker; readonly smoother: RemotePlayerSmoother;
   readonly queuedEvents: WorldEvent[]; readonly send: (msg: ClientMessage) => void;
 }
@@ -146,6 +147,16 @@ function resolvePredictedMoveSpeedMult(player: PlayerSnapshot, gearSpeedMult: nu
   const shrine = player.shrineBuff;
   const swiftBonus = shrine?.kind === "swiftness" && shrine.remainingSec > 0 ? 0.22 : 0;
   return Math.max(0.65, 1 + gearSpeedMult + swiftBonus);
+}
+
+function maybeSendServerInputFrame(ctx: StepLoopContext, opts: {
+  readonly moveDir: { readonly x: number; readonly y: number };
+  readonly normAim: { readonly x: number; readonly y: number } | undefined;
+  readonly input: StepInputFrame;
+}): void {
+  if (!ctx.isServer) return;
+  const sendCheck = shouldSendInputFrame({ prev: ctx.state.sendState, nowMs: performance.now(), moveDir: opts.moveDir, normAim: opts.normAim, input: opts.input });
+  if (sendCheck.send) { ctx.state.sendState = sendCheck.next; ctx.send(buildInputMessage({ seq: ++ctx.state.seq, moveDir: opts.moveDir, normAim: opts.normAim, input: opts.input })); }
 }
 
 function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void {
@@ -162,8 +173,7 @@ function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void
     heldId, heldPrefixId: heldSlot?.prefixId, player: state.player, normAim, isServer: true, events: ctx.queuedEvents,
   });
   if (ctx.queuedEvents.length > preEvCount || input.bowRelease) state.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
-  const sendCheck = shouldSendInputFrame({ prev: state.sendState, nowMs: performance.now(), moveDir, normAim, input });
-  if (sendCheck.send) { state.sendState = sendCheck.next; ctx.send(buildInputMessage({ seq: ++state.seq, moveDir, normAim, input })); }
+  maybeSendServerInputFrame(ctx, { moveDir, normAim, input });
   const gear = computePlayerGearStats({
     armor: ctx.inventory.armor, armorPrefixes: ctx.inventory.armorPrefixes, heldItem: heldSlot, lookup: resolveItemInstance,
   });
@@ -179,7 +189,7 @@ function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void
 
 export function stepWorldClientInput(ctx: StepLoopContext, input: StepInputFrame): void {
   const { state } = ctx;
-  if (ctx.isServer) stepServerPrediction(ctx, input);
+  if (ctx.isServer || ctx.offlinePlayable) stepServerPrediction(ctx, input);
   state.attackFlashTimer = Math.max(0, state.attackFlashTimer - input.dt);
   if (!ctx.isServer) {
     const res = tickLocalBubbleState(state.player, state.bubbleTimer, input.dt);
@@ -193,8 +203,7 @@ export function stepWorldClientInput(ctx: StepLoopContext, input: StepInputFrame
 }
 
 export function mutateChestEntry(
-  chests: readonly WorldChestSnapshot[],
-  chestId: string,
+  chests: readonly WorldChestSnapshot[], chestId: string,
   mutate: (chest: WorldChestSnapshot) => { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot; readonly changed: boolean },
 ): { readonly inv: InventorySnapshot; readonly chests: readonly WorldChestSnapshot[]; readonly changed: boolean } | null {
   const chest = chests.find((c) => c.id === chestId);
@@ -204,10 +213,10 @@ export function mutateChestEntry(
 }
 
 export function parseServerMessage(raw: string): ServerMessage | null {
-  let json: unknown;
-  try { json = JSON.parse(raw); } catch { return null; }
-  const parsed = ServerMessageSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  try {
+    const parsed = ServerMessageSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch { return null; }
 }
 
 export function attachWorldWebSocket(opts: {
@@ -222,4 +231,12 @@ export function attachWorldWebSocket(opts: {
     ws.addEventListener("error", () => { if (opts.isCurrent(ws)) opts.onDrop(); });
     return ws;
   } catch { opts.onDrop(); return null; }
+}
+
+export function sendClientHello(ws: WebSocket | null, player: PlayerSnapshot, auth: { readonly accountId: string; readonly resumeToken: string } | null): void {
+  if (ws?.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({
+    t: "hello", version: PROTOCOL_VERSION, name: player.name, appearance: player.appearance ?? DEFAULT_APPEARANCE,
+    ...(auth ? { accountId: auth.accountId, resumeToken: auth.resumeToken } : {}),
+  }));
 }

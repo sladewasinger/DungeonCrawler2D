@@ -21,6 +21,8 @@ export const PlacedStructureSchema = z.object({
   y: z.number(),
   elevation: z.number(),
   ownerName: z.string().min(1),
+  rotation: z.number().int().min(0).max(3).optional(),
+  hp: z.number().optional(),
 });
 
 export const WorldDeltaSnapshotSchema = z.object({
@@ -37,6 +39,13 @@ export const ClientPlaceStructureSchema = z.object({
   itemId: z.string().min(1).max(32),
   x: WorldCoordSchema,
   y: WorldCoordSchema,
+  rotation: z.number().int().min(0).max(3).optional(),
+  seq: DeltaSeqSchema,
+});
+
+export const ClientDismantleStructureSchema = z.object({
+  t: z.literal("dismantleStructure"),
+  structureId: z.string().min(1).max(64),
   seq: DeltaSeqSchema,
 });
 

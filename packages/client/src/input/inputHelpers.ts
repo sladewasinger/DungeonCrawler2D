@@ -8,6 +8,9 @@ export interface InputCallbacks {
   readonly onToggleCharacter: () => void;
   readonly onToggleMap?: () => void;
   readonly onInteract?: () => void;
+  readonly onDismantle?: () => void;
+  readonly onRotateGhost?: () => void;
+  readonly onPlaceGhost?: () => boolean;
   readonly onDropItem?: () => void;
   readonly onWorldTap?: (clientX: number, clientY: number) => void;
   readonly onOpenChat?: () => void;
@@ -36,7 +39,7 @@ const GUARDED_ALWAYS_COMBOS = new Set(["KeyS", "KeyO", "KeyP"]);
 const UI_OVERLAY_SELECTOR =
   ".ow-hud, .ow-hotbar, .ow-modal, .ow-settings-modal, .ow-stamina-rail, .ow-zoom-controls, .ow-jump-btn, .ow-combat-cluster, .ow-vitals, .ow-item-card, .ow-chat-ui";
 
-export const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
+const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {
   Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
   Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
 };
@@ -55,6 +58,62 @@ export function isUiTarget(target: EventTarget | null): boolean {
   return Boolean((target as HTMLElement | null)?.closest(UI_OVERLAY_SELECTOR));
 }
 
+export function computeTouchStickVector(opts: {
+  readonly dx: number; readonly dy: number; readonly maxRadius: number; readonly deadzone: number;
+}): { readonly vector: { readonly x: number; readonly y: number }; readonly dist: number; readonly kx: number; readonly ky: number } {
+  const dist = Math.hypot(opts.dx, opts.dy);
+  const clamped = Math.min(dist, opts.maxRadius);
+  const nx = dist > 2 ? opts.dx / dist : 0;
+  const ny = dist > 2 ? opts.dy / dist : 0;
+  const strength = clamped / opts.maxRadius;
+  const speed = strength > opts.deadzone ? 0.22 + ((strength - opts.deadzone) / (1 - opts.deadzone)) * 0.78 : 0;
+  return {
+    dist, kx: nx * clamped, ky: ny * clamped,
+    vector: speed > 0 ? { x: nx * speed, y: ny * speed } : { x: 0, y: 0 },
+  };
+}
+
+export function applyPriorityKeyboardAction(opts: {
+  readonly e: KeyboardEvent; readonly callbacks: InputCallbacks; readonly onJump: () => void; readonly onDodge: () => void;
+}): boolean {
+  const { e, callbacks, onJump, onDodge } = opts;
+  const hotbarIdx = HOTBAR_DIGIT_MAP[e.code];
+  if (hotbarIdx !== undefined) { callbacks.onSelectHotbar(hotbarIdx); return true; }
+  const special: Readonly<Record<string, () => void>> = {
+    Tab: () => { e.preventDefault(); callbacks.onToggleInventory(); },
+    Enter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
+    NumpadEnter: () => { e.preventDefault(); callbacks.onOpenChat?.(); },
+    Space: () => { e.preventDefault(); onJump(); },
+    ControlLeft: onDodge,
+    ControlRight: onDodge,
+  };
+  const fn = special[e.code];
+  if (!fn) return false;
+  fn();
+  return true;
+}
+
+export function applyControllerKeyboardAction(opts: {
+  readonly code: string; readonly e: KeyboardEvent; readonly callbacks: InputCallbacks; readonly crouch: { readonly mode: "toggle" | "hold"; readonly value: boolean };
+  readonly onInteractHoldStart: () => void; readonly onThrowPebble: () => void; readonly onSyncCrouch: (next: boolean) => void;
+}): void {
+  const { code, callbacks, crouch } = opts;
+  const actions: Readonly<Record<string, () => void>> = {
+    KeyE: opts.onInteractHoldStart,
+    KeyR: () => { callbacks.onRotateGhost?.(); },
+    KeyZ: () => { callbacks.onDismantle?.(); },
+    KeyC: () => opts.onSyncCrouch(nextCrouchState(crouch.mode, crouch.value, "press")),
+    KeyQ: () => { callbacks.onDropItem?.(); },
+    Delete: () => { callbacks.onDropItem?.(); },
+    Backspace: () => { callbacks.onDropItem?.(); },
+    KeyX: opts.onThrowPebble,
+    KeyH: callbacks.onToggleCharacter,
+    KeyF: callbacks.onToggleTorch,
+    KeyM: () => { callbacks.onToggleMap?.(); },
+    Escape: callbacks.onClosePanels,
+  };
+  actions[code]?.();
+}
 export function createJoystickDom(): { readonly ring: HTMLDivElement; readonly knob: HTMLDivElement } {
   const ring = document.createElement("div");
   ring.className = "ow-joystick";

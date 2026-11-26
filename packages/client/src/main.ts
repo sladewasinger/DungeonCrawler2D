@@ -1,5 +1,5 @@
 /** Client boot entry: mounts PixiJS v8 shader scene, Web Audio engine, networking, input, and HUD. */
-import { isBowItem, isShieldItem } from "@dc2d/content";
+import { getItemDef, isBowItem, isShieldItem } from "@dc2d/content";
 import { ELEVATION_LIFT_TILES, type PlayerSnapshot, type WorldEntitySnapshot } from "@dc2d/engine";
 import { installAdminConsole } from "./admin/adminConsole.js";
 import { AudioEngine } from "./audio/audioEngine.js";
@@ -13,6 +13,7 @@ import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { installQaDiagBridge } from "./diag/qaDiagBridge.js";
 import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { DiscoveryOverlay } from "./ui/discovery/discoveryOverlay.js";
+import { findNearestDismantleableProp } from "./ui/discovery/poiPromptHelper.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import { runBootPreloadFlow } from "./ui/loading/bootPreloader.js";
@@ -90,22 +91,20 @@ function syncUiAndAudio(opts: { readonly ctx: AppCtx; readonly view: WorldViewSt
   ctx.settings.syncExternalState(ctx.scene.qualityPreset(), ctx.scene.currentZoom());
 }
 
-function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
-  ctx.toolbar.tickFps(ctx.nowMs);
-  const pre = ctx.client.snapshot();
-  if (ctx.titleScreen.isOpen()) {
-    ctx.connOverlay.sync({ visible: false, mode: pre.mode });
-    ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
-    const idle = ctx.client.snapshot();
-    ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idle.dayPhase, cache: idle.cache, players: idle.players, localPlayerId: idle.localPlayerId });
-    return;
-  }
-  const connected = pre.mode === "server";
-  ctx.connOverlay.sync({ visible: !connected, mode: pre.mode, attempt: pre.reconnectAttempt });
-  ctx.input.setEnabled(connected);
-  ctx.velTracker.update(pre.entities, ctx.nowMs);
+function syncPlayableBuildState(ctx: AppCtx, pre: WorldViewState): PlayerSnapshot | undefined {
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
-  ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, offhandItem: pre.inventory.armor.offhand, hasShield: isShieldItem(pre.inventory.armor.offhand) });
+  const heldId = preLocal?.heldItem ?? null;
+  ctx.input.setGearState({ heldItem: heldId, offhandItem: pre.inventory.armor.offhand, hasShield: isShieldItem(pre.inventory.armor.offhand) });
+  ctx.input.setBuildContext({
+    hasPlaceable: Boolean(heldId && getItemDef(heldId)?.placeStructure),
+    nearDismantle: Boolean(findNearestDismantleableProp(pre.cache, preLocal)),
+  });
+  return preLocal;
+}
+
+function stepConnectedTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }, pre: WorldViewState): void {
+  ctx.velTracker.update(pre.entities, ctx.nowMs);
+  const preLocal = syncPlayableBuildState(ctx, pre);
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const aim = resolveAimForTick({ ctx, combat, move, local: preLocal, entities: pre.entities });
@@ -116,8 +115,30 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   });
   const view = ctx.client.snapshot();
   const frameEvents = [...pre.events, ...view.events];
-  const dists = ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players, localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, webs: view.webs, events: frameEvents });
+  const dists = ctx.scene.renderFrame({
+    dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players,
+    localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests,
+    groundLoot: view.groundLoot, webs: view.webs, events: frameEvents,
+    cursorClient: ctx.input.mouseAim(ctx.nowMs),
+    ghostEnabled: ctx.hud.activePanel() === "none" && !ctx.settings.isOpen() && !ctx.chat.isOpen(),
+  });
   syncUiAndAudio({ ctx, view, events: frameEvents, chatMessages: mergeFrameChat(pre, view), dt: ctx.dt, dists });
+}
+
+function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number }): void {
+  ctx.toolbar.tickFps(ctx.nowMs);
+  const pre = ctx.client.snapshot();
+  if (ctx.titleScreen.isOpen()) {
+    ctx.connOverlay.sync({ visible: false, mode: pre.mode });
+    ctx.client.stepInput({ move: { x: 0, y: 0 }, dt: ctx.dt });
+    const idle = ctx.client.snapshot();
+    ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: idle.dayPhase, cache: idle.cache, players: idle.players, localPlayerId: idle.localPlayerId });
+    return;
+  }
+  const connected = pre.mode === "server" || ctx.client.isOfflineOnly();
+  ctx.connOverlay.sync({ visible: !connected, mode: pre.mode, attempt: pre.reconnectAttempt });
+  ctx.input.setEnabled(connected);
+  stepConnectedTick(ctx, pre);
 }
 
 function startRenderLoop(ctx: AppCtx): void {
@@ -178,9 +199,9 @@ function mountUiControllers(opts: {
   return { hud, chat, discovery, feedback, connOverlay, input: inputRef, toolbar, settings, onInteractWorld };
 }
 
-async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise<AppCtx> {
+async function mountOverworldApp(host: HTMLElement, opts: { readonly skipTitle: boolean; readonly offlineOnly: boolean }): Promise<AppCtx> {
   const scene = await WorldScene.mount(host);
-  const client = new WorldClient(undefined, { autoConnect: skipTitle });
+  const client = new WorldClient(undefined, { autoConnect: opts.skipTitle && !opts.offlineOnly, offlineOnly: opts.offlineOnly });
   installAdminConsole(client, { silent: !isLocalDebugOrigin() });
   const audio = new AudioEngine();
   const velTracker = new EntityVelocityTracker();
@@ -189,13 +210,15 @@ async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise
   const ui = mountUiControllers({ host, scene, client, audio, onReturnToTitle });
   const titleScreen = new TitleScreen(host, {
     initialName: client.snapshot().localName, initialAppearance: client.snapshot().localAppearance, onPreviewChange: saveCharacterPrefs,
+    onResetLocalWorld: () => { client.resetOfflineWorld(); audio.playUi("open"); },
     onEnterWorld: (req) => {
       client.setCharacter(req); audio.playUi("open");
-      client.connect(); ui.input.setEnabled(true); titleScreen.dismiss();
+      if (!client.isOfflineOnly()) client.connect();
+      ui.input.setEnabled(true); titleScreen.dismiss();
     },
   });
   titleRef.current = titleScreen;
-  if (skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
+  if (opts.skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
   scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
   installQaDiagBridge({ scene, audio, getPlayerPos: () => { const p = client.localPose(); return { x: p.x, y: p.y }; } });
   return { scene, client, audio, velTracker, titleScreen, ...ui };
@@ -212,7 +235,7 @@ async function bootOverworldClient(): Promise<void> {
     isSandbox: params.get("sandbox") === "1" && isLocalhostOrigin(),
     onSandbox: async () => { const { bootAssetSandbox } = await import("./sandbox/sandboxMode.js"); await bootAssetSandbox(host); },
     onMountWorld: async () => {
-      ctx = await mountOverworldApp(host, params.get("skipTitle") === "1");
+      ctx = await mountOverworldApp(host, { skipTitle: params.get("skipTitle") === "1", offlineOnly: params.get("offline") === "1" });
       return { appearance: ctx.client.snapshot().localAppearance, onBeforeReveal: () => renderTick({ ...ctx!, nowMs: performance.now(), dt: 0.016 }) };
     },
   });

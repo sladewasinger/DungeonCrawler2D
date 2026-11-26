@@ -7,7 +7,7 @@ import { Sprite } from "pixi.js";
 import type { ShadowCaster } from "../render/shaders/castShadows.js";
 import type { PropTextureSet } from "../render/textures/propTextures.js";
 import { createTerrainTileAtlas, type TerrainTileAtlas } from "../render/textures/terrainTextures.js";
-import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "../render/world/chunkProps.js";
+import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type MountedPropEntry, type WorldLayers } from "../render/world/chunkProps.js";
 import { bakeElevatedChunkRows } from "../render/world/cliffStrips.js";
 import { buildChunkTilemapMeshes } from "../render/world/tileBuilder.js";
 
@@ -157,7 +157,7 @@ function mountDioramaChunk(opts: {
   const target = {
     grassSprites: [] as { sprite: Sprite; wx: number; wy: number }[], ysortSprites: [] as Sprite[],
     canopySprites: [] as { sprite: Sprite; wx: number; wy: number }[], animatedProps: [] as { sprite: Sprite; kind: PropKind; phase: number }[],
-    casters: [] as ShadowCaster[],
+    propSprites: new Map<string, MountedPropEntry>(), casters: [] as ShadowCaster[],
   };
   for (const strip of bakeElevatedChunkRows(cache, terrainAtlas, { cx, cy: 0 })) {
     const sp = new Sprite(strip.texture); sp.scale.set(strip.scale); sp.position.set(strip.x, strip.y); sp.zIndex = strip.zIndex;

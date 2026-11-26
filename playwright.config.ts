@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
+const GL_LAUNCH_ARGS = process.env.CI || process.env.PW_SWIFTSHADER === "1"
+  ? ["--enable-unsafe-swiftshader"]
+  : ["--use-gl=angle", "--use-angle=d3d11"];
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
@@ -33,7 +37,7 @@ export default defineConfig({
       name: "desktop",
       use: {
         viewport: { width: 1280, height: 720 },
-        launchOptions: { args: ["--enable-unsafe-swiftshader"] },
+        launchOptions: { args: GL_LAUNCH_ARGS },
       },
     },
     {
@@ -42,7 +46,7 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         hasTouch: true,
         isMobile: true,
-        launchOptions: { args: ["--enable-unsafe-swiftshader"] },
+        launchOptions: { args: GL_LAUNCH_ARGS },
       },
     },
   ],

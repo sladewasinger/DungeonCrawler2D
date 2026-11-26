@@ -22,6 +22,7 @@ export interface SettingsCallbacks {
   readonly onToggleCharacter: () => void;
   readonly onRespawn: () => void;
   readonly onReturnToTitle: () => void;
+  readonly onResetLocalWorld?: (() => void) | undefined;
   readonly onPrefsChange: (prefs: SettingsPrefs) => void;
   readonly onOpenChange?: ((open: boolean) => void) | undefined;
 }
@@ -118,10 +119,12 @@ export class SettingsMenu {
   private buildSessionSection(): HTMLDivElement {
     const sec = makeSection("Hero & Session");
     const row = makeNode("div", "ow-settings-actions");
+    const resetBtn = makeResetWorldButton(() => { this.cb.onResetLocalWorld?.(); this.setOpen(false); });
     row.append(
       makePillBtn("Change Hero", () => { this.setOpen(false); this.cb.onToggleCharacter(); }),
       makePillBtn("Respawn", () => { this.setOpen(false); this.cb.onRespawn(); }, "ow-settings-danger"),
       makePillBtn("Title Screen", () => { this.setOpen(false); this.cb.onReturnToTitle(); }),
+      resetBtn,
     );
     sec.append(row);
     return sec;
@@ -237,4 +240,22 @@ export class SettingsMenu {
     this.fsBtn.dataset.active = String(active);
     this.fsBtn.textContent = active ? "Exit FS" : "Enter FS";
   }
+}
+
+const RESET_WORLD_LABEL = "Reset Local World";
+
+export function makeResetWorldButton(onConfirm: () => void): HTMLButtonElement {
+  let armed = false;
+  let timer: number | null = null;
+  const btn = makePillBtn(RESET_WORLD_LABEL, () => {
+    if (!armed) {
+      armed = true; btn.textContent = "Confirm Reset?";
+      timer = window.setTimeout(() => { armed = false; btn.textContent = RESET_WORLD_LABEL; }, 4000);
+      return;
+    }
+    if (timer !== null) window.clearTimeout(timer);
+    armed = false; btn.textContent = RESET_WORLD_LABEL;
+    onConfirm();
+  }, "ow-settings-danger ow-reset-world-btn");
+  return btn;
 }

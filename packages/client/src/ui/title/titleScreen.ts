@@ -5,6 +5,7 @@ import {
 } from "@dc2d/engine";
 import { getCharacterCacheRevision, getCharacterPortraitUrl } from "../../render/character/characterSprites.js";
 import { domNode } from "../hud/slotRenderer.js";
+import { makeResetWorldButton } from "../settings/settingsMenu.js";
 import { ensureTitleStyles } from "./titleStyles.js";
 
 declare const __APP_VERSION__: string;
@@ -27,6 +28,7 @@ export interface TitleScreenOptions {
   readonly initialAppearance: CharacterAppearance;
   readonly onPreviewChange: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
   readonly onEnterWorld: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
+  readonly onResetLocalWorld?: (() => void) | undefined;
 }
 
 interface TitleBtnGroup { readonly key: string; readonly btn: HTMLButtonElement }
@@ -212,7 +214,7 @@ export class TitleScreen {
     const foot = domNode(TAG_DIV, "ow-title-footer");
     const ver = domNode("span");
     ver.textContent = `v${__APP_VERSION__} (${__BUILD_SHA__})`;
-    foot.append(ver);
+    foot.append(ver, makeResetWorldButton(() => this.opts.onResetLocalWorld?.()));
     if (isLocalhostOrigin()) {
       const links = domNode(TAG_DIV, "ow-title-links");
       links.append(
