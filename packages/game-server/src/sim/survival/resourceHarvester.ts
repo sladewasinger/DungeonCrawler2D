@@ -3,7 +3,7 @@ import {
   PropKind, WorldChunkCache, computeHarvestDamage, getHarvestNodeSpec, isWithinSector, propFootprintCenter,
   rollHarvestDrops, sampleMacroBiome, worldToChunkCoord, type ChunkProp, type DepletedPropDelta, type HarvestToolKind, type WorldEvent,
 } from "@dc2d/engine";
-import type { LootManager } from "../wildlife/lootManager.js";
+import type { LootManager } from "../wildlife/loot/lootManager.js";
 
 function resourceCategoryCode(tool: HarvestToolKind): { readonly substance: "stone" | "straw"; readonly comboStep: number } {
   if (tool === "stone") return { substance: "stone", comboStep: 2 };
@@ -66,6 +66,14 @@ export class ResourceHarvester {
     return true;
   }
 
+  private recordPartialHp(propId: string, remaining: number): void {
+    if (!this.hpByProp.has(propId) && this.hpByProp.size >= 1024) {
+      const oldest = this.hpByProp.keys().next().value;
+      if (oldest !== undefined) this.hpByProp.delete(oldest);
+    }
+    this.hpByProp.set(propId, remaining);
+  }
+
   private applyNodeDamage(opts: {
     readonly prop: ChunkProp; readonly dmg: number; readonly spec: NonNullable<ReturnType<typeof getHarvestNodeSpec>>;
     readonly cache: WorldChunkCache; readonly loot: LootManager;
@@ -77,7 +85,7 @@ export class ResourceHarvester {
     const meta = resourceCategoryCode(spec.requiredTool);
     const sweepDir = oreVariantCode(prop.kind);
     if (remaining > 0) {
-      this.hpByProp.set(prop.id, remaining);
+      this.recordPartialHp(prop.id, remaining);
       events.push({ kind: "harvestHit", x: prop.x, y: prop.y, dirX: attacker.aimX, dirY: attacker.aimY, value: dmg, actorId: attacker.id, ...meta, sweepDir });
       return;
     }

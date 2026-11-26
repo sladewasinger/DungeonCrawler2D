@@ -35,7 +35,9 @@ npm run player:bake -- bow-only                  # Re-export 3D 8-direction bow 
 
 After baking completes, press **`F5`** in your browser (`bakeVersion` in `player-rig.json` cache-busts sheets). Keep the `Core_Rig` empties, Collection names, and `Hero_Skin` / `Hero_EyeIris` / `Hero_Hair` materials intact (see [PLAYER_EDITING_TUTORIAL.md](PLAYER_EDITING_TUTORIAL.md) for all `16` layer IDs).
 
-## Pipeline Modules
+## Subfolders & Pipeline Modules
+- `bake/` ([`bake/README.md`](./bake/README.md)): Node `.webp` post-processors & spritesheet/manifest bakers (`bakeSpriteSheet.mjs`, `bakePlayerAssets.mjs`, `bakeGearAssets.mjs`, `manifestSync.mjs`, `pixelPost.mjs`, `pngCodec.mjs`).
+- `blender/` ([`blender/README.md`](./blender/README.md)): Shared `studio_core.py`, `export_blend.py`, `export_player_layers.py`, `render_player_preview.py`, plus `blender/rigs/` (`build_*.py`) and `blender/actions/` (`*_actions.py`).
 - `studio_core.py`: Locked `38°` orthographic `StudioCam`, upper-left `StudioSun`, `Standard` color management (`0.01px` filter, transparent RGBA), 3-band flat `make_toon_material()` EEVEE cel shader, `StudioDepthMat` linear depth pass, and `render_turntable_clip()`.
 - `build_goblin.py` / `goblin.blend`: Reusable `Rig_ChibiHumanoid` armature (`Socket_Hand_R`, `Socket_Hand_L`, `Socket_Head`, `Socket_Back` sockets) and bare Goblin model (`64px` base / `96x96` default export).
 - `humanoid_actions.py`: Reusable `Rig_ChibiHumanoid` Actions (`Idle`, `Walk`, `Run`, `Attack`, `Corpse`) runnable without altering custom sculpted meshes (`align_ears_to_bones()`, `apply_humanoid_actions()`).

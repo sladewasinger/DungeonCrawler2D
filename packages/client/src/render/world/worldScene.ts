@@ -14,7 +14,7 @@ import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WebLayer } from "../combat/webs/webRenderer.js";
-import { WorldPickupsRenderer } from "../combat/worldPickups.js";
+import { WorldPickupsRenderer } from "../combat/pickups/worldPickups.js";
 import { HarvestFxLayer } from "../survival/harvestFxLayer.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";

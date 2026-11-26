@@ -7,7 +7,7 @@ import {
   resolveClipTrim, resolveSentinelPalettes, type AtlasFrameSlot,
 } from "../character/playerCompositor.js";
 import { applyRecolorPass, applyUnifiedSelOut } from "../character/playerRecolor.js";
-import { needsSecondaryAnimTier } from "./playerPoseHelpers.js";
+import { needsSecondaryAnimTier } from "./player/playerPoseHelpers.js";
 
 function assertSlotsDisjointWithGutter(slots: readonly AtlasFrameSlot[], gutter = 4): void {
   for (let i = 0; i < slots.length; i++) {

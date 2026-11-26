@@ -11,7 +11,7 @@ import { decayUnseenSuspicion, findBestHostileTarget, isCreatureAggro, resolveLo
 import { recordTargetPursuitState, redirectSearchByHearing, resetHuntTracking, stepLostSightGrace } from "./tracking/pursuitLoss.js";
 import { stepStructuredInvestigation, tryHungryPassiveScentWhiff } from "./tracking/searchTracking.js";
 import { rallyWolfPack, stepWolfHiveMind, triggerWolfSpotHowl } from "./wolfPackAi.js";
-import type { ScentTrail } from "./scentTrail.js";
+import type { ScentTrail } from "./tracking/scentTrail.js";
 
 export type StrikeTargetFn = (entity: WildlifeEntity, target: CombatTarget) => void;
 

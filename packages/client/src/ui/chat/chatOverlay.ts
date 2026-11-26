@@ -21,6 +21,7 @@ export class ChatOverlay {
   private readonly toggleBtn: HTMLButtonElement;
   private readonly feed: FeedItem[] = [];
   private shout = false;
+  private onOpenChange?: (open: boolean) => void;
 
   constructor(host: HTMLElement, private readonly onSend: (text: string, shout: boolean) => void) {
     ensureChatStyles();
@@ -70,19 +71,25 @@ export class ChatOverlay {
     });
   }
 
+  setOpenListener(cb: (open: boolean) => void): void { this.onOpenChange = cb; }
+
   isOpen(): boolean { return !this.barEl.hidden; }
 
   openInput(): void {
+    const wasOpen = this.isOpen();
     this.barEl.hidden = false;
     this.toggleBtn.hidden = true;
     this.inputEl.focus();
+    if (!wasOpen) this.onOpenChange?.(true);
   }
 
   closeInput(): void {
+    const wasOpen = this.isOpen();
     this.inputEl.value = "";
     this.inputEl.blur();
     this.barEl.hidden = true;
     this.toggleBtn.hidden = false;
+    if (wasOpen) this.onOpenChange?.(false);
   }
 
   private submitAndClose(): void {

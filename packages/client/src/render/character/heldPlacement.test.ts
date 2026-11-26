@@ -2,9 +2,9 @@ import { BODY_STYLES, EYE_COLORS, HAIR_STYLES, type ArmorEquipment, type Charact
 import { describe, expect, it } from "vitest";
 import type { PixelRect } from "../textures/pixelCanvas.js";
 import { armCanvasSize, buildArmRects, computeArmRig } from "./armRig.js";
-import { buildArmorRects } from "./characterArmorLayers.js";
-import { buildBodyRects } from "./characterBodyLayers.js";
-import { buildHairRects } from "./characterHairLayers.js";
+import { buildArmorRects } from "./layers/characterArmorLayers.js";
+import { buildBodyRects } from "./layers/characterBodyLayers.js";
+import { buildHairRects } from "./layers/characterHairLayers.js";
 import {
   CHARACTER_WORLD_SCALE, FALL_POSES, IDLE_POSES, JUMP_POSES, RUN_POSES, resolveFacingDir,
   type FacingDir,

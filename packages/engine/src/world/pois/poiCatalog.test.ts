@@ -1,4 +1,4 @@
-/** Unit tests validating all 20 frontier POI catalog entries, layouts, and puzzle braziers. */
+/** Unit tests validating all 20 biome POI catalog entries, layouts, and puzzle braziers. */
 import { describe, expect, it } from "vitest";
 import { findChunkPoi } from "../poiStamper.js";
 import { POI_CATALOG_LIST, TOTAL_POI_TYPES } from "./poiCatalog.js";
@@ -14,7 +14,7 @@ function collectPoiKindsInBox(opts: {
   }
 }
 
-describe("frontier POI catalog & stamper", () => {
+describe("biome POI catalog & stamper", () => {
   it("registers all 20 distinct POI types including shrines, micro-scenes, lairs, puzzles, and friendly camps", () => {
     expect(TOTAL_POI_TYPES).toBe(20);
     const categories = new Set(POI_CATALOG_LIST.map((e) => e.category));
@@ -23,7 +23,7 @@ describe("frontier POI catalog & stamper", () => {
     }
   });
 
-  it("enforces Tier gating near spawn and unlocks late frontier POIs past 2000m+", () => {
+  it("enforces Tier gating near spawn and unlocks late biome POIs past 2000m+", () => {
     const t1Seen = new Set<string>();
     collectPoiKindsInBox({ cxMin: -10, cxMax: 10, cyMin: -10, cyMax: 10, out: t1Seen });
     expect(t1Seen.has("brazier-vault")).toBe(false);

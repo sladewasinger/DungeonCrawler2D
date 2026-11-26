@@ -2,7 +2,7 @@
 import { BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, buildPlayerAttackHitbox, entityHurtbox, findTilePath, getEntityAttackSpec, isArmorCrushTarget, isBackstabAngle, playerHurtbox, type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent } from "@dc2d/engine";
 import { igniteBurnable } from "../combat/statusEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { isFriendlyOrSpawnSanctuary } from "../frontier/poiInteractions.js";
+import { isFriendlyOrSpawnSanctuary } from "../exploration/poiInteractions.js";
 import type { CombatPlayerCandidate, EcologyFoodSource, SteerTarget } from "./creatureBehaviors.js";
 import { applyKnockbackImpulse, clearNavPath, isClearSpot } from "./creatureNavigation.js";
 import {

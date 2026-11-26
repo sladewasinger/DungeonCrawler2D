@@ -65,13 +65,13 @@ function run() {
   fs.mkdirSync(rawDir, { recursive: true });
 
   const blenderExe = locateBlenderExecutable();
-  const exportScript = path.join(STUDIO_DIR, "export_blend.py");
+  const exportScript = path.join(STUDIO_DIR, "blender", "export_blend.py");
   const blenderArgs = ["--background", blendPath, "--python-exit-code", "1", "--python", exportScript, "--", "--out", rawDir];
   if (pxPerMeter) blenderArgs.push("--pxPerMeter", pxPerMeter);
   if (dirs) blenderArgs.push("--dirs", dirs);
   execFileSync(blenderExe, blenderArgs, { stdio: "inherit" });
 
-  const bakerArgs = [path.join(STUDIO_DIR, "bakeSpriteSheet.mjs"), "--creature", creature, "--rawDir", rawDir];
+  const bakerArgs = [path.join(STUDIO_DIR, "bake", "bakeSpriteSheet.mjs"), "--creature", creature, "--rawDir", rawDir];
   if (groundY) bakerArgs.push("--groundY", groundY);
   if (review) bakerArgs.push("--reviewPath", review);
   execFileSync(process.execPath, bakerArgs, { stdio: "inherit" });

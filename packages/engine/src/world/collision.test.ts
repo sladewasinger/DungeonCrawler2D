@@ -149,9 +149,13 @@ describe("collision", () => {
     expect(cache.blockingObstaclesNear(5.5, 5.5).some((o) => o.id === structId)).toBe(true);
     cache.removePlacedStructure(structId);
     expect(cache.blockingObstaclesNear(5.5, 5.5).some((o) => o.id === structId)).toBe(false);
-    for (let cx = 0; cx < 110; cx++) cache.getChunk(cx, 0);
-    expect(cache.size()).toBeLessThanOrEqual(96);
-    expect(cache.size()).toBe(96);
+    for (let cx = 0; cx < 270; cx++) cache.getChunk(cx, 0);
+    expect(cache.size()).toBeLessThanOrEqual(256);
+    expect(cache.size()).toBe(256);
+
+    const smallCache = new WorldChunkCache(1337, { maxCachedChunks: 24 });
+    for (let cx = 0; cx < 40; cx++) smallCache.getChunk(cx, 0);
+    expect(smallCache.size()).toBe(24);
   });
 
   it("never clips through rocks, palisade seams, diagonal corners, or cliff-side boulders at sprint/dodge speed", () => {

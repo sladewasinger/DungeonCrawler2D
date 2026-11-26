@@ -1,8 +1,8 @@
 /** Bounded tile-grid A* pathfinding over chunk terrain, stairs, and blocking props/chests. */
 import { GroundKind } from "../world/types.js";
 import { WorldChunkCache, type BlockingObstacle } from "../world/collision.js";
-import { closestObstacleCorePoint } from "../world/propFootprints.js";
 import { createOpenHeap, popOpen, pushOpen, type OpenHeap } from "./pathHeap.js";
+import { rasterizePropCosts } from "./pathPropRaster.js";
 
 export interface TileWaypoint { readonly x: number; readonly y: number; }
 export interface PathResult { readonly waypoints: readonly TileWaypoint[]; readonly reachedGoal: boolean; readonly closestPoint: TileWaypoint; }
@@ -20,8 +20,7 @@ interface CellSample { readonly blocked: boolean; readonly elevation: number; re
 
 interface SearchGrid {
   readonly cache: WorldChunkCache;
-  readonly props: readonly BlockingObstacle[];
-  readonly agentRadius: number;
+  readonly propGrid: Int8Array;
   readonly minTx: number;
   readonly minTy: number;
   readonly side: number;
@@ -40,8 +39,6 @@ interface SearchState {
 }
 const DEFAULT_RADIUS_TILES = 20;
 const DEFAULT_MAX_NODES = 900;
-const PROP_HARD_PAD = 0.34;
-const PROP_SOFT_PAD = 0.22;
 const WATER_STEP_PENALTY = 0.55;
 const DEEP_WATER_STEP_PENALTY = 2.8;
 const SQRT2 = Math.SQRT2;
@@ -61,9 +58,9 @@ export function findTilePath(query: PathQuery): PathResult {
   const minTx = Math.min(startTx - 1, Math.max(Math.floor((startTx + goalTx) * 0.5) - radius, startTx - side + 2));
   const minTy = Math.min(startTy - 1, Math.max(Math.floor((startTy + goalTy) * 0.5) - radius, startTy - side + 2));
   const props = collectBlockingProps(query.cache, { sx: startTx + 0.5, sy: startTy + 0.5, gx: goalTx + 0.5, gy: goalTy + 0.5 });
+  const propGrid = rasterizePropCosts({ props, agentRadius: query.agentRadius ?? 0.36, minTx, minTy, side, startTx, startTy, goalTx, goalTy });
   const grid: SearchGrid = {
-    cache: query.cache, props, agentRadius: query.agentRadius ?? 0.36,
-    minTx, minTy, side, startTx, startTy, goalTx, goalTy,
+    cache: query.cache, propGrid, minTx, minTy, side, startTx, startTy, goalTx, goalTy,
     cells: new Array<CellSample | undefined>(side * side),
   };
   return runAStarSearch(grid, query.maxNodes ?? DEFAULT_MAX_NODES);
@@ -92,39 +89,16 @@ function sampleCell(grid: SearchGrid, lx: number, ly: number): CellSample {
   const idx = ly * grid.side + lx;
   const cached = grid.cells[idx];
   if (cached) return cached;
-  const tx = grid.minTx + lx; const ty = grid.minTy + ly;
-  const tile = grid.cache.tileAt(tx, ty);
-  const propPenalty = evaluatePropCost(grid, tx, ty);
+  const tile = grid.cache.tileAt(grid.minTx + lx, grid.minTy + ly);
+  const propRaw = grid.propGrid[idx] ?? 0;
   const sample: CellSample = {
-    blocked: propPenalty < 0, elevation: tile.elevation, stairs: tile.stairs,
-    extraCost: Math.max(0, propPenalty) + extraWaterPenalty(tile.ground),
+    blocked: propRaw < 0,
+    elevation: tile.elevation,
+    stairs: tile.stairs,
+    extraCost: (propRaw > 0 ? 1.35 : 0) + extraWaterPenalty(tile.ground),
   };
   grid.cells[idx] = sample;
   return sample;
-}
-
-function singlePropPenalty(q: {
-  readonly cx: number; readonly cy: number; readonly p: BlockingObstacle;
-  readonly isGoal: boolean; readonly hardThresh: number; readonly softThresh: number;
-}): number {
-  const core = closestObstacleCorePoint(q.p, { x: q.cx, y: q.cy });
-  const d = Math.hypot(q.cx - core.x, q.cy - core.y);
-  if (!q.isGoal && d < q.p.radius + q.hardThresh) return -1;
-  return d < q.p.radius + q.softThresh ? 1.35 : 0;
-}
-
-function evaluatePropCost(grid: SearchGrid, tx: number, ty: number): number {
-  if (tx === grid.startTx && ty === grid.startTy) return 0;
-  const isGoal = tx === grid.goalTx && ty === grid.goalTy;
-  const hardThresh = Math.min(grid.agentRadius, PROP_HARD_PAD);
-  const softThresh = grid.agentRadius + PROP_SOFT_PAD;
-  let penalty = 0;
-  for (const p of grid.props) {
-    const pen = singlePropPenalty({ cx: tx + 0.5, cy: ty + 0.5, p, isGoal, hardThresh, softThresh });
-    if (pen < 0) return -1;
-    penalty = Math.max(penalty, pen);
-  }
-  return penalty;
 }
 
 function cardinalElevationPenalty(from: CellSample, to: CellSample, allowJump: boolean): number | null {

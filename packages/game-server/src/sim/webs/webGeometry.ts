@@ -1,6 +1,6 @@
 /** Pure geometric helpers, solid prop anchor lookup, and sector hit checks for dynamic cloth webs. */
 import { PROP_SPECS } from "@dc2d/content";
-import { WorldChunkCache, isWithinSector } from "@dc2d/engine";
+import { PropKind, WorldChunkCache, isWithinSector } from "@dc2d/engine";
 
 export interface WebNode {
   readonly id: number;
@@ -20,6 +20,14 @@ export interface WebStrand {
   readonly b: WebNode;
   readonly restLen: number;
   fire: number;
+  nearStaticHeat?: boolean | undefined;
+  staticHeatRev?: number | undefined;
+}
+
+const HEAT_PROPS = new Set<PropKind>([PropKind.Campfire, PropKind.Torch, PropKind.BrazierLit, PropKind.RunicForge]);
+
+export function isHeatPropNear(pr: { readonly kind: PropKind; readonly x: number; readonly y: number }, x: number, y: number): boolean {
+  return HEAT_PROPS.has(pr.kind) && Math.hypot(pr.x - x, pr.y - y) <= 2.4;
 }
 
 export function pickWebAnchor(cache: WorldChunkCache, wx: number, wy: number): { readonly x: number; readonly y: number } {

@@ -52,6 +52,17 @@ function sweepDeadClients(clients: Map<WebSocket, ClientSession>): void {
   }
 }
 
+function createBoundWss(httpServer: ReturnType<typeof createServer>, limiter: IpConnectionLimiter): WebSocketServer {
+  return new WebSocketServer({
+    server: httpServer, maxPayload: MAX_WS_PAYLOAD_BYTES, perMessageDeflate: false,
+    verifyClient: (info, cb) => {
+      const ip = extractClientIp(info.req);
+      if (!isAllowedWsOrigin(info.origin)) { cb(false, 403, "Forbidden origin"); return; }
+      cb(limiter.canAccept(ip), 429, "Too many connections");
+    },
+  });
+}
+
 export async function startGameServer(
   options: { readonly port?: number; readonly worldSeed?: number; readonly savePath?: string | undefined; readonly adminAuth?: AdminAuthConfig | undefined } = {},
 ): Promise<RunningGameServer> {
@@ -60,14 +71,7 @@ export async function startGameServer(
   const sim = new WorldSim(worldSeed, { persistencePath: savePath });
   const httpServer = createServer(handleHealthRequest);
   const limiter = new IpConnectionLimiter();
-  const wss = new WebSocketServer({
-    server: httpServer, maxPayload: MAX_WS_PAYLOAD_BYTES, perMessageDeflate: false,
-    verifyClient: (info, cb) => {
-      const ip = extractClientIp(info.req);
-      if (!isAllowedWsOrigin(info.origin)) { cb(false, 403, "Forbidden origin"); return; }
-      cb(limiter.canAccept(ip), 429, "Too many connections");
-    },
-  });
+  const wss = createBoundWss(httpServer, limiter);
   const clients = new Map<WebSocket, ClientSession>();
   wss.on("connection", (ws, req) => {
     const ip = extractClientIp(req);
@@ -83,7 +87,13 @@ export async function startGameServer(
   console.log(`[game-server] listening on http://${host}:${actualPort}`);
   return {
     port: actualPort,
-    close: () => new Promise((resolve) => { clearInterval(timer); clearInterval(heartbeat); sim.savePersistenceNow(); wss.close(() => httpServer.close(() => resolve())); }),
+    close: () => new Promise((resolve) => {
+      clearInterval(timer);
+      clearInterval(heartbeat);
+      sim.savePersistenceNow();
+      sim.closePersistence();
+      wss.close(() => httpServer.close(() => resolve()));
+    }),
   };
 }
 
@@ -98,8 +108,15 @@ function dispatchSessionMessage(opts: {
   readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim; readonly authConfig: AdminAuthConfig;
 }): void {
   opts.session.alive = true;
-  if ("seq" in opts.msg && opts.msg.t !== "input") opts.sim.ackActionSeq(opts.session.playerId, opts.msg.seq);
-  buildMessageHandlers(opts)[opts.msg.t]();
+  if (opts.msg.t === "admin" && opts.msg.action === "auth") {
+    buildMessageHandlers(opts).admin();
+    return;
+  }
+  opts.sim.enqueueCommand(() => {
+    if (!opts.sim.getPlayer(opts.session.playerId)) return;
+    if ("seq" in opts.msg && opts.msg.t !== "input") opts.sim.ackActionSeq(opts.session.playerId, opts.msg.seq);
+    buildMessageHandlers(opts)[opts.msg.t]();
+  });
 }
 
 export function attachClient(ctx: {

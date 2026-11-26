@@ -33,6 +33,9 @@ export class AudioEngine {
     for (const evt of UNLOCK_EVENTS) {
       window.addEventListener(evt, this.handleUnlock, { capture: true, passive: true });
     }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => this.syncPlaybackState());
+    }
   }
 
   getPrefs(): AudioPrefs { return this.prefs; }
@@ -42,6 +45,7 @@ export class AudioEngine {
     this.prefs = next;
     saveAudioPrefs(next);
     this.syncGains();
+    this.syncPlaybackState();
   }
 
   playUi(kind: "click" | "equip" | "craft" | "open" | "discover"): void {
@@ -75,6 +79,7 @@ export class AudioEngine {
     readonly campfireDist: number;
     readonly waterDist: number;
   }): void {
+    if (this.shouldSuspendAudio()) return;
     this.tension = Math.max(0, this.tension - input.dt * 0.25);
     if (!this.ctx || !this.musicGain || !this.sfxGain) return;
     this.bed.update({
@@ -230,6 +235,22 @@ export class AudioEngine {
         this.syncGains();
         if (this.ctx?.state === "running") this.detachUnlockListeners();
       }).catch(() => {});
+    }
+  }
+
+  private shouldSuspendAudio(): boolean {
+    const hidden = typeof document !== "undefined" && document.hidden;
+    return this.prefs.muted || hidden;
+  }
+
+  private syncPlaybackState(): void {
+    if (!this.ctx) return;
+    if (this.shouldSuspendAudio()) {
+      if (this.ctx.state === "running") void this.ctx.suspend().catch(() => {});
+      return;
+    }
+    if (this.ctx.state === "suspended" && !this.unlockListenersAttached) {
+      void this.ctx.resume().catch(() => {});
     }
   }
 

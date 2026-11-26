@@ -46,11 +46,20 @@ function isIpLocked(ip: string | undefined, nowMs: number): boolean {
   return true;
 }
 
+function evictOverflowLockouts(): void {
+  while (ipFailureState.size >= 2048) {
+    const oldest = ipFailureState.keys().next().value;
+    if (oldest === undefined) break;
+    ipFailureState.delete(oldest);
+  }
+}
+
 function pruneExpiredLockouts(nowMs: number): void {
   if (ipFailureState.size <= 1024) return;
   for (const [k, v] of ipFailureState) {
     if (v.lockedUntilMs > 0 && v.lockedUntilMs <= nowMs) ipFailureState.delete(k);
   }
+  evictOverflowLockouts();
 }
 
 function recordIpFailure(ip: string | undefined, nowMs: number): void {

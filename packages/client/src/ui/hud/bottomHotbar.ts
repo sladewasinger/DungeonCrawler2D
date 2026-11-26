@@ -2,7 +2,7 @@
 import { HOTBAR_SLOT_COUNT, type InventorySlot, type InventorySnapshot } from "@dc2d/engine";
 import { parseStaticSvg } from "../dom/staticSvg.js";
 import { makeMapUiIconUrl } from "../icons/itemIcons.js";
-import type { SlotDragManager } from "./slotDragManager.js";
+import type { SlotDragManager } from "./inventory/slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_BTN = "button";

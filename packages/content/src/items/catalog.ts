@@ -3,9 +3,9 @@ import type {
   ArmorSlot, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemPerkKind,
   ItemRarity, ItemWeaponArchetype, PlaceableStructureKind,
 } from "@dc2d/contracts";
-import { FRONTIER_ARMOR } from "./frontierArmor.js";
-import { FRONTIER_MATERIALS } from "./frontierMaterials.js";
-import { FRONTIER_WEAPONS } from "./frontierWeapons.js";
+import { TIER_ARMOR } from "./tierArmor.js";
+import { TIER_MATERIALS } from "./tierMaterials.js";
+import { TIER_WEAPONS } from "./tierWeapons.js";
 
 export type { ArmorSlot, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemWeaponArchetype, PlaceableStructureKind };
 
@@ -166,7 +166,7 @@ const BASE_ITEMS: readonly ItemDef[] = [
   { id: "herb", name: "Forest Herb", category: CAT_MATERIAL, maxStack: STACK_LIMIT, rarity: "uncommon", description: "Aromatic wildflower sprig used in bandages, teas, and elixirs." },
 ];
 
-export const ITEM_CATALOG: readonly ItemDef[] = [...BASE_ITEMS, ...FRONTIER_WEAPONS, ...FRONTIER_ARMOR, ...FRONTIER_MATERIALS];
+export const ITEM_CATALOG: readonly ItemDef[] = [...BASE_ITEMS, ...TIER_WEAPONS, ...TIER_ARMOR, ...TIER_MATERIALS];
 
 export const STARTER_LOADOUT: readonly StarterLoadoutEntry[] = [{ slot: 0, itemId: "wooden-spear", count: 1 }];
 export type BlockMode = "none" | "shield" | "twoHanded";

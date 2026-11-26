@@ -64,4 +64,9 @@ export class EliteVisuals {
     }
     this.label.position.set(0, this.topY - 7);
   }
+
+  dispose(): void {
+    this.aura.destroy();
+    this.label.destroy();
+  }
 }

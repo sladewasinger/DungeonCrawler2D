@@ -9,7 +9,7 @@ import {
   PLAYER_WATERLINE, SUBMERGED_BODY_ALPHA, SUBMERGED_BODY_TINT, computePoseFrameIdx, createWaterSubmergeRig, gearLayoutFor,
   resolvePlayerFacing, resolvePoseSnapshot, resolvePoseTrack, syncBowAimGuide, syncSubmergedSprite, syncWaterSubmergeState,
   type ActivePose,
-} from "./playerPoseHelpers.js";
+} from "./player/playerPoseHelpers.js";
 
 function makeTestSnap(overrides?: Partial<PlayerSnapshot>): PlayerSnapshot {
   return {

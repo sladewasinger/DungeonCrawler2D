@@ -26,8 +26,9 @@ import { ResourceHarvester } from "./survival/resourceHarvester.js";
 import { WorldWebNetwork } from "./webs/webNetwork.js";
 import { stepPlayerWebAndCocoonTimers } from "./webs/webCocoon.js";
 import { type WildlifeEntity } from "./wildlife/creatureSpecs.js";
-import { DiscoveryTracker } from "./frontier/discoveryTracker.js";
-import { PoiInteractionManager, tryExecutePlayerDodge } from "./frontier/poiInteractions.js";
+import { tryExecutePlayerDodge } from "./combat/dodgeRoll.js";
+import { DiscoveryTracker } from "./exploration/discoveryTracker.js";
+import { PoiInteractionManager } from "./exploration/poiInteractions.js";
 import {
   createPebbleProjectile, createWebProjectile, serializeProjectiles, stepProjectileList, type SimProjectile,
 } from "./wildlife/projectileSim.js";
@@ -243,8 +244,8 @@ export class CombatWorld {
 
   moveMultiplier(p: CombatPlayerRef): number { return computePlayerMoveMultiplier(p); }
   pushEvent(ev: WorldEvent): void { this.events.push(ev); }
-  snapshots() {
-    const eco = this.ecology.snapshots(); const webs = this.webs.snapshot();
+  snapshots(redactUnopened = false) {
+    const eco = this.ecology.snapshots(redactUnopened); const webs = this.webs.snapshot();
     return { entities: [...serializeDummies(this.dummies), ...eco.entities], projectiles: serializeProjectiles(this.projectiles), chests: eco.chests, groundLoot: eco.groundLoot, ...(webs ? { webs } : {}) };
   }
   drainEvents(): WorldEvent[] { const out = this.events; this.events = []; return out; }

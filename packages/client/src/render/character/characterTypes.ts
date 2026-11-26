@@ -96,7 +96,7 @@ export interface CharacterSpriteSet {
   readonly is3d?: boolean;
   readonly hasSecondaryTracks?: boolean;
   readonly ensureSecondary?: () => void;
-  readonly previewUrl: string;
+  readonly previewUrl?: string;
 }
 
 export interface CharacterMetrics {

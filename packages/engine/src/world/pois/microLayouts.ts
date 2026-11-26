@@ -1,8 +1,8 @@
-/** Compact micro-scene POI layouts scattered throughout the frontier. */
+/** Compact micro-scene POI layouts scattered across overworld biomes. */
 import { PropKind } from "../types.js";
-import type { FrontierPoiLayoutSpec } from "./shrineLayouts.js";
+import type { BiomePoiLayoutSpec } from "./shrineLayouts.js";
 
-export const MICRO_SCENE_LAYOUTS: Readonly<Record<string, FrontierPoiLayoutSpec>> = {
+export const MICRO_SCENE_LAYOUTS: Readonly<Record<string, BiomePoiLayoutSpec>> = {
   "fallen-knight-grave": {
     kind: "fallen-knight-grave", radiusX: 2, radiusY: 2, floor: "moss", chestOffset: [1.1, 0.2], guards: ["skeleton"],
     props: [

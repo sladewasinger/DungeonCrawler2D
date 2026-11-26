@@ -5,7 +5,6 @@ import { createPixelCanvas } from "../../textures/pixelCanvas.js";
 import { getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, resolvePortraitCell, type PlayerRigMeta } from "../playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "../playerRecolor.js";
 import { drawRecoloredCell, type StyledLayerEntry } from "./armorLayerRecolor.js";
-import { CORE_CLIP_NAMES, findSlotInPlan, type PackedTierAtlas } from "./playerAtlasPacker.js";
 
 const BODY_FEMALE = "female";
 
@@ -134,20 +133,4 @@ export function build3dCharacterPortraitUrl(
   portraitCropScratch = acquireScratch(portraitCropScratch, crop.cw, crop.ch);
   portraitCropScratch.ctx.drawImage(portraitCellScratch.canvas, crop.localX, crop.localY, crop.cw, crop.ch, 0, 0, crop.cw, crop.ch);
   return portraitCropScratch.canvas.toDataURL();
-}
-
-export function extractPortraitUrlFromCore(opts: {
-  readonly coreCanvas: HTMLCanvasElement; readonly meta: PlayerRigMeta;
-  readonly corePlan: PackedTierAtlas; readonly appearance: CharacterAppearance; readonly armor: ArmorEquipment;
-}): string {
-  const seIdx = opts.meta.directions.indexOf("se");
-  const slot = seIdx >= 0 ? findSlotInPlan(opts.corePlan, { clip: CORE_CLIP_NAMES[0], dirIdx: seIdx, col: 0 }) : null;
-  if (!slot) return build3dCharacterPortraitUrl(opts.appearance, opts.armor) ?? "";
-  const crop = computePortraitCropRect(opts.meta);
-  const { canvas, ctx } = createPixelCanvas(crop.cw, crop.ch);
-  ctx.drawImage(
-    opts.coreCanvas, slot.dstX, slot.dstY, slot.w, slot.h,
-    slot.trimX - crop.localX, slot.trimY - crop.localY, slot.w, slot.h,
-  );
-  return canvas.toDataURL();
 }

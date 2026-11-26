@@ -6,7 +6,7 @@ import {
 import { Container, Graphics, Text } from "pixi.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { MELEE_SWING_TUNING, type SmearSpec } from "./combatVisualTuning.js";
-import { drawUnifiedArrowGraphic } from "./lootViewHelpers.js";
+import { drawUnifiedArrowGraphic } from "./pickups/lootViewHelpers.js";
 import { resolveFeedbackEventCue } from "./weapons/combatFeedbackSpecs.js";
 import { drawImpactClash, drawWeaponSmear, resolveWeaponSmearSpec } from "./weapons/weaponSmearDraw.js";
 

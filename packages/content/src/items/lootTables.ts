@@ -1,6 +1,6 @@
 /** Deterministic seeded loot table rollers for overworld chests, POI vaults, and enemy drops. */
 import type { BiomeKind, DangerTier, ItemRarity } from "@dc2d/contracts";
-import { getItemDef, maxStackForItem } from "./catalog.js";
+import { getItemDef, ITEM_CATALOG, maxStackForItem, type ItemDef } from "./catalog.js";
 import { eligiblePrefixesForItem } from "./prefixes.js";
 
 export interface RolledLootEntry {
@@ -23,13 +23,20 @@ const BIOME_MATERIALS: Readonly<Record<BiomeKind, readonly string[]>> = {
   "cursed-ruinlands": ["shadow-shard", "ancient-core", "iron-ingot", "sunstone"],
 };
 
-const GEAR_BY_RARITY: Readonly<Record<ItemRarity, readonly string[]>> = {
-  common: ["sword", "flint-dagger", "wooden-spear", "bow", "axe", "pickaxe", "wooden-shield", "leather-hood", "leather-tunic", "leather-leggings", "leather-boots"],
-  uncommon: ["copper-sword", "copper-spear", "copper-axe", "copper-pickaxe", "bandit-cutlass", "bog-dagger", "reinforced-shield", "moss-stalker-hood", "moss-stalker-tunic", "moss-stalker-leggings", "moss-stalker-boots"],
-  rare: ["iron-greatsword", "amber-recurve-bow", "frost-hatchet", "golem-maul", "runic-buckler", "autumn-ranger-hood", "autumn-ranger-tunic", "autumn-ranger-leggings", "autumn-ranger-boots", "iron-knight-helm", "iron-knight-cuirass", "iron-knight-greaves", "iron-knight-sabatons"],
-  epic: ["shadowfang-spear", "venom-fang-blade", "aegis-tower-shield", "shadowsteel-cowl", "shadowsteel-coat", "shadowsteel-legguards", "shadowsteel-boots"],
-  legendary: ["sunforged-greatsword", "bloodmoon-scythe", "whisperwind-bow"],
-};
+function isLootableGearDef(def: ItemDef): boolean {
+  return def.category === "weapon" || def.category === "armor" || (def.category === "tool" && !def.placeStructure);
+}
+
+function buildGearByRarity(catalog: readonly ItemDef[]): Readonly<Record<ItemRarity, readonly string[]>> {
+  const buckets: Record<ItemRarity, string[]> = { common: [], uncommon: [], rare: [], epic: [], legendary: [] };
+  for (const def of catalog) {
+    if (!isLootableGearDef(def)) continue;
+    buckets[def.rarity ?? "common"].push(def.id);
+  }
+  return buckets;
+}
+
+const GEAR_BY_RARITY: Readonly<Record<ItemRarity, readonly string[]>> = buildGearByRarity(ITEM_CATALOG);
 
 const TIER_WEIGHTS: Readonly<Record<DangerTier, readonly [ItemRarity, number][]>> = {
   1: [["common", 0.90], ["uncommon", 0.10]],

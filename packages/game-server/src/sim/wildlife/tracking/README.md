@@ -1,4 +1,5 @@
 # Wildlife Tracking & Structured Search (`packages/game-server/src/sim/wildlife/tracking`)
 
+- **`scentTrail.ts`**: Sequential per-player scent-crumb ribbon (`seq`-ordered, ambient body-odor crumbs when still, deep-water washout, shallow-water dilution/decay, and campfire smoke masking).
 - **`searchTracking.ts`**: Walkable clue snapping (`snapToClearClue`), pursuit vanish-point momentum projection (`projectPursuitMomentum`), 3-phase investigation state machine (`move_to_clue` -> stationary `scan` head-sweep -> `search_area`) eliminating rock/noise spin loops, monotonic animal-only scent trail following (`tryFollowAnimalScent`), one-time `15s` cold-trail wandering search with narrow-river bank crossing (`findAcrossWaterBank`), and hungry passive trail discovery (`tryHungryPassiveScentWhiff`).
 - **`pursuitLoss.ts`**: Short LOS grace (`losGraceSec`), pursuit target velocity tracking (`recordTargetPursuitState`), transition from active combat chase into projected search, and hearing-based search redirection (`redirectSearchByHearing`).

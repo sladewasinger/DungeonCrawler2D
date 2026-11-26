@@ -56,9 +56,10 @@ function slotItemFp(item: SlotItem | null): string {
   return item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
 }
 
-function applyPopoverPosition(el: HTMLElement, rect: DOMRect | null, cardH: number): void {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+function applyPopoverPosition(el: HTMLElement, opts: {
+  readonly rect: DOMRect | null; readonly cardH: number; readonly vw: number; readonly vh: number;
+}): void {
+  const { rect, cardH, vw, vh } = opts;
   if (!rect || vw < 680) {
     el.dataset.anchored = "false"; el.style.left = "50%"; el.style.top = "50%";
     return;
@@ -81,6 +82,8 @@ export class ItemCardPopover {
   private hoverTimer: number | null = null;
   private hoverReady = false;
   private lastRenderKey = "";
+  private viewportW = typeof window !== "undefined" ? window.innerWidth : 1280;
+  private viewportH = typeof window !== "undefined" ? window.innerHeight : 720;
 
   constructor(host: HTMLElement, private readonly actions: HudActions) {
     ensureItemCardStyles();
@@ -88,6 +91,7 @@ export class ItemCardPopover {
     this.el.hidden = true;
     this.el.addEventListener("pointerdown", (e) => e.stopPropagation());
     host.append(this.el);
+    window.addEventListener("resize", () => { this.viewportW = window.innerWidth; this.viewportH = window.innerHeight; });
     window.addEventListener("pointerdown", (e) => {
       if (this.pinnedSource && !(e.target as HTMLElement | null)?.closest(".ow-item-card")) this.close();
     });
@@ -157,7 +161,8 @@ export class ItemCardPopover {
     this.el.dataset.mode = target.mode;
     this.renderCard({ mode: target.mode, source: target.source, item: target.item, inv, chest });
     this.el.hidden = false;
-    applyPopoverPosition(this.el, target.anchor, this.el.offsetHeight || 260);
+    const cardH = this.el.offsetHeight || 260;
+    applyPopoverPosition(this.el, { rect: target.anchor, cardH, vw: this.viewportW, vh: this.viewportH });
   }
 
   private renderCard(opts: {
