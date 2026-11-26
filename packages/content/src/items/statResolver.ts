@@ -36,10 +36,10 @@ const EMPTY_DEF: Partial<ItemDef> = {};
 const EMPTY_PREF: Partial<ItemPrefixDef> = {};
 
 function collectPerks(d: Partial<ItemDef>, p: Partial<ItemPrefixDef>): readonly { readonly kind: ItemPerkKind; readonly value: number }[] {
-  const out: { readonly kind: ItemPerkKind; readonly value: number }[] = [];
-  if (d.perk) out.push({ kind: d.perk, value: d.perkValue || 1 });
-  if (p.perk && p.perk !== d.perk) out.push({ kind: p.perk, value: p.perkValue || 1 });
-  return out;
+  const byKind = new Map<ItemPerkKind, number>();
+  if (d.perk) byKind.set(d.perk, d.perkValue || 1);
+  if (p.perk) byKind.set(p.perk, Math.max(byKind.get(p.perk) ?? 0, p.perkValue || 1));
+  return Array.from(byKind, ([kind, value]) => ({ kind, value }));
 }
 
 function resolveCombatNumbers(d: Partial<ItemDef>, p: Partial<ItemPrefixDef>) {

@@ -25,11 +25,7 @@ export const CharacterAppearanceSchema = z.object({
   hairColor: HairColorIdSchema,
 });
 
-export type BodyStyle = z.infer<typeof BodyStyleSchema>;
-export type SkinToneId = z.infer<typeof SkinToneIdSchema>;
-export type EyeColorId = z.infer<typeof EyeColorIdSchema>;
 export type HairStyleId = z.infer<typeof HairStyleIdSchema>;
-export type HairColorId = z.infer<typeof HairColorIdSchema>;
 export type CharacterAppearance = z.infer<typeof CharacterAppearanceSchema>;
 
 const LEGACY_BODY_MAP: Readonly<Record<string, (typeof BODY_STYLES)[number]>> = {

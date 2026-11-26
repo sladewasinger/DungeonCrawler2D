@@ -1,5 +1,5 @@
 /** Player survival buff progression (Well-Fed & hearth-warmed Rested), stealth/snapshot helpers, and persistence hydration. */
-import { COMBAT_TUNING, SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, sanitizeCharacterAppearance, type PlayerBubble, type PlayerSnapshot } from "@dc2d/engine";
+import { COMBAT_TUNING, SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, sanitizeCharacterAppearance, type PlayerBubble, type PlayerSnapshot, type WorldChunkCache } from "@dc2d/engine";
 import { resolvePlayerGear } from "../combat/gearEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { playerCombatExtras } from "../combatSim.js";
@@ -57,28 +57,55 @@ export function applySavedPlayerRecord(p: CombatPlayerRef & { x: number; y: numb
   p.combat.restedTimer = rec.restedTimer ?? 0;
 }
 
+export interface PersistablePlayerInput {
+  readonly id: string;
+  readonly accountId: string;
+  readonly tokenHash?: string | undefined;
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly elevation: number;
+  readonly appearance: PersistedPlayerRecord["appearance"];
+  readonly inventory: PersistedPlayerRecord["inventory"];
+  readonly combat: CombatPlayerRef["combat"];
+}
+
+export function toPersistedPlayerRecord(opts: {
+  readonly p: PersistablePlayerInput;
+  readonly normalizeName: (name: string) => string;
+  readonly discovery?: PersistedPlayerRecord["discovery"];
+}): PersistedPlayerRecord {
+  const { p } = opts;
+  return {
+    ownerKey: opts.normalizeName(p.name),
+    accountId: p.accountId,
+    ...(p.tokenHash ? { tokenHash: p.tokenHash } : {}),
+    x: p.x, y: p.y, elevation: p.elevation,
+    appearance: p.appearance,
+    inventory: cloneInventoryState(p.inventory),
+    wellFedTimer: p.combat.wellFedTimer,
+    restedTimer: p.combat.restedTimer,
+    ...(opts.discovery ? { discovery: opts.discovery } : {}),
+  };
+}
+
 export function buildPersistedPlayerList(opts: {
-  readonly activePlayers: Iterable<{ readonly id: string; readonly name: string; readonly x: number; readonly y: number; readonly elevation: number; readonly appearance: PersistedPlayerRecord["appearance"]; readonly inventory: PersistedPlayerRecord["inventory"]; readonly combat: CombatPlayerRef["combat"] }>;
+  readonly activePlayers: Iterable<PersistablePlayerInput>;
   readonly savedProfiles: Map<string, PersistedPlayerRecord>;
   readonly normalizeName: (name: string) => string;
   readonly discoveryFor?: ((playerId: string) => PersistedPlayerRecord["discovery"]) | undefined;
 }): readonly PersistedPlayerRecord[] {
   for (const p of opts.activePlayers) {
-    const key = opts.normalizeName(p.name);
-    const discovery = opts.discoveryFor?.(p.id);
-    opts.savedProfiles.set(key, {
-      ownerKey: key, x: p.x, y: p.y, elevation: p.elevation,
-      appearance: p.appearance, inventory: cloneInventoryState(p.inventory),
-      wellFedTimer: p.combat.wellFedTimer, restedTimer: p.combat.restedTimer,
-      ...(discovery ? { discovery } : {}),
-    });
+    opts.savedProfiles.set(p.accountId, toPersistedPlayerRecord({
+      p, normalizeName: opts.normalizeName, discovery: opts.discoveryFor?.(p.id),
+    }));
   }
   return Array.from(opts.savedProfiles.values());
 }
 
 export function indexSavedPlayers(file: PersistedWorldFile): Map<string, PersistedPlayerRecord> {
   const map = new Map<string, PersistedPlayerRecord>();
-  for (const p of file.players) map.set(p.ownerKey, p);
+  for (const p of file.players) map.set(p.accountId ?? p.ownerKey, p);
   return map;
 }
 
@@ -111,7 +138,7 @@ export function buildPlayerSnapshotRecord(
     readonly attackFlashTimer: number; readonly torchLit: boolean; readonly inWater: boolean;
     readonly inDeepWater: boolean; readonly lastAckSeq: number;
   },
-  extra: { readonly hasBedRespawn: boolean; readonly bubble: PlayerBubble | undefined },
+  extra: { readonly hasBedRespawn: boolean; readonly bubble: PlayerBubble | undefined; readonly cache?: WorldChunkCache | undefined },
 ): PlayerSnapshot {
   return {
     id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
@@ -119,6 +146,6 @@ export function buildPlayerSnapshotRecord(
     stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0, torchLit: p.torchLit,
     inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq, heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null,
     appearance: p.appearance, armor: { ...p.inventory.armor }, hasBedRespawn: extra.hasBedRespawn,
-    ...(extra.bubble ? { activeBubble: extra.bubble } : {}), ...playerCombatExtras(p),
+    ...(extra.bubble ? { activeBubble: extra.bubble } : {}), ...playerCombatExtras(p, extra.cache),
   };
 }

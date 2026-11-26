@@ -1,8 +1,9 @@
 /** Unit tests for deterministic 3.5x 5-biome macro sampling and 5-tier distance progression. */
 import { describe, expect, it } from "vitest";
-import { SPAWN_SAFE_BIOME_RADIUS, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./macroBiome.js";
+import { SPAWN_SAFE_BIOME_RADIUS, biomeBaseDangerTier, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./macroBiome.js";
 
 const BIOME_VERDANT = "verdant-forest";
+const BIOME_HIGHLANDS = "craggy-highlands";
 
 describe("macroBiome sampling & 5-tier distance scaling", () => {
   it("keeps the sheltered starter valley inside r < SPAWN_SAFE_BIOME_RADIUS as verdant-forest Tier 1", () => {
@@ -23,14 +24,15 @@ describe("macroBiome sampling & 5-tier distance scaling", () => {
     expect(found.has(BIOME_VERDANT)).toBe(true);
     expect(found.has("autumn-woods")).toBe(true);
     expect(found.has("misty-bog")).toBe(true);
-    expect(found.has("craggy-highlands")).toBe(true);
+    expect(found.has(BIOME_HIGHLANDS)).toBe(true);
     expect(found.has("cursed-ruinlands")).toBe(true);
   });
 
   it("escalates danger tiers strictly by distance milestones (1000 / 2000 / 3500 / 6000)", () => {
     expect(distanceDangerTier(0, 0)).toBe(1);
     expect(distanceDangerTier(999, 0)).toBe(1);
-    expect(computeDangerTier("autumn-woods", 350, 0)).toBe(1);
+    expect(computeDangerTier("autumn-woods", 350, 0)).toBe(2);
+    expect(computeDangerTier(BIOME_VERDANT, 350, 0)).toBe(1);
     expect(distanceDangerTier(1000, 0)).toBe(2);
     expect(distanceDangerTier(1999, 0)).toBe(2);
     expect(distanceDangerTier(2000, 0)).toBe(3);
@@ -39,5 +41,6 @@ describe("macroBiome sampling & 5-tier distance scaling", () => {
     expect(distanceDangerTier(5999, 0)).toBe(4);
     expect(distanceDangerTier(6000, 0)).toBe(5);
     expect(computeDangerTier("cursed-ruinlands", 6100, 0)).toBe(5);
+    expect(computeDangerTier(BIOME_HIGHLANDS, 350, 0)).toBeGreaterThanOrEqual(biomeBaseDangerTier(BIOME_HIGHLANDS));
   });
 });

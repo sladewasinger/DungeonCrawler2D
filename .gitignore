@@ -43,3 +43,9 @@ infra/tfplan
 __pycache__/
 *.pyc
 *.blend1
+
+# Verification & E2E artifacts
+artifacts/qa/
+playwright-report/
+test-results/
+.verify-reports/

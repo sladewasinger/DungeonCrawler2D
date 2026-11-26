@@ -17,15 +17,28 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npx vitest run --reporter=default --reporter=json --outputFile=.verify-reports/vitest.json
+      - run: npm run verify:content
       - run: npm run build
+      - run: npm run verify:e2e
+      - run: npm run verify:spec -- all-completed
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: qa-verification-artifacts
+          path: |
+            artifacts/qa/
+            .verify-reports/
+          if-no-files-found: ignore

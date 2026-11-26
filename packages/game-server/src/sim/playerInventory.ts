@@ -36,15 +36,23 @@ export function createStarterInventory(): PlayerInventoryState {
   return state;
 }
 
-export function isPlayerNearCampfire(cache: WorldChunkCache, x: number, y: number): boolean {
+function isNearPropKind(opts: { readonly cache: WorldChunkCache; readonly x: number; readonly y: number; readonly kind: PropKind }): boolean {
   const maxDistSq = CAMPFIRE_CRAFT_RADIUS * CAMPFIRE_CRAFT_RADIUS;
-  for (const prop of cache.propsNear(x, y)) {
-    if (prop.kind !== PropKind.Campfire) continue;
-    const dx = prop.x - x;
-    const dy = prop.y - y;
+  for (const prop of opts.cache.propsNear(opts.x, opts.y)) {
+    if (prop.kind !== opts.kind) continue;
+    const dx = prop.x - opts.x;
+    const dy = prop.y - opts.y;
     if (dx * dx + dy * dy <= maxDistSq) return true;
   }
   return false;
+}
+
+export function isPlayerNearCampfire(cache: WorldChunkCache, x: number, y: number): boolean {
+  return isNearPropKind({ cache, x, y, kind: PropKind.Campfire });
+}
+
+export function isPlayerNearWorkbench(cache: WorldChunkCache, x: number, y: number): boolean {
+  return isNearPropKind({ cache, x, y, kind: PropKind.Workbench });
 }
 
 export function movePlayerInventorySlot(
@@ -70,11 +78,11 @@ export function unequipPlayerArmor(
 
 export function craftPlayerRecipe(
   state: PlayerInventoryState,
-  req: { readonly recipeId: string; readonly nearCampfire: boolean },
+  req: { readonly recipeId: string; readonly nearCampfire: boolean; readonly nearWorkbench?: boolean | undefined },
 ): PlayerInventoryState | null {
   const recipe = getRecipeDef(req.recipeId);
   if (!recipe) return null;
-  return craftRecipeInState(state, { recipe, nearCampfire: req.nearCampfire, maxStackFor: maxStackForItem });
+  return craftRecipeInState(state, { recipe, nearCampfire: req.nearCampfire, nearWorkbench: req.nearWorkbench, maxStackFor: maxStackForItem });
 }
 
 function takeDroppedInvItem(
@@ -122,6 +130,7 @@ export function buildInventorySnapshot(input: {
   readonly state: PlayerInventoryState;
   readonly selectedHotbar: number;
   readonly nearCampfire: boolean;
+  readonly nearWorkbench?: boolean | undefined;
   readonly ackSeq?: number | undefined;
 }): InventorySnapshot {
   const cloned = cloneInventoryState(input.state);
@@ -131,6 +140,7 @@ export function buildInventorySnapshot(input: {
     ...(cloned.armorPrefixes ? { armorPrefixes: cloned.armorPrefixes } : {}),
     selectedHotbar: input.selectedHotbar,
     nearCampfire: input.nearCampfire,
+    nearWorkbench: Boolean(input.nearWorkbench),
     ...(input.ackSeq !== undefined ? { ackSeq: input.ackSeq } : {}),
   };
 }

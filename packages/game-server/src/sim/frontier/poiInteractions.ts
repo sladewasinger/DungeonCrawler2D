@@ -67,14 +67,19 @@ export class PoiInteractionManager {
     return true;
   }
 
+  private pruneExpiredCooldowns(simTimeSec: number): void {
+    if (this.shrineCooldowns.size <= 64) return;
+    for (const [k, t] of this.shrineCooldowns) if (t <= simTimeSec) this.shrineCooldowns.delete(k);
+  }
+
   private activateShrine(opts: {
     readonly player: CombatPlayerRef; readonly poi: ChunkPoi; readonly simTimeSec: number; readonly events: WorldEvent[];
   }): boolean {
     const kind = opts.poi.shrineKind;
     if (!kind || kind === "waystone") return false;
-    const key = `${opts.player.id}:${opts.poi.id}`;
-    const readyAt = this.shrineCooldowns.get(key) ?? 0;
-    if (opts.simTimeSec < readyAt) return false;
+    this.pruneExpiredCooldowns(opts.simTimeSec);
+    const key = `${opts.player.accountId ?? opts.player.id}:${opts.poi.id}`;
+    if (opts.simTimeSec < (this.shrineCooldowns.get(key) ?? 0)) return false;
     this.shrineCooldowns.set(key, opts.simTimeSec + SHRINE_COOLDOWN_SEC);
     if (kind === "vigor") opts.player.combat.hp = opts.player.combat.maxHp;
     opts.player.combat.buffKind = kind;

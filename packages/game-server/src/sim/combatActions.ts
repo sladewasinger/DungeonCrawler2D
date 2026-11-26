@@ -59,6 +59,7 @@ export interface PlayerCombatState {
 
 export interface CombatPlayerRef {
   readonly id: string;
+  readonly accountId?: string | undefined;
   x: number;
   y: number;
   elevation: number;

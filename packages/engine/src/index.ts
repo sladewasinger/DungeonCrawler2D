@@ -85,12 +85,8 @@ export {
   sanitizeCharacterAppearance,
 } from "./character/appearance.js";
 export type {
-  BodyStyle,
   CharacterAppearance,
-  EyeColorId,
-  HairColorId,
   HairStyleId,
-  SkinToneId,
 } from "./character/appearance.js";
 export {
   ArmorSlotKeySchema, ChatEntrySchema, ClientAdminSchema, ClientChatSchema, ClientDropItemSchema,
@@ -102,16 +98,14 @@ export {
 export { CHAT_BUBBLE_DURATION_SEC, MAX_CHAT_LENGTH, PROXIMITY_CHAT_RADIUS, PROXIMITY_SHOUT_RADIUS } from "./net/chatSchemas.js";
 export type {
   ChatEntry, ClientMessage, CreatureVocalKind, DiscoveryStateSnapshot, DropItemRequest, GroundLootSnapshot, InventorySnapshot,
-  PlayerBubble, PlayerSnapshot, ProjectileSnapshot, RevealedBeacon, ServerMessage, WebNodeSnapshot, WebStrandSnapshot,
+  PlayerBubble, PlayerSnapshot, ProjectileSnapshot, RevealedBeacon, ServerMessage,
   WorldChestSnapshot, WorldEntitySnapshot, WorldEvent, WorldWebSnapshot,
 } from "./net/protocol.js";
 export {
   BLEED_DURATION_SEC,
   BOW_MAX_CHARGE_SEC,
   COMBAT_TUNING,
-  COMBO_DAMAGE_MULT,
   COMBO_SWING_SEC,
-  COMBO_WINDOW_SEC,
   DODGE_COOLDOWN_SEC,
   DODGE_DURATION_SEC,
   DODGE_IFRAME_SEC,
@@ -128,11 +122,11 @@ export {
   SANCTUARY_CENTER,
   SANCTUARY_RADIUS,
   STAMINA_REGEN_PER_SEC,
-  comboMultiplier,
   computeMitigatedDamage,
   entityFootRadius,
   evaluateBowShot,
   isInSanctuary,
+  isInWorldSanctuary,
   isWithinSector,
   segmentHitsEllipse,
 } from "./combat/combatRules.js";

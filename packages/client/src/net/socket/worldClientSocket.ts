@@ -1,7 +1,7 @@
 /** WebSocket connection, lifecycle, and snapshot helper utilities for WorldClient. */
-import { isBowItem } from "@dc2d/content";
+import { isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
-  DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, STEALTH_TUNING, ServerMessageSchema,
+  DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, STEALTH_TUNING, ServerMessageSchema, computePlayerGearStats,
   type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
   type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldChunkCache,
   type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
@@ -144,18 +144,30 @@ export interface StepLoopContext {
 
 function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void {
   const { state } = ctx;
+  const heldSlot = ctx.inventory.slots[ctx.inventory.selectedHotbar] ?? null;
   const heldId = heldItemForInventory(ctx.inventory);
   const moveDir = normalizeDirection(input.move, true) ?? { x: 0, y: 0 };
   const normAim = normalizeDirection(input.aim, false);
   state.bowDrawing = Boolean(input.bowDraw) && isBowItem(heldId);
   ctx.smoother.step(input.dt);
   const preEvCount = ctx.queuedEvents.length;
-  ctx.swing.step({ dt: input.dt, attack: Boolean(input.attack), attackHold: Boolean(input.attackHold), dodge: Boolean(input.dodge), heldId, player: state.player, normAim, isServer: true, events: ctx.queuedEvents });
+  ctx.swing.step({
+    dt: input.dt, attack: Boolean(input.attack), attackHold: Boolean(input.attackHold), dodge: Boolean(input.dodge),
+    heldId, heldPrefixId: heldSlot?.prefixId, player: state.player, normAim, isServer: true, events: ctx.queuedEvents,
+  });
   if (ctx.queuedEvents.length > preEvCount || input.bowRelease) state.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
   const sendCheck = shouldSendInputFrame({ prev: state.sendState, nowMs: performance.now(), moveDir, normAim, input });
   if (sendCheck.send) { state.sendState = sendCheck.next; ctx.send(buildInputMessage({ seq: ++state.seq, moveDir, normAim, input })); }
-  const nextPlayer = { ...state.player, heldItem: heldId, swingProgress: ctx.swing.activeProgress(state.player.swingProgress) };
-  state.player = predictLocalPlayerMove({ cache: ctx.cache, player: nextPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt, aim: normAim, jump: input.jump, crouch: input.crouch, bowDraw: state.bowDrawing });
+  const gear = computePlayerGearStats({
+    armor: ctx.inventory.armor, armorPrefixes: ctx.inventory.armorPrefixes, heldItem: heldSlot, lookup: resolveItemInstance,
+  });
+  const nextPlayer = {
+    ...state.player, heldItem: heldId, swingProgress: ctx.swing.activeProgress(state.player.swingProgress), moveSpeedMult: 1 + gear.moveSpeedMult,
+  };
+  state.player = predictLocalPlayerMove({
+    cache: ctx.cache, player: nextPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt,
+    aim: normAim, jump: input.jump, crouch: input.crouch, bowDraw: state.bowDrawing, bowDrawSpeedMult: gear.bowDrawSpeedMult,
+  });
 }
 
 export function stepWorldClientInput(ctx: StepLoopContext, input: StepInputFrame): void {

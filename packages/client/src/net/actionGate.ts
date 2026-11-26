@@ -7,7 +7,7 @@ export interface PendingGate {
 
 export const IDLE_GATE: PendingGate = { pendingSeq: 0, atMs: 0 };
 
-export function shouldAcceptServerState(
+function shouldAcceptServerState(
   gate: PendingGate,
   input: { readonly serverAck: number; readonly nowMs: number; readonly timeoutMs?: number },
 ): { readonly accept: boolean; readonly cleared: boolean } {

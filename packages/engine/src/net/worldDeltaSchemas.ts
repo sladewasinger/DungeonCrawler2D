@@ -17,6 +17,8 @@ export const DepletedPropSchema = z.object({
   propId: z.string().min(1),
   replacementKind: PropKindSchema.nullable(),
   regrowAtSec: z.number(),
+  cx: z.number().int().optional(),
+  cy: z.number().int().optional(),
 });
 
 export const PlacedStructureSchema = z.object({
@@ -35,22 +37,25 @@ export const WorldDeltaSnapshotSchema = z.object({
   litBraziers: z.array(z.string().min(1)).readonly().optional(),
 });
 
+const WorldCoordSchema = z.number().finite().min(-1_000_000).max(1_000_000);
+const DeltaSeqSchema = z.number().int().nonnegative().max(2_147_483_647).optional();
+
 export const ClientPlaceStructureSchema = z.object({
   t: z.literal("placeStructure"),
   itemId: z.string().min(1).max(32),
-  x: z.number(),
-  y: z.number(),
-  seq: z.number().int().nonnegative().optional(),
+  x: WorldCoordSchema,
+  y: WorldCoordSchema,
+  seq: DeltaSeqSchema,
 });
 
 export const ClientSetRespawnBedSchema = z.object({
   t: z.literal("setRespawnBed"),
   structureId: z.string().min(1).max(64),
-  seq: z.number().int().nonnegative().optional(),
+  seq: DeltaSeqSchema,
 });
 
 export const ClientPickupLootSchema = z.object({
   t: z.literal("pickupLoot"),
   lootId: z.string().min(1).max(64).optional(),
-  seq: z.number().int().nonnegative().optional(),
+  seq: DeltaSeqSchema,
 });

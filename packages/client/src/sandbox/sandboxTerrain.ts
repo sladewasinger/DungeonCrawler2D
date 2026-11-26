@@ -11,7 +11,6 @@ import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type Wo
 import { bakeElevatedChunkRows } from "../render/world/cliffStrips.js";
 import { buildChunkTilemapMeshes } from "../render/world/tileBuilder.js";
 
-export const SANDBOX_TOTAL_W = 96;
 export const SANDBOX_H = 32;
 
 const LIGHT_TORCH_COLOR = 0xffb84d;
@@ -152,8 +151,11 @@ function mountDioramaChunk(opts: {
   const chunk = cache.getChunk(cx, 0);
   const baked = buildChunkTilemapMeshes(cache, terrainAtlas, { cx, cy: 0 });
   baked.ground.mesh.position.set(cx * CHUNK_SIZE * TILE_PX, 0);
-  baked.water.mesh.position.copyFrom(baked.ground.mesh.position);
-  layers.ground.addChild(baked.ground.mesh); layers.water.addChild(baked.water.mesh);
+  layers.ground.addChild(baked.ground.mesh);
+  if (baked.water) {
+    baked.water.mesh.position.copyFrom(baked.ground.mesh.position);
+    layers.water.addChild(baked.water.mesh);
+  }
   const target = {
     grassSprites: [] as { sprite: Sprite; wx: number; wy: number }[], ysortSprites: [] as Sprite[],
     canopySprites: [] as { sprite: Sprite; wx: number; wy: number }[], animatedProps: [] as { sprite: Sprite; kind: PropKind; phase: number }[],

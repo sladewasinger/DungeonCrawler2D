@@ -1,6 +1,6 @@
 /** Organic Web Audio animal vocal-tract synthesizer (glottal flutter, breath noise, overdrive, dual formants). */
 import {
-  applyTrackEnvelope, connectWithPan, getColoredNoiseBuffer,
+  applyTrackEnvelope, connectWithPan, detachAudioNodesOnEnded, getColoredNoiseBuffer,
   type ActiveTrackVoice, type ProceduralTrackSpec, type TrackWindow,
 } from "../proceduralSynth.js";
 
@@ -55,7 +55,7 @@ function createSweptBandpass(opts: {
 function createFormantTract(opts: {
   readonly ctx: BaseAudioContext; readonly track: ProceduralTrackSpec;
   readonly f0: number; readonly f1: number; readonly now: number; readonly rampEnd: number;
-}): { readonly input: WaveShaperNode; readonly output: BiquadFilterNode } {
+}): { readonly input: WaveShaperNode; readonly output: BiquadFilterNode; readonly nodes: readonly AudioNode[] } {
   const prof = FORMANT_PROFILES[opts.track.filterType] ?? FORMANT_PROFILES.bandpass;
   const shaper = opts.ctx.createWaveShaper();
   shaper.curve = getThroatCurve();
@@ -76,7 +76,7 @@ function createFormantTract(opts: {
   ceiling.Q.value = 0.85;
   shaper.connect(form1).connect(ceiling);
   shaper.connect(form2).connect(f2Trim).connect(ceiling);
-  return { input: shaper, output: ceiling };
+  return { input: shaper, output: ceiling, nodes: [shaper, form1, form2, f2Trim, ceiling] };
 }
 
 function makeVocalVoiceHandle(
@@ -105,12 +105,13 @@ interface FlutterModRig {
   readonly carrier: OscillatorNode;
   readonly tractIn: WaveShaperNode;
   readonly breath: AudioBufferSourceNode;
+  readonly nodes: readonly AudioNode[];
 }
 
 function attachBreathNoise(opts: {
   readonly ctx: BaseAudioContext; readonly track: ProceduralTrackSpec;
   readonly tractIn: WaveShaperNode; readonly now: number; readonly dur: number;
-}): AudioBufferSourceNode {
+}): { readonly breath: AudioBufferSourceNode; readonly breathGain: GainNode } {
   const breath = opts.ctx.createBufferSource();
   breath.buffer = getColoredNoiseBuffer(opts.ctx, opts.track.noiseColor);
   breath.playbackRate.value = 0.9 + Math.random() * 0.2;
@@ -118,7 +119,7 @@ function attachBreathNoise(opts: {
   breathGain.gain.value = 0.55;
   breath.connect(breathGain).connect(opts.tractIn);
   breath.start(opts.now, Math.random() * 0.4, opts.dur + 0.03);
-  return breath;
+  return { breath, breathGain };
 }
 
 function buildFlutterVoice(opts: {
@@ -151,8 +152,8 @@ function buildFlutterVoice(opts: {
   carrier.stop(now + dur + 0.03);
   lfo.start(now);
   lfo.stop(now + dur + 0.03);
-  const breath = attachBreathNoise({ ctx, track, tractIn, now, dur });
-  return { lfo, carrier, tractIn, breath };
+  const { breath, breathGain } = attachBreathNoise({ ctx, track, tractIn, now, dur });
+  return { lfo, carrier, tractIn, breath, nodes: [carrier, lfo, fmGain, amCarrier, amDepth, breath, breathGain] };
 }
 
 export function scheduleVocalTrack(opts: VocalTrackScheduleOpts): ActiveTrackVoice {
@@ -166,7 +167,8 @@ export function scheduleVocalTrack(opts: VocalTrackScheduleOpts): ActiveTrackVoi
   const envGain = ctx.createGain();
   applyTrackEnvelope({ gainParam: envGain.gain, now, peak: track.gain, attackSec: win.attackSec, holdSec: win.holdSec, durationSec: dur });
   tract.output.connect(envGain);
-  connectWithPan({ ctx, src: envGain, dst, pan: track.pan });
+  const panner = connectWithPan({ ctx, src: envGain, dst, pan: track.pan });
   const rig = buildFlutterVoice({ ctx, track, f0, f1, now, dur, rampEnd, tractIn: tract.input });
+  detachAudioNodesOnEnded(rig.carrier, [...tract.nodes, ...rig.nodes, envGain, ...(panner ? [panner] : [])]);
   return makeVocalVoiceHandle([(t) => rig.carrier.stop(t), (t) => rig.lfo.stop(t), (t) => rig.breath.stop(t)], envGain);
 }

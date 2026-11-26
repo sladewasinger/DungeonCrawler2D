@@ -1,149 +1,141 @@
-# Phase 8 — Resource Gathering, Light Survival, Camp Building & Persistent Deltas
+# Phase 8 — Gathering Feedback, Workbench Gating, Camp Building UX & Offline Persistence
 
-> **Status**: 🚧 Pass 1 Landed (`98a4f883`) — **Pass 2 Spec & Completion Pending**
+> **Status**: 🚧 Pass 1 Landed (`98a4f883`) — **Pass 2 Spec Locked (Pending Verification Gate Tooling & Implementation)**
+> **Dependencies**: Phase 7 ✅, Frontier Overhaul (`Phase 8A`) ✅, [Verification Gate](../VERIFICATION-GATE.md)
 > **Primary Touchpoints**:
-> `@dc2d/content` (`src/items/catalog.ts`, `src/recipes/recipes.ts`),
-> `@dc2d/engine` (`src/survival/harvestRules.ts`, `src/survival/campBuilding.ts`, `src/survival/survivalBuffs.ts`, `src/survival/worldDeltas.ts`, `src/world/chunkGenerator.ts`),
-> `@dc2d/game-server` (`src/sim/survival/`, `src/net/wsServer.ts`),
-> `@dc2d/client` (`src/render/survival/`, `src/render/world/chunkProps.ts`, `src/ui/hud/`, `src/ui/panels/craftingPanel.ts`, `src/ui/panels/mapModal.ts`, `src/net/worldClient.ts`)
+> `@dc2d/content` (`src/items/catalog.ts`, `src/recipes/recipes.ts`, `src/recipes/frontierRecipes.ts`),
+> `@dc2d/engine` (`src/survival/harvestRules.ts`, `src/survival/campBuilding.ts`, `src/survival/survivalBuffs.ts`, `src/survival/worldDeltas.ts`, `src/net/protocol.ts`, `src/net/worldDeltaSchemas.ts`, `src/net/worldEventSchemas.ts`),
+> `@dc2d/game-server` (`src/sim/survival/resourceHarvester.ts`, `src/sim/survival/campStructures.ts`, `src/sim/survival/playerSurvivalState.ts`, `src/sim/survival/worldPersistenceSync.ts`, `src/sim/combatSim.ts`, `src/sim/worldSim.ts`),
+> `@dc2d/client` (`src/render/survival/campPropTextures.ts`, `src/render/survival/harvestFxLayer.ts`, `src/render/survival/placementGhostLayer.ts`, `src/render/world/chunkProps.ts`, `src/ui/hud/buffs/`, `src/ui/panels/craftingPanel.ts`, `src/ui/map/minimapOverlay.ts`, `src/net/offlinePersistence.ts`, `src/ui/settings/`)
+> **Folder-Size Guardrails**: `packages/client/src/ui/hud/` is at `12` direct files — place new buff icon tray modules under `packages/client/src/ui/hud/buffs/`. Keep `packages/engine/src/survival/`, `packages/game-server/src/sim/survival/`, and `packages/client/src/render/survival/` at `<= 12` direct files.
 
 ---
 
-## 1. Player Fantasy & Story Walkthrough
+## 1. Scope & Player Experience
 
-Venturing out from the Spawn Glade into dense oak woods and craggy granite highlands feels grounded and physical:
-- Equipping your **Woodcutter Axe** (`CHOP` on mobile) and swinging into a towering Oak makes the tree visibly **shudder**, raining bark splinters and green leaves while a crisp chopping sound rings out; two heavy chops notch the trunk and fell it away from you into a **Stump**, scattering **Wood** bundles across the moss.
-- Passing a bright cluster of crimson berry bushes, you either tap `[E]` / tap the bush to forage effortlessly by hand or swipe through wildflowers cleanly, watching bushes strip visibly bare while regenerating later.
-- Scaling the rocky cliff stairways reveals gleaming seams of **Copper Ore** and **Iron Ore** jutting from dark granite boulders. Swinging a Sword clangs harmlessly off an ore seam with a crisp spark + `"Requires Pickaxe!"` callout, whereas slamming a **Stone Pickaxe** rains amber copper flecks or bright silver iron sparks until the seam shatters into raw ore chunks.
-- Carrying fresh timber, ore, meat, and herbs back to a riverside clearing, you select **Campfire Kit**, **Workbench**, **Camp Bed**, **Storage Chest**, or **Wooden Palisade** in your hotbar. Immediately, a crisp **translucent green/red Placement Ghost** snaps cleanly under your cursor (or forward aim-pad on mobile with drag-and-confirm), showing valid ground, light radius rings, and adjacent palisade snapping.
-- Lighting the **Campfire** and standing beside its warm glow fills an amber **Warming Up (`5s`)** ring before unlocking a rich hearth **Rested** buff icon (`+HP & Stamina Regen`). Cooking **Raw Meat**, brewing **Herbal Tea**, or smelting **Copper & Iron Ingots** at the fire feeds right into the newly functional **Workbench**, where hitting `[E]` unlocks rugged **Copper Tools**, **Spears**, **Daggers**, **Iron Greatswords**, and fortified camp gear.
-- Claiming your **Camp Bed** chimes softly, pins a glowing **Home Bed** marker onto the `[M]` **Overworld Map**, and re-anchors your personal respawn point—while any structure placed in the wrong spot can be cleanly **dismantled for a 100% material refund**, and everything persists intact across server restarts AND local offline browser refreshes.
+Pass 1 established server-side resource depletion, structure storage, basic `Well-Fed`/`Rested` timers, and JSON disk persistence. Frontier Overhaul (`8A`) already satisfied Copper/Iron ingot smelting, Copper gear items, `32×32` ground loot icons, and server `SIGINT`/`SIGTERM` shutdown flushes.
 
----
-
-## 2. Pass-1 Audit (What Exists vs What Is Half-Baked)
-
-| Area | What Exists in Pass 1 (`98a4f883`) | Pass-2 Gaps to Fix |
-| :--- | :--- | :--- |
-| **Gathering Feedback** | `HARVEST_NODE_SPECS` + `ResourceHarvester` deduct prop HP, spawn square chip particles (`HarvestFxLayer`), replace felled trees with `Stump`, and regrow later. | **Static Props on Hit**: Struck trees/rocks do not shake, flash, crack, or tip when felled; no diegetic node HP indicator during active chopping; wrong-tool hits on Copper/Iron emit a generic `arrowRicochet` spark with zero `"Requires Pickaxe!"` guidance text; bushes look identical before/after foraging and lack `[E]` / tap-to-forage UX. |
-| **Placement UX & Dismantling** | Selecting a placeable item fires blind placement (`p.x + p.aimX * 1.5, p.y + p.aimY * 1.5`) when clicking Attack; `canPlaceStructure` validates server-side. | **Zero Placement Preview**: Player cannot see *where* a Campfire, Bed, Chest, or Palisade will land, nor why placement failed (`Water`/`Blocked`/`Elevation`); **impossible to dismantle or relocate** any placed structure once built; Palisades don't orient/connect cleanly or absorb enemy/boar hits. |
-| **Workbench (`PropKind.Workbench`)** | Craftable (`6 wood + 2 stone`), renders sprite, blocks movement. | **Completely Non-Functional Decorative Box**: Zero recipes declare `requiresWorkbench`, `CombatWorld.handleInteract` never opens Crafting on nearby Workbench, and there is no `[E] Workbench` prompt! |
-| **Copper & Iron Ore Utility** | `CopperVein` and `IronVein` spawn in highlands and drop `copper-ore` / `iron-ore`. | **Dead-End Resources**: Neither `copper-ore` nor `iron-ore` is used in ANY recipe in `RECIPE_CATALOG` (`recipes.ts`)! |
-| **Campfire, Bed & Chest Prompts** | Pressing `E` binds the nearest Bed blindly if within `2.6` tiles (`bindNearestBed`); Campfires trigger `Rested` after `5s`; Chests open. | No contextual `[E] Cook & Warm`, `[E] Set Respawn`, `[E] Workbench`, or `[E] Forage` world prompts/mobile tap triggers; no `Warming Up 0..5s` progress indicator; placed Beds do not mark the `[M]` Overworld Map! |
-| **Survival Buffs & Foods** | `wellFedTimer` and `restedTimer` grant passive regen and render raw uppercase strings (`FED 180s`, `REST 300s`) in `vitalsBar.ts`. | `cooked-meat`, `berry`, and `herb-tea` all collapse into one identical `wellFedTimer` counter (`berry` even overwrites or competes poorly); `healing-salve` acts as instant HP instead of a heal-over-time salve; missing icon badges, tooltips, distinct SFX, and max-HP / stamina-recovery identities. |
-| **HD Prop Visuals & Persistence** | `campPropTextures.ts` draws `CopperVein`, `IronVein`, `Workbench`, `Bed`, `WoodChest`. | Sprites use flat rectangles lacking textured woodgrain/fabric/stone depth compared to `hdPropTextures.ts`; `WorldPersistenceStore` persists on game server (`data/world-save.json`), while **local/offline preview mode loses everything on `F5`**, and server process exit needs clean `SIGINT`/`SIGTERM` flush. |
+Pass 2 closes every remaining gathering, crafting-station, camp-building, survival-buff, and offline-persistence gap with strict measurable behavior:
+- **Physical Gathering & Foraging**: Hitting trees, boulders, or ore veins shakes the node, displays a decaying micro HP bar and `<= 50%` damage wear, fells trees with a `0.35s` tip-over animation into `Stump`, emits `"Requires Pickaxe!"` when striking ore/crystal without a pickaxe, allows `[E]` / tap foraging of `Bush`/`Wildflower`/`GiantMushroom`/`BogReed`, and renders stripped vs. ripe berry bushes.
+- **3-Tier Station Crafting (`Hand` / `Campfire` / `Workbench`)**: Cleanly gates Tier-2+ gear and heavy camp stations behind a placed `Workbench` (`<= 2.8` tiles), keeping basic tools/campfire/workbench hand-craftable and cooking/elixirs/smelting at `Campfire` (`<= 2.8` tiles).
+- **Tactile Building & 100% Dismantling**: Live `0.5`-tile snapped emerald/crimson placement ghost with aura rings, explicit invalid-reason badges, `[R]` rotation, mobile drag-place, full-refund dismantling (blocking non-empty chests), and neighbor-connecting damageable `Palisade` walls.
+- **Icon Buff Tray & Offline Parity**: Distinct HUD icon badges with timers/tooltips separating `Well-Fed`, `Invigorated`, `Rested`, and `Herbal Salve` HoT, plus seed-keyed `localStorage` offline persistence and a `"Reset Local World"` control.
 
 ---
 
-## 3. Resource Gathering & Node Feedback Requirements
+## 2. Data Contracts, Wire Protocol & Persistence
 
-### 3.1 Physical Hit Feedback, Damage States & Felling
-- **Prop Shake & Flash (`chunkProps.ts` / `HarvestFxLayer`)**:
-  - When `harvestHit` fires on `(x, y)`, trigger a `0.18s` decaying horizontal/rotational **wobble** (`±2.5px` / `±0.06 rad` impulse biased away from `(dirX, dirY)`) + brief white emissive tint pulse on the matching sprite (`OakTree`, `PineTree`, `Boulder`, `CopperVein`, `IronVein`, `Bush`).
-- **Active Node Health & Visual Wear**:
-  - Replicate lightweight `harvestHpRatio` on active `harvestHit` events (zero per-tick chunk bloat!): when a player is actively chopping/mining a node, show a sleek subtle **2-second decaying micro progress bar** above the node + subtle **notch/crack overlay** at `<= 50%` HP.
-- **Tree Felling & Destruction**:
-  - On `harvestBreak` for `OakTree` / `PineTree`: animate a quick **`0.35s` tipping canopy fall** leaning away from the attacker's swing direction with leaf confetti bursts before swapping cleanly into `PropKind.Stump` (which can itself be chopped for `1–2` extra `wood`!).
-  - On `harvestBreak` for `Boulder` / `CopperVein` / `IronVein`: shatter into directional stone/metal shard arcs + expanding dust puff.
-- **Audio Distinction (`audioEngine` / `synthSfx`)**:
-  - Wood: crisp resonant hollow *thock* per swing + creaking crackle/thump on tree fall.
-  - Stone: sharp flinty *chink* + crumbling gravel burst on break.
-  - Copper/Iron Veins: bright high metallic *ting!* resonance distinguishing rich ore seams from plain grey boulders.
-  - Forage (`Bush` / `Wildflower`): soft leafy rustle & snappy stem pluck.
+### 2.1 `@dc2d/content` (`recipes.ts`, `frontierRecipes.ts`)
+- Extend `RecipeDef`:
+  - `readonly requiresCampfire?: boolean;`
+  - `readonly requiresWorkbench?: boolean;`
+- **Authoritative 3-Tier Station Split**:
+  - **Hand (`!requiresCampfire && !requiresWorkbench`)**: `craft-flint-dagger`, `craft-wooden-spear`, `craft-bow`, `craft-axe`, `craft-pickaxe`, `craft-torch`, `craft-arrows`, `craft-bandage`, `craft-leggings`, `craft-boots`, `craft-wooden-shield`, `craft-campfire`, `craft-standing-torch`, `craft-workbench`.
+  - **Campfire (`requiresCampfire: true`)**: `craft-cooked-meat`, `craft-herb-tea`, `craft-healing-salve`, `smelt-copper-ingot`, `smelt-iron-ingot`, `craft-swiftness-draught`, `craft-ironbark-tonic`, `craft-shadow-oil`, `craft-phoenix-salve`.
+  - **Workbench (`requiresWorkbench: true`)**: `craft-storage-chest`, `craft-camp-bed`, `craft-wood-palisade`, `craft-iron-greatsword`, and all Tier-2+ Frontier gear (`craft-copper-*`, `craft-bog-dagger`, `craft-amber-recurve-bow`, `craft-frost-hatchet`, `craft-golem-maul`, `craft-shadowfang-spear`, `craft-reinforced-shield`, `craft-runic-buckler`, `craft-moss-stalker-*`, `craft-autumn-ranger-*`, `craft-iron-knight-*`, `craft-shadowsteel-*`).
 
-### 3.2 Clear Tool Gating, Interaction Prompts & Foraging
-- **Tool Feedback & Item Drops**:
-  - Swinging non-pickaxe gear (Sword, Axe, Fist) at `CopperVein` or `IronVein` bounces harmlessly with crisp yellow sparks, dull metallic clink, and floating **`"Requires Pickaxe!"`** text popup (`dmg === 0`).
-  - Swinging sub-optimal tools at Trees (`0.25×` speed vs Axe) or Boulders shows a one-time gentle hint (`"Axe chops faster"` / `"Pickaxe mines faster"`) without spamming every hit (`5s` per-client hint cooldown).
-  - **Visual Drop Parity**: All harvested drops (`wood`, `stone`, `flint`, `copper-ore`, `iron-ore`, `berry`, `herb`) share Phase 6's revamped ground loot renderer—rendering actual crisp `32×32` outlined pixel-art item icons rather than legacy `4×4` colored squares.
-- **Hand Foraging & Interactable Bushes**:
-  - `Bush` and `Wildflower` can be gathered either by **swinging** OR by pressing **`[E]` / mobile context tap** (`FORAGE` prompt when standing beside an intact berry bush or herb patch!).
-  - **Berry Bush Visual State**: Render ripe crimson berries on untouched `Bush` variants; when picked (`berry` harvested), swap to a stripped leafy bush until regrowth restores the berries cleanly.
+### 2.2 `@dc2d/engine` (`protocol.ts`, `worldDeltaSchemas.ts`, `worldEventSchemas.ts`, `campBuilding.ts`)
+- `InventorySnapshotSchema`: add `nearWorkbench: z.boolean()`.
+- `PlacedStructureSchema` & `PlacedStructureRecord`: add `rotation: z.number().int().min(0).max(3).optional()` (default `0`, incremented by `[R]`) and `hp: z.number().optional()` (used by `palisade`, `maxHp = 80`).
+- `ClientPlaceStructureSchema`: add `rotation: z.number().int().min(0).max(3).optional()`.
+- `ClientDismantleStructureSchema`: `{ t: "dismantleStructure", structureId: string, seq?: number }` added to `ClientMessageSchema`.
+- `PlayerSnapshotSchema`: add:
+  - `invigoratedTimer: z.number().optional()`
+  - `hotTimer: z.number().optional()`
+  - `hearthWarmProgress: z.number().min(0).max(1).optional()`
+  - `respawnBedPos: z.object({ x: z.number(), y: z.number() }).optional()`
+- `WorldEventSchema`: add `"dismantleStructure"` to `WORLD_EVENT_KINDS`, plus `hpRatio?: z.number().min(0).max(1)` on `harvestHit` and `reason?: string` for tool/craft hints.
 
-### 3.3 Unified HD-Pixel Camp & Ore Prop Art (`campPropTextures.ts`)
-Upgrade `CopperVein`, `IronVein`, `Workbench`, `Bed`, `WoodChest`, and `Palisade` to rich `48 px/tile` (`HD_PROP_SCALE = 1 / 3`) shaded pixel art matching `hdPropTextures.ts` quality:
-- Beveled shaded granite chunks with faceted glinting **amber-teal oxidized Copper** crystals and **bright steel-blue Iron** bands (`IronVein` / `CopperVein`).
-- Multi-toned timber **Workbench** with visible plank joinery, iron vise, saw/hammer/blueprints on top, and cross-braced legs.
-- Framed **Camp Bed** with stitched wool blanket fold, plump pillow, and notched timber posts.
-- Iron-banded **Storage Chest** (supporting `closed` vs `open` lid parity with POI chests!) and sharpened **Timber Palisade** posts with rope lashings and neighbor-connecting horizontal rails.
+### 2.3 `@dc2d/game-server` & Offline `localStorage` Persistence
+- `PersistedPlayerRecord`: add `invigoratedTimer?: number` and `hotTimer?: number`.
+- Offline local preview (`packages/client/src/net/offlinePersistence.ts`):
+  - Storage key: `dc2d_offline_world_v1_<worldSeed>`.
+  - Stores JSON snapshot `{ version: 1, worldSeed, dayPhase, depleted, structures, beds, chests, player: { x, y, elevation, inventory, wellFedTimer, invigoratedTimer, restedTimer, hotTimer } }`.
+  - Flushes throttled every `5_000ms` when dirty, immediately on structure placement/dismantle/bed bind/chest close, and synchronously on `beforeunload`.
 
 ---
 
-## 4. Valheim-Lite Camp Building & Structure Interactions
+## 3. Detailed Functional, Visual & Audio Requirements
 
-### 4.1 Live Placement Ghost Preview (Desktop & Mobile)
-Whenever the player's selected hotbar item has `placeStructure`:
-- **Desktop**: Show a translucent **Placement Ghost** in world-space snapped cleanly to `0.5`-tile increments under the mouse cursor (clamped to valid build reach `0.8..3.6` tiles on the player's current elevation, defaulting straight ahead if cursor hasn't moved). Pressing Left-Click places precisely at the ghost's validated coordinates! Pressing **`[R]`** rotates directional structures (`bed`, `palisade`).
-- **Mobile**: Hold-and-drag on the world OR tap `PLACE` in `MobileCombatControls`:
-  - Selecting a placeable item shows the ghost `1.5` tiles in front of the player's facing vector (adjustable by tapping/dragging on the nearby tile ground!).
-  - Tapping **`PLACE`** builds cleanly at the preview spot.
-- **Validity Highlight & Reason**:
-  - **Emerald Green Ghost** (`alpha: 0.65`) + faint dashed radius ring (light radius for `campfire`/`standing-torch`, comfort/crafting aura for `campfire`/`workbench`) when `canPlaceStructure === true`.
-  - **Crimson Red Ghost** + compact label (`"Blocked"`, `"Deep/Shallow Water"`, `"Wrong Elevation"`, `"Too Far"`) when invalid—never confusingly swallowing clicks.
+### 3.1 Physical Gathering, Foraging & HD Camp Props
+- **Hit Wobble & Flash**: On `harvestHit`, the matching prop sprite plays a `0.18s` decaying horizontal/rotational wobble (`±2.5px`, `±0.06 rad` biased away from `(dirX, dirY)`) and a `0.09s` white emissive tint pulse.
+- **Active Node HP & Wear**: Replicate `hpRatio` (`0..1`) on `harvestHit`; render a `24×4px` micro HP bar above the node fading out `2.0s` after the last hit, and apply a crack/notch overlay when `hpRatio <= 0.50`.
+- **Tree Felling**: On `harvestBreak` for `OakTree`, `PineTree`, `BirchTree`, `MapleTree`, or `DeadTree`, animate a `0.35s` rotation tip-over (`±1.35 rad` away from attacker swing vector) with leaf/bark particles before replacing with `PropKind.Stump`.
+- **Tool Gating Feedback**:
+  - Hitting `CopperVein`, `IronVein`, or `CursedCrystal` without a pickaxe deals `0` node damage, spawns yellow sparks, plays a dull metallic *clink*, and floats `"Requires Pickaxe!"`.
+  - Hitting trees (`requiredTool: "wood"`) without an axe or boulders without a pickaxe shows `"Axe chops faster"` / `"Pickaxe mines faster"` throttled to once per `5.0s` per client.
+- **Foraging & Berry Visuals**:
+  - `Bush`, `Wildflower`, `GiantMushroom`, and `BogReed` within `2.2` tiles show an `[E] Forage` (desktop) / `FORAGE` (mobile) prompt and harvest cleanly on `[E]` or tap as well as melee swings.
+  - Intact `Bush` sprites render crimson berries; harvested bushes flip to a stripped leafy state (`ReplacementKind` or depleted visual override) until regrowth restores berries.
+- **Gathering Audio**: Distinct synthesized SFX in `audioEngine` for `wood` (hollow *thock* + felling creak), `stone` (flinty *chink*), `ore` (bright high metallic *ting!*), and `forage` (leafy rustle + snap).
+- **HD `48 px/tile` Camp & Ore Art (`campPropTextures.ts`)**: Upgrade `CopperVein`, `IronVein`, `Workbench`, `Bed`, `WoodChest` (with `closed` and `open` lid textures matching POI chests), and `Palisade` (with cardinal neighbor rail auto-connection when orthogonal palisades sit within `1.2` tiles).
 
-### 4.2 Dismantling & Relocation (100% Material Refund)
-No structure should be an irreversible mistake:
-- Standing beside any placed structure (`campfire`, `standing-torch`, `workbench`, `camp-bed`, `wood-palisade`, or an **empty** `wood-chest`) and holding **`[X]` / `Hold-Interact`** or clicking the **`Dismantle`** action button (`hammer/deconstruct` icon in mobile context / desktop `[Backquote]` or `[Z]` or Hold `[E] 0.6s`) cleanly breaks down the structure (`ClientMessage: "dismantleStructure"`), plays a wood/stone unbuild *clack* + dust puff, and refunds **`100%`** of its recipe ingredients directly into inventory (or ground drops if backpack is full)!
-- Non-empty `wood-chest` gently prompts `"Empty chest before dismantling"` (`dismantle` blocked cleanly so loot is never accidentally deleted).
-- **Co-op Rule**: Any player in Sanctuary/co-op can dismantle their own structures (`ownerName`), or any unowned camp obstacle older/abandoned if allowed; Palisades also take enemy/Boar collision hits (`hp = 80`) and can be repaired cleanly or rebuilt.
+### 3.2 Live Placement Ghost, Rotation & 100% Refund Dismantling
+- **Placement Validation Function (`validateStructurePlacement` in `campBuilding.ts`)**: Returns `{ ok: true } | { ok: false, reason: "Too Close" | "Too Far" | "Water" | "Wrong Elevation" | "Blocked" }`.
+- **Desktop & Mobile Placement Ghost (`placementGhostLayer.ts`)**:
+  - Active whenever the selected hotbar item has `placeStructure`.
+  - Snaps to `0.5`-tile increments under cursor on desktop (clamped to `0.8..3.6` tiles, defaulting `1.5` tiles ahead) or `1.5` tiles ahead on mobile (adjustable via ground tap/drag).
+  - Valid spot renders emerald ghost (`alpha: 0.65`) + dashed light/craft aura radius ring; invalid spot renders crimson ghost + compact rejection label (`reason`).
+  - Pressing `[R]` (desktop) or tapping `ROT` (mobile) cycles `rotation` `0..3` for directional structures (`bed`, `palisade`).
+- **Dismantling (`dismantleStructure`)**:
+  - Standing within `2.4` tiles of a placed structure owned by the player (or any unowned camp structure) allows Hold `[E]` (`0.6s`) / `[Z]` (desktop) or `DISMANTLE` chip (mobile).
+  - Removes structure, emits `dismantleStructure` event (dust burst + unbuild *clack*), and refunds `100%` of its recipe ingredients into inventory (overflow drops at player feet).
+  - Attempting to dismantle a `wood-chest` containing `>= 1` item fails safely with `"Empty chest before dismantling"`.
+- **Palisade Defense**: `Palisade` has `80 HP`, blocks both player and monster movement, triggers `Boar` wall-impact stun (`1.5s` dizzy stars), and takes damage from enemy/boar strikes (`harvestBreak` removes broken palisade).
 
-### 4.3 Interactive Camp Stations & Prompts
-Unified world-interact priority (`combatSim.handleInteract` + `main.ts` contextual `[E]` / tap target):
-1. **Storage Chest (`PropKind.WoodChest`)**: Opens 27-slot Chest modal (`[E] Open Chest`, tap on mobile, lid opens visually).
-2. **Workbench (`PropKind.Workbench`)**: Shows **`[E] Craft (Workbench)`** prompt within `2.4` tiles; pressing `[E]` / tapping opens the Crafting modal (`CraftingPanel`) with **`nearWorkbench = true`**, displaying & prioritizing Workbench recipes cleanly!
-3. **Campfire (`PropKind.Campfire`)**:
-   - Shows **`[E] Cook & Smelt`** prompt within `2.4` tiles; opens Crafting modal filtered/sorted to Campfire cooking & ingot smelting!
-   - Standing within `4.5` tiles displays a subtle golden **`Warming (3s...)`** progress glow on the buff tray that chimes and blooms **`RESTED (5m)`** once `hearthWarmSec >= 5.0s`, resetting cleanly if interrupted by combat hits? Warmth resumes smoothly once back at fire!
-4. **Camp Bed (`PropKind.Bed`)**: Shows **`[E] Set Respawn Bed`** prompt within `2.4` tiles; pressing `[E]` / tapping binds player's personal respawn, triggers a gentle restorative `+15 HP` out-of-combat rest breath + `"Respawn Set!"` chime & green ring, and **pins a Bed/Home marker onto the `[M]` Overworld Map**!
-5. **Palisade (`PropKind.Palisade`)**: Blocks movement cleanly (both players & monsters), stops & wall-stuns charging Boars cleanly, and auto-connects visual fence rails when two palisades are placed within `1.2` tiles orthogonally!
+### 3.3 Station Proximity, Prompts & Bed Home Pin
+- Proximity radius is **`2.8` tiles** on the same elevation for both `nearCampfire` and `nearWorkbench`.
+- `CraftingPanel` displays a clear station status header (`Hand` / `Campfire` / `Workbench` active badges) and locks/unlocks recipes strictly according to `nearCampfire` and `nearWorkbench`.
+- Contextual world prompts (`<= 2.4` tiles): `[E] Open Chest`, `[E] Craft (Workbench)`, `[E] Cook & Smelt`, `[E] Set Respawn Bed`, `[E] Forage`.
+- Standing within `4.5` tiles of a lit `Campfire` displays a smooth `Warming (0..5s)` progress indicator before triggering `Rested` (`300s`).
+- Binding a `Camp Bed` heals `+15 HP` out-of-combat (`hitTimer <= 0`), sets `respawnBedPos`, emits `bedSet`, and renders a **Home Bed** pin on the `[M]` Overworld Map.
 
----
-
-## 5. Survival Buffs, Cooking & Early Copper/Iron Progression Loop
-
-### 5.1 Meaningful Copper & Iron Progression Hook (`recipes.ts` & `catalog.ts`)
-Give the Copper and Iron veins spawned by Phase 8 genuine gameplay value right now (laying the foundation for Phase 10):
-- **Campfire Smelting (`requiresCampfire: true`)**:
-  - `copper-ore` (`2`) + `wood` (`1`) -> **`copper-ingot`** (`1`)
-  - `iron-ore` (`2`) + `wood` (`1`) -> **`iron-ingot`** (`1`)
-- **Workbench Recipes (`requiresWorkbench: true`)**:
-  - **Copper Pickaxe** (`copper-pickaxe`): `2 copper-ingot + 2 wood` — faster mining (`harvestPower: 42`, `+18` vs Stone Pickaxe's `28`, plus `damage: 18`).
-  - **Copper Axe** (`copper-axe`): `2 copper-ingot + 2 wood` — chops mature trees in 2 swings (`harvestPower: 44`, `damage: 24`).
-  - **Flint Dagger** / **Wooden Spear** (`hand` or `workbench`) and **Iron Greatsword** (`3 iron-ingot + 2 wood`, `workbench`) connecting Phase 7's full moveset roster directly to Phase 8 mining!
-  - **Storage Chest**, **Camp Bed**, **Copper/Iron-Trimmed Reinforced Shield** (`workbench`: `82%` block mitigation!), moving higher-tier gear construction cleanly to the player's crafted base camp rather than crafting heavy workbenches from thin air forever (note: keeping basic tools, bandages, campfires, and simple shelters hand-craftable so players are never soft-locked!).
-
-### 5.2 Distinct Consumables & Buff Tray (`survivalBuffs.ts`, `vitalsBar.ts`)
-- Replace tiny text labels (`FED 120s`, `REST 300s`) with crisp **HUD Icon Buff Badges** beside/under the HP bar featuring clear custom SVG/pixel icons, radial/fill timers, and hover/tap tooltip descriptions:
-  - **Well-Fed (`cooked-meat` / `berry`)**: Drumstick icon; grants `+1.6 HP/s`, `+10 Stamina/s`, and a **temporary `+15 Max HP`** buffer (`cooked-meat` `240s` major feast vs `berry` `45s` light `+6` stamina snack—so eating a small berry never downgrades or wastes a full roast meal timer!).
-  - **Invigorated (`herb-tea`)**: Steaming Leaf Cup icon (`invigoratedTimer`, `180s`): grants **`+16 Stamina/s` regen** and halves post-exhaustion stamina recovery delay, ideal for sprinting expeditions & heavy melee!
-  - **Rested (Campfire warmth)**: Cozy Hearth Flame icon (`300s`): grants `+0.9 HP/s` + `+12 Stamina/s` recovery outside active combat.
-  - **Herbal Salve (`healing-salve`)**: Field Apothecary HoT healing `+55 HP` over `4.0s` (`hotTimer`) with soft green soothing sparkles—workable even while retreating!
-- Add distinct audio cues: crisp *crunch* for Berries, hearty bite for Cooked Meat, warm kettle *sip* for Herbal Tea, herbal *shimmer* for Salve.
+### 3.4 Distinct Survival Buffs, HUD Icon Tray & Offline Reset
+- **Buff Separation (`survivalBuffs.ts`)**:
+  - `Well-Fed` (`cooked-meat`): `240s`, `+15` temporary `maxHpBonus`, `+1.4 HP/s` out-of-combat, `+8 stamina/s`. Eating `berry` (`45s` light snack, `+6 stamina/s`, `+0` maxHp) **never overwrites** an active `Well-Fed` timer with `> 45s` remaining.
+  - `Invigorated` (`herb-tea`): `invigoratedTimer = 180s`, `+16 stamina/s` regen and `0.5×` post-exhaustion stamina recovery delay.
+  - `Rested` (`Campfire`): `300s`, `+0.8 HP/s` out-of-combat, `+10 stamina/s`.
+  - `Herbal Salve` (`healing-salve`): `hotTimer = 4.0s`, heals `+55 HP` smoothly over `4.0s` (`13.75 HP/s`, works even while moving/retreating).
+- **HUD Icon Buff Tray (`ui/hud/buffs/`)**: Replaces raw text pills (`FED 180s`) with `28×28` SVG/pixel icon badges (Drumstick, Steaming Cup, Hearth Flame, Leaf Salve, Shrine icons), radial/arc countdown rings, remaining-seconds badge, and hover/tap tooltip text.
+- **Offline World Reset**: Settings modal and Title Screen include a `"Reset Local World"` button (with single-step inline confirmation) clearing `dc2d_offline_world_v1_<seed>` and resetting local offline preview cleanly.
 
 ---
 
-## 6. Persistent World Deltas & Offline Browser Parity
+## 4. Negative, Edge-Case & Multiplayer Parity Rules
 
-- **Game Server (`WorldPersistenceStore` in `persistenceStore.ts`)**:
-  - Default `WORLD_SAVE_PATH = data/world-save.json` (`NODE_ENV` test isolation via `WORLD_SAVE_PATH=none`).
-  - Register `SIGINT` & `SIGTERM` graceful shutdown hooks calling `sim.savePersistenceNow()` alongside timed `10s` debounced atomic `.tmp -> renameSync` flushes so crash/restart never loses built camps, bed bindings, depleted veins, chest contents, or player inventory.
-- **Offline / Solo Preview Parity (`worldClient.ts` + localStorage)**:
-  - Persist local offline world deltas (`depleted`, `structures`, `beds`, `chests`, `inventory`, `buffTimers`) into a seed-keyed `localStorage` snapshot (`dc2d_offline_world_v1_<seed>`) throttled every `5s` + on `beforeunload` / structure build / chest close!
-  - Add a clean **"Reset Local World"** option in Settings/Title Screen so solo testers can start fresh whenever desired.
+- **Non-Empty Chest Guard**: Dismantling a non-empty `wood-chest` never deletes items; server returns no-op and emits `"Empty chest before dismantling"`.
+- **Full Inventory Refund**: Dismantling a structure when backpack + hotbar are full places overflow refunded materials onto the ground with `dropLockActive` safety rather than dropping items into the void.
+- **Remote Crafting Rejection**: Sending `ClientCraftSchema` for a `requiresWorkbench` recipe without a nearby `Workbench` is rejected authoritatively on the server with `0` consumed ingredients.
+- **Co-op Bed Isolation**: Binding a `Camp Bed` updates only the interacting player's `respawnBedPos` and `[M]` Home Bed pin; another player's bed binding is never overwritten.
+- **Offline <-> Online Parity**: All 3-tier recipes, placement validation, dismantle refunds, and buff separation work identically in offline local preview (`worldClient`) and online `@dc2d/game-server`.
 
 ---
 
-## 7. Acceptance Criteria & Verification Tests
+## 5. Requirement Traceability Table
 
-### Unit & Integration Tests (`@dc2d/engine` & `@dc2d/game-server`)
-1. **Tool Gating & Ore Smelting Loop**: Non-pickaxe hits on `CopperVein`/`IronVein` return `0` dmg + ricochet/hint; Pickaxe harvests ore -> Campfire smelts `copper-ingot`/`iron-ingot` -> Workbench crafts `copper-pickaxe` (`harvestPower >= 40`) & `iron-greatsword`.
-2. **Workbench Proximity Craft Rule**: Attempting to craft a `requiresWorkbench: true` recipe without a placed `Workbench` within `2.8` tiles fails cleanly; placing one and standing near it succeeds and consumes ingredients.
-3. **Placement Validation & 100% Dismantle Refund**: Placing structures checks elevation, water, distance, and collider clearance; dismantling an owner-placed `workbench` or `camp-bed` removes it from `cache` + `structures` and refunds exact crafting materials (while dismantling non-empty `wood-chest` is safely rejected).
-4. **Bed Respawn, Map Marker & Buff Stacking**: Claiming `camp-bed` survives roundtrip `WorldPersistenceStore.saveNow()` -> `load()`, returns `respawnPointFor(player)` across simulated server restart, and surfaces bed coordinates to map snapshots; eating `cooked-meat` raises effective `maxHp` and isn't clobbered by shorter `berry` snacks.
-5. **Client / Offline Persistence**: Offline simulation snapshot serialization/deserialization preserves depleted nodes, placed structures, chests, and bed bindings cleanly across reload.
+| ID | Domain | Measurable Requirement & Pass Criteria | Verification Layer(s) | Automated Test Target |
+| :--- | :--- | :--- | :--- | :--- |
+| `REQ-P8-01` | Station Gating | `RecipeDef` enforces 3-tier split (`Hand`, `requiresCampfire`, `requiresWorkbench`); crafting a `requiresWorkbench` recipe fails with `0` items consumed when no `Workbench` is within `2.8` tiles and succeeds when within `2.8` tiles. | `unit`, `sim`, `static` | `packages/engine/src/inventory/crafting.test.ts`, `packages/game-server/src/sim/survival/survivalSim.test.ts`, `scripts/verify/content-integrity.mjs` |
+| `REQ-P8-02` | Station Sync | `InventorySnapshot.nearWorkbench` updates within `1` snapshot tick on entering/leaving `2.8` tiles of a `Workbench`; `CraftingPanel` enables/disables Workbench recipes accurately on Desktop and Mobile. | `sim`, `e2e-desktop`, `e2e-mobile` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-03` | Ore Loop | `smelt-copper-ingot` & `smelt-iron-ingot` require `Campfire`; `copper-pickaxe`, `copper-axe`, `iron-greatsword`, `storage-chest`, `camp-bed`, `wood-palisade` require `Workbench`; all recipes reference valid catalog items. | `unit`, `static` | `packages/engine/src/inventory/crafting.test.ts`, `scripts/verify/content-integrity.mjs` |
+| `REQ-P8-04` | Gather Feedback | `harvestHit` replicates `hpRatio` (`0..1`), triggers `0.18s` prop wobble/tint flash, shows `<= 2.0s` decaying micro HP bar + `<= 50%` crack state, and plays `0.35s` tree tip-over animation before swapping to `Stump`. | `sim`, `e2e-desktop`, `visual` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-05` | Tool Gating | Non-pickaxe hits on `CopperVein`/`IronVein`/`CursedCrystal` deal `0` damage and emit `"Requires Pickaxe!"`; wrong-tool hits on trees/boulders throttle tool hints to `>= 5.0s` cooldown. | `unit`, `sim`, `e2e-desktop` | `packages/engine/src/survival/survivalRules.test.ts`, `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-06` | Foraging UX | `Bush`, `Wildflower`, `GiantMushroom`, and `BogReed` within `2.2` tiles expose `[E]`/tap forage prompts; harvesting a `Bush` switches it to a stripped berry visual until regrowth. | `sim`, `e2e-desktop`, `e2e-mobile` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-07` | Gather Audio | `synthSfx` / `audioEngine` maps distinct synthesis parameters per material family (`wood`, `stone`, `ore`, `forage`) with non-zero audible buffers and `<= 1.0` peak amplitude. | `unit` | `packages/client/src/audio/proceduralSynth.test.ts` |
+| `REQ-P8-08` | HD Camp Props | `campPropTextures.ts` generates `48 px/tile` textures for `CopperVein`, `IronVein`, `Workbench`, `Bed`, `WoodChest` (both `closed` and `open` lids), and `Palisade` with non-empty alpha bounds. | `unit`, `static`, `visual` | `packages/client/src/render/survival/campPropTextures.test.ts`, `scripts/verify/content-integrity.mjs`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-09` | Placement Ghost | Holding any `placeStructure` item renders a `0.5`-tile snapped emerald/crimson ghost (`0.8..3.6` tile reach) with light/craft aura ring, `[R]` rotation `0..3`, and explicit rejection reason (`Water`/`Blocked`/`Wrong Elevation`/`Too Far`). | `unit`, `e2e-desktop`, `e2e-mobile`, `visual` | `packages/engine/src/survival/survivalRules.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-10` | Dismantle Refund | `dismantleStructure` removes owner-placed structures and refunds `100%` of recipe ingredients (overflowing safely to ground drops when bag is full). | `sim`, `e2e-desktop` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-11` | Chest Guard | Dismantling a `wood-chest` containing `>= 1` item is rejected with `0` lost items and emits `"Empty chest before dismantling"`; emptying it allows full-refund dismantle. | `sim`, `e2e-desktop` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-12` | Palisades | `Palisade` has `80 HP`, blocks entity movement, stuns charging `Boar`s (`staggerTimer >= 1.4`), breaks at `0 HP`, and auto-connects orthogonal neighbor rails within `1.2` tiles. | `sim`, `unit` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `packages/engine/src/survival/survivalRules.test.ts` |
+| `REQ-P8-13` | Station Prompts | Standing `<= 2.4` tiles from `Workbench`, `Campfire`, `WoodChest`, or `Bed` surfaces distinct `[E]`/tap prompts; `Campfire` displays `Warming (0..5s)` progress before granting `Rested` (`300s`). | `e2e-desktop`, `e2e-mobile` | `e2e/phase-8.spec.ts` |
+| `REQ-P8-14` | Bed Map Pin | Binding a `Camp Bed` sets `respawnBedPos`, heals `+15 HP` out of combat, respawns the player at the bed on death across server restarts, and draws a Home Bed pin on `[M]` map. | `sim`, `e2e-desktop`, `visual` | `packages/game-server/src/sim/survival/survivalSim.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-15` | Buff Separation | `cooked-meat` (`Well-Fed` `240s`, `+15` maxHp) is not overwritten by `berry` (`45s`); `herb-tea` sets `invigoratedTimer = 180` (`+16 stam/s`, `0.5×` exhaustion delay); `healing-salve` heals `+55 HP` over `4.0s` HoT (`hotTimer`). | `unit`, `sim` | `packages/engine/src/survival/survivalRules.test.ts`, `packages/game-server/src/sim/survival/survivalSim.test.ts` |
+| `REQ-P8-16` | Buff Icon Tray | HUD buff tray renders distinct icon badges (`Well-Fed`, `Invigorated`, `Rested`, `Salve`, shrines) with countdown rings/timers and hover/tap tooltips (zero raw `FED`/`REST` strings). | `e2e-desktop`, `e2e-mobile`, `visual` | `e2e/phase-8.spec.ts` |
+| `REQ-P8-17` | Offline Save | Offline preview serializes `depleted`, `structures`, `beds`, `chests`, `inventory`, and buff timers under `dc2d_offline_world_v1_<seed>` and restores them identically after browser `F5` reload. | `unit`, `e2e-desktop` | `packages/client/src/net/offlinePersistence.test.ts`, `e2e/phase-8.spec.ts` |
+| `REQ-P8-18` | Reset World | Clicking `"Reset Local World"` in Settings or Title Screen clears `dc2d_offline_world_v1_<seed>` after confirmation and restores fresh starter state. | `e2e-desktop`, `e2e-mobile` | `e2e/phase-8.spec.ts` |
 
-### Playtest Sign-Off Checklist (PC & Mobile)
-- [ ] Chopping trees & mining boulders/ore shakes nodes visibly, shows wear/HP progress, topples felled trees into stumps, and warns cleanly when hitting ore without a Pickaxe.
-- [ ] Selecting any structure previews an accurate green/red placement ghost (with light/craft aura rings and `[R]` rotation on PC / drag-place on mobile), and placed structures can be dismantled cleanly for full refund.
-- [ ] Standing by a Workbench, Campfire, Chest, or Bed surfaces unmistakable `[E]` / mobile tap prompts; Campfire unlocks cooking/smelting & `Rested`, Workbench unlocks Copper tools & Tier-2 weapons, and Bed pins a home marker on the `[M]` map.
-- [ ] Placed bases, chest inventories, bed spawn points, and depleted nodes survive both `game-server` restarts AND offline browser `F5` refreshes.
+---
+
+## 6. Phase Exit Gate
+
+Phase 8 Pass 2 may be marked `✅ Complete` only when `npm run verify:phase -- phase-8` exits `0` per [VERIFICATION-GATE.md](../VERIFICATION-GATE.md) with all `18` requirements (`REQ-P8-01`..`REQ-P8-18`) passing across Desktop, Mobile, static audit, and visual entropy checks.

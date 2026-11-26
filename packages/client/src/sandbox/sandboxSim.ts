@@ -1,10 +1,10 @@
 /** Self-contained local client-side sandbox world simulation (chests, combat, player, lineup). */
-import { STARTER_ARMOR, STARTER_LOADOUT, getItemDef, maxStackForItem } from "@dc2d/content";
+import { STARTER_ARMOR, STARTER_LOADOUT, getItemDef, getRecipeDef, maxStackForItem } from "@dc2d/content";
 import {
   CHEST_SLOT_COUNT, DEFAULT_APPEARANCE, MAX_PLAYER_HP, MAX_PLAYER_STAMINA,
-  createEmptyChestSlots, createEmptyInventoryState, equipArmorFromSlot,
+  craftRecipeInState, createEmptyChestSlots, createEmptyInventoryState, equipArmorFromSlot,
   moveOrSwapSlot, quickTransferChestSlot, takeAllFromChest, transferChestSlot, unequipArmorToSlot,
-  type ArmorSlotKey, type DropItemRequest, type InventorySlot, type InventorySnapshot,
+  type ArmorSlotKey, type CharacterAppearance, type DropItemRequest, type InventorySlot, type InventorySnapshot,
   type PlayerInventoryState, type PlayerSnapshot, type ProjectileSnapshot,
   type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
@@ -46,23 +46,19 @@ function createStarterInv(): PlayerInventoryState {
   return { slots: base.slots, armor: { ...STARTER_ARMOR, offhand: "wooden-shield" } };
 }
 
+const UNOPENED_CHEST_GEAR: readonly (readonly [string, number])[] = [
+  ["potion", 3], ["arrow", 16], ["coin", 25], ["cooked-meat", 2],
+  ["flint-dagger", 1], ["wooden-spear", 1], ["iron-greatsword", 1], ["axe", 1],
+  ["pickaxe", 1], ["torch", 1], ["sword", 1], ["bow", 1], ["wooden-shield", 1],
+];
+
 function createSandboxChests(): WorldChestSnapshot[] {
   return SANDBOX_CHEST_SPECS.map((c) => {
     const slots = createEmptyChestSlots();
     if (!c.opened) {
-      slots[0] = { itemId: "potion", count: 3 };
-      slots[1] = { itemId: "arrow", count: 16 };
-      slots[2] = { itemId: "coin", count: 25 };
-      slots[3] = { itemId: c.poiKind === POI_RUINS ? "iron-helm" : "cooked-meat", count: 2 };
-      slots[4] = { itemId: "flint-dagger", count: 1 };
-      slots[5] = { itemId: "wooden-spear", count: 1 };
-      slots[6] = { itemId: "iron-greatsword", count: 1 };
-      slots[7] = { itemId: "axe", count: 1 };
-      slots[8] = { itemId: "pickaxe", count: 1 };
-      slots[9] = { itemId: "torch", count: 1 };
-      slots[10] = { itemId: "sword", count: 1 };
-      slots[11] = { itemId: "bow", count: 1 };
-      slots[12] = { itemId: "wooden-shield", count: 1 };
+      UNOPENED_CHEST_GEAR.forEach(([id, count], i) => {
+        slots[i] = { itemId: i === 3 && c.poiKind === POI_RUINS ? "iron-helm" : id, count };
+      });
     } else {
       slots[0] = { itemId: "coin", count: 5 };
     }
@@ -180,21 +176,15 @@ export class SandboxSim {
 
   equipArmor(req: { readonly slotIndex: number; readonly targetArmor?: ArmorSlotKey | undefined }): void {
     const next = equipArmorFromSlot(this.inv, req, getItemDef);
-    if (!next) return;
-    this.inv = next;
-    this.player = { ...this.player, armor: next.armor };
+    if (next) { this.inv = next; this.player = { ...this.player, armor: next.armor }; }
   }
 
   unequipArmor(req: { readonly armorSlot: ArmorSlotKey; readonly targetSlot?: number | undefined }): void {
     const next = unequipArmorToSlot(this.inv, req, { maxStackFor: maxStackForItem, lookup: getItemDef });
-    if (!next) return;
-    this.inv = next;
-    this.player = { ...this.player, armor: next.armor };
+    if (next) { this.inv = next; this.player = { ...this.player, armor: next.armor }; }
   }
 
-  openChest(chestId: string): void {
-    this.chests = this.chests.map((c) => (c.id === chestId ? { ...c, opened: true } : c));
-  }
+  openChest(chestId: string): void { this.chests = this.chests.map((c) => (c.id === chestId ? { ...c, opened: true } : c)); }
 
   chestTransfer(req: SandboxChestTransferReq): void {
     const chest = this.chests.find((c) => c.id === req.chestId);
@@ -225,6 +215,23 @@ export class SandboxSim {
     });
     this.inv = { ...this.inv, slots: next.inv.slots, armor: next.inv.armor };
     this.chests = [...next.chests];
+  }
+
+  craftRecipe(recipeId: string): boolean {
+    const recipe = getRecipeDef(recipeId);
+    if (!recipe) return false;
+    const next = craftRecipeInState(this.inv, {
+      recipe, nearCampfire: true, nearWorkbench: true, maxStackFor: maxStackForItem,
+    });
+    if (!next) return false;
+    this.inv = next;
+    this.selectHotbar(this.selectedHotbar);
+    return true;
+  }
+
+  setCharacter(opts: { readonly name: string; readonly appearance: CharacterAppearance }): void {
+    const clean = opts.name.trim().slice(0, 20) || this.player.name;
+    this.player = { ...this.player, name: clean, appearance: opts.appearance };
   }
 
   nearestChest(): WorldChestSnapshot | null {

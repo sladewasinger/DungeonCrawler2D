@@ -1,6 +1,6 @@
 # Phase 6 — Full Stealth RPG, Gradual Perception & Ecological AI Overhaul
 
-> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; Enemy deep-water swim animations explicitly deferred to [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks))
+> **Status**: ✅ Complete (Pass 1 + Pass 2 landed; Enemy deep-water swim animations explicitly deferred to [Phase 12 Polish](../ROADMAP.md#phase-12--co-op-polish-adaptive-music-3d-rig-polish--qa-benchmarks))
 > **Primary Touchpoints**:
 > `@dc2d/engine` (`src/combat/stealthRules.ts`, `src/combat/aiSensing.ts`, `src/net/protocol.ts`),
 > `@dc2d/game-server` (`src/sim/combatSim.ts`, `src/sim/wildlife/creatureAi.ts`, `src/sim/wildlife/creatureBehaviors.ts`, `src/sim/wildlife/wolfPackAi.ts`, `src/sim/wildlife/worldEcology.ts`),
@@ -157,7 +157,7 @@ Replace binary detection with a per-entity **`suspicion` scalar (`0.0 .. 1.0`)**
 ### 5.3 Deep-Water Enemy Behavior, Aggro Focus & Polish Action Items
 - **Aggro Target Lock (`isCreatureAggro`)**: Once an enemy or wildlife unit has locked onto a target (`targetPlayerId !== null`, `suspicion >= 1`, winding up, or charging), it will not break aggro to inspect allied corpses, scavenge `raw-meat`, or investigate distraction noises until combat disengages.
 - **Enemy Deep-Water Wade & Submersion**: Enemies track `inWater` / `inDeepWater` continuously (`syncCreatureWaterState`), move at reduced shallow/deep-water speeds (`creatureWaterSpeedMult`, including boar charges), drop into slowed walk playback (`0.65×` FPS), and render with a rounded meniscus waterline + ~80% transparent blue-tinted lower body (`SUBMERGED_BODY_ALPHA`, `SUBMERGED_BODY_TINT`).
-- **Polish Phase Action Item**: Add dedicated deep-water **swim animations** to enemy/wildlife spritesheets (tracked in [Phase 13 Polish](../../ROADMAP.md#phase-13--co-op-polish-adaptive-music--qa-benchmarks)).
+- **Polish Phase Action Item**: Add dedicated deep-water **swim animations** to enemy/wildlife spritesheets (tracked in [Phase 12 Polish](../ROADMAP.md#phase-12--co-op-polish-adaptive-music-3d-rig-polish--qa-benchmarks)).
 
 ---
 

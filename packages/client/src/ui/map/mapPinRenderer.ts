@@ -17,16 +17,34 @@ const CATEGORY_PIN: Readonly<Record<PoiCategory, { readonly color: string; reado
 
 const ROMAN: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
 
+function traceStarPath(ctx: CanvasRenderingContext2D, px: number, py: number): void {
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const r = i % 2 === 0 ? 4.5 : 1.9;
+    const ang = (i * Math.PI) / 4 - Math.PI / 2;
+    const x = px + Math.cos(ang) * r;
+    const y = py + Math.sin(ang) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawPinGlyph(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly color: string; readonly shape: string }): void {
   const { px, py, color, shape } = opts;
   ctx.save();
   ctx.fillStyle = "#090d14";
   ctx.fillRect(Math.round(px - 4), Math.round(py - 4), 8, 8);
   ctx.fillStyle = color;
-  if (shape === "diamond" || shape === "star") {
+  if (shape === "diamond") {
     ctx.beginPath();
     ctx.moveTo(px, py - 4); ctx.lineTo(px + 4, py); ctx.lineTo(px, py + 4); ctx.lineTo(px - 4, py);
     ctx.closePath(); ctx.fill();
+  } else if (shape === "star") {
+    traceStarPath(ctx, px, py);
+  } else if (shape === "dot") {
+    ctx.beginPath(); ctx.arc(px, py, 2.8, 0, Math.PI * 2); ctx.fill();
   } else if (shape === "cross") {
     ctx.fillRect(Math.round(px - 1), Math.round(py - 4), 2, 8);
     ctx.fillRect(Math.round(px - 4), Math.round(py - 1), 8, 2);
@@ -91,10 +109,7 @@ function drawWindowPoiPins(opts: {
   const pcy = Math.floor(opts.localY / 32);
   const center = opts.mapPx * 0.5;
   for (const poi of getWindowPins({ cache: opts.cache, pcx, pcy, halfChunks })) {
-    const show = opts.discovered.size > 0
-      ? opts.discovered.has(poi.id)
-      : Math.hypot(poi.x - opts.localX, poi.y - opts.localY) <= 36;
-    if (!show) continue;
+    if (!opts.discovered.has(poi.id)) continue;
     const px = center + (poi.x - opts.localX) * opts.zoom;
     const py = center + (poi.y - opts.localY) * opts.zoom;
     if (inBounds(px, py, opts.mapPx)) drawPinGlyph(opts.ctx, { px, py, color: poi.color, shape: poi.shape });

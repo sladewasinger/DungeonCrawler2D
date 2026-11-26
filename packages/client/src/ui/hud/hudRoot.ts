@@ -73,7 +73,10 @@ export class HudRoot {
       },
       onDropItem: (req) => actions.onDropItem(req.source === "chest" ? { ...req, chestId: this.openChestId ?? req.chestId } : req),
       onInspectItem: (source, rect) => { this.itemCard.open(source, rect); this.refreshFromCache(); },
-      onHoverItem: (source, rect) => { this.itemCard.hover(source, rect); this.refreshFromCache(); },
+      onHoverItem: (source, rect) => {
+        this.itemCard.hover(source, rect);
+        if (this.lastState) this.itemCard.sync(this.lastState.inventory, this.resolveOpenChest(this.lastState));
+      },
       onDismissInspect: () => this.itemCard.close(),
     };
   }
@@ -142,25 +145,24 @@ export class HudRoot {
     const invOpen = this.openPanel === "inventory";
     const chestOpen = this.openPanel === "chest" && Boolean(chest);
     this.drag.setState(state.inventory, { panelOpen: invOpen || chestOpen, chestSlots: chest?.slots ?? null });
-    const tap = this.drag.activeTapSource();
-    this.hotbar.sync(state.inventory, tap, { torchLit: Boolean(state.localPlayer?.torchLit), mapOpen: this.isMapVisible(state) });
+    this.hotbar.sync(state.inventory, { torchLit: Boolean(state.localPlayer?.torchLit), mapOpen: this.isMapVisible() });
     this.vitals.sync(state.localPlayer, state.entities);
-    this.inventoryModal.sync(state.inventory, { open: invOpen, tapSource: tap, player: state.localPlayer });
-    this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen, tapSource: tap });
+    this.inventoryModal.sync(state.inventory, { open: invOpen, player: state.localPlayer });
+    this.chestModal.sync({ chest, inv: state.inventory, open: chestOpen });
     this.craftingPanel.sync(state.inventory, this.openPanel === "crafting");
     this.characterPanel.sync({ open: this.openPanel === "character", name: state.name, appearance: state.appearance, armor: state.inventory.armor });
     this.itemCard.sync(state.inventory, chest);
     this.syncMinimap(state);
   }
 
-  private isMapVisible(state: HudSyncState): boolean {
-    return this.openPanel === "none" && (this.mapOpen || state.localPlayer?.heldItem === "map");
+  private isMapVisible(): boolean {
+    return this.openPanel === "none" && this.mapOpen;
   }
 
   private syncMinimap(state: HudSyncState): void {
     if (!state.cache) return;
     this.minimap.sync({
-      visible: this.isMapVisible(state),
+      visible: this.isMapVisible(),
       cache: state.cache, local: state.localPlayer,
       players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [], discovery: state.discovery,
     });

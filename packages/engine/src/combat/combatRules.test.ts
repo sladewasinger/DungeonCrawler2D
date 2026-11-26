@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   BOW_MAX_CHARGE_SEC,
-  comboMultiplier,
   computeMitigatedDamage,
   evaluateBowShot,
+  getWeaponStepSpec,
   isInSanctuary,
+  isInWorldSanctuary,
   isWithinSector,
   segmentHitsEllipse,
-} from "./combatRules.js";
+} from "../index.js";
 import { projectileHurtbox } from "./hitboxes/combatShapes.js";
 
 describe("combatRules", () => {
@@ -15,14 +16,16 @@ describe("combatRules", () => {
     expect(isInSanctuary(0.5, 0.5)).toBe(true);
     expect(isInSanctuary(6.5, 0.5)).toBe(true);
     expect(isInSanctuary(9.5, 0.5)).toBe(false);
+    expect(isInWorldSanctuary({ poisNear: () => [{ centerX: 50, centerY: 50, radiusX: 4, radiusY: 4, isSanctuary: true }] }, 54.5, 50)).toBe(true);
+    expect(isInWorldSanctuary({ poisNear: () => [{ centerX: 50, centerY: 50, radiusX: 4, radiusY: 4, isSanctuary: false }] }, 51, 50)).toBe(false);
     expect(computeMitigatedDamage(20, 0)).toBe(20);
     expect(computeMitigatedDamage(20, 13)).toBeLessThan(15);
     expect(computeMitigatedDamage(1, 50)).toBe(1);
   });
 
-  it("evaluates 3-hit combo multipliers, bow charge scaling, and directional sector hits", () => {
-    expect(comboMultiplier(1)).toBe(1.0);
-    expect(comboMultiplier(3)).toBe(1.45);
+  it("evaluates weapon moveset scaling, bow charge scaling, and directional sector hits", () => {
+    expect(getWeaponStepSpec("sword", 1).damageMult).toBe(1.0);
+    expect(getWeaponStepSpec("sword", 3).damageMult).toBe(1.48);
     const quick = evaluateBowShot(0);
     const full = evaluateBowShot(BOW_MAX_CHARGE_SEC * 2);
     expect(full.ratio).toBe(1);

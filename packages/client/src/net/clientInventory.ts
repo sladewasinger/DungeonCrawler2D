@@ -2,7 +2,6 @@
 import { getItemDef, getRecipeDef, maxStackForItem, STARTER_ARMOR, STARTER_LOADOUT } from "@dc2d/content";
 import {
   HOTBAR_SLOT_COUNT,
-  PropKind,
   cloneInventoryState,
   craftRecipeInState,
   createEmptyInventoryState,
@@ -19,10 +18,7 @@ import {
   type InventorySnapshot,
   type PlayerSnapshot,
   type WorldChestSnapshot,
-  type WorldChunkCache,
 } from "@dc2d/engine";
-
-const CAMPFIRE_RADIUS_SQ = 4.0 * 4.0;
 
 export function createStarterInventorySnapshot(): InventorySnapshot {
   const state = createEmptyInventoryState();
@@ -31,17 +27,7 @@ export function createStarterInventorySnapshot(): InventorySnapshot {
       state.slots[entry.slot] = { itemId: entry.itemId, count: entry.count };
     }
   }
-  return { slots: state.slots, armor: { ...STARTER_ARMOR }, selectedHotbar: 0, nearCampfire: true };
-}
-
-export function isNearCampfire(cache: WorldChunkCache, x: number, y: number): boolean {
-  for (const prop of cache.propsNear(x, y)) {
-    if (prop.kind !== PropKind.Campfire) continue;
-    const dx = prop.x - x;
-    const dy = prop.y - y;
-    if (dx * dx + dy * dy <= CAMPFIRE_RADIUS_SQ) return true;
-  }
-  return false;
+  return { slots: state.slots, armor: { ...STARTER_ARMOR }, selectedHotbar: 0, nearCampfire: true, nearWorkbench: false };
 }
 
 export function applyMoveSlot(inv: InventorySnapshot, move: { readonly from: number; readonly to: number }): InventorySnapshot {
@@ -76,7 +62,9 @@ export function applyUnequipArmor(
 export function applyCraftRecipe(inv: InventorySnapshot, recipeId: string): InventorySnapshot {
   const recipe = getRecipeDef(recipeId);
   if (!recipe) return inv;
-  const next = craftRecipeInState(inv, { recipe, nearCampfire: inv.nearCampfire, maxStackFor: maxStackForItem });
+  const next = craftRecipeInState(inv, {
+    recipe, nearCampfire: inv.nearCampfire, nearWorkbench: inv.nearWorkbench ?? false, maxStackFor: maxStackForItem,
+  });
   return next ? { ...inv, slots: next.slots, armor: next.armor } : inv;
 }
 

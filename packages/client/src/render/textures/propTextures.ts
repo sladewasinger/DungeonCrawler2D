@@ -4,7 +4,6 @@ import type { Texture } from "pixi.js";
 import { createCampPropTextures, type CampPropTextures } from "../survival/campPropTextures.js";
 import { createBiomePropTextures, type BiomePropTextures } from "./biomes/biomePropTextures.js";
 import { createFrontierPoiTextures, type FrontierPoiTextures } from "./pois/frontierPoiTextures.js";
-import { makeFallbackKnight } from "./fxPropTextures.js";
 import {
   makeHdBushVariants, makeHdOakCanopyTexture, makeHdOakTrunkTexture,
   makeHdPineCanopyTexture, makeHdPineTrunkTexture, makeHdTallGrassVariants, makeHdWildflowerVariants,
@@ -14,7 +13,7 @@ import {
   makeHdBoulderVariants, makeHdFallbackPalisadeTexture,
   makeHdFallbackRuinPillarTexture, makeHdFallbackTentTexture, makeHdStumpTexture,
 } from "./hdPropTextures.js";
-import { getPoiPropSpriteSpec, makePalisadeTexture, makeRuinPillarTexture, makeTentTexture } from "./poiPropTextures.js";
+import { makePalisadeTexture, makeRuinPillarTexture, makeTentTexture } from "./poiPropTextures.js";
 import { getLoadedSpriteAsset } from "./spriteManifest.js";
 
 /** Scale mapping 48 px/tile HD props cleanly to 16 px/tile world space (zero mixels). */
@@ -32,7 +31,6 @@ export interface PropTextureSet extends CampPropTextures, BiomePropTextures, Fro
   readonly stump: Texture;
   readonly campfireFrames: readonly Texture[];
   readonly torchFrames: readonly Texture[];
-  readonly fallbackKnight: Texture;
   readonly palisade: Texture;
   readonly tent: Texture;
   readonly ruinPillar: Texture;
@@ -55,7 +53,6 @@ export function createPropTextureSet(): PropTextureSet {
     stump: makeHdStumpTexture(),
     campfireFrames: makeHdCampfireFrames(),
     torchFrames: makeHdTorchFrames(),
-    fallbackKnight: makeFallbackKnight(),
     palisade: pickPoiOrHdFallback("palisade", makePalisadeTexture, makeHdFallbackPalisadeTexture),
     tent: pickPoiOrHdFallback("bandit-tent", makeTentTexture, makeHdFallbackTentTexture),
     ruinPillar: pickPoiOrHdFallback("ruin-pillar", makeRuinPillarTexture, makeHdFallbackRuinPillarTexture),
@@ -63,11 +60,6 @@ export function createPropTextureSet(): PropTextureSet {
     ...createBiomePropTextures(),
     ...createFrontierPoiTextures(),
   };
-}
-
-export function isPoiLoadedTexture(kind: PropKind | undefined): boolean {
-  if (!kind) return false;
-  return Boolean(getPoiPropSpriteSpec(kind));
 }
 
 export function isTreeProp(kind: PropKind): boolean {

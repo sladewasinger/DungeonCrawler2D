@@ -69,11 +69,12 @@ export class CraftingPanel {
     this.el.hidden = !open;
     if (!open) return;
 
-    const fp = `${slotsFingerprint(inv.slots, 0, inv.slots.length)}#${inv.nearCampfire}#${this.showLocked}`;
+    const fp = `${slotsFingerprint(inv.slots, 0, inv.slots.length)}#${inv.nearCampfire}#${Boolean(inv.nearWorkbench)}#${this.showLocked}`;
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
 
-    this.campfireBadge.textContent = inv.nearCampfire ? "· Campfire Nearby" : "· Hand Crafting";
+    const stations = [inv.nearCampfire ? "Campfire" : "", inv.nearWorkbench ? "Workbench" : ""].filter(Boolean);
+    this.campfireBadge.textContent = stations.length > 0 ? `· ${stations.join(" + ")} Nearby` : "· Hand Crafting";
     this.lockedToggleBtn.dataset.active = String(this.showLocked);
     this.lockedToggleBtn.textContent = this.showLocked ? "Show Locked: ON" : "Show Locked";
     this.renderRecipes(inv);
@@ -86,6 +87,7 @@ export class CraftingPanel {
         slots: inv.slots,
         recipe,
         nearCampfire: inv.nearCampfire,
+        nearWorkbench: inv.nearWorkbench ?? false,
         maxStackFor: maxStackForItem,
       });
       if (!craftable && !this.showLocked) continue;
@@ -124,7 +126,9 @@ export class CraftingPanel {
     const itemName = getItemDef(recipe.outputItemId)?.name ?? recipe.outputItemId;
     const countSuffix = maxStackForItem(recipe.outputItemId) > 1 && recipe.outputCount > 1 ? ` x${recipe.outputCount}` : "";
     const title = domNode(TAG_DIV, "ow-craft-title");
-    title.textContent = `${itemName}${countSuffix}${recipe.requiresCampfire ? " (Campfire)" : ""}`;
+    const stationParts = [recipe.requiresCampfire ? "Campfire" : "", recipe.requiresWorkbench ? "Workbench" : ""].filter(Boolean);
+    const stationTag = stationParts.length > 0 ? ` (${stationParts.join(" + ")})` : "";
+    title.textContent = `${itemName}${countSuffix}${stationTag}`;
 
     const parts = recipe.ingredients.map((ing) => {
       const name = getItemDef(ing.itemId)?.name ?? ing.itemId;

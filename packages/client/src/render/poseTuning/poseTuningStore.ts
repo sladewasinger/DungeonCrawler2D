@@ -63,7 +63,7 @@ export async function savePoseTuningToServer(): Promise<{ readonly ok: boolean; 
   try {
     const res = await fetch("/__dev/save-pose-tuning", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-DC2D-Dev-Save": "1" },
       body: JSON.stringify(activeTuning),
     });
     const data = (await res.json()) as { readonly ok?: boolean; readonly error?: string };

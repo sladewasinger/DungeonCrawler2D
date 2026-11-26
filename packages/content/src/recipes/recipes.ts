@@ -11,6 +11,7 @@ export interface RecipeDef {
   readonly outputItemId: string;
   readonly outputCount: number;
   readonly requiresCampfire?: boolean;
+  readonly requiresWorkbench?: boolean;
   readonly ingredients: readonly RecipeIngredientDef[];
 }
 

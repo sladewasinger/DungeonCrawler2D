@@ -5,7 +5,7 @@ import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
 
 export interface BakedChunkTilemaps {
   readonly ground: TilemapLayerHandle;
-  readonly water: TilemapLayerHandle;
+  readonly water?: TilemapLayerHandle | undefined;
 }
 
 const FRINGE_CODE: Partial<Record<GroundKind, number>> = {
@@ -69,7 +69,7 @@ function packCellBytes(input: {
   readonly wy: number;
   readonly offset: number;
   readonly variant: number;
-}): void {
+}): boolean {
   const { groundOut, waterOut, cache, wx, wy, offset, variant } = input;
   const tile = cache.tileAt(wx, wy);
   const water = isWater(tile.ground);
@@ -84,28 +84,30 @@ function packCellBytes(input: {
   if (!water) {
     waterOut[offset] = 0;
     waterOut[offset + 3] = 255;
-    return;
+    return false;
   }
   const corners = computeShoreCornerMask({ cache, wx, wy });
   waterOut[offset] = tile.ground === GroundKind.ShallowWater ? 1 : 2;
   waterOut[offset + 1] = (variant & 3) | ((corners & 15) << 2);
   waterOut[offset + 2] = 0;
   waterOut[offset + 3] = 255;
+  return true;
 }
 
 export function packChunkTilemapBuffers(
   cache: WorldChunkCache,
   coords: { readonly cx: number; readonly cy: number },
-): { readonly groundData: Uint8Array; readonly waterData: Uint8Array } {
+): { readonly groundData: Uint8Array; readonly waterData: Uint8Array; readonly hasWater: boolean } {
   const byteCount = CHUNK_SIZE * CHUNK_SIZE * 4;
   const groundData = new Uint8Array(byteCount);
   const waterData = new Uint8Array(byteCount);
+  let hasWater = false;
   const chunk = cache.getChunk(coords.cx, coords.cy);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const wy = coords.cy * CHUNK_SIZE + ly;
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const idx = worldTileIndex(lx, ly);
-      packCellBytes({
+      const cellWater = packCellBytes({
         groundOut: groundData,
         waterOut: waterData,
         cache,
@@ -114,9 +116,10 @@ export function packChunkTilemapBuffers(
         offset: idx * 4,
         variant: chunk.variant[idx] ?? 0,
       });
+      if (cellWater) hasWater = true;
     }
   }
-  return { groundData, waterData };
+  return { groundData, waterData, hasWater };
 }
 
 export function buildChunkTilemapMeshes(
@@ -124,9 +127,9 @@ export function buildChunkTilemapMeshes(
   atlas: TerrainTileAtlas,
   coords: { readonly cx: number; readonly cy: number },
 ): BakedChunkTilemaps {
-  const { groundData, waterData } = packChunkTilemapBuffers(cache, coords);
+  const { groundData, waterData, hasWater } = packChunkTilemapBuffers(cache, coords);
   return {
     ground: createChunkTilemapLayer({ atlas, mapData: groundData, mode: "ground" }),
-    water: createChunkTilemapLayer({ atlas, mapData: waterData, mode: "water" }),
+    ...(hasWater ? { water: createChunkTilemapLayer({ atlas, mapData: waterData, mode: "water" }) } : {}),
   };
 }

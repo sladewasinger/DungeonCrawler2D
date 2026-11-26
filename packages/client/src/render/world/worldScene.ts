@@ -27,7 +27,7 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  applyWorldEventFx, buildGoreSpawn, collectActorParticleEmitters, collectWaterActors,
+  applyWorldEventFx, bindViewportRectSync, buildGoreSpawn, collectActorParticleEmitters, collectWaterActors,
   nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
@@ -67,6 +67,8 @@ export class WorldScene {
   private shakeMag = 0;
   private shakeTime = 0;
   private zoom: number = BASE_CAMERA_ZOOM;
+  private canvasRect = { left: 0, top: 0, width: 1, height: 1 };
+  private readonly unbindViewportSync: () => void;
 
   private constructor(private readonly app: Application, host: HTMLElement) {
     const [groundCam, waterCam, shadowCam, goreCam, grassCam, ysortCam, canopyCam, emissiveCam] =
@@ -75,11 +77,8 @@ export class WorldScene {
     this.cameras = [groundCam!, waterCam!, shadowCam!, goreCam!, grassCam!, ysortCam!, canopyCam!, emissiveCam!];
     const [waterHost, grassHost, canopyHost] = [new Container(), new Container(), new Container()];
     this.filterHosts = CAMERA_TUNING.grassWindStrength > 0 ? [this.sceneRoot, waterHost, grassHost, canopyHost] : [this.sceneRoot, waterHost, canopyHost];
-    waterHost.addChild(waterCam!);
-    grassHost.addChild(grassCam!);
-    canopyHost.addChild(canopyCam!);
-    shadowCam!.addChild(this.castShadows.container);
-    goreCam!.addChild(this.gore.decalLayer, this.webLayer.container);
+    waterHost.addChild(waterCam!); grassHost.addChild(grassCam!); canopyHost.addChild(canopyCam!);
+    shadowCam!.addChild(this.castShadows.container); goreCam!.addChild(this.gore.decalLayer, this.webLayer.container);
     this.pickups = new WorldPickupsRenderer(host, (lootId) => this.interactHandler?.(lootId));
     this.configureGoreLayers(ysortCam!);
     emissiveCam!.addChild(this.particles.container, this.vfx.container, this.harvestFx.container, this.gore.sparkLayer, this.hitboxDebug.container);
@@ -100,6 +99,10 @@ export class WorldScene {
       { name: "wind", filter: this.canopyWind.filter },
       { name: "lighting", filter: this.lighting.filter },
     ]);
+    this.unbindViewportSync = bindViewportRectSync(app.canvas, () => {
+      const r = this.app.canvas.getBoundingClientRect();
+      this.canvasRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+    });
   }
 
   private configureGoreLayers(ysortCam: Container): void {
@@ -137,13 +140,15 @@ export class WorldScene {
   adjustZoom(factor: number): void { this.zoom = stepCameraZoom(this.zoom, factor); }
 
   screenToWorldTile(clientX: number, clientY: number): { readonly x: number; readonly y: number } {
-    const rect = this.app.canvas.getBoundingClientRect();
+    const rect = this.canvasRect;
     const sw = this.app.screen.width;
     const sh = this.app.screen.height;
     const sx = ((clientX - rect.left) * sw) / Math.max(1, rect.width);
     const sy = ((clientY - rect.top) * sh) / Math.max(1, rect.height);
     return { x: ((sx - sw * 0.5) / this.zoom + this.camX * TILE_PX) / TILE_PX, y: ((sy - sh * 0.5) / this.zoom + this.camY * TILE_PX) / TILE_PX };
   }
+
+  dispose(): void { this.unbindViewportSync(); }
 
   renderFrame(input: SceneFrameInput): SceneAudioDistances {
     const preset = QUALITY_PRESETS[this.qualityId];

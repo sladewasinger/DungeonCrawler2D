@@ -24,7 +24,7 @@ const rendererBan = [
 const wsBan = { name: "ws", message: "this package must not import ws directly." };
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", ".scratch/**", "packages/client/public/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", ".scratch/**", "packages/client/public/**", "artifacts/**", "playwright-report/**", "test-results/**", ".verify-reports/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -52,7 +52,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.test.ts"],
+    files: ["**/*.test.ts", "**/*.spec.ts"],
     rules: { "max-lines-per-function": "off" },
   },
   {

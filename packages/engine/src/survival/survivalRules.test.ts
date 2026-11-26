@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { craftRecipeInState } from "../inventory/crafting.js";
+import { createEmptyInventoryState } from "../inventory/slotModel.js";
 import { WorldChunkCache } from "../world/collision.js";
 import { GroundKind, PropKind } from "../world/types.js";
 import { canPlaceStructure } from "./campBuilding.js";
@@ -24,9 +26,10 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
 
   it("validates camp building terrain/range and composes chunk deltas with revision bumps", () => {
     const cache = new FlatCampCache(1337);
-    expect(canPlaceStructure({ cache, x: 4, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
+    expect(canPlaceStructure({ cache, x: 4, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
+    expect(canPlaceStructure({ cache, x: 14, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(true);
     expect(canPlaceStructure({ cache, x: 10.5, y: 0, playerX: 9, playerY: 0, playerElev: 0, kind: "campfire" })).toBe(false);
-    expect(canPlaceStructure({ cache, x: 2.5, y: 0, playerX: 2.5, playerY: 0, playerElev: 0, kind: "bed" })).toBe(false);
+    expect(canPlaceStructure({ cache, x: 12.5, y: 0, playerX: 12.5, playerY: 0, playerElev: 0, kind: "bed" })).toBe(false);
 
     const rev0 = cache.chunkRevision(0, 0);
     cache.addPlacedStructure({ id: "str-1", kind: "campfire", itemId: "camp-campfire", x: 4.5, y: 1.5, elevation: 0, ownerName: "Hero" });
@@ -76,5 +79,25 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     const updated = overlay.applyChunkDeltas(withUnlit);
     expect(updated.props.find((p) => p.id === brazierId)?.kind).toBe(PropKind.BrazierLit);
     expect(updated.lights.some((l) => l.id === `${brazierId}-light`)).toBe(true);
+  });
+
+  it("enforces sanctuary POI exclusion, workbench crafting gate, and ingredient prefix preservation", () => {
+    const poiCache = new (class extends FlatCampCache {
+      override poisNear() {
+        return [{ id: "poi-shrine", kind: "ancient-waystone" as const, layout: "ancient-waystone" as const, cx: 0, cy: 0, centerX: 40, centerY: 40, radiusX: 5, radiusY: 5, elevation: 0, chestX: 40, chestY: 40, isSanctuary: true }];
+      }
+    })(1337);
+    expect(canPlaceStructure({ cache: poiCache, x: 40, y: 40, playerX: 39, playerY: 40, playerElev: 0, kind: "palisade" })).toBe(false);
+    expect(canPlaceStructure({ cache: poiCache, x: 45, y: 40, playerX: 46, playerY: 40, playerElev: 0, kind: "palisade" })).toBe(false);
+
+    const inv = createEmptyInventoryState();
+    inv.slots[0] = { itemId: "sword", count: 2, prefixId: "keen" };
+    const wbRecipe = {
+      id: "test-wb", outputItemId: "copper-sword", outputCount: 1,
+      requiresWorkbench: true, ingredients: [{ itemId: "sword", count: 1 }],
+    };
+    expect(craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: true, nearWorkbench: false, maxStackFor: () => 5 })).toBeNull();
+    const crafted = craftRecipeInState(inv, { recipe: wbRecipe, nearCampfire: false, nearWorkbench: true, maxStackFor: () => 5 });
+    expect(crafted?.slots[0]).toEqual({ itemId: "sword", count: 1, prefixId: "keen" });
   });
 });

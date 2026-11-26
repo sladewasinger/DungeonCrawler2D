@@ -6,7 +6,7 @@ import type { ItemPerkKind } from "./prefixes.js";
 import type { ItemRarity } from "./rarities.js";
 
 export type ItemCategory = "weapon" | "tool" | "armor" | "consumable" | "material";
-export type ItemWeaponArchetype = "sword" | "axe" | "pickaxe" | "torch" | "spear" | "dagger" | "greatsword";
+export type ItemWeaponArchetype = "sword" | "axe" | "pickaxe" | "torch" | "spear" | "dagger" | "greatsword" | "bow";
 export type PlaceableStructureKind = "campfire" | "torch" | "wood-chest" | "workbench" | "bed" | "palisade";
 export type ArmorSlot = "head" | "chest" | "legs" | "feet" | "offhand";
 export type GoreStyle = "splatter" | "thin-streak" | "drip" | "chunk-spray" | "explode-away";
@@ -39,6 +39,7 @@ export interface ItemDef {
   readonly defense?: number;
   readonly blockMitigation?: number;
   readonly damage?: number;
+  readonly harvestPower?: number;
   readonly staminaCost?: number;
   readonly range?: number;
   readonly arcRad?: number;
@@ -103,23 +104,19 @@ const BASE_ITEMS: readonly ItemDef[] = [
     description: "Sweeping two-handed claymore that cleaves packs and shatters guards.",
   },
   {
-    id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, rarity: "common",
+    id: "bow", name: "Hunter Bow", category: CAT_WEAPON, maxStack: 1, rarity: "common", weaponArchetype: "bow",
     damage: 22, staminaCost: 14, range: 11, critChance: 0.1, goreStyle: GORE_DRIP, twoHanded: true,
     description: "Supple ashwood hunting bow. Draw to focus power and loose recoverable arrows.",
   },
   {
     id: "axe", name: "Woodcutter Axe", category: CAT_TOOL, maxStack: 1, rarity: "common", weaponArchetype: "axe",
-    damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, critChance: 0.06, goreStyle: GORE_CHUNK_SPRAY,
+    harvestPower: 28, damage: 20, staminaCost: 16, range: 1.75, arcRad: 1.6, critChance: 0.06, goreStyle: GORE_CHUNK_SPRAY,
     description: "Heavy stone-head hatchet for felling timber and splitting skulls alike.",
   },
   {
     id: "pickaxe", name: "Stone Pickaxe", category: CAT_TOOL, maxStack: 1, rarity: "common", weaponArchetype: "pickaxe",
-    damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: GORE_CHUNK_SPRAY,
+    harvestPower: 28, damage: 14, staminaCost: 14, range: 1.65, arcRad: 1.4, goreStyle: GORE_CHUNK_SPRAY,
     description: "Essential miner's pick required to fracture highland Copper and Iron ore veins.",
-  },
-  {
-    id: "map", name: "Overworld Map", category: CAT_TOOL, maxStack: 1, rarity: "common",
-    description: "Parchment frontier chart tracking discovered landmarks and Waystone beacons.",
   },
   {
     id: "wooden-shield", name: "Wooden Shield", category: CAT_ARMOR, maxStack: 1, rarity: "common",
@@ -180,12 +177,13 @@ const ITEM_MAP = new Map<string, ItemDef>(ITEM_CATALOG.map((item) => [item.id, i
 
 export function getItemDef(itemId: string): ItemDef | undefined { return ITEM_MAP.get(itemId); }
 export function maxStackForItem(itemId: string): number { return ITEM_MAP.get(itemId)?.maxStack ?? 64; }
-export function isMeleeItem(itemId: string | null | undefined): boolean { return !itemId || Boolean(ITEM_MAP.get(itemId)?.weaponArchetype); }
+export function isMeleeItem(itemId: string | null | undefined): boolean {
+  if (!itemId) return true;
+  const arch = ITEM_MAP.get(itemId)?.weaponArchetype;
+  return Boolean(arch && arch !== "bow");
+}
 export function isBowItem(itemId: string | null | undefined): boolean {
-  if (!itemId) return false;
-  if (itemId === "bow") return true;
-  const def = ITEM_MAP.get(itemId);
-  return Boolean(def && def.category === "weapon" && !def.weaponArchetype && (def.range ?? 0) > 4);
+  return Boolean(itemId && ITEM_MAP.get(itemId)?.weaponArchetype === "bow");
 }
 export function isShieldItem(itemId: string | null | undefined): boolean {
   if (!itemId) return false;
@@ -194,6 +192,6 @@ export function isShieldItem(itemId: string | null | undefined): boolean {
 }
 export function resolveBlockMode(heldItem: string | null | undefined, offhand: string | null | undefined): BlockMode {
   const def = heldItem ? ITEM_MAP.get(heldItem) : undefined;
-  if (def?.twoHanded) return def.weaponArchetype ? "twoHanded" : "none";
+  if (def?.twoHanded) return def.weaponArchetype && def.weaponArchetype !== "bow" ? "twoHanded" : "none";
   return offhand ? "shield" : "none";
 }

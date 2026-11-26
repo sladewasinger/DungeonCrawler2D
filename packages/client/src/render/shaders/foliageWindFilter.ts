@@ -42,6 +42,8 @@ export class FoliageWindEffect {
   }
 
   update(params: WindUpdateParams): void {
+    this.filter.enabled = params.windStrength >= 0.01;
+    if (!this.filter.enabled) return;
     const u = this.uniforms.uniforms;
     u.uTime = params.timeSec;
     u.uWindStrength = params.windStrength;

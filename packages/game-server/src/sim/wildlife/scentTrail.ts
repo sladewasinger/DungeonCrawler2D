@@ -1,5 +1,5 @@
 /** Sequential per-player scent crumbs with water dilution, campfire masking, and body odor. */
-import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, isInSanctuary } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, isInSanctuary, isInWorldSanctuary } from "@dc2d/engine";
 
 export interface ScentCrumb {
   readonly seq: number;
@@ -173,7 +173,7 @@ export class ScentTrail {
 
   samplePlayers(players: readonly ScentPlayerSample[], cache?: WorldChunkCache): void {
     for (const p of players) {
-      if (!isInSanctuary(p.x, p.y)) this.sampleSinglePlayer(p, cache);
+      if (!(cache ? isInWorldSanctuary(cache, p.x, p.y) : isInSanctuary(p.x, p.y))) this.sampleSinglePlayer(p, cache);
     }
   }
 

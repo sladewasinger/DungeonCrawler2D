@@ -45,16 +45,18 @@ export interface StealthQuery {
   readonly attackFlash?: boolean | undefined;
 }
 
-const COVER_PROPS = new Set<PropKind>([PropKind.Bush, PropKind.TallGrass]);
-const CANOPY_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree]);
+const COVER_PROPS = new Set<PropKind>([PropKind.Bush, PropKind.TallGrass, PropKind.BogReed]);
+const CANOPY_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.GiantMushroom]);
+const WARM_GLOW_PROPS = new Set<PropKind>([PropKind.BrazierLit, PropKind.RunicForge, PropKind.Waystone, PropKind.ShrineAltar, PropKind.CursedObelisk]);
 
 function propLightContrib(prop: ChunkProp, x: number, y: number): number {
   const isFire = prop.kind === PropKind.Campfire;
-  if (!isFire && prop.kind !== PropKind.Torch) return 0;
+  const isWarmGlow = WARM_GLOW_PROPS.has(prop.kind);
+  if (!isFire && prop.kind !== PropKind.Torch && !isWarmGlow) return 0;
   const maxR = isFire ? 6.5 : 4.2;
   const dist = Math.hypot(prop.x - x, prop.y - y);
   if (dist > maxR) return 0;
-  return (1 - dist / maxR) * (isFire ? 0.55 : 0.4);
+  return (1 - dist / maxR) * (isFire ? 0.55 : isWarmGlow ? 0.45 : 0.4);
 }
 
 function scanNearbyProps(props: readonly ChunkProp[], x: number, y: number): { readonly inCover: boolean; readonly inShade: boolean; readonly propLight: number } {

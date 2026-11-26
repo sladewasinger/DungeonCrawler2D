@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { IDLE_GATE, resolvePendingGate, shouldAcceptServerState } from "./actionGate.js";
+import { IDLE_GATE, resolvePendingGate } from "./actionGate.js";
 
 describe("actionGate", () => {
   it("accepts server state immediately when idle", () => {
-    expect(shouldAcceptServerState(IDLE_GATE, { serverAck: 0, nowMs: 100 })).toEqual({ accept: true, cleared: false });
+    expect(resolvePendingGate(IDLE_GATE, { serverAck: 0, nowMs: 100 })).toEqual({ nextGate: IDLE_GATE, accept: true });
   });
 
   it("ignores stale pre-ack server snapshots until caught up or timed out", () => {

@@ -28,9 +28,9 @@ async function checkHtml(siteUrl) {
   if (!html.includes("<div id=\"app\">")) throw new Error("Missing #app mount in HTML");
 }
 
-function verifySocket(wsUrl, protocolVersion) {
+function verifySocket(wsUrl, protocolVersion, origin) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl, { headers: { Origin: origin } });
     let playerId = "";
     let snapshots = 0;
     const timer = setTimeout(() => { ws.terminate(); reject(new Error("WebSocket smoke timeout")); }, TIMEOUT_MS);
@@ -66,7 +66,7 @@ async function main() {
   const wsUrl = resolveWsUrl(siteUrl, process.argv[3]);
   const protocolVersion = readProtocolVersion();
   await checkHtml(siteUrl);
-  await verifySocket(wsUrl, protocolVersion);
+  await verifySocket(wsUrl, protocolVersion, new URL(siteUrl).origin);
   console.log(`[smoke] PASS: ${siteUrl} -> ${wsUrl} (protocol v${protocolVersion})`);
 }
 
