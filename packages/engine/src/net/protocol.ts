@@ -2,12 +2,16 @@
 import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
-import { ClientDropItemSchema, ClientPingSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
+import { ChatEntrySchema, ClientChatSchema, PlayerBubbleSchema, type ChatEntry, type PlayerBubble } from "./chatSchemas.js";
+import { ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
 import { ClientPickupLootSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
 import { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema, type CreatureVocalKind, type WorldEvent } from "./worldEventSchemas.js";
 
-export { ClientDropItemSchema, ClientPingSchema, GoreStyleSchema, GoreSubstanceSchema, ServerPongSchema, WorldEventSchema };
-export type { CreatureVocalKind, DropItemRequest, WorldEvent };
+export {
+  ChatEntrySchema, ClientChatSchema, ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema,
+  GoreStyleSchema, GoreSubstanceSchema, PlayerBubbleSchema, ServerPongSchema, WorldEventSchema,
+};
+export type { ChatEntry, CreatureVocalKind, DropItemRequest, PlayerBubble, WorldEvent };
 
 export const PROTOCOL_VERSION = 1;
 
@@ -16,16 +20,25 @@ const HotbarIndexSchema = z.number().int().min(0).max(8);
 const SeqSchema = z.number().int().nonnegative().optional();
 
 export const ArmorSlotKeySchema = z.enum(["head", "chest", "legs", "feet", "offhand"]);
-export const SlotItemSchema = z.object({ itemId: z.string().min(1), count: z.number().int().min(1) });
+export const SlotItemSchema = z.object({
+  itemId: z.string().min(1),
+  count: z.number().int().min(1),
+  prefixId: z.string().min(1).max(32).optional(),
+});
 
 export const ArmorEquipmentSchema = z.object({
   head: z.string().nullable(), chest: z.string().nullable(), legs: z.string().nullable(),
   feet: z.string().nullable(), offhand: z.string().nullable().default(null),
 });
 
+export const ArmorPrefixesSchema = z.object({
+  head: z.string(), chest: z.string(), legs: z.string(), feet: z.string(), offhand: z.string(),
+}).partial();
+
 export const InventorySnapshotSchema = z.object({
   slots: z.array(SlotItemSchema.nullable()).length(36),
   armor: ArmorEquipmentSchema,
+  armorPrefixes: ArmorPrefixesSchema.optional(),
   selectedHotbar: HotbarIndexSchema,
   nearCampfire: z.boolean(),
   ackSeq: SeqSchema,
@@ -100,62 +113,31 @@ export const ClientMessageSchema = z.discriminatedUnion("t", [
   ClientSetDayPhaseSchema, ClientMoveSlotSchema, ClientEquipArmorSchema, ClientUnequipArmorSchema,
   ClientSelectHotbarSchema, ClientCraftSchema, ClientOpenChestSchema, ClientChestTransferSchema,
   ClientChestTakeAllSchema, ClientDebugSpawnSchema, ClientAdminSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema,
-  ClientPickupLootSchema, ClientDropItemSchema, ClientPingSchema,
+  ClientPickupLootSchema, ClientDropItemSchema, ClientUseItemSchema, ClientChatSchema, ClientPingSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 export const PlayerSnapshotSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  x: z.number(),
-  y: z.number(),
-  elevation: z.number(),
-  facingX: z.number(),
-  facingY: z.number(),
-  aimX: z.number().optional(),
-  aimY: z.number().optional(),
-  jumpZ: z.number().optional(),
-  jumpVz: z.number().optional(),
-  moving: z.boolean(),
-  sprinting: z.boolean().optional(),
-  torchLit: z.boolean(),
-  inWater: z.boolean(),
-  inDeepWater: z.boolean().optional(),
-  lastAckSeq: z.number().int(),
-  heldItem: z.string().nullable().optional(),
-  appearance: CharacterAppearanceSchema.optional(),
-  armor: ArmorEquipmentSchema.optional(),
-  hp: z.number().optional(),
-  maxHp: z.number().optional(),
-  stamina: z.number().optional(),
-  maxStamina: z.number().optional(),
-  comboStep: z.number().int().optional(),
-  swingProgress: z.number().optional(),
-  heavyCharge: z.number().optional(),
-  bowCharge: z.number().optional(),
-  blocking: z.boolean().optional(),
-  dodging: z.boolean().optional(),
-  invulnTimer: z.number().optional(),
-  staggerTimer: z.number().optional(),
-  bleedTimer: z.number().optional(),
-  burnTimer: z.number().optional(),
-  poisonTimer: z.number().optional(),
-  poisonLocked: z.boolean().optional(),
-  webSlowTimer: z.number().optional(),
-  webStick: z.number().optional(),
-  cocoonProgress: z.number().optional(),
-  hitTimer: z.number().optional(),
-  respawnTimer: z.number().optional(),
-  inSanctuary: z.boolean().optional(),
-  crouching: z.boolean().optional(),
-  stealthVis: z.number().optional(),
-  inCover: z.boolean().optional(),
-  attackFlash: z.boolean().optional(),
-  wellFedTimer: z.number().optional(),
-  restedTimer: z.number().optional(),
-  hasBedRespawn: z.boolean().optional(),
-  godMode: z.boolean().optional(),
+  id: z.string(), name: z.string(), x: z.number(), y: z.number(), elevation: z.number(),
+  facingX: z.number(), facingY: z.number(), aimX: z.number().optional(), aimY: z.number().optional(),
+  jumpZ: z.number().optional(), jumpVz: z.number().optional(), moving: z.boolean(),
+  sprinting: z.boolean().optional(), torchLit: z.boolean(), inWater: z.boolean(),
+  inDeepWater: z.boolean().optional(), lastAckSeq: z.number().int(),
+  heldItem: z.string().nullable().optional(), appearance: CharacterAppearanceSchema.optional(),
+  armor: ArmorEquipmentSchema.optional(), hp: z.number().optional(), maxHp: z.number().optional(),
+  stamina: z.number().optional(), maxStamina: z.number().optional(), comboStep: z.number().int().optional(),
+  swingProgress: z.number().optional(), heavyCharge: z.number().optional(), bowCharge: z.number().optional(),
+  blocking: z.boolean().optional(), dodging: z.boolean().optional(), invulnTimer: z.number().optional(),
+  staggerTimer: z.number().optional(), bleedTimer: z.number().optional(), burnTimer: z.number().optional(),
+  poisonTimer: z.number().optional(), poisonLocked: z.boolean().optional(), webSlowTimer: z.number().optional(),
+  webStick: z.number().optional(), cocoonProgress: z.number().optional(), hitTimer: z.number().optional(),
+  respawnTimer: z.number().optional(), inSanctuary: z.boolean().optional(), crouching: z.boolean().optional(),
+  stealthVis: z.number().optional(), inCover: z.boolean().optional(), attackFlash: z.boolean().optional(),
+  wellFedTimer: z.number().optional(), restedTimer: z.number().optional(),
+  hasBedRespawn: z.boolean().optional(), godMode: z.boolean().optional(),
+  activeBubble: PlayerBubbleSchema.optional(), moveSpeedMult: z.number().optional(),
+  glowRadiusBonus: z.number().optional(), shrineBuff: z.object({ kind: z.string(), remainingSec: z.number() }).optional(),
 });
 
 export type PlayerSnapshot = z.infer<typeof PlayerSnapshotSchema>;
@@ -225,6 +207,7 @@ export const GroundLootSnapshotSchema = z.object({
   id: z.string(),
   itemId: z.string(),
   count: z.number().int().min(1),
+  prefixId: z.string().min(1).max(32).optional(),
   x: z.number(),
   y: z.number(),
   elevation: z.number(),
@@ -265,6 +248,7 @@ export const ServerSnapshotSchema = z.object({
   groundLoot: z.array(GroundLootSnapshotSchema).optional(),
   webs: WorldWebSnapshotSchema.optional(),
   events: z.array(WorldEventSchema).optional(),
+  chatMessages: z.array(ChatEntrySchema).optional(),
   worldDeltas: WorldDeltaSnapshotSchema.optional(),
 });
 

@@ -9,6 +9,7 @@ import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { findManualLootInReach, resolveTapInteractTarget } from "./render/combat/lootViewHelpers.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
+import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
 import type { HudActions } from "./ui/hud/slotRenderer.js";
@@ -21,7 +22,7 @@ import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
   readonly scene: WorldScene; readonly client: WorldClient; readonly input: InputController; readonly toolbar: AtmosphereToolbar;
-  readonly hud: HudRoot; readonly feedback: CombatFeedbackOverlay; readonly connOverlay: ConnectionStatusOverlay;
+  readonly hud: HudRoot; readonly chat: ChatOverlay; readonly feedback: CombatFeedbackOverlay; readonly connOverlay: ConnectionStatusOverlay;
   readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly velTracker: EntityVelocityTracker; readonly titleScreen: TitleScreen;
 }
 
@@ -73,20 +74,15 @@ function resolveAimForTick(opts: {
   return isTouchViewport() ? snap : resolveDesktopAim(opts);
 }
 
-function syncUiAndAudio(opts: {
-  readonly ctx: AppCtx; readonly view: WorldViewState; readonly events: WorldViewState["events"];
-  readonly dt: number; readonly dists: { readonly campfireDist: number; readonly waterDist: number };
-}): void {
+function syncUiAndAudio(opts: { readonly ctx: AppCtx; readonly view: WorldViewState; readonly events: WorldViewState["events"]; readonly dt: number; readonly dists: { readonly campfireDist: number; readonly waterDist: number } }): void {
   const { ctx, view, events, dists } = opts;
   const local = view.players.find((p) => p.id === view.localPlayerId);
   ctx.audio.handleWorldEvents(events, local ? { x: local.x, y: local.y } : { x: 0.5, y: 0.5 });
   ctx.audio.stepFrame({ local, cache: view.cache, dt: opts.dt, dayPhase: view.dayPhase, ...dists });
   ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance, localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests });
+  ctx.chat.pushMessages(view.chatMessages ?? [], performance.now()); ctx.chat.pruneExpired(performance.now());
   ctx.feedback.sync({ local, events, localId: view.localPlayerId, dt: opts.dt });
-  ctx.toolbar.sync({
-    mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused, quality: ctx.scene.qualityPreset(),
-    activePanel: ctx.hud.activePanel(), settingsOpen: ctx.settings.isOpen(), playerX: local?.x ?? 0, playerY: local?.y ?? 0, pingMs: view.pingMs,
-  });
+  ctx.toolbar.sync({ mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused, quality: ctx.scene.qualityPreset(), activePanel: ctx.hud.activePanel(), settingsOpen: ctx.settings.isOpen(), playerX: local?.x ?? 0, playerY: local?.y ?? 0, pingMs: view.pingMs });
   ctx.settings.syncExternalState(ctx.scene.qualityPreset(), ctx.scene.currentZoom());
 }
 
@@ -137,7 +133,7 @@ function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: (
     onEquipArmor: (req) => { client.equipArmor(req); audio.playUi("equip"); }, onUnequipArmor: (req) => { client.unequipArmor(req); audio.playUi("equip"); },
     onChestTransfer: (req) => { if (req.chestId) { client.chestTransfer({ ...req, chestId: req.chestId }); audio.playUi("click"); } },
     onChestTakeAll: (chestId) => { client.chestTakeAll(chestId); audio.playUi("equip"); }, onCraft: (recipeId) => { client.craftRecipe(recipeId); audio.playUi("craft"); },
-    onDropItem: (req) => { client.dropItem(req); audio.playUi("click"); }, onSetCharacter: (req) => client.setCharacter(req),
+    onDropItem: (req) => { client.dropItem(req); audio.playUi("click"); }, onUseItem: (slot) => { client.useItem(slot); audio.playUi("equip"); }, onSetCharacter: (req) => client.setCharacter(req),
     onToggleTorch: toggleTorch, onMapToggled: () => audio.playUi("open"),
   };
 }
@@ -173,15 +169,13 @@ function mountSettingsForUi(opts: { readonly host: HTMLElement; readonly scene: 
   return settings;
 }
 
-function createInputHooks(opts: { readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly onInteractWorld: (lootId?: string) => void; readonly onCloseAll: () => void }): InputController {
-  const { host, scene, client, hud, audio, settings, onInteractWorld, onCloseAll } = opts;
+function createInputHooks(opts: { readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly hud: HudRoot; readonly chat: ChatOverlay; readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly onInteractWorld: (lootId?: string) => void; readonly onCloseAll: () => void }): InputController {
+  const { host, scene, client, hud, chat, audio, settings, onInteractWorld, onCloseAll } = opts;
   return new InputController(host, {
-    onToggleTorch: () => { client.toggleTorch(); audio.playUi("click"); },
-    onZoom: (f) => { scene.adjustZoom(f); settings.syncZoomPref(scene.currentZoom()); },
-    onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
-    onDropItem: () => { if (hud.dropShortcutItem()) audio.playUi("click"); },
+    onToggleTorch: () => { client.toggleTorch(); audio.playUi("click"); }, onZoom: (f) => { scene.adjustZoom(f); settings.syncZoomPref(scene.currentZoom()); },
+    onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); }, onDropItem: () => { if (hud.dropShortcutItem()) audio.playUi("click"); },
     onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); }, onInteract: () => onInteractWorld(),
+    onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); }, onInteract: () => onInteractWorld(), onOpenChat: () => chat.openInput(),
     onWorldTap: (cx, cy) => tryTapWorldInteract({ clientX: cx, clientY: cy, scene, client, hud, audio }), onClosePanels: onCloseAll,
   });
 }
@@ -192,7 +186,8 @@ function handleWorldInteract(opts: { readonly client: WorldClient; readonly hud:
   if (lootId) { client.pickupLoot(lootId); audio.playUi("equip"); return; }
   const near = client.nearestChest();
   if (near) {
-    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open"); return;
+    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open");
+    return;
   }
   const snap = client.snapshot();
   const me = snap.players.find((p) => p.id === snap.localPlayerId);
@@ -206,6 +201,7 @@ function mountUiControllers(opts: {
 }) {
   const { host, scene, client, audio, onReturnToTitle } = opts;
   const hud = new HudRoot(host, buildHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
+  const chat = new ChatOverlay(host, (text, shout) => client.sendChat(text, shout));
   const feedback = new CombatFeedbackOverlay(host);
   const connOverlay = new ConnectionStatusOverlay(host, {
     onReconnectNow: () => client.reconnectNow(),
@@ -222,9 +218,9 @@ function mountUiControllers(opts: {
   });
   const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m) });
   settingsRef.current = settings;
-  const input = createInputHooks({ host, scene, client, hud, audio, settings, onInteractWorld, onCloseAll: () => { hud.closePanels(); settings.setOpen(false); } });
+  const input = createInputHooks({ host, scene, client, hud, chat, audio, settings, onInteractWorld, onCloseAll: () => { chat.closeInput(); hud.closePanels(); settings.setOpen(false); } });
   inputRef = input; input.setCrouchMode(settings.currentPrefs().crouchMode);
-  return { hud, feedback, connOverlay, input, toolbar, settings, onInteractWorld };
+  return { hud, chat, feedback, connOverlay, input, toolbar, settings, onInteractWorld };
 }
 
 async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise<AppCtx> {

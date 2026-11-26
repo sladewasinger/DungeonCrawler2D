@@ -2,7 +2,7 @@
 import { maxStackForItem } from "@dc2d/content";
 import {
   AI_TUNING, WorldChunkCache, canInsertSlotItem, createEmptyChestSlots, insertIntoSlots,
-  quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
+  makeSlotItem, quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
   type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -11,7 +11,7 @@ import {
 } from "./creatureSpecs.js";
 
 interface GroundLootItem {
-  readonly id: string; readonly itemId: string; count: number;
+  readonly id: string; readonly itemId: string; count: number; readonly prefixId?: string | undefined;
   x: number; y: number; vx: number; vy: number; readonly elevation: number; ageSec: number;
   readonly pickupDelaySec: number;
   readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
@@ -91,13 +91,15 @@ export class LootManager {
   }
 
   spawnLoot(opts: {
-    readonly itemId: string; readonly count: number; readonly x: number; readonly y: number;
+    readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined; readonly x: number; readonly y: number;
     readonly vx: number; readonly vy: number; readonly pickupDelaySec?: number | undefined;
     readonly manualPickup?: boolean | undefined; readonly angle?: number | undefined; readonly stuck?: boolean | undefined;
   }): void {
     while (this.groundLoot.length >= MAX_GROUND_LOOT_ITEMS) this.groundLoot.shift();
     this.groundLoot.push({
-      id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count, x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
+      id: `loot-${this.nextId++}`, itemId: opts.itemId, count: opts.count,
+      ...(opts.prefixId ? { prefixId: opts.prefixId } : {}),
+      x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
       elevation: this.cache.tileAt(Math.floor(opts.x), Math.floor(opts.y)).elevation, ageSec: 0,
       pickupDelaySec: opts.pickupDelaySec ?? 0.25,
       ...(opts.manualPickup ? { manualPickup: true } : {}),
@@ -108,13 +110,14 @@ export class LootManager {
 
   spawnPlayerDrop(
     player: { readonly x: number; readonly y: number; readonly aimX: number; readonly aimY: number },
-    item: { readonly itemId: string; readonly count: number },
+    item: { readonly itemId: string; readonly count: number; readonly prefixId?: string | undefined },
   ): void {
     const mag = Math.hypot(player.aimX, player.aimY);
     const dx = mag > 0.05 ? player.aimX / mag : 0;
     const dy = mag > 0.05 ? player.aimY / mag : 1;
     this.spawnLoot({
-      itemId: item.itemId, count: item.count, x: player.x + dx * 0.7, y: player.y + dy * 0.7,
+      itemId: item.itemId, count: item.count, ...(item.prefixId ? { prefixId: item.prefixId } : {}),
+      x: player.x + dx * 0.7, y: player.y + dy * 0.7,
       vx: dx * 2.5, vy: dy * 2.5, pickupDelaySec: 1.8,
     });
   }
@@ -200,7 +203,7 @@ export class LootManager {
     const idx = this.findManualLootIdx(player, lootId);
     if (idx < 0) return false;
     const g = this.groundLoot[idx]!;
-    const added = insertIntoSlots(player.inventory.slots, { itemId: g.itemId, count: g.count }, maxStackForItem);
+    const added = insertIntoSlots(player.inventory.slots, makeSlotItem(g.itemId, g.count, g.prefixId), maxStackForItem);
     if (added <= 0) return false;
     events.push({ kind: "loot", x: g.x, y: g.y, actorId: player.id, value: added });
     if (added >= g.count) this.groundLoot.splice(idx, 1);
@@ -229,7 +232,7 @@ export class LootManager {
     let dist: number = AI_TUNING.lootMagnetRadiusTiles;
     for (const cand of players) {
       const d = Math.hypot(cand.x - g.x, cand.y - g.y);
-      if (d < dist && canInsertSlotItem(cand.inventory.slots, g.itemId, maxStackForItem)) { dist = d; p = cand; }
+      if (d < dist && canInsertSlotItem(cand.inventory.slots, { itemId: g.itemId, prefixId: g.prefixId }, maxStackForItem)) { dist = d; p = cand; }
     }
     return p ? { p, dist } : null;
   }
@@ -238,7 +241,7 @@ export class LootManager {
     const match = this.findClosestMagnetPlayer(opts.g, opts.players);
     if (!match) return false;
     if (match.dist <= AI_TUNING.lootPickupRadiusTiles) {
-      const added = insertIntoSlots(match.p.inventory.slots, { itemId: opts.g.itemId, count: opts.g.count }, maxStackForItem);
+      const added = insertIntoSlots(match.p.inventory.slots, makeSlotItem(opts.g.itemId, opts.g.count, opts.g.prefixId), maxStackForItem);
       if (added <= 0) return false;
       opts.events.push({ kind: "loot", x: opts.g.x, y: opts.g.y, actorId: match.p.id, value: added });
       if (added >= opts.g.count) return true;
@@ -258,7 +261,9 @@ export class LootManager {
         slots: c.slots.map((s) => (s ? { ...s } : null)),
       })),
       groundLoot: this.groundLoot.map((g) => ({
-        id: g.id, itemId: g.itemId, count: g.count, x: g.x, y: g.y, elevation: g.elevation, ageSec: g.ageSec,
+        id: g.id, itemId: g.itemId, count: g.count,
+        ...(g.prefixId ? { prefixId: g.prefixId } : {}),
+        x: g.x, y: g.y, elevation: g.elevation, ageSec: g.ageSec,
         ...(g.manualPickup ? { manualPickup: true } : {}),
         ...(g.angle !== undefined ? { angle: g.angle } : {}),
         ...(g.stuck ? { stuck: true } : {}),

@@ -1,4 +1,5 @@
 /** Authoritative hand and campfire crafting recipes. */
+import { FRONTIER_RECIPES } from "./frontierRecipes.js";
 
 export interface RecipeIngredientDef {
   readonly itemId: string;
@@ -19,7 +20,7 @@ const ITEM_FLINT = "flint";
 const ITEM_RAW_MEAT = "raw-meat";
 const ITEM_HERB = "herb";
 
-export const RECIPE_CATALOG: readonly RecipeDef[] = [
+const BASE_RECIPES: readonly RecipeDef[] = [
   {
     id: "craft-flint-dagger",
     outputItemId: "flint-dagger",
@@ -183,6 +184,8 @@ export const RECIPE_CATALOG: readonly RecipeDef[] = [
     ingredients: [{ itemId: ITEM_WOOD, count: 4 }],
   },
 ];
+
+export const RECIPE_CATALOG: readonly RecipeDef[] = [...BASE_RECIPES, ...FRONTIER_RECIPES];
 
 const RECIPE_MAP = new Map<string, RecipeDef>(RECIPE_CATALOG.map((recipe) => [recipe.id, recipe]));
 

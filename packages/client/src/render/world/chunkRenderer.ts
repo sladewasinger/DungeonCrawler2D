@@ -113,7 +113,9 @@ export class ChunkRenderer {
     if (!player.torchLit) return;
     out.lights.push({
       id: `player:${player.id}`, kind: "torch", x: player.x, y: player.y - 0.35 - liftTiles,
-      color: FOREST_LIGHT_STYLE.playerTorchColor, radiusPx: FOREST_LIGHT_STYLE.playerTorchRadiusPx, intensity: 1.05,
+      color: FOREST_LIGHT_STYLE.playerTorchColor,
+      radiusPx: FOREST_LIGHT_STYLE.playerTorchRadiusPx + (player.glowRadiusBonus ?? 0),
+      intensity: 1.05,
     });
   }
 

@@ -2,7 +2,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
   ClientMessageSchema, PROTOCOL_VERSION,
-  type ClientMessage, type PlayerSnapshot, type ServerMessage, type WorldDeltaSnapshot, type WorldEvent,
+  type ChatEntry, type ClientMessage, type InventorySnapshot, type PlayerSnapshot,
+  type ServerMessage, type WorldDeltaSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
@@ -17,7 +18,7 @@ export interface RunningGameServer {
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
 const BROADCAST_ACTIONS = new Set<ClientMessage["t"]>([
-  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot", "dropItem", "admin",
+  "hello", "setAppearance", "respawn", "setDayPhase", "equipArmor", "unequipArmor", "selectHotbar", "toggleTorch", "placeStructure", "setRespawnBed", "pickupLoot", "dropItem", "useItem", "chat", "admin",
 ]);
 
 function handleHealthRequest(req: IncomingMessage, res: ServerResponse): void {
@@ -42,6 +43,7 @@ interface TickBroadcastData {
   readonly groundLoot: ReturnType<WorldSim["combatSnapshots"]>["groundLoot"];
   readonly webs?: ReturnType<WorldSim["combatSnapshots"]>["webs"] | undefined;
   readonly events: WorldEvent[];
+  readonly chatMessages?: ChatEntry[] | undefined;
   readonly worldDeltas: WorldDeltaSnapshot;
   readonly deltaRev: number;
 }
@@ -56,23 +58,29 @@ export interface ClientSession {
   readonly cleanup: () => void;
 }
 
+function syncInventoryIfChanged(sim: WorldSim, session: ClientSession): InventorySnapshot | undefined {
+  const inv = sim.inventorySnapshot(session.playerId);
+  const sig = inventorySignature(inv);
+  if (inv === undefined || sig === session.lastInvSig) return undefined;
+  session.lastInvSig = sig;
+  return inv;
+}
+
 function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
 }): ServerMessage {
   const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
   if (sendDeltas) input.session.sentDeltaRev = input.data.deltaRev;
-  const inv = input.sim.inventorySnapshot(input.session.playerId);
-  const invSig = inventorySignature(inv);
-  const sendInv = inv !== undefined && invSig !== input.session.lastInvSig;
-  if (sendInv) input.session.lastInvSig = invSig;
+  const selfInventory = syncInventoryIfChanged(input.sim, input.session);
   const view = filterSnapshotForPlayer({ data: input.data, playerId: input.session.playerId });
   return {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
     actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: view.players,
-    ...(sendInv ? { selfInventory: inv } : {}),
+    ...(selfInventory ? { selfInventory } : {}),
     ...(input.session.isAdmin ? { selfAdmin: true } : {}),
     projectiles: view.projectiles, entities: view.entities,
     chests: view.chests, groundLoot: view.groundLoot, events: view.events,
+    ...(view.chatMessages ? { chatMessages: view.chatMessages } : {}),
     ...(view.webs ? { webs: view.webs } : {}),
     ...(sendDeltas ? { worldDeltas: input.data.worldDeltas } : {}),
   };
@@ -80,9 +88,11 @@ function buildClientSnapshot(input: {
 
 function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
   const { projectiles, entities, chests, groundLoot, webs } = sim.combatSnapshots();
+  const chatMessages = includeEvents ? sim.drainChatMessages() : [];
   return {
     players: sim.snapshots(), projectiles, entities, chests, groundLoot, ...(webs ? { webs } : {}),
     events: includeEvents ? sim.drainCombatEvents() : [],
+    ...(chatMessages.length > 0 ? { chatMessages } : {}),
     worldDeltas: sim.worldDeltaSnapshot(), deltaRev: sim.cache.deltaRevision(),
   };
 }
@@ -130,6 +140,8 @@ function buildMessageHandlers(ctx: {
     setRespawnBed: () => msg.t === "setRespawnBed" && sim.setRespawnBed(playerId, msg.structureId),
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
     dropItem: () => msg.t === "dropItem" && sim.dropItem(playerId, msg),
+    useItem: () => msg.t === "useItem" && sim.useItem(playerId, msg.slotIndex),
+    chat: () => msg.t === "chat" && sim.sendChat(playerId, msg.text, msg.shout),
     ping: () => {},
     debugSpawn: () => msg.t === "debugSpawn" && session.isAdmin && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
     admin: () => { if (msg.t === "admin" && !handleAdminPacket({ msg, session, sim, authConfig })) onSkipBroadcast(); },

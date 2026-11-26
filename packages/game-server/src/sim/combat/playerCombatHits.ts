@@ -2,7 +2,7 @@
 import { getItemDef, resolveBlockMode } from "@dc2d/content";
 import {
   BLEED_DURATION_SEC, HIT_IFRAME_SEC, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, PARRY_WINDOW_SEC,
-  attackHitboxHitsHurtbox, buildPlayerAttackHitbox, computeArmorDefense, computeMitigatedDamage,
+  attackHitboxHitsHurtbox, buildPlayerAttackHitbox, computeMitigatedDamage,
   entityHurtbox, isInSanctuary, isSharpWeapon, isWithinSector, playerHurtbox,
   type EllipseHurtbox, type GoreStyle, type WeaponArchetype, type WorldChunkCache, type WorldEvent,
 } from "@dc2d/engine";
@@ -10,6 +10,7 @@ import type { CombatPlayerRef } from "../combatActions.js";
 import { damageDummy, type SimEntity } from "../dummySim.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
 import { tryCutOrIgniteCocoon } from "../webs/webCocoon.js";
+import { resolveArmorDefenseFor } from "./gearEffects.js";
 import { igniteBurnable, inflictPoison } from "./statusEffects.js";
 
 export interface IncomingHit {
@@ -91,7 +92,7 @@ function resolveBlockedHit(hit: IncomingHit): void {
   if (target.combat.blockElapsed <= bp.parryWin && !hit.heavy) { triggerTimedParry(hit); return; }
   const baseDrain = hit.heavy ? 22 : Math.max(8, Math.round(hit.rawDamage * 0.6));
   if (!target.combat.godMode) target.combat.stamina = Math.max(0, target.combat.stamina - Math.round(baseDrain * bp.stamMult));
-  const def = computeArmorDefense(target.inventory.armor, getItemDef);
+  const def = resolveArmorDefenseFor(target);
   const blockedDmg = target.combat.godMode ? 0 : Math.max(1, Math.round(computeMitigatedDamage(hit.rawDamage, def) * (1 - bp.mit)));
   applyRegularOrBrokenBlock(hit, blockedDmg);
   hit.onBlockedOrParried?.();
@@ -167,7 +168,7 @@ export function applyIncomingPlayerHit(hit: IncomingHit): void {
   const { target, events } = hit;
   if (tryRescueCocoonTarget(hit) || shouldIgnoreIncomingHit(hit)) return;
   if (isBlockedFromFront(target, hit.attackerOrigin)) { resolveBlockedHit(hit); return; }
-  const mitigated = computeMitigatedDamage(hit.rawDamage, computeArmorDefense(target.inventory.armor, getItemDef));
+  const mitigated = computeMitigatedDamage(hit.rawDamage, resolveArmorDefenseFor(target));
   const rawPost = applyPlayerRiposteAndBurn(hit, mitigated);
   const dmg = target.combat.godMode ? 0 : rawPost;
   target.combat.hp = Math.max(0, target.combat.hp - dmg);

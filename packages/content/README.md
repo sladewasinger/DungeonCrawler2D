@@ -1,5 +1,5 @@
 # `@dc2d/content`
 
 Pure game content definitions and visual palettes shared by server and client:
-- Item definitions (`src/items/catalog.ts`) with `STARTER_LOADOUT` (`wooden-spear` only + `STARTER_ARMOR`), explicit `maxStack` (`64` for stackable consumables/materials/throwables, `1` for weapons/tools/armor), `twoHanded` (`bow`, `iron-greatsword`), `weaponArchetype` metadata across all 8 weapon archetypes (`sword`, `flint-dagger`, `wooden-spear`, `axe`, `pickaxe`, `iron-greatsword`, `torch`, `bow`), and `resolveBlockMode` (`none` / `shield` / `twoHanded`)
-- Crafting recipes (`src/recipes/recipes.ts`), biome palettes, atmospheric light colors, outline presets, and client quality presets
+- Item definitions (`src/items/catalog.ts`, `frontierWeapons.ts`, `frontierArmor.ts`, `frontierMaterials.ts`) with `STARTER_LOADOUT`, 5 rarity tiers (`src/items/rarities.ts`), 18 rolled prefixes (`src/items/prefixes.ts`), `resolveItemInstance` (`src/items/statResolver.ts`), `maxStack`, `twoHanded`, `weaponArchetype`, and RPG perks (`bleed`, `burn`, `poison`, `lifesteal`, `thorns`, `glow`)
+- Crafting recipes (`src/recipes/recipes.ts`, `frontierRecipes.ts`), armor recolor palettes (`src/character/palettes.ts`), atmospheric light colors, outline presets, and client quality presets

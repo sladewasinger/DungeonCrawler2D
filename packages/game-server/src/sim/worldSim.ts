@@ -2,19 +2,20 @@
 import {
   COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache,
   playerFootSegment, resolveMovement, sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type DropItemRequest, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
+  type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type DropItemRequest, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
   type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
+import { ProximityChatManager } from "./chat/proximityChat.js";
 import { createCombatState, type PlayerCombatState } from "./combatActions.js";
 import { stepStationaryPlayerTurn } from "./combat/combatSimHelpers.js";
-import { CombatWorld, playerCombatExtras } from "./combatSim.js";
+import { CombatWorld } from "./combatSim.js";
 import {
   applyLoadoutEntries, buildInventorySnapshot, craftPlayerRecipe, createStarterInventory, equipPlayerArmor,
   isPlayerNearCampfire, movePlayerInventorySlot, unequipPlayerArmor,
 } from "./playerInventory.js";
 import { normalizeOwnerKey } from "./survival/campStructures.js";
 import { WorldPersistenceStore, type PersistedPlayerRecord, type PersistedWorldFile } from "./survival/persistenceStore.js";
-import { stepPlayerSurvivalBuffs } from "./survival/playerSurvivalState.js";
+import { applyPlayerAimInput, buildPlayerSnapshotRecord, computeEffectiveStealthVis, setPlayerAimVec, stepPlayerSurvivalBuffs } from "./survival/playerSurvivalState.js";
 import { buildFullWorldSaveSnapshot, hydratePlayerProfileIfFound, loadWorldPersistence } from "./survival/worldPersistenceSync.js";
 
 export const TICK_RATE = 20; export const PLAYER_SPEED_TILES_PER_SEC = COMBAT_TUNING.movement.runSpeedTilesPerSec;
@@ -35,6 +36,7 @@ export interface SimPlayer {
 export class WorldSim {
   readonly cache: WorldChunkCache;
   readonly combat: CombatWorld;
+  readonly chat = new ProximityChatManager();
   private readonly players = new Map<string, SimPlayer>();
   private readonly persistence: WorldPersistenceStore;
   private readonly savedProfiles: Map<string, PersistedPlayerRecord>;
@@ -88,9 +90,13 @@ export class WorldSim {
       this.persistence.markDirty();
       this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
     }
+    this.chat.removePlayer(playerId);
     this.combat.removePlayer(playerId);
     this.players.delete(playerId);
   }
+  sendChat(playerId: string, text: string, shout?: boolean): ChatEntry | null { const p = this.players.get(playerId); return p ? this.chat.sendMessage({ senderId: p.id, senderName: p.name, x: p.x, y: p.y, rawText: text, shout, tick: this.tick }) : null; }
+  useItem(playerId: string, slotIndex: number): void { const p = this.players.get(playerId); if (p && this.combat.useItemSlot(p, slotIndex)) this.persistence.markDirty(); }
+  drainChatMessages(): ChatEntry[] { return this.chat.drainMessages(); }
   setPlayerName(playerId: string, name: string): void {
     const p = this.players.get(playerId);
     if (!p) return;
@@ -120,7 +126,7 @@ export class WorldSim {
     if (!p) return;
     p.moveX = input.moveX; p.moveY = input.moveY; p.lastAckSeq = input.seq;
     p.crouching = Boolean(input.crouch) && !input.dodge && !input.jump;
-    this.applyActionInputs(p, input); applyAimInput(p, input);
+    this.applyActionInputs(p, input); applyPlayerAimInput(p, input);
   }
 
   private applyActionInputs(p: SimPlayer, input: {
@@ -176,6 +182,7 @@ export class WorldSim {
   step(dtSeconds = 1 / TICK_RATE): void {
     this.tick += 1;
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
+    this.chat.step(dtSeconds);
     for (const p of this.players.values()) this.stepPlayer(p, dtSeconds);
     this.combat.stepWorld({ players: this.players, dt: dtSeconds, dayPhase: this.dayPhase, timeSec: this.tick / TICK_RATE });
     if (this.cache.deltaRevision() !== this.lastSavedDeltaRev) { this.lastSavedDeltaRev = this.cache.deltaRevision(); this.persistence.markDirty(); }
@@ -201,7 +208,8 @@ export class WorldSim {
     if (p.sprinting) p.crouching = false;
     p.attackFlashTimer = Math.max(0, p.attackFlashTimer - dtSeconds);
     const exp = sampleStealthExposure({ cache: this.cache, x: p.x, y: p.y, dayPhase: this.dayPhase, torchLit: p.torchLit, crouching: p.crouching, moving: p.moving, sprinting: p.sprinting, inWater: p.inWater || p.inDeepWater, attackFlash: p.attackFlashTimer > 0 });
-    p.stealthVis = exp.visibility; p.visibility = exp.visibility; p.inCover = exp.inCover; p.noiseRadius = exp.noiseRadius;
+    const vis = computeEffectiveStealthVis(p, exp.visibility);
+    p.stealthVis = vis; p.visibility = vis; p.inCover = exp.inCover; p.noiseRadius = exp.noiseRadius;
     if (p.sprinting && !p.crouching) {
       p.sprintNoiseAcc += dtSeconds;
       if (p.sprintNoiseAcc >= 0.45) { p.sprintNoiseAcc = 0; this.combat.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.sprintNoiseRadiusTiles, sourceId: p.id }); }
@@ -219,7 +227,7 @@ export class WorldSim {
       stepStationaryPlayerTurn({ cache: this.cache, p: { ...p, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge } });
       return;
     }
-    if (!p.hasExplicitAim && combat.dodgeTimer <= 0) setPlayerAim(p, dir.ux, dir.uy);
+    if (!p.hasExplicitAim && combat.dodgeTimer <= 0) setPlayerAimVec(p, dir.ux, dir.uy);
     const seg = playerFootSegment({ facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge });
     const mult = this.combat.moveMultiplier(p);
     const step = PLAYER_SPEED_TILES_PER_SEC * mult * dtSeconds;
@@ -234,13 +242,9 @@ export class WorldSim {
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
 
   snapshots(): PlayerSnapshot[] {
-    return Array.from(this.players.values(), (p) => ({
-      id: p.id, name: p.name, x: p.x, y: p.y, elevation: p.elevation, facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY,
-      jumpZ: p.jumpZ, jumpVz: p.jumpVz, moving: p.moving, sprinting: p.sprinting, crouching: p.crouching,
-      stealthVis: p.stealthVis, inCover: p.inCover, attackFlash: p.attackFlashTimer > 0, torchLit: p.torchLit,
-      inWater: p.inWater, inDeepWater: p.inDeepWater, lastAckSeq: p.lastAckSeq,
-      heldItem: p.inventory.slots[p.selectedHotbar]?.itemId ?? null, appearance: p.appearance, armor: { ...p.inventory.armor },
-      hasBedRespawn: this.combat.structures.hasBedFor(p.name), ...playerCombatExtras(p),
+    return Array.from(this.players.values(), (p) => buildPlayerSnapshotRecord(p, {
+      hasBedRespawn: this.combat.structures.hasBedFor(p.name),
+      bubble: this.chat.activeBubbleFor(p.id),
     }));
   }
 }
@@ -257,16 +261,4 @@ function desiredPlayerDir(p: SimPlayer): { readonly ux: number; readonly uy: num
   const ux = rawX / rawMag; const uy = rawY / rawMag;
   const mag = Math.min(rawMag, !dodging && p.combat.bowCharge > 0 ? COMBAT_TUNING.movement.walkSpeedRatio : 1);
   return { ux, uy, nx: ux * mag, ny: uy * mag, mag };
-}
-
-function setPlayerAim(p: SimPlayer, ax: number, ay: number): void {
-  p.aimX = ax; p.aimY = ay; p.facingX = ax; p.facingY = ay;
-}
-
-function applyAimInput(p: SimPlayer, input: { readonly aimX?: number | undefined; readonly aimY?: number | undefined }): void {
-  if (input.aimX === undefined || input.aimY === undefined) { p.hasExplicitAim = false; return; }
-  const mag = Math.hypot(input.aimX, input.aimY);
-  if (mag <= 0.05) { p.hasExplicitAim = false; return; }
-  setPlayerAim(p, input.aimX / mag, input.aimY / mag);
-  p.hasExplicitAim = true;
 }

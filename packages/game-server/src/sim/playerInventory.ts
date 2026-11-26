@@ -84,7 +84,11 @@ function takeDroppedInvItem(
 ): { readonly nextState: PlayerInventoryState; readonly item: SlotItem } | null {
   const nextSlots = state.slots.map((s) => (s ? { ...s } : null));
   const item = removeFromSlot(nextSlots, slotIndex, count);
-  return item ? { nextState: { slots: nextSlots, armor: state.armor }, item } : null;
+  if (!item) return null;
+  return {
+    nextState: { slots: nextSlots, armor: state.armor, ...(state.armorPrefixes ? { armorPrefixes: state.armorPrefixes } : {}) },
+    item,
+  };
 }
 
 function takeDroppedArmorItem(
@@ -93,8 +97,15 @@ function takeDroppedArmorItem(
 ): { readonly nextState: PlayerInventoryState; readonly item: SlotItem } | null {
   const cur = state.armor[armorSlot];
   if (!cur) return null;
+  const prefixId = state.armorPrefixes?.[armorSlot];
   const armor = { ...state.armor, [armorSlot]: null };
-  return { nextState: { slots: state.slots, armor }, item: { itemId: cur, count: 1 } };
+  const nextPrefixes = state.armorPrefixes ? { ...state.armorPrefixes } : undefined;
+  if (nextPrefixes) delete nextPrefixes[armorSlot];
+  const hasPrefixes = nextPrefixes && Object.keys(nextPrefixes).length > 0;
+  return {
+    nextState: { slots: state.slots, armor, ...(hasPrefixes ? { armorPrefixes: nextPrefixes } : {}) },
+    item: prefixId ? { itemId: cur, count: 1, prefixId } : { itemId: cur, count: 1 },
+  };
 }
 
 export function takeDroppedPlayerItem(
@@ -117,6 +128,7 @@ export function buildInventorySnapshot(input: {
   return {
     slots: cloned.slots,
     armor: cloned.armor,
+    ...(cloned.armorPrefixes ? { armorPrefixes: cloned.armorPrefixes } : {}),
     selectedHotbar: input.selectedHotbar,
     nearCampfire: input.nearCampfire,
     ...(input.ackSeq !== undefined ? { ackSeq: input.ackSeq } : {}),

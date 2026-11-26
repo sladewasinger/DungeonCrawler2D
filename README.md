@@ -22,6 +22,7 @@ Documentation lives next to the code it describes:
 | Location | Covers |
 | --- | --- |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Master phased roadmap (`overworld`, Phases 0–13), DCC floor loop & AI-crafting vision |
+| [docs/frontier/MASTER-PLAN.md](docs/frontier/MASTER-PLAN.md) | Frontier Overhaul master plan & 7 full spec sheets (rarities, item cards, 5 biomes, 19 POIs, discovery, proximity chat) |
 | [docs/LESSONS.md](docs/LESSONS.md) | Durable engineering pitfalls and repository constraints |
 | [packages/engine/README.md](packages/engine/README.md) | Platform-free simulation core, noise, collision, Day/Night, Zod wire protocol |
 | [packages/engine/src/world/README.md](packages/engine/src/world/README.md) | Deterministic `32×32` chunk generator, elevation, and spatial collision |

@@ -1,7 +1,7 @@
-/** Minimalist 36-slot backpack (slots 9..35) + 4 armor slots + stats modal (no duplicate hotbar). */
-import { getItemDef } from "@dc2d/content";
+/** Minimalist 36-slot backpack (slots 9..35) + 5 armor slots + stats modal (no duplicate hotbar). */
+import { resolveItemInstance } from "@dc2d/content";
 import {
-  ARMOR_SLOT_KEYS, BACKPACK_SLOT_COUNT, HOTBAR_SLOT_COUNT, computeArmorDefense,
+  ARMOR_SLOT_KEYS, BACKPACK_SLOT_COUNT, HOTBAR_SLOT_COUNT, computePlayerGearStats,
   type ArmorSlotKey, type InventorySnapshot, type PlayerSnapshot,
 } from "@dc2d/engine";
 import type { DragSource, SlotDragManager } from "./slotDragManager.js";
@@ -21,7 +21,7 @@ function buildInventoryFingerprint(
   heldId: string,
   extra: { readonly tapSource: DragSource | null; readonly player: PlayerSnapshot | undefined },
 ): string {
-  const armorFp = ARMOR_SLOT_KEYS.map((k) => inv.armor[k] ?? "-").join(",");
+  const armorFp = ARMOR_SLOT_KEYS.map((k) => `${inv.armor[k] ?? "-"}:${inv.armorPrefixes?.[k] ?? ""}`).join(",");
   const bagFp = slotsFingerprint(inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
   return `${armorFp}#${bagFp}#${heldId}#${tapSourceFingerprint(extra.tapSource)}#${playerStatsFp(extra.player)}`;
 }
@@ -111,14 +111,12 @@ export class InventoryModal {
     const btn = this.armorButtons.get(key);
     if (!btn) return;
     const itemId = inv.armor[key];
-    const itemKey = itemId ?? "-";
+    const prefixId = inv.armorPrefixes?.[key];
+    const itemKey = itemId ? `${itemId}:${prefixId ?? ""}` : "-";
     const tap = tapSource?.kind === "armor" && tapSource.armorSlot === key;
-    if (this.armorItemKeys.get(key) === itemKey) {
-      btn.dataset.tapSource = String(tap);
-      return;
-    }
+    if (this.armorItemKeys.get(key) === itemKey) { btn.dataset.tapSource = String(tap); return; }
     this.armorItemKeys.set(key, itemKey);
-    renderSlotContent(btn, { item: itemId ? { itemId, count: 1 } : null, emptyHint: armorLabel(key), tapSource: tap });
+    renderSlotContent(btn, { item: buildArmorSlotItem(itemId, prefixId), emptyHint: armorLabel(key), tapSource: tap });
   }
 
   private syncSingleBagSlot(bagIdx: number, inv: InventorySnapshot, tapIdx: number): void {
@@ -126,7 +124,7 @@ export class InventoryModal {
     if (!btn) return;
     const slotIndex = HOTBAR_SLOT_COUNT + bagIdx;
     const item = inv.slots[slotIndex] ?? null;
-    const itemKey = item ? `${item.itemId}:${item.count}` : "-";
+    const itemKey = item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
     const tap = tapIdx === slotIndex;
     if (this.bagItemKeys[bagIdx] === itemKey) {
       btn.dataset.tapSource = String(tap);
@@ -146,20 +144,37 @@ export class InventoryModal {
   }
 }
 
-function formatHeldName(heldId: string): string {
-  if (heldId === "-") return "Unarmed";
-  return getItemDef(heldId)?.name ?? heldId;
+function buildArmorSlotItem(itemId: string | null, prefixId: string | undefined) {
+  if (!itemId) return null;
+  return prefixId ? { itemId, count: 1, prefixId } : { itemId, count: 1 };
+}
+
+function formatHeldName(inv: InventorySnapshot): string {
+  const held = inv.slots[inv.selectedHotbar];
+  if (!held) return "Unarmed";
+  return resolveItemInstance(held.itemId, held.prefixId).displayName;
 }
 
 function formatStatRows(opts: {
   readonly inv: InventorySnapshot; readonly heldId: string; readonly player: PlayerSnapshot | undefined;
 }): readonly string[] {
-  const defense = computeArmorDefense(opts.inv.armor, getItemDef);
+  const held = opts.inv.slots[opts.inv.selectedHotbar];
+  const gear = computePlayerGearStats({
+    armor: opts.inv.armor, armorPrefixes: opts.inv.armorPrefixes, heldItem: held,
+    lookup: (id, pId) => resolveItemInstance(id, pId),
+  });
   const p = opts.player;
   const hp = p?.hp ?? 100;
-  const maxHp = p?.maxHp ?? 100;
+  const maxHp = p?.maxHp ?? (100 + gear.maxHpBonus);
   const stam = p?.stamina ?? 100;
-  return [`HP: ${Math.round(hp)} / ${Math.round(maxHp)}`, `Stamina: ${Math.round(stam)}`, `Defense: ${defense}`, `Held: ${formatHeldName(opts.heldId)}`, "Drop: Drag out / Q"];
+  return [
+    `HP: ${Math.round(hp)} / ${Math.round(maxHp)}`,
+    `Stamina: ${Math.round(stam)}`,
+    `Defense: ${gear.defense} · Crit: ${Math.round(gear.critChance * 100)}%`,
+    `Dmg: ${gear.heldDamage || 8} · Spd: ${Math.round((1 + gear.moveSpeedMult) * 100)}%`,
+    `Held: ${formatHeldName(opts.inv)}`,
+    "Tap item to inspect · Q Drop",
+  ];
 }
 
 function buildModalHeader(nav: { readonly onClose: () => void; readonly onOpenCrafting: () => void }): HTMLDivElement {

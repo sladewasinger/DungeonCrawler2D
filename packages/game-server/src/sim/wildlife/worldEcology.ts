@@ -1,9 +1,10 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
   AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, getPoiGuardRoster, hashUnit2d, isInSanctuary, worldToChunkCoord,
-  type ChunkPoi, type GoreStyle, type GroundLootSnapshot, type WeaponArchetype, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type ChunkPoi, type GoreStyle, type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
+import { applyPlayerOnHitPerks, computeGearStrikeOutcome, resolvePlayerGear } from "../combat/gearEffects.js";
 import { stepWildlifeEntity } from "./creatureAi.js";
 import { hasSpiderCover, isScavengeLootId, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn } from "./creatureBehaviors.js";
 import { CREATURE_SPECS, ST_DEAD, ST_INVESTIGATE, createWildlifeEntity, type WildlifeEntity, type WildlifeKind } from "./creatureSpecs.js";
@@ -192,12 +193,16 @@ export class WorldEcology {
     readonly hitTargetIds?: Set<string> | undefined; readonly impactCenter?: { readonly x: number; readonly y: number } | undefined;
     readonly slamAoeRadius?: number | undefined; readonly events: WorldEvent[];
   }): void {
+    const gear = resolvePlayerGear(opts.attacker);
+    const effectiveBs = (opts.backstabMult ?? STEALTH_TUNING.backstabDamageMult) + gear.backstabBonus;
     for (const e of this.list) {
       if (!isSectorTargetHit({ cache: this.cache, e, ...opts })) continue;
       opts.hitTargetIds?.add(e.id);
-      const { damage, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: opts.backstabMult, armorCrushMult: opts.armorCrushMult });
-      applyBackstabEvent({ e, attackerId: opts.attacker.id, damage, sneakHit, events: opts.events });
-      this.damageEntity({ ...opts, entity: e, damage, dirX: opts.dir.x, dirY: opts.dir.y, actorId: opts.attacker.id, silentKill: sneakHit, hitstopSec: sneakHit ? MELEE_FEEL_TUNING.backstabHitstopSec : opts.hitstopSec, shakePx: sneakHit ? MELEE_FEEL_TUNING.backstabShakePx : opts.shakePx });
+      const { damage: baseHit, sneakHit } = computeSectorStrike(opts.attacker, e, { baseDmg: opts.damage, backstabMult: effectiveBs, armorCrushMult: opts.armorCrushMult });
+      const res = computeGearStrikeOutcome({ baseHit, sneakHit, gear, baseHitstop: opts.hitstopSec, baseShake: opts.shakePx, backstabHitstop: MELEE_FEEL_TUNING.backstabHitstopSec, backstabShake: MELEE_FEEL_TUNING.backstabShakePx });
+      applyBackstabEvent({ e, attackerId: opts.attacker.id, damage: res.damage, sneakHit, events: opts.events });
+      this.damageEntity({ ...opts, entity: e, damage: res.damage, dirX: opts.dir.x, dirY: opts.dir.y, actorId: opts.attacker.id, silentKill: sneakHit, hitstopSec: res.hitstopSec, shakePx: res.shakePx });
+      applyPlayerOnHitPerks({ attacker: opts.attacker, gear, target: e, damageDealt: res.damage, events: opts.events });
     }
   }
 
@@ -239,9 +244,8 @@ export class WorldEcology {
 
   step(opts: {
     readonly dt: number; readonly timeSec: number; readonly dayPhase: number;
-    readonly players: readonly (CombatPlayerRef & { readonly moving: boolean })[];
-    readonly events: WorldEvent[]; readonly onStrike: StrikePlayerFn;
-    readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
+    readonly players: readonly (CombatPlayerRef & { readonly moving: boolean })[]; readonly events: WorldEvent[];
+    readonly onStrike: StrikePlayerFn; readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
   }): void {
     this.activePlayers = opts.players;
     this.pruneDistantEntities(opts.players);
@@ -264,8 +268,5 @@ export class WorldEcology {
     }
     this.loot.step(opts.players, opts.events, opts.dt);
   }
-
-  snapshots(): { readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[] } {
-    return { entities: this.list.map(serializeEntitySnapshot), ...this.loot.snapshot() };
-  }
+  snapshots() { return { entities: this.list.map(serializeEntitySnapshot), ...this.loot.snapshot() }; }
 }

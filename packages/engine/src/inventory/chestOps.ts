@@ -1,6 +1,6 @@
 /** Pure 27-slot bidirectional chest transfer, quick-move, and Take All helpers. */
 import {
-  insertIntoSlots, moveOrSwapSlot, type InventorySlot, type SlotItem, type StackLimitLookup,
+  insertIntoSlots, makeSlotItem, moveOrSwapSlot, type InventorySlot, type SlotItem, type StackLimitLookup,
 } from "./slotModel.js";
 
 export const CHEST_SLOT_COUNT = 27;
@@ -14,10 +14,11 @@ function tryCrossMerge(opts: {
   readonly fromSlot: number; readonly toSlot: number;
   readonly src: SlotItem; readonly dst: SlotItem; readonly maxStack: number;
 }): boolean {
-  if (opts.dst.itemId !== opts.src.itemId || opts.maxStack <= 1 || opts.dst.count >= opts.maxStack) return false;
+  const samePrefix = (opts.dst.prefixId ?? undefined) === (opts.src.prefixId ?? undefined);
+  if (opts.dst.itemId !== opts.src.itemId || !samePrefix || opts.maxStack <= 1 || opts.dst.count >= opts.maxStack) return false;
   const moved = Math.min(opts.src.count, opts.maxStack - opts.dst.count);
-  opts.dstList[opts.toSlot] = { itemId: opts.dst.itemId, count: opts.dst.count + moved };
-  opts.srcList[opts.fromSlot] = opts.src.count > moved ? { itemId: opts.src.itemId, count: opts.src.count - moved } : null;
+  opts.dstList[opts.toSlot] = makeSlotItem(opts.dst.itemId, opts.dst.count + moved, opts.dst.prefixId);
+  opts.srcList[opts.fromSlot] = opts.src.count > moved ? makeSlotItem(opts.src.itemId, opts.src.count - moved, opts.src.prefixId) : null;
   return true;
 }
 
@@ -60,7 +61,7 @@ export function quickTransferChestSlot(opts: {
   if (!src) return false;
   const moved = insertIntoSlots(dstList, src, opts.maxStackFor);
   if (moved <= 0) return false;
-  srcList[opts.slotIndex] = src.count > moved ? { itemId: src.itemId, count: src.count - moved } : null;
+  srcList[opts.slotIndex] = src.count > moved ? makeSlotItem(src.itemId, src.count - moved, src.prefixId) : null;
   return true;
 }
 
@@ -74,7 +75,7 @@ export function takeAllFromChest(opts: {
     const moved = insertIntoSlots(opts.invSlots, item, opts.maxStackFor);
     if (moved <= 0) continue;
     totalMoved += moved;
-    opts.chestSlots[i] = item.count > moved ? { itemId: item.itemId, count: item.count - moved } : null;
+    opts.chestSlots[i] = item.count > moved ? makeSlotItem(item.itemId, item.count - moved, item.prefixId) : null;
   }
   return totalMoved;
 }

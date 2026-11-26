@@ -104,6 +104,7 @@ export class SlotDragManager {
     const threshold = tracker.pointerType === "touch" ? TOUCH_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
     if (!tracker.dragging && Math.hypot(x - tracker.startX, y - tracker.startY) > threshold) {
       tracker.dragging = true;
+      this.actions.onDismissInspect?.();
       this.spawnGhost(tracker.itemId, x, y);
     }
     if (this.ghost) {
@@ -129,6 +130,7 @@ export class SlotDragManager {
     if (tracker.source.kind === KIND_SLOT && tracker.source.index < HOTBAR_SLOT_COUNT) {
       this.actions.onSelectHotbar(tracker.source.index);
     }
+    if (tracker.itemId) this.actions.onInspectItem?.(tracker.source);
   }
 
   private resolveAndDispatchDrop(x: number, y: number, tracker: PointerTracker): void {

@@ -13,8 +13,9 @@ import {
 import { applyAdminAction, type AdminActionRequest } from "./combat/adminActions.js";
 import {
   applyCreatureStrikeToPlayer, buildPlayerCombatExtras, clearSwingOnCancel, clearSwingOnStagger,
-  computePlayerMoveMultiplier, runSwingActivePass, spawnChargedBowArrow, startTrackedMeleeSwing,
+  computePlayerMoveMultiplier, isBowItemId, runSwingActivePass, spawnChargedBowArrow, startTrackedMeleeSwing,
 } from "./combat/combatSimHelpers.js";
+import { resolvePlayerGear, useConsumableAtSlot } from "./combat/gearEffects.js";
 import {
   advanceHeavyCharge, canDodgeCancelSwing, shouldHoldHeavyWindup, swingOverlapsActive,
 } from "./combat/meleeTimeline.js";
@@ -170,7 +171,7 @@ export class CombatWorld {
 
   private tryConsumeAttackBuffer(p: CombatPlayerRef): void {
     const heldId = p.inventory.slots[p.selectedHotbar]?.itemId ?? null;
-    if (!isMeleeItem(heldId) || heldId === "bow") { p.combat.bufferedAction = null; return; }
+    if (!isMeleeItem(heldId) || isBowItemId(heldId)) { p.combat.bufferedAction = null; return; }
     if (startTrackedMeleeSwing({ p, heldId, events: this.events })) p.combat.bufferedAction = null;
   }
 
@@ -186,12 +187,14 @@ export class CombatWorld {
   }): void {
     const { p, input, dt, playerName } = opts;
     const heldId = p.inventory.slots[p.selectedHotbar]?.itemId ?? null;
-    if (heldId === "bow") { this.stepBowAction(p, input, dt); return; }
+    if (isBowItemId(heldId)) { this.stepBowAction(p, input, dt); return; }
     p.combat.bowCharge = 0;
     if (!input.attackQueued || this.tryItemAction(p, heldId, playerName) || !isMeleeItem(heldId)) return;
     if (startTrackedMeleeSwing({ p, heldId, events: this.events })) return;
     p.combat.bufferedAction = { kind: "attack", expiresSec: this.simTimeSec + MELEE_FEEL_TUNING.inputBufferSec };
   }
+
+  useItemSlot(p: CombatPlayerRef, slotIndex: number): boolean { return useConsumableAtSlot(p, slotIndex, this.events); }
 
   private tryItemAction(p: CombatPlayerRef, heldId: string | null, playerName: string): boolean {
     if (!heldId) return false;
@@ -264,10 +267,9 @@ export class CombatWorld {
   private stepBowAction(p: CombatPlayerRef & { attackFlashTimer?: number }, input: CombatInputFlags, dt: number): void {
     const c = p.combat;
     if (c.dodgeTimer > 0 || c.actionCooldown > 0) return;
-    if (input.bowDrawing) { c.bowCharge = Math.min(COMBAT_TUNING.bow.maxChargeSec, c.bowCharge + dt); return; }
+    if (input.bowDrawing) { c.bowCharge = Math.min(COMBAT_TUNING.bow.maxChargeSec, c.bowCharge + dt * (1 + resolvePlayerGear(p).bowDrawSpeedMult)); return; }
     if (!input.bowReleaseQueued && c.bowCharge <= 0) return;
-    const chargeSec = c.bowCharge; c.bowCharge = 0;
-    this.fireArrow(p, chargeSec);
+    const chargeSec = c.bowCharge; c.bowCharge = 0; this.fireArrow(p, chargeSec);
   }
 
   private fireArrow(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {

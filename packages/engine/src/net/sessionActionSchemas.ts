@@ -13,6 +13,12 @@ export const ClientDropItemSchema = z.object({
 
 export type DropItemRequest = Omit<z.infer<typeof ClientDropItemSchema>, "t" | "seq">;
 
+export const ClientUseItemSchema = z.object({
+  t: z.literal("useItem"),
+  slotIndex: z.number().int().min(0).max(35),
+  seq: z.number().int().nonnegative().optional(),
+});
+
 export const ClientPingSchema = z.object({
   t: z.literal("ping"),
   t0: z.number(),

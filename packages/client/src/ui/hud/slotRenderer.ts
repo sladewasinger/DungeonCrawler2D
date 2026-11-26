@@ -1,7 +1,8 @@
 /** Shared DOM builders and stack-count-safe slot rendering for Phase 2 HUD. */
-import { getItemDef, maxStackForItem } from "@dc2d/content";
+import { maxStackForItem, resolveItemInstance } from "@dc2d/content";
 import type { ArmorSlotKey, CharacterAppearance, DropItemRequest, InventorySlot, SlotItem } from "@dc2d/engine";
 import { getItemIconUrl } from "../icons/itemIcons.js";
+import type { DragSource } from "./drag/slotDropResolver.js";
 
 const ARMOR_LABELS: Readonly<Record<ArmorSlotKey, string>> = {
   head: "Head",
@@ -23,6 +24,9 @@ export interface HudActions {
   readonly onToggleTorch: () => void;
   readonly onMapToggled?: () => void;
   readonly onDropItem: (req: DropItemRequest) => void;
+  readonly onUseItem?: (slotIndex: number) => void;
+  readonly onInspectItem?: (source: DragSource) => void;
+  readonly onDismissInspect?: () => void;
 }
 
 export function domNode<K extends keyof HTMLElementTagNameMap>(
@@ -54,6 +58,7 @@ export function renderSlotContent(
     btn.append(key);
   }
   if (!opts.item) {
+    delete btn.dataset.rarity;
     btn.title = opts.emptyHint ?? "Empty slot";
     if (opts.emptyHint) {
       const hint = domNode("span", "ow-slot-hint");
@@ -66,8 +71,10 @@ export function renderSlotContent(
 }
 
 function appendFilledSlotContent(btn: HTMLButtonElement, item: SlotItem): void {
-  const def = getItemDef(item.itemId);
-  btn.title = def?.name ?? item.itemId;
+  const resolved = resolveItemInstance(item.itemId, item.prefixId);
+  btn.title = resolved.displayName;
+  if (resolved.rarity === "common") delete btn.dataset.rarity;
+  else btn.dataset.rarity = resolved.rarity;
   const img = domNode("img", "ow-slot-img");
   img.src = getItemIconUrl(item.itemId);
   img.alt = btn.title;
@@ -88,7 +95,7 @@ export function slotsFingerprint(slots: readonly InventorySlot[], start: number,
   const parts: string[] = [];
   for (let i = start; i < start + count; i++) {
     const s = slots[i];
-    parts.push(s ? `${s.itemId}:${s.count}` : "-");
+    parts.push(s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""}` : "-");
   }
   return parts.join("|");
 }

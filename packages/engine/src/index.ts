@@ -39,24 +39,16 @@ export type { JumpState } from "./world/jumpPhysics.js";
 export { DAY_DURATION_SECONDS, periodForPhase, sampleDayNight, wrapDayPhase } from "./time/dayNight.js";
 export type { DayNightState, RgbTuple, TimeOfDayPeriod } from "./time/dayNight.js";
 export {
-  BACKPACK_SLOT_COUNT,
-  HOTBAR_SLOT_COUNT,
-  TOTAL_INVENTORY_SLOTS,
-  canInsertSlotItem,
-  consumeItemFromSlots,
-  createEmptyInventoryState,
-  insertIntoSlots,
-  moveOrSwapSlot,
-  removeFromSlot,
+  BACKPACK_SLOT_COUNT, HOTBAR_SLOT_COUNT, TOTAL_INVENTORY_SLOTS,
+  canInsertSlotItem, consumeItemFromSlots, createEmptyInventoryState,
+  insertIntoSlots, makeSlotItem, moveOrSwapSlot, removeFromSlot,
 } from "./inventory/slotModel.js";
 export type {
-  ArmorEquipment,
-  ArmorSlotKey,
-  InventorySlot,
-  PlayerInventoryState,
-  SlotItem,
-  StackLimitLookup,
+  ArmorEquipment, ArmorPrefixMap, ArmorSlotKey, InventorySlot,
+  PlayerInventoryState, SlotItem, StackLimitLookup,
 } from "./inventory/slotModel.js";
+export { computePlayerGearStats } from "./inventory/gearStats.js";
+export type { AggregatedPlayerGearStats, GearPerkKind, GearPieceStats, GearStatsLookup } from "./inventory/gearStats.js";
 export {
   ARMOR_SLOT_KEYS,
   cloneInventoryState,
@@ -98,39 +90,17 @@ export type {
   SkinToneId,
 } from "./character/appearance.js";
 export {
-  ArmorSlotKeySchema,
-  ClientAdminSchema,
-  ClientDropItemSchema,
-  ClientMessageSchema,
-  ClientPingSchema,
-  GoreStyleSchema,
-  GoreSubstanceSchema,
-  GroundLootSnapshotSchema,
-  InventorySnapshotSchema,
-  PROTOCOL_VERSION,
-  ProjectileSnapshotSchema,
-  ServerMessageSchema,
-  ServerPongSchema,
-  WorldChestSnapshotSchema,
-  WorldEntitySnapshotSchema,
-  WorldEventSchema,
-  WorldWebSnapshotSchema,
+  ArmorSlotKeySchema, ChatEntrySchema, ClientAdminSchema, ClientChatSchema, ClientDropItemSchema,
+  ClientMessageSchema, ClientPingSchema, ClientUseItemSchema, GoreStyleSchema, GoreSubstanceSchema,
+  GroundLootSnapshotSchema, InventorySnapshotSchema, PROTOCOL_VERSION, PlayerBubbleSchema,
+  ProjectileSnapshotSchema, ServerMessageSchema, ServerPongSchema, WorldChestSnapshotSchema,
+  WorldEntitySnapshotSchema, WorldEventSchema, WorldWebSnapshotSchema,
 } from "./net/protocol.js";
+export { CHAT_BUBBLE_DURATION_SEC, MAX_CHAT_LENGTH, PROXIMITY_CHAT_RADIUS, PROXIMITY_SHOUT_RADIUS } from "./net/chatSchemas.js";
 export type {
-  ClientMessage,
-  CreatureVocalKind,
-  DropItemRequest,
-  GroundLootSnapshot,
-  InventorySnapshot,
-  PlayerSnapshot,
-  ProjectileSnapshot,
-  ServerMessage,
-  WebNodeSnapshot,
-  WebStrandSnapshot,
-  WorldChestSnapshot,
-  WorldEntitySnapshot,
-  WorldEvent,
-  WorldWebSnapshot,
+  ChatEntry, ClientMessage, CreatureVocalKind, DropItemRequest, GroundLootSnapshot, InventorySnapshot,
+  PlayerBubble, PlayerSnapshot, ProjectileSnapshot, ServerMessage, WebNodeSnapshot, WebStrandSnapshot,
+  WorldChestSnapshot, WorldEntitySnapshot, WorldEvent, WorldWebSnapshot,
 } from "./net/protocol.js";
 export {
   BLEED_DURATION_SEC,
