@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -67,12 +67,17 @@ jobs:
           VITE_GAME_WS_URL: ${{ steps.target.outputs.ws_url }}
         run: npm run build
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dist-artifacts
-          path: |
-            packages/client/dist/
-            packages/game-server/dist/
+          name: client-dist
+          path: packages/client/dist/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-dist
+          path: packages/game-server/dist/
+          if-no-files-found: error
 
   deploy-fly:
     needs: build-and-verify
@@ -101,9 +106,15 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: dist-artifacts
+          name: client-dist
+          path: packages/client/dist
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: server-dist
+          path: packages/game-server/dist
 
       - uses: aws-actions/configure-aws-credentials@61cd5800c18cd650d23785df9484e8ff76655acf # v6
         with:
@@ -171,7 +182,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci --omit=dev
       - name: Smoke-test deployed site
