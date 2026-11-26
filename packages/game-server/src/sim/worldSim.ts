@@ -21,8 +21,8 @@ import {
 } from "./survival/worldPersistenceSync.js";
 
 export type { SimPlayer } from "./survival/worldPersistenceSync.js";
-export const TICK_RATE = 20; export const PLAYER_SPEED_TILES_PER_SEC = COMBAT_TUNING.movement.runSpeedTilesPerSec;
-export const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles; export const INITIAL_DAY_PHASE = 0.62;
+export const TICK_RATE = 20; const PLAYER_SPEED_TILES_PER_SEC = COMBAT_TUNING.movement.runSpeedTilesPerSec;
+const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles; const INITIAL_DAY_PHASE = 0.62;
 
 export class WorldSim {
   readonly cache: WorldChunkCache;

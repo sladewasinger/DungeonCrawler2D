@@ -1,10 +1,10 @@
 /** Core spatial types for the deterministic infinite chunked overworld. */
 import {
-  CHUNK_SIZE, GROUND_KIND_VALUES, GroundKind, PROP_KIND_VALUES, PropKind, TILE_PX,
+  CHUNK_SIZE, GroundKind, PropKind,
   type BiomeKind, type DangerTier, type PoiCategory, type PoiKind, type PoiLayoutKind,
 } from "@dc2d/contracts";
 
-export { CHUNK_SIZE, GROUND_KIND_VALUES, GroundKind, PROP_KIND_VALUES, PropKind, TILE_PX };
+export { CHUNK_SIZE, GroundKind, PropKind };
 export type { BiomeKind, DangerTier, PoiCategory, PoiKind, PoiLayoutKind };
 
 export interface ChunkPoi {

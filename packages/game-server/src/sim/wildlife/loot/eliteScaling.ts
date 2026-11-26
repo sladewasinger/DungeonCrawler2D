@@ -31,18 +31,18 @@ export function dangerTierStatScale(tier: DangerTier, isElite: boolean): { reado
     : { hpMult: base.hp, dmgMult: base.dmg, speedMult: base.speed };
 }
 
-export function defaultEliteTitle(kind: WildlifeKind): string {
+function defaultEliteTitle(kind: WildlifeKind): string {
   return ELITE_TITLES[kind];
 }
 
-export function pickBiomeWildlifeKind(biome: BiomeKind, roll: number): WildlifeKind {
+function pickBiomeWildlifeKind(biome: BiomeKind, roll: number): WildlifeKind {
   const roster = BIOME_CATALOG[biome].wildlifeRoster;
   return roster[Math.floor(roll * roster.length) % roster.length] ?? "wolf";
 }
 
 const WANDERING_ELITE_CHANCE: Readonly<Record<DangerTier, number>> = { 1: 0, 2: 0, 3: 0.06, 4: 0.12, 5: 0.20 };
 
-export function shouldSpawnWanderingElite(tier: DangerTier, roll: number): boolean {
+function shouldSpawnWanderingElite(tier: DangerTier, roll: number): boolean {
   return roll < WANDERING_ELITE_CHANCE[tier];
 }
 

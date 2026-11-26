@@ -11,8 +11,6 @@ import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type Wo
 import { bakeElevatedChunkRows } from "../render/world/cliffStrips.js";
 import { buildChunkTilemapMeshes } from "../render/world/tileBuilder.js";
 
-export const SANDBOX_H = 32;
-
 const LIGHT_TORCH_COLOR = 0xffb84d;
 const LIGHT_FIRE_COLOR = 0xffa040;
 const BLOCKING_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.Boulder, PropKind.RuinPillar, PropKind.Campfire]);

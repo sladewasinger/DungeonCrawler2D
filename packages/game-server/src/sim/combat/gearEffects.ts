@@ -54,8 +54,6 @@ export function computeGearStrikeOutcome(opts: {
   return { damage, hitstopSec, shakePx };
 }
 
-export type PerkTarget = WildlifeEntity;
-
 function applyStatusPerks(
   perks: { readonly bleedDamage: number; readonly burnDamage: number; readonly poisonDamage: number },
   target: WildlifeEntity,

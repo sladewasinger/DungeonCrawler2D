@@ -36,6 +36,7 @@ export class AudioEngine {
   }
 
   getPrefs(): AudioPrefs { return this.prefs; }
+  getActiveVoiceCount(): number { return this.activeVoices; }
 
   setPrefs(next: AudioPrefs): void {
     this.prefs = next;

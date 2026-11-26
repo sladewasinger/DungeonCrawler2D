@@ -190,7 +190,7 @@ function applyOfflineHeal(player: PlayerSnapshot): PlayerSnapshot {
   };
 }
 
-export function applyOfflineAdminPreview(player: PlayerSnapshot, req: { readonly action: string; readonly enabled?: boolean }): PlayerSnapshot {
+function applyOfflineAdminPreview(player: PlayerSnapshot, req: { readonly action: string; readonly enabled?: boolean }): PlayerSnapshot {
   if (req.action === "godMode") return toggleOfflineGod(player, req.enabled);
   if (req.action === "heal") return applyOfflineHeal(player);
   if (req.action === "clearWebs") return { ...player, webStick: 0, cocoonProgress: 0, poisonLocked: false };

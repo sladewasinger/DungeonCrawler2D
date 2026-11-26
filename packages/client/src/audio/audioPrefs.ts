@@ -7,7 +7,7 @@ export interface AudioPrefs {
 }
 
 const STORAGE_KEY = "dc2d_audio_prefs_v1";
-export const DEFAULT_AUDIO_PREFS: AudioPrefs = { muted: false, music: 0.55, sfx: 0.75 };
+const DEFAULT_AUDIO_PREFS: AudioPrefs = { muted: false, music: 0.55, sfx: 0.75 };
 
 function clampUnit(val: unknown, fallback: number): number {
   if (typeof val !== "number" || Number.isNaN(val)) return fallback;

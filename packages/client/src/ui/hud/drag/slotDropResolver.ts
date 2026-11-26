@@ -47,7 +47,7 @@ export function isSameDragSource(a: DragSource, b: DragSource): boolean {
   return dragSourceKey(a) === dragSourceKey(b);
 }
 
-export function edgeDistToRect(x: number, y: number, r: RectLike): number {
+function edgeDistToRect(x: number, y: number, r: RectLike): number {
   const dx = Math.max(r.left - x, 0, x - r.right);
   const dy = Math.max(r.top - y, 0, y - r.bottom);
   return Math.hypot(dx, dy);

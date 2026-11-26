@@ -99,7 +99,7 @@ function inReturnReaggroZone<T extends { readonly x: number; readonly y: number;
   return findTilePath({ cache, startX: e.x, startY: e.y, goalX: p.x, goalY: p.y, maxRadiusTiles: 10 }).reachedGoal;
 }
 
-export function matchesReturnReaggro<
+function matchesReturnReaggro<
   T extends { readonly x: number; readonly y: number; readonly elevation: number; readonly combat?: { readonly cocoonProgress?: number } | undefined },
 >(
   cache: WorldChunkCache, e: WildlifeEntity, p: T,

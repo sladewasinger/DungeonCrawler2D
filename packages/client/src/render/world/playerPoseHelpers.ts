@@ -10,8 +10,8 @@ import { getGrippingHandTexture, getShieldTexture, type HeldWeaponVisual } from 
 
 export { gearLayoutFor, resolveDir8Idx, skinTint } from "./playerHeldLayout.js";
 export {
-  PLAYER_WATERLINE, SUBMERGED_BODY_ALPHA, SUBMERGED_BODY_TINT, createWaterSubmergeRig, makeUnderwaterMask,
-  makeWaterFrontLip, makeWaterMask, makeWaterRing, syncSubmergedSprite, syncWaterSubmergeState,
+  PLAYER_WATERLINE, SUBMERGED_BODY_ALPHA, SUBMERGED_BODY_TINT, createWaterSubmergeRig,
+  syncSubmergedSprite, syncWaterSubmergeState,
   type WaterSubmergeRig, type WaterlineMetrics,
 } from "../character/water/waterSubmergeRig.js";
 
@@ -38,11 +38,11 @@ export function makeGroundShadow(): Graphics {
   return g;
 }
 
-export function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing {
+function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing {
   return dir === "north" || dir === "south" ? dir : flipX ? "west" : "east";
 }
 
-export function isBowActivelyAiming(snap: PlayerSnapshot): boolean {
+function isBowActivelyAiming(snap: PlayerSnapshot): boolean {
   return isBowItem(snap.heldItem) && (snap.bowCharge ?? 0) > 0.001;
 }
 

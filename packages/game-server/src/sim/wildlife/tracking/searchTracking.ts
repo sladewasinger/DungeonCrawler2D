@@ -27,7 +27,7 @@ function isWalkableClueSpot(cache: WorldChunkCache, baseElev: number, pt: Pt2): 
   return isClearSpot(cache, { x: pt.x, y: pt.y, pad: 0.34 });
 }
 
-export function snapToClearClue(cache: WorldChunkCache, origin: Pt2, raw: Pt2): Pt2 {
+function snapToClearClue(cache: WorldChunkCache, origin: Pt2, raw: Pt2): Pt2 {
   const baseElev = cache.tileAt(Math.floor(origin.x), Math.floor(origin.y)).elevation;
   if (isWalkableClueSpot(cache, baseElev, raw)) return raw;
   const baseAng = Math.atan2(origin.y - raw.y, origin.x - raw.x);

@@ -22,7 +22,7 @@ export function reportShaderDiagnostics(renderer: Renderer, filters: readonly Na
   return errors;
 }
 
-export function diagnoseFilterShaders(renderer: Renderer, filters: readonly NamedFilter[]): string[] {
+function diagnoseFilterShaders(renderer: Renderer, filters: readonly NamedFilter[]): string[] {
   const gl = (renderer as unknown as GlRendererLike).gl;
   if (!gl) return [];
   const errors: string[] = [];

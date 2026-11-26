@@ -159,9 +159,7 @@ export {
   playerFootCollider,
   playerFootSegment,
   playerHurtbox,
-  playerProjectileHurtbox,
   projectileHitsHurtbox,
-  projectileHurtbox,
   resolveEntityAttackHitbox,
   resolvePlayerAttackHitbox,
 } from "./combat/hitboxes/combatShapes.js";

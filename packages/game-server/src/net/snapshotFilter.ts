@@ -16,7 +16,7 @@ export interface BroadcastPayload {
   readonly chatMessages?: ChatEntry[] | undefined;
 }
 
-export const DEFAULT_AOI_RADIUS_TILES = 42;
+const DEFAULT_AOI_RADIUS_TILES = 42;
 const MIN_STEALTH_PLAYER_AOI = 12;
 const REDACTED_CHEST_SLOTS = Array.from({ length: 27 }, () => null);
 

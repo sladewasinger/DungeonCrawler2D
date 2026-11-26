@@ -33,7 +33,7 @@ const GUARDED_BROWSER_COMBOS = new Set([
 ]);
 const GUARDED_ALWAYS_COMBOS = new Set(["KeyS", "KeyO", "KeyP"]);
 
-export const UI_OVERLAY_SELECTOR =
+const UI_OVERLAY_SELECTOR =
   ".ow-hud, .ow-hotbar, .ow-modal, .ow-settings-modal, .ow-stamina-rail, .ow-zoom-controls, .ow-jump-btn, .ow-combat-cluster, .ow-vitals, .ow-item-card, .ow-chat-ui";
 
 export const HOTBAR_DIGIT_MAP: Readonly<Record<string, number>> = {

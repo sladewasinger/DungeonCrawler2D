@@ -21,15 +21,15 @@ function bakeOreVein(base: readonly [string, string, string], flecks: readonly [
   return canvasToNearestTexture(canvas);
 }
 
-export function makeHdCopperVeinTexture(): Texture {
+function makeHdCopperVeinTexture(): Texture {
   return bakeOreVein(["#3b3532", "#5c534c", "#7d7269"], ["#c2591b", "#f59e0b"]);
 }
 
-export function makeHdIronVeinTexture(): Texture {
+function makeHdIronVeinTexture(): Texture {
   return bakeOreVein(["#2d3540", "#4b5563", "#707d8f"], ["#94a3b8", "#e2e8f0"]);
 }
 
-export function makeHdWorkbenchTexture(): Texture {
+function makeHdWorkbenchTexture(): Texture {
   const w = 66; const h = 60;
   const { canvas, ctx } = createPixelCanvas(w, h);
   ctx.fillStyle = "#4b2c15";
@@ -44,7 +44,7 @@ export function makeHdWorkbenchTexture(): Texture {
   return canvasToNearestTexture(canvas);
 }
 
-export function makeHdCampBedTexture(): Texture {
+function makeHdCampBedTexture(): Texture {
   const w = 68; const h = 52;
   const { canvas, ctx } = createPixelCanvas(w, h);
   ctx.fillStyle = "#4b2c15";

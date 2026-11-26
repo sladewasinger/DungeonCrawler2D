@@ -1,9 +1,19 @@
 /** LocalStorage preset persistence, override merging, normalization, and dirty fingerprinting. */
+import { z } from "zod";
 import { normalizeTrackSpec } from "../audio/proceduralSynth.js";
 import { STUDIO_PRESETS_STORAGE_KEY } from "../audio/studioOverrides.js";
 import type { SoundPreset, SoundTrackSpec } from "./studioTypes.js";
 
 const STORAGE_KEY = STUDIO_PRESETS_STORAGE_KEY;
+const FORBIDDEN_IDS = new Set(["__proto__", "constructor", "prototype"]);
+
+const StoredPresetSchema = z.object({
+  id: z.string().min(1).max(64).refine((id) => !FORBIDDEN_IDS.has(id)),
+  name: z.string().min(1).max(64),
+  description: z.string().max(256).optional(),
+  tracks: z.array(z.record(z.string(), z.unknown())).max(16),
+});
+const StoredPresetsArraySchema = z.array(StoredPresetSchema).max(64);
 
 export interface LibraryPreset extends SoundPreset {
   readonly isCustom: boolean;
@@ -27,15 +37,18 @@ export function tracksFingerprint(tracks: readonly SoundTrackSpec[]): string {
 export function loadSavedPresets(): SoundPreset[] {
   try {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter(isPresetShape).map(normalizeLoadedPreset) : [];
+    if (!raw || raw.length > 262_144) return [];
+    const parsed = StoredPresetsArraySchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return [];
+    return parsed.data.map((p) => normalizeLoadedPreset({
+      id: p.id, name: p.name, description: p.description ?? "", tracks: p.tracks as unknown as SoundTrackSpec[],
+    }));
   } catch {
     return [];
   }
 }
 
-export function persistSavedPresets(presets: readonly SoundPreset[]): void {
+function persistSavedPresets(presets: readonly SoundPreset[]): void {
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
@@ -53,7 +66,7 @@ export function upsertSavedPreset(presets: readonly SoundPreset[], next: SoundPr
   return copy;
 }
 
-export function removeSavedPreset(presets: readonly SoundPreset[], id: string): SoundPreset[] {
+function removeSavedPreset(presets: readonly SoundPreset[], id: string): SoundPreset[] {
   return presets.filter((p) => p.id !== id);
 }
 
@@ -69,12 +82,6 @@ export function mergePresetLibrary(builtIns: readonly SoundPreset[], saved: read
     .filter((p) => !builtInIds.has(p.id))
     .map((p) => ({ ...p, isCustom: true, isOverride: false }));
   return [...mergedBuiltIns, ...customOnly];
-}
-
-function isPresetShape(val: unknown): val is SoundPreset {
-  if (!val || typeof val !== "object") return false;
-  const obj = val as Record<string, unknown>;
-  return typeof obj.id === "string" && typeof obj.name === "string" && Array.isArray(obj.tracks);
 }
 
 export function savePresetEntry(opts: {

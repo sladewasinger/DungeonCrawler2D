@@ -94,7 +94,7 @@ function packCellBytes(input: {
   return true;
 }
 
-export function packChunkTilemapBuffers(
+function packChunkTilemapBuffers(
   cache: WorldChunkCache,
   coords: { readonly cx: number; readonly cy: number },
 ): { readonly groundData: Uint8Array; readonly waterData: Uint8Array; readonly hasWater: boolean } {

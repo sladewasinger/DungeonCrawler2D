@@ -9,7 +9,8 @@ export interface FpsSample { readonly medianFps: number; readonly p95FrameMs: nu
 interface DiagStatsSnapshot {
   readonly rendererReady: boolean; readonly canvasWidth: number; readonly canvasHeight: number;
   readonly chunkCount: number; readonly playerPos: { readonly x: number; readonly y: number } | null;
-  readonly shaderErrors: readonly string[];
+  readonly shaderErrors: readonly string[]; readonly webglContextLost?: boolean;
+  readonly activeTextureCount?: number; readonly estimatedTextureBytes?: number;
 }
 
 export function attachRuntimeGuards(page: Page): RuntimeGuards {
@@ -30,7 +31,7 @@ async function assertDiagHealthy(page: Page): Promise<void> {
   }), { timeout: 10_000 }).toBe(true);
   const stats = await page.evaluate(() =>
     (window as unknown as { __dc2dDiag?: { getStats(): DiagStatsSnapshot } }).__dc2dDiag?.getStats() ?? null);
-  expect(stats?.shaderErrors ?? [], "WebGL shader compilation/link errors detected").toEqual([]);
+  expect(stats && !stats.webglContextLost && stats.shaderErrors.length === 0, `WebGL unhealthy: ${JSON.stringify(stats)}`).toBe(true);
   expect(Number.isFinite(stats?.playerPos?.x) && Number.isFinite(stats?.playerPos?.y), "Non-finite player position").toBe(true);
 }
 

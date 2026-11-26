@@ -40,7 +40,7 @@ function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, pre
   };
 }
 
-export function meleeStatsFor(held: string | SlotItem | null) {
+function meleeStatsFor(held: string | SlotItem | null) {
   const { itemId, prefixId } = extractHeldInfo(held);
   const def = itemId ? getItemDef(itemId) : undefined;
   const archetype = resolveWeaponArchetype(itemId, def?.weaponArchetype);

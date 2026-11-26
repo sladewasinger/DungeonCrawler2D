@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GroundKind, PropKind, STEALTH_TUNING, WorldChunkCache, type ChunkProp, type WorldEvent } from "@dc2d/engine";
 import { createCombatState, type CombatPlayerRef } from "./combatActions.js";
 import { CombatWorld } from "./combatSim.js";
@@ -37,7 +37,10 @@ function makePlayer(x: number, y: number): CombatPlayerRef & { moving: boolean }
 }
 
 describe("Phase 6 stealth and ecological AI", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
   it("lures calm creatures to investigate noise points and grants silent 2.25x backstab kills", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
     const eco = new WorldEcology(new FlatTestCache(1337));
     const gobA = eco.spawnEntity({ kind: "goblin", x: 20, y: 12, homeRadius: 10, poiId: "camp1", packId: "camp1", packSlot: 0 });
     const gobB = eco.spawnEntity({ kind: "goblin", x: 24, y: 12, homeRadius: 10, poiId: "camp1", packId: "camp1", packSlot: 1 });

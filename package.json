@@ -17,6 +17,7 @@
     "test": "vitest run",
     "typecheck": "npm run typecheck -w @dc2d/contracts && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client && tsc -p tsconfig.qa.json --noEmit",
     "lint": "eslint . && node scripts/check-folder-size.mjs",
+    "lint:deadcode": "knip --no-progress",
     "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed",
     "verify:content": "node scripts/verify/content-integrity.mjs",
     "verify:docs": "node scripts/verify/doc-integrity.mjs",
@@ -38,8 +39,10 @@
     "eslint-plugin-sonarjs": "^4.2.0",
     "fast-check": "^4.11.0",
     "globals": "^17.7.0",
+    "knip": "^6.48.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.64.0",
-    "vitest": "^5.1.2"
+    "vitest": "^5.1.2",
+    "ws": "^8.21.1"
   }
 }

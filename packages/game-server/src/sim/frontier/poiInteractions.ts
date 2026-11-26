@@ -16,7 +16,7 @@ const SHRINE_LABELS: Readonly<Record<"swiftness" | "vigor" | "shadow", { readonl
   shadow: { title: "Shadow Altar Blessing", sub: "-35% Visibility & +40% Backstab for 180s" },
 };
 
-export function itemCanIgniteBrazier(itemId: string | null | undefined, prefixId?: string | null): boolean {
+function itemCanIgniteBrazier(itemId: string | null | undefined, prefixId?: string | null): boolean {
   if (!itemId) return false;
   if (itemId === "torch") return true;
   const resolved = resolveItemInstance(itemId, prefixId);

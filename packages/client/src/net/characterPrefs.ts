@@ -1,5 +1,16 @@
 /** LocalStorage persistence for custom character name and paper-doll appearance. */
 import { DEFAULT_APPEARANCE, sanitizeCharacterAppearance, type CharacterAppearance } from "@dc2d/engine";
+import { z } from "zod";
+
+const StoredCharacterSchema = z.object({
+  name: z.string().max(40).optional(),
+  appearance: z.unknown().optional(),
+});
+
+const StoredAuthTokenSchema = z.object({
+  accountId: z.string().min(4).max(64),
+  resumeToken: z.string().min(16).max(256),
+});
 
 const STORAGE_KEY = "dc2d.character.v1";
 
@@ -16,10 +27,11 @@ export function sanitizeCharacterName(raw: string | undefined): string {
 export function loadCharacterPrefs(): CharacterPrefs {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { name: "Adventurer", appearance: { ...DEFAULT_APPEARANCE } };
-    const parsed = JSON.parse(raw) as { name?: unknown; appearance?: unknown };
-    const name = typeof parsed.name === "string" ? sanitizeCharacterName(parsed.name) : "Adventurer";
-    return { name, appearance: sanitizeCharacterAppearance(parsed.appearance) };
+    if (!raw || raw.length > 2048) return { name: "Adventurer", appearance: { ...DEFAULT_APPEARANCE } };
+    const res = StoredCharacterSchema.safeParse(JSON.parse(raw));
+    if (!res.success) return { name: "Adventurer", appearance: { ...DEFAULT_APPEARANCE } };
+    const name = sanitizeCharacterName(res.data.name);
+    return { name, appearance: sanitizeCharacterAppearance(res.data.appearance) };
   } catch {
     return { name: "Adventurer", appearance: { ...DEFAULT_APPEARANCE } };
   }
@@ -48,9 +60,8 @@ export function readStoredAuthToken(): StoredAuthToken | null {
     if (typeof window === "undefined") return null;
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw || raw.length > 512) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredAuthToken>;
-    return typeof parsed.accountId === "string" && typeof parsed.resumeToken === "string"
-      ? { accountId: parsed.accountId, resumeToken: parsed.resumeToken } : null;
+    const res = StoredAuthTokenSchema.safeParse(JSON.parse(raw));
+    return res.success ? res.data : null;
   } catch { return null; }
 }
 

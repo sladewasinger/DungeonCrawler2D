@@ -94,7 +94,7 @@ function resolveFourDir(
   return { dir: resolveVertDir(facingY, dims.prevDir), flipX: 1 };
 }
 
-export function resolveFacingDirection(
+function resolveFacingDirection(
   facingX: number,
   facingY: number,
   opts?: { readonly dir?: SpriteDirection | null; readonly flipX?: 1 | -1; readonly eightDir?: boolean },
@@ -125,7 +125,7 @@ function isAttackTimeline(snap: WorldEntitySnapshot): boolean {
   return snap.telegraphProgress > 0 || (snap.attackProgress ?? 0) > 0;
 }
 
-export function resolveAnimState(input: {
+function resolveAnimState(input: {
   readonly snap: WorldEntitySnapshot; readonly dead: boolean; readonly moving: boolean;
 }): SpriteAnimState {
   if (input.dead) return STATE_CORPSE;

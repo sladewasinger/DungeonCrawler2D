@@ -9,7 +9,7 @@ export function isCoarsePrimaryDevice(): boolean {
   return Boolean(window.matchMedia?.("(pointer: coarse), (hover: none)")?.matches);
 }
 
-export function resolveInitialInputMode(): ActiveInputMode {
+function resolveInitialInputMode(): ActiveInputMode {
   return isCoarsePrimaryDevice() ? "touch" : "desktop";
 }
 

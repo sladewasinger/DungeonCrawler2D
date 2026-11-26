@@ -181,7 +181,7 @@ async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise
   titleRef.current = titleScreen;
   if (skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
   scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
-  installQaDiagBridge({ scene, getPlayerPos: () => { const p = client.localPose(); return { x: p.x, y: p.y }; } });
+  installQaDiagBridge({ scene, audio, getPlayerPos: () => { const p = client.localPose(); return { x: p.x, y: p.y }; } });
   return { scene, client, audio, velTracker, titleScreen, ...ui };
 }
 

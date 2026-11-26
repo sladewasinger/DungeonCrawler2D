@@ -117,6 +117,15 @@ export default tseslint.config(
     files: ["packages/client/**/*.ts"],
     languageOptions: { globals: { ...globals.browser } },
     rules: {
+      "no-restricted-properties": [
+        "error",
+        { property: "innerHTML", message: "Use textContent/DOM nodes, or parseStaticSvg() for compile-time SVG constants." },
+        { property: "outerHTML", message: "Do not assign outerHTML." },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        { selector: "CallExpression[callee.property.name='insertAdjacentHTML']", message: "Use DOM node construction instead of insertAdjacentHTML." },
+      ],
       "no-restricted-imports": [
         "error",
         {

@@ -173,7 +173,7 @@ function dropFromArmorSlot(opts: { readonly inv: InventorySnapshot; readonly che
   };
 }
 
-export function applyClientDropItem(opts: {
+function applyClientDropItem(opts: {
   readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest;
 }): { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined } {
   if (opts.req.source === "chest") return dropFromChestSlot(opts);
