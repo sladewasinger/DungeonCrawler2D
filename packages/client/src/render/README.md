@@ -1,7 +1,13 @@
 # Client Renderer (`packages/client/src/render`)
 
-Isolated PixiJS v8 rendering subsystems:
-- `textures/`: `32×32` Cainos-style pixel terrain tiles (`terrainTextures.ts`, `terrainTileDetails.ts`, `terrainTileMotifs.ts`), `3×` HD-pixel (`48 px/tile`, `HD_PROP_SCALE = 1 / 3`) foliage & world props (`hdFoliageTextures.ts`, `hdPropTextures.ts`, `hdFireTextures.ts` 2× roaring hearth campfire & pixel-fire torches, `propTextures.ts`), `spriteManifest.ts` (`scaleMode: "nearest"` preloader for crisp `2px` creature/POI sheets), and solid `sel-out` canvas helpers (`pixelCanvas.ts`) tuned by `@dc2d/content` (`ACTIVE_OUTLINE_STYLE`).
-- `combat/`: `EntityRenderer` + `entityAnimator.ts` 4-dir / 8-dir spritesheet animator with waterline deep-water `waterMask` clipping & ripples (`entitySprites.ts`), world pickups, diegetic AI state indicators, and gore/VFX (`GoreSystem.spawnClashSparks` for iron-on-stone golem hits).
-- `shaders/`: WebGL2 GLSL GPU tilemap shader (`tilemapMesh.ts`), water, canopy wind, lighting composite, cast shadows, and pooled GPU `AmbientParticleLayer` (`mote`, `leaf`, `firefly`, `ember`, `flame`, `ripple`, and `playerLeave` `smoke` clouds).
-- `world/`: `32×32` chunk setup, elevated cliff strips, `PlayerView` + baked-arm/bow-armless sprites, base-anchored lever foliage sway, and Option A integer-aligned zoom camera orchestration.
+Isolated PixiJS v8 WebGL2 rendering subsystems:
+
+| Directory | Covers |
+| --- | --- |
+| [`textures/`](./textures/README.md) | `32×32` terrain tiles/normals, `48 px/tile` HD props/foliage (`biomes/`, `pois/`), WebP `sprite-manifest.json` loader |
+| [`shaders/`](./shaders/README.md) | WebGL2 GPU tilemap shader (`17`-row), water, canopy wind, composite lighting, cast shadows, ambient particles |
+| [`world/`](./world/README.md) | `32×32` chunk streaming, 3/4 cliff strips, `PlayerView` sprites, lever foliage sway, and camera orchestration |
+| [`character/`](./character/README.md) | 2-tier mobile-safe GPU player atlas packer, recoloring, 3D held gear/bow overlay, and grip sockets |
+| [`combat/`](./combat/README.md) | Melee smears, combat VFX, dynamic spring-cloth webs, composable gore decals, AI indicators, POI chests |
+| [`poseTuning/`](./poseTuning/README.md) | Live 8-dir arm/weapon pose table shared by gameplay and Sandbox Pose Tuner |
+| [`survival/`](./survival/README.md) | Camp prop textures, harvest shake/crack VFX, and snapped camp placement ghost layer |

@@ -1,8 +1,8 @@
 /** Pure aggregated player RPG stats & combat perks computed from equipped armor and held item. */
-import { ARMOR_SLOT_KEYS } from "./armorOps.js";
+import { ARMOR_SLOT_KEYS, type ItemPerkKind } from "@dc2d/contracts";
 import type { ArmorEquipment, ArmorPrefixMap, SlotItem } from "./slotModel.js";
 
-export type GearPerkKind = "bleed" | "burn" | "poison" | "lifesteal" | "thorns" | "glow";
+export type GearPerkKind = ItemPerkKind;
 
 export interface GearPieceStats {
   readonly defense: number;

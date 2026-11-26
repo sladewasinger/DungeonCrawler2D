@@ -1,6 +1,7 @@
 /** Authoritative swept-segment arrow and arcing pebble simulation, trunk embedding, and recovery. */
+import { PROP_SPECS } from "@dc2d/content";
 import {
-  GroundKind, PARRY_STAGGER_SEC, PropKind, STEALTH_TUNING, WorldChunkCache, isInWorldSanctuary,
+  GroundKind, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache, isInWorldSanctuary,
   playerProjectileHurtbox, projectileHitsHurtbox, projectileHurtbox, segmentHitsEllipse,
   type ChunkProp, type GoreStyle, type ProjectileSnapshot, type WorldEvent,
 } from "@dc2d/engine";
@@ -28,15 +29,6 @@ export interface SimProjectile {
 }
 
 const DRIP_GORE: GoreStyle = "drip";
-const WOOD_PROPS = new Set<PropKind>([
-  PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree,
-  PropKind.GreatStump, PropKind.Palisade, PropKind.HermitHut, PropKind.BrokenCart, PropKind.SunkenBoat, PropKind.BoneTotem,
-]);
-const TREE_TRUNK_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree]);
-const STONE_PROPS = new Set<PropKind>([
-  PropKind.RuinPillar, PropKind.Boulder, PropKind.CopperVein, PropKind.IronVein,
-  PropKind.CursedCrystal, PropKind.CursedObelisk, PropKind.RunicForge,
-]);
 const PEBBLE_GRAVITY = 22;
 const PEBBLE_FLIGHT_SEC = 0.48;
 const PEBBLE_Z0 = 0.55;
@@ -160,14 +152,14 @@ function hitPlayer(ctx: RayHitCtx, players: Map<string, CombatPlayerRef>): boole
 }
 
 function propImpactBox(prop: ChunkProp) {
-  if (TREE_TRUNK_PROPS.has(prop.kind)) return { cx: prop.x, cy: prop.y, rx: 0.24, ry: 0.18 };
+  if (PROP_SPECS[prop.kind].isTreeTrunk) return { cx: prop.x, cy: prop.y, rx: 0.24, ry: 0.18 };
   return { cx: prop.x, cy: prop.y - 0.15, rx: prop.radius + 0.12, ry: prop.radius + 0.28 };
 }
 
 function testPropImpact(ctx: RayHitCtx, prop: ChunkProp, ecology: WorldEcology): boolean {
-  const isWood = WOOD_PROPS.has(prop.kind);
-  const isStone = STONE_PROPS.has(prop.kind);
-  if ((!isWood && !isStone) || prop.elevation !== ctx.pr.elevation) return false;
+  const surface = PROP_SPECS[prop.kind].combatSurface;
+  const isWood = surface === "wood";
+  if ((!isWood && surface !== "stone") || prop.elevation !== ctx.pr.elevation) return false;
   const t = segmentHitsEllipse({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, box: propImpactBox(prop) });
   if (t === null) return false;
   const hx = ctx.x0 + (ctx.pr.x - ctx.x0) * t;

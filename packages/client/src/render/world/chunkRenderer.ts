@@ -57,6 +57,8 @@ export class ChunkRenderer {
     private readonly atlases: { readonly terrain: TerrainTileAtlas; readonly props: PropTextureSet },
   ) {}
 
+  mountedCount(): number { return this.mounted.size; }
+
   syncVisibleChunks(cache: WorldChunkCache, focus: { readonly x: number; readonly y: number; readonly radius: number }): void {
     const centerCx = worldToChunkCoord(Math.floor(focus.x));
     const centerCy = worldToChunkCoord(Math.floor(focus.y));

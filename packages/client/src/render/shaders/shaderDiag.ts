@@ -11,14 +11,15 @@ interface GlRendererLike {
   readonly gl?: WebGL2RenderingContext;
 }
 
-export function reportShaderDiagnostics(renderer: Renderer, filters: readonly NamedFilter[]): void {
+export function reportShaderDiagnostics(renderer: Renderer, filters: readonly NamedFilter[]): readonly string[] {
   const errors = diagnoseFilterShaders(renderer, filters);
-  if (errors.length === 0) return;
+  if (errors.length === 0) return [];
   const pre = document.createElement("pre");
   pre.id = "shader-diag-overlay";
   pre.style.cssText = "position:fixed;bottom:10px;left:10px;right:10px;z-index:99;background:rgba(120,0,0,.92);color:#fff;padding:10px;font-size:12px;white-space:pre-wrap;";
   pre.textContent = errors.join("\n");
   document.body.appendChild(pre);
+  return errors;
 }
 
 export function diagnoseFilterShaders(renderer: Renderer, filters: readonly NamedFilter[]): string[] {

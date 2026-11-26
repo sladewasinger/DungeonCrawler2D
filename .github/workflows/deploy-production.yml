@@ -62,6 +62,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run verify:content
+      - run: npm run verify:docs
       - name: Build packages
         env:
           VITE_GAME_WS_URL: ${{ steps.target.outputs.ws_url }}

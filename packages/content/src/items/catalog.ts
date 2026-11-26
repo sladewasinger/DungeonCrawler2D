@@ -1,16 +1,13 @@
 /** Authoritative item definitions with rarity, descriptions, stack limits, and full RPG stats. */
+import type {
+  ArmorSlot, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemPerkKind,
+  ItemRarity, ItemWeaponArchetype, PlaceableStructureKind,
+} from "@dc2d/contracts";
 import { FRONTIER_ARMOR } from "./frontierArmor.js";
 import { FRONTIER_MATERIALS } from "./frontierMaterials.js";
 import { FRONTIER_WEAPONS } from "./frontierWeapons.js";
-import type { ItemPerkKind } from "./prefixes.js";
-import type { ItemRarity } from "./rarities.js";
 
-export type ItemCategory = "weapon" | "tool" | "armor" | "consumable" | "material";
-export type ItemWeaponArchetype = "sword" | "axe" | "pickaxe" | "torch" | "spear" | "dagger" | "greatsword" | "bow";
-export type PlaceableStructureKind = "campfire" | "torch" | "wood-chest" | "workbench" | "bed" | "palisade";
-export type ArmorSlot = "head" | "chest" | "legs" | "feet" | "offhand";
-export type GoreStyle = "splatter" | "thin-streak" | "drip" | "chunk-spray" | "explode-away";
-export type CosmeticLayerSlot = "head" | "face" | "chest" | "sleeves" | "gloves" | "legs" | "feet" | "cape" | "offhand";
+export type { ArmorSlot, CosmeticLayerSlot, GoreStyle, ItemCategory, ItemWeaponArchetype, PlaceableStructureKind };
 
 export interface ItemVisualLayerSpec {
   readonly slot: CosmeticLayerSlot;

@@ -1,5 +1,7 @@
 /** Ground-footprint center offsets and collision shapes for props and world structures. */
-import { PropKind, type ChunkProp, type WorldChunk } from "./types.js";
+import { PROP_SPECS } from "@dc2d/content";
+import { PropKind } from "@dc2d/contracts";
+import type { ChunkProp, WorldChunk } from "./types.js";
 
 export interface BlockingObstacle {
   readonly id: string;
@@ -39,55 +41,25 @@ export interface StructureFootprintSpec {
   readonly radius: number;
 }
 
-const CHEST_FOOTPRINT: StructureFootprintSpec = { offsetY: -0.20, halfX: 0.22, halfY: 0.04, radius: 0.16 };
+const CHEST_COLLISION = PROP_SPECS[PropKind.WoodChest].collision;
+const DEFAULT_CHEST_SHAPE: StructureFootprintSpec = {
+  offsetY: CHEST_COLLISION.offsetY,
+  halfX: CHEST_COLLISION.halfX ?? 0.22,
+  halfY: CHEST_COLLISION.halfY ?? 0.04,
+  radius: CHEST_COLLISION.radius ?? 0.16,
+};
 
 /** Ground footprint used by ruined-outpost POI chests (matches wooden storage chests). */
-export const POI_CHEST_OBSTACLE_SHAPE: StructureFootprintSpec = CHEST_FOOTPRINT;
-
-const STRUCTURE_FOOTPRINTS: Readonly<Partial<Record<PropKind, StructureFootprintSpec>>> = {
-  [PropKind.Palisade]: { offsetY: -0.22, halfX: 0.40, halfY: 0.24, radius: 0.13 },
-  [PropKind.Workbench]: { offsetY: -0.27, halfX: 0.30, halfY: 0.05, radius: 0.15 },
-  [PropKind.Bed]: { offsetY: -0.31, halfX: 0.31, halfY: 0.07, radius: 0.15 },
-  [PropKind.WoodChest]: CHEST_FOOTPRINT,
-  [PropKind.Tent]: { offsetY: -0.24, halfX: 0.36, halfY: 0, radius: 0.56 },
-};
-
-const PROP_COLLISION_OFFSET_Y: Readonly<Partial<Record<PropKind, number>>> = {
-  [PropKind.Boulder]: -0.32,
-  [PropKind.CopperVein]: -0.32,
-  [PropKind.IronVein]: -0.32,
-  [PropKind.Bush]: -0.26,
-  [PropKind.Stump]: -0.22,
-  [PropKind.OakTree]: -0.16,
-  [PropKind.PineTree]: -0.15,
-  [PropKind.BirchTree]: -0.16,
-  [PropKind.MapleTree]: -0.16,
-  [PropKind.DeadTree]: -0.18,
-  [PropKind.GiantMushroom]: -0.24,
-  [PropKind.CursedCrystal]: -0.28,
-  [PropKind.Campfire]: -0.17,
-  [PropKind.RuinPillar]: -0.20,
-  [PropKind.ShrineAltar]: -0.22,
-  [PropKind.Waystone]: -0.22,
-  [PropKind.Gravestone]: -0.18,
-  [PropKind.BrokenCart]: -0.24,
-  [PropKind.GreatStump]: -0.24,
-  [PropKind.SunkenBoat]: -0.22,
-  [PropKind.LoreSign]: -0.16,
-  [PropKind.BoneTotem]: -0.20,
-  [PropKind.RunicForge]: -0.24,
-  [PropKind.CursedObelisk]: -0.24,
-  [PropKind.BrazierUnlit]: -0.18,
-  [PropKind.BrazierLit]: -0.18,
-  [PropKind.HermitHut]: -0.28,
-};
+export const POI_CHEST_OBSTACLE_SHAPE: StructureFootprintSpec = DEFAULT_CHEST_SHAPE;
 
 export function propStructureShape(kind: PropKind): StructureFootprintSpec | undefined {
-  return STRUCTURE_FOOTPRINTS[kind];
+  const c = PROP_SPECS[kind].collision;
+  if (c.shape !== "aabb") return undefined;
+  return { offsetY: c.offsetY, halfX: c.halfX ?? 0, halfY: c.halfY ?? 0, radius: c.radius ?? 0 };
 }
 
 export function propCollisionOffsetY(kind: PropKind): number {
-  return STRUCTURE_FOOTPRINTS[kind]?.offsetY ?? PROP_COLLISION_OFFSET_Y[kind] ?? 0;
+  return PROP_SPECS[kind].collision.offsetY;
 }
 
 export function propFootprintCenter(prop: {

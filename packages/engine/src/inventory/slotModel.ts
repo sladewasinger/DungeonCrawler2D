@@ -1,10 +1,11 @@
 /** True 36-slot (9 hotbar + 27 backpack) inventory model enforcing maxStack=1 gear and optional prefixes. */
+import type { ArmorSlotKey } from "@dc2d/contracts";
+
+export type { ArmorSlotKey };
 
 export const HOTBAR_SLOT_COUNT = 9;
 export const BACKPACK_SLOT_COUNT = 27;
 export const TOTAL_INVENTORY_SLOTS = HOTBAR_SLOT_COUNT + BACKPACK_SLOT_COUNT;
-
-export type ArmorSlotKey = "head" | "chest" | "legs" | "feet" | "offhand";
 
 export interface SlotItem {
   readonly itemId: string;

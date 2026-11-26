@@ -1,8 +1,9 @@
 /** Archetype definitions and entity runtime contracts for wildlife and POI guards. */
-import type { AiState, DangerTier, EntityKind, GoreStyle, GoreSubstance } from "@dc2d/engine";
+import type { WildlifeKind } from "@dc2d/contracts";
+import type { AiState, DangerTier, GoreStyle, GoreSubstance } from "@dc2d/engine";
 import { dangerTierStatScale } from "./loot/eliteScaling.js";
 
-export type WildlifeKind = Exclude<EntityKind, "dummy" | "slime-dummy" | "spar-dummy">;
+export type { WildlifeKind };
 export type SearchPhase = "move_to_clue" | "scan" | "search_area";
 
 export interface CreatureSensorySpec {

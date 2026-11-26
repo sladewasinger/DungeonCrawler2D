@@ -1,4 +1,4 @@
-/** Enforce the direct-file limit for feature folders, with a migration baseline. */
+/** Enforce direct-file limits and colocated README.md coverage for feature folders. */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
@@ -7,8 +7,9 @@ import process from "node:process";
 const toBaselineKey = (directory) => directory.split(sep).join("/");
 
 const MAX_DIRECT_FILES = 12;
+const MIN_FILES_FOR_README = 3;
 const ROOT = process.cwd();
-const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/;
+const SOURCE_FILE = /\.(?:[cm]?[jt]sx?|py)$/;
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 const ROOTS = ["packages", "scripts", "tests", "tools"];
 const BASELINE = JSON.parse(readFileSync(new URL("./folder-size-baseline.json", import.meta.url), "utf8"));
@@ -62,6 +63,24 @@ function changedDirectories() {
     .map((file) => toBaselineKey(relative(ROOT, resolve(ROOT, file, "..")))));
 }
 
+function hasParentReadmeCovering(relDir) {
+  const parts = relDir.split("/");
+  const folderName = parts[parts.length - 1];
+  const parentDir = parts.slice(0, -1).join("/");
+  if (!parentDir || parentDir.endsWith("/src")) return false;
+  const parentReadme = resolve(ROOT, parentDir, "README.md");
+  if (!existsSync(parentReadme)) return false;
+  return readFileSync(parentReadme, "utf8").toLowerCase().includes(folderName.toLowerCase());
+}
+
+function findMissingReadmeError(relDir, count) {
+  if (count < MIN_FILES_FOR_README) return null;
+  if (!/^packages\/[^/]+\/src(?:\/.+)?$/.test(relDir)) return null;
+  if (existsSync(resolve(ROOT, relDir, "README.md"))) return null;
+  if (hasParentReadmeCovering(relDir)) return null;
+  return `${relDir}: ${count} prod files without colocated README.md (or parent README index)`;
+}
+
 const changedOnly = process.argv.includes("--changed");
 const current = countsByDirectory();
 const directories = changedOnly ? changedDirectories() : new Set(current.keys());
@@ -70,6 +89,8 @@ const legacy = [];
 
 for (const directory of directories) {
   const count = current.get(directory) ?? 0;
+  const readmeErr = findMissingReadmeError(directory, count);
+  if (readmeErr) errors.push(readmeErr);
   if (count <= MAX_DIRECT_FILES) continue;
   const baselineCount = BASELINE[directory];
   if (baselineCount === undefined || count > baselineCount) {
@@ -84,7 +105,7 @@ if (legacy.length > 0) {
   for (const directory of legacy) console.warn(`  ${directory}`);
 }
 if (errors.length > 0) {
-  console.error("Folder-size check failed. Split the folder into feature-slice subfolders:");
+  console.error("Folder-size & colocated-docs check failed:");
   for (const directory of errors) console.error(`  ${directory}`);
   process.exit(1);
 }

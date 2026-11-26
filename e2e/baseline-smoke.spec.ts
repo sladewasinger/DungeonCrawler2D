@@ -1,6 +1,6 @@
 /** Baseline real-browser smoke & FPS-cliff check for Desktop and Mobile viewports. */
 import { expect, test } from "@playwright/test";
-import { attachRuntimeGuards, captureQaScreenshot, enterOverworld, measureFps } from "./helpers/gameHarness.js";
+import { assertNoHudOverlap, attachRuntimeGuards, captureQaScreenshot, enterOverworld, measureFps } from "./helpers/gameHarness.js";
 
 test("baseline overworld gameplay, map FPS cliff, inventory & visual check", async ({ page }, testInfo) => {
   const guards = attachRuntimeGuards(page);
@@ -22,6 +22,7 @@ test("baseline overworld gameplay, map FPS cliff, inventory & visual check", asy
 
   const baseFps = await measureFps(page, 1_400);
   expect(baseFps.medianFps, `${project} baseline FPS too low: ${baseFps.medianFps}`).toBeGreaterThanOrEqual(minBaseFps);
+  await assertNoHudOverlap(page);
   await captureQaScreenshot(page, { phase: "baseline", project, reqId: "gameplay", medianFps: baseFps.medianFps });
 
   await page.locator(".ow-map-btn").click();

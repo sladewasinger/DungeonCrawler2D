@@ -3,7 +3,7 @@ import { Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../textures/pixelCanvas.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
-import { getFrontierShieldTexture, getFrontierWeaponMeta } from "./atlas/frontierHeldGear.js";
+import { FRONTIER_HELD_GEAR_IDS, getFrontierShieldTexture, getFrontierWeaponMeta } from "./atlas/frontierHeldGear.js";
 import { CHARACTER_WORLD_SCALE, OUTLINE_RGB } from "./characterTypes.js";
 
 export type HeldAimMode = "aim360" | "meleeCarry" | "upright";
@@ -202,6 +202,13 @@ const WEAPON_SPECS: Readonly<Record<string, WeaponSpec>> = {
   axe: { buildTex: makeAxeTex, anchorX: 0.22, anchorY: 0.42, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
   pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
 };
+
+export const REGISTERED_HELD_GEAR_IDS: readonly string[] = [
+  ...Object.keys(WEAPON_SPECS),
+  "torch",
+  "wooden-shield",
+  ...FRONTIER_HELD_GEAR_IDS,
+];
 
 function scaleGripSocket(g: GripSocket, ratio: number): GripSocket {
   return { x: g.x * ratio, y: g.y * ratio, showHand: g.showHand, overWeapon: g.overWeapon };

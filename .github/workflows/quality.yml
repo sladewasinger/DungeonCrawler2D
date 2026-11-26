@@ -31,6 +31,7 @@ jobs:
       - run: npm run lint
       - run: npx vitest run --reporter=default --reporter=json --outputFile=.verify-reports/vitest.json
       - run: npm run verify:content
+      - run: npm run verify:docs
       - run: npm run build
       - run: npm run verify:e2e
       - run: npm run verify:spec -- all-completed

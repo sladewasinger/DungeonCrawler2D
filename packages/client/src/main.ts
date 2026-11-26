@@ -10,6 +10,7 @@ import { saveCharacterPrefs } from "./net/characterPrefs.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
+import { installQaDiagBridge } from "./diag/qaDiagBridge.js";
 import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { DiscoveryOverlay } from "./ui/discovery/discoveryOverlay.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
@@ -180,6 +181,7 @@ async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise
   titleRef.current = titleScreen;
   if (skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
   scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
+  installQaDiagBridge({ scene, getPlayerPos: () => { const p = client.localPose(); return { x: p.x, y: p.y }; } });
   return { scene, client, audio, velTracker, titleScreen, ...ui };
 }
 

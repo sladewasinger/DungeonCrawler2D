@@ -82,6 +82,7 @@ function buildPluginList() {
       name: "watch-workspace-packages",
       configureServer(server: { watcher: { add: (paths: string[]) => void }; middlewares: { use: (path: string, fn: (req: IncomingMessage, res: ServerResponse) => void) => void } }) {
         server.watcher.add([
+          resolve(repositoryRoot, "packages/contracts/src"),
           resolve(repositoryRoot, "packages/engine/src"),
           resolve(repositoryRoot, "packages/content/src"),
         ]);
@@ -102,11 +103,11 @@ function resolveRollupInputs(command: string) {
 
 export default defineConfig(({ command }) => ({
   plugins: buildPluginList(),
-  optimizeDeps: { exclude: ["@dc2d/engine", "@dc2d/content"] },
+  optimizeDeps: { exclude: ["@dc2d/contracts", "@dc2d/engine", "@dc2d/content"] },
   server: {
     host: DEV_HOST,
     port: 5173,
-    fs: { allow: [clientRoot, resolve(repositoryRoot, "packages/engine/src"), resolve(repositoryRoot, "packages/content/src")] },
+    fs: { allow: [clientRoot, resolve(repositoryRoot, "packages/contracts/src"), resolve(repositoryRoot, "packages/engine/src"), resolve(repositoryRoot, "packages/content/src")] },
     proxy: createWsProxy("4000"),
   },
   preview: {

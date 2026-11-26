@@ -15,7 +15,7 @@ export const SANDBOX_H = 32;
 
 const LIGHT_TORCH_COLOR = 0xffb84d;
 const LIGHT_FIRE_COLOR = 0xffa040;
-const BLOCKING_PROPS = new Set([PropKind.OakTree, PropKind.PineTree, PropKind.Boulder, PropKind.RuinPillar, PropKind.Campfire]);
+const BLOCKING_PROPS = new Set<PropKind>([PropKind.OakTree, PropKind.PineTree, PropKind.Boulder, PropKind.RuinPillar, PropKind.Campfire]);
 const PROP_RADII: Partial<Record<PropKind, number>> = {
   [PropKind.OakTree]: 0.42, [PropKind.PineTree]: 0.36, [PropKind.Boulder]: 0.4, [PropKind.RuinPillar]: 0.38,
 };

@@ -1,11 +1,24 @@
 /** Public API for @dc2d/engine. */
 export { clamp, fbm2d, hash2d, hashUnit2d, lerp, ridgeNoise2d, smoothstep, valueNoise2d } from "./math/noise.js";
 export type { FbmOptions } from "./math/noise.js";
+export { PROP_SPECS, getPropSpec } from "@dc2d/content";
 export {
   CHUNK_SIZE,
+  GROUND_KIND_VALUES,
   GroundKind,
+  PROP_KIND_VALUES,
   PropKind,
   TILE_PX,
+} from "@dc2d/contracts";
+export type {
+  DamageElement,
+  DamageKind,
+  EffectAction,
+  EffectRule,
+  EffectTrigger,
+  PropSpec,
+} from "@dc2d/contracts";
+export {
   chunkKey,
   worldTileIndex,
   worldToChunkCoord,

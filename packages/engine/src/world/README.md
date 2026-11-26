@@ -1,8 +1,8 @@
 # Engine World (`packages/engine/src/world`)
 
 Deterministic infinite `32×32` chunk generation and sliding terrain/prop collision.
-- `types.ts`: Tile enums (`GroundKind` `0..16`, `PropKind`), chunk dimensions (`CHUNK_SIZE = 32`, `TILE_PX = 16`), biome & danger contracts (`BiomeKind`, `DangerTier`), prop, POI (`PoiKind`, `ChunkPoi`), & light contracts.
-- `biomes/macroBiome.ts` & `biomes/biomeProps.ts`: Low-frequency (~3.5× macro scale) 5-biome sampling (`verdant-forest`, `autumn-woods`, `misty-bog`, `craggy-highlands` at `r >= 1000`, `cursed-ruinlands` at `r >= 2000`), 5-tier distance progression (`1000 / 2000 / 3500 / 6000` tiles via `TIER_DISTANCES`), and biome/distance-gated prop scattering (iron veins past `900` tiles).
+- `types.ts`: Spatial constants (`CHUNK_SIZE = 32`, `TILE_PX = 16`) and world contracts (`GroundKind` `0..16`, `PropKind`, `BiomeKind`, `DangerTier`, `PoiKind`, `ChunkPoi`, re-exported from `@dc2d/contracts`).
+- `biomes/` & `pois/` (`poiCatalog.ts`, `macroBiome.ts`, `biomeProps.ts`): Low-frequency (~3.5× macro scale) 5-biome sampling (`verdant-forest`, `autumn-woods`, `misty-bog`, `craggy-highlands` at `r >= 1000`, `cursed-ruinlands` at `r >= 2000`), `TIER_DISTANCES` (`1000 / 2000 / 3500 / 6000` tiles), `POI_CATALOG` (`20` POIs), and biome/distance-gated prop scattering (iron veins past `900` tiles).
 - `biomeSampler.ts`: Seeded biome, hill elevation, trail, and river sampling around the sheltered starter valley (`r < 220` Verdant Forest) and infinitely outward.
 - `poiStamper.ts` & `poiLayouts.ts`: Sparse (`2×2` macro-cell) deterministic overworld POI stamper with tier-gated high-end landmarks (`broodmother-hollow`/`orc-totem-ring` T2+, `brazier-vault`/`golem-forge` T3+, `cursed-obelisk` T4+), varied non-square layouts, scaled guard rosters, sealed diagonal palisades, flush tents, ruin pillars, campfires, and torches.
 - `chunkGenerator.ts`: Pure deterministic generator producing tiles, POI footprints, props, and flickering fire/torch lights in `<3 ms`.
