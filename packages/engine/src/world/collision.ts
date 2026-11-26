@@ -238,7 +238,7 @@ export function resolveMovement(query: MovementQuery): MovementResult {
   const checkBase = { cache, radius, footSegX: segX, footSegY: segY, fromElevation: elevation, onStairs, airborne, canClimbUp: (query.jumpZ ?? 0) >= 0.42 };
   const range = Math.hypot(dx, dy) + radius + Math.max(Math.abs(segX), Math.abs(segY)) + 3.5;
   const obstacles = cache.blockingObstaclesNear(query.x, query.y).filter(
-    (obs) => Math.abs(obs.x - query.x) <= range && Math.abs(obs.y - query.y) <= range,
+    (obs) => (onStairs || obs.elevation === elevation) && Math.abs(obs.x - query.x) <= range && Math.abs(obs.y - query.y) <= range,
   );
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / MAX_SUBSTEP_TILES));
   const delta = { x: dx / steps, y: dy / steps };

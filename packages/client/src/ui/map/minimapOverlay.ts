@@ -7,7 +7,6 @@ import { drawFrontierMapPins, formatMapFooterSummary } from "./mapPinRenderer.js
 const MAP_PX = 480;
 const COLOR_ENEMY = "#ef4444";
 const COLOR_PLAYER_REMOTE = "#a855f7";
-const COLOR_CHEST = "#facc15";
 const COLOR_CAMPFIRE = "#fb923c";
 
 const DEFAULT_RGB: readonly [number, number, number] = [63, 125, 58];
@@ -192,20 +191,44 @@ export class MinimapOverlay {
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
     readonly chests: readonly WorldChestSnapshot[];
   }): void {
-    const { local } = opts;
-    const cx = MAP_PX * 0.5;
-    const cy = MAP_PX * 0.5;
-    for (const prop of opts.cache.propsNear(local.x, local.y).filter((p) => p.kind === PropKind.Campfire)) {
-      drawDot(ctx, { px: cx + (prop.x - local.x) * this.zoom, py: cy + (prop.y - local.y) * this.zoom, size: 6, color: COLOR_CAMPFIRE });
-    }
-    for (const c of opts.chests) {
-      drawDot(ctx, { px: cx + (c.x - local.x) * this.zoom, py: cy + (c.y - local.y) * this.zoom, size: 6, color: c.opened ? "#ca8a04" : COLOR_CHEST });
-    }
-    for (const e of opts.entities.filter((m) => !m.corpse && m.hp > 0)) {
-      drawDot(ctx, { px: cx + (e.x - local.x) * this.zoom, py: cy + (e.y - local.y) * this.zoom, size: 5, color: COLOR_ENEMY });
-    }
-    for (const p of opts.players.filter((pl) => pl.id !== local.id)) {
-      drawDot(ctx, { px: cx + (p.x - local.x) * this.zoom, py: cy + (p.y - local.y) * this.zoom, size: 6, color: COLOR_PLAYER_REMOTE });
-    }
+    const view = { cx: MAP_PX * 0.5, cy: MAP_PX * 0.5, zoom: this.zoom, local: opts.local };
+    drawCampfireMarkers(ctx, view, opts.cache);
+    drawChestMarkers(ctx, view, opts.chests);
+    drawEntityMarkers(ctx, view, opts.entities);
+    drawRemotePlayerMarkers(ctx, view, opts.players);
+  }
+}
+
+interface MarkerView {
+  readonly cx: number; readonly cy: number; readonly zoom: number; readonly local: PlayerSnapshot;
+}
+
+function drawCampfireMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, cache: WorldChunkCache): void {
+  for (const prop of cache.propsNear(v.local.x, v.local.y)) {
+    if (prop.kind !== PropKind.Campfire) continue;
+    drawDot(ctx, { px: v.cx + (prop.x - v.local.x) * v.zoom, py: v.cy + (prop.y - v.local.y) * v.zoom, size: 6, color: COLOR_CAMPFIRE });
+  }
+}
+
+function drawChestMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, chests: readonly WorldChestSnapshot[]): void {
+  for (const c of chests) {
+    if (!c.opened) continue;
+    drawDot(ctx, { px: v.cx + (c.x - v.local.x) * v.zoom, py: v.cy + (c.y - v.local.y) * v.zoom, size: 6, color: "#ca8a04" });
+  }
+}
+
+function drawEntityMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, entities: readonly WorldEntitySnapshot[]): void {
+  for (const e of entities) {
+    if (e.corpse || e.hp <= 0) continue;
+    const alert = Boolean(e.aiState && e.aiState !== "idle");
+    if (!alert && Math.hypot(e.x - v.local.x, e.y - v.local.y) > 18) continue;
+    drawDot(ctx, { px: v.cx + (e.x - v.local.x) * v.zoom, py: v.cy + (e.y - v.local.y) * v.zoom, size: 5, color: COLOR_ENEMY });
+  }
+}
+
+function drawRemotePlayerMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, players: readonly PlayerSnapshot[]): void {
+  for (const p of players) {
+    if (p.id === v.local.id || (p.crouching && !p.attackFlash)) continue;
+    drawDot(ctx, { px: v.cx + (p.x - v.local.x) * v.zoom, py: v.cy + (p.y - v.local.y) * v.zoom, size: 6, color: COLOR_PLAYER_REMOTE });
   }
 }

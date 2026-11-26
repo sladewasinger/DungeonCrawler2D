@@ -34,8 +34,8 @@ export function distanceDangerTier(wx: number, wy: number): DangerTier {
   return 5;
 }
 
-export function computeDangerTier(_biome: BiomeKind, wx: number, wy: number): DangerTier {
-  return distanceDangerTier(wx, wy);
+export function computeDangerTier(biome: BiomeKind, wx: number, wy: number): DangerTier {
+  return Math.max(biomeBaseDangerTier(biome), distanceDangerTier(wx, wy)) as DangerTier;
 }
 
 function isCursedRegion(dist: number, ruinNoise: number): boolean {

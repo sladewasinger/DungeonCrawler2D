@@ -1,5 +1,5 @@
 /** Client-side 60fps predicted melee timeline (windup/heavy-hold, dodge-cancel, 0.18s buffer) & SFX/VFX trigger. */
-import { getItemDef, isMeleeItem } from "@dc2d/content";
+import { getItemDef, isMeleeItem, resolveItemInstance } from "@dc2d/content";
 import {
   MELEE_FEEL_TUNING, getWeaponStepSpec, resolveWeaponArchetype, resolveWeaponAttackStep,
   type PlayerSnapshot, type WorldEvent,
@@ -25,9 +25,10 @@ export class LocalSwingTracker {
 
   private canTriggerSwing(opts: {
     readonly attack: boolean; readonly heldId: string | null; readonly stamina: number | undefined;
-    readonly cost: number; readonly placeable: boolean;
+    readonly cost: number; readonly placeable: boolean; readonly godMode?: boolean | undefined;
   }): boolean {
-    if (!opts.attack || this.cooldown > 0 || opts.placeable || (opts.stamina ?? 100) < opts.cost) return false;
+    if (!opts.attack || this.cooldown > 0 || opts.placeable) return false;
+    if (!opts.godMode && (opts.stamina ?? 100) < opts.cost) return false;
     return isMeleeItem(opts.heldId);
   }
 
@@ -75,14 +76,18 @@ export class LocalSwingTracker {
 
   step(opts: {
     readonly dt: number; readonly attack: boolean; readonly attackHold?: boolean;
-    readonly dodge?: boolean; readonly heldId: string | null; readonly player: PlayerSnapshot;
-    readonly normAim: { readonly x: number; readonly y: number } | undefined;
+    readonly dodge?: boolean; readonly heldId: string | null; readonly heldPrefixId?: string | null | undefined;
+    readonly player: PlayerSnapshot; readonly normAim: { readonly x: number; readonly y: number } | undefined;
     readonly isServer: boolean; readonly events: WorldEvent[];
   }): void {
     if (this.tickTimersAndCancel(opts.dt, Boolean(opts.dodge), Boolean(opts.attackHold))) return;
     const wantsSwing = this.queueAttackIfBusy(opts.attack);
     const def = opts.heldId ? getItemDef(opts.heldId) : undefined;
-    const ok = this.canTriggerSwing({ attack: wantsSwing, heldId: opts.heldId, stamina: opts.player.stamina, cost: def?.staminaCost ?? 8, placeable: Boolean(def?.placeStructure) });
+    const staminaCost = opts.heldId ? resolveItemInstance(opts.heldId, opts.heldPrefixId).staminaCost : 8;
+    const ok = this.canTriggerSwing({
+      attack: wantsSwing, heldId: opts.heldId, stamina: opts.player.stamina,
+      cost: staminaCost, placeable: Boolean(def?.placeStructure), godMode: opts.player.godMode,
+    });
     if (ok) this.startSwing({ heldId: opts.heldId, def, opts });
   }
 
@@ -92,10 +97,12 @@ export class LocalSwingTracker {
   }): void {
     const { opts } = cfg;
     const archetype = resolveWeaponArchetype(cfg.heldId, cfg.def?.weaponArchetype);
+    const shieldPoke = Boolean(opts.player.blocking) && archetype === "spear";
     const { stepIndex, moveset, spec } = resolveWeaponAttackStep({ archetype, currentStep: this.comboStep, comboActive: this.comboReset > 0 });
-    this.swingDuration = spec.swingDurationSec; this.swingTimer = spec.swingDurationSec;
-    this.elapsedSec = 0; this.windupEnd = spec.windupEnd; this.heavyChargeSec = 0; this.heavyReleased = false;
-    this.cooldown = spec.swingDurationSec * spec.cooldownRatio; this.comboStep = stepIndex;
+    const durationSec = shieldPoke ? MELEE_FEEL_TUNING.shieldPokeDurationSec : spec.swingDurationSec;
+    this.swingDuration = durationSec; this.swingTimer = durationSec;
+    this.elapsedSec = 0; this.windupEnd = spec.windupEnd; this.heavyChargeSec = 0; this.heavyReleased = shieldPoke;
+    this.cooldown = shieldPoke ? durationSec * 0.9 : spec.swingDurationSec * spec.cooldownRatio; this.comboStep = stepIndex;
     this.comboReset = moveset.comboWindowSec; this.bufferedAttack = false; this.bufferTimer = 0;
     this.aim = opts.normAim ?? { x: opts.player.facingX, y: opts.player.facingY };
     this.predicted = opts.isServer;

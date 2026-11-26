@@ -1,4 +1,4 @@
-import { getItemDef, maxStackForItem, RECIPE_CATALOG, resolveBlockMode } from "@dc2d/content";
+import { getItemDef, maxStackForItem, RECIPE_CATALOG, resolveBlockMode, resolveItemInstance } from "@dc2d/content";
 import {
   GroundKind, PARRY_STAGGER_SEC, WEAPON_ARCHETYPES, WorldChunkCache, resolveWeaponArchetype,
 } from "@dc2d/engine";
@@ -154,5 +154,37 @@ describe("Phase 7 weapon archetypes, recipes, armor-crush, burn DoT, shield-poke
 
     const gsParryRes = runBlock(GREATSWORD_ID, null, 0);
     expect(gsParryRes.evs.some((e) => e.kind === "parry" && e.actorId === "def")).toBe(true);
+  });
+
+  it("propagates bow perks/element, bleed DoT, Math.max perk stacking, and tiered harvestPower", () => {
+    const venomSword = resolveItemInstance("venom-fang-blade", "venomous");
+    expect(venomSword.perks.find((p) => p.kind === "poison")?.value).toBe(6);
+    expect(getItemDef("bow")?.weaponArchetype).toBe("bow");
+    expect(getItemDef("copper-axe")?.harvestPower).toBe(42);
+    expect(getItemDef("frost-hatchet")?.harvestPower).toBe(56);
+
+    const cw = new CombatWorld(new TestCache());
+    const archer = makeArmedPlayer({ id: "arc", x: 20, y: 12, heldItem: "bow" });
+    archer.inventory.slots[0] = { itemId: "bow", count: 1, prefixId: "blazing" };
+    archer.inventory.slots[1] = { itemId: "arrow", count: 10 };
+    const aMap = new Map([[archer.id, archer]]);
+    const bear = cw.ecology.spawnEntity({ kind: "bear", x: 22.5, y: 12, homeRadius: 8, poiId: null, packId: null, packSlot: 0 });
+    cw.stepPlayerAction({ player: archer, players: aMap, dt: 0.4, input: { moveX: 0, moveY: 0, attackQueued: false, bowDrawing: true, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false } });
+    cw.stepPlayerAction({ player: archer, players: aMap, dt: 0.05, input: { moveX: 0, moveY: 0, attackQueued: false, bowDrawing: false, bowReleaseQueued: true, blockHeld: false, dodgeQueued: false } });
+    expect(cw.snapshots().projectiles[0]?.element).toBe("fire");
+    for (let i = 0; i < 8; i++) cw.stepWorld({ players: aMap, dt: 0.05, dayPhase: 0.5, timeSec: i * 0.05 });
+    expect(bear.burnTimer).toBeGreaterThan(0);
+
+    const bleeder = makeArmedPlayer({ id: "bld", x: 20, y: 20, heldItem: "frost-hatchet" });
+    const bMap = new Map([[bleeder.id, bleeder]]);
+    const target = cw.ecology.spawnEntity({ kind: "bear", x: 21.1, y: 20, homeRadius: 8, poiId: null, packId: null, packSlot: 0 });
+    target.facingX = -1;
+    swingAndResolve({ cw, p: bleeder, map: bMap });
+    cw.drainEvents();
+    expect(target.bleedTimer).toBeGreaterThan(2.5);
+    const hpAfterHit = target.hp;
+    for (let i = 0; i < 24; i++) cw.stepWorld({ players: bMap, dt: 0.05, dayPhase: 0.5, timeSec: 2 + i * 0.05 });
+    expect(target.hp).toBeLessThan(hpAfterHit);
+    expect(cw.drainEvents().some((e) => e.kind === "hit" && e.goreStyle === "drip" && e.targetId === target.id)).toBe(true);
   });
 });

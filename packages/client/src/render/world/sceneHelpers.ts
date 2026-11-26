@@ -160,3 +160,18 @@ export function applyWorldEventFx(opts: {
   emitWorldEventVisuals({ ev, elev, localElev: local?.elevation ?? 0, leaveSmokeDur: opts.leaveSmokeDur, sinks });
   return resolveEventShake(ev, localId);
 }
+
+export function bindViewportRectSync(target: HTMLElement, onSync: () => void): () => void {
+  onSync();
+  const obs = typeof ResizeObserver === "function" ? new ResizeObserver(onSync) : null;
+  obs?.observe(target);
+  window.addEventListener("resize", onSync, { passive: true });
+  window.addEventListener("scroll", onSync, { passive: true, capture: true });
+  window.addEventListener("fullscreenchange", onSync, { passive: true });
+  return () => {
+    obs?.disconnect();
+    window.removeEventListener("resize", onSync);
+    window.removeEventListener("scroll", onSync, true);
+    window.removeEventListener("fullscreenchange", onSync);
+  };
+}

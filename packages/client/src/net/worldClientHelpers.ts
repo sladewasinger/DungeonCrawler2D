@@ -1,6 +1,6 @@
 /** Shared network input builders, snapshots types, and local stealth flash helpers for WorldClient. */
 import {
-  sampleStealthExposure, isInSanctuary, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot,
+  sampleStealthExposure, isInWorldSanctuary, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot,
   type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot,
   type WorldChunkCache, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
@@ -174,7 +174,7 @@ export function applyLocalAtmosphere(opts: {
   });
   return {
     ...player, stealthVis: exp.visibility, inCover: exp.inCover, attackFlash,
-    ...(isServer ? {} : { inSanctuary: isInSanctuary(player.x, player.y) }),
+    ...(isServer ? {} : { inSanctuary: isInWorldSanctuary(cache, player.x, player.y) }),
   };
 }
 

@@ -1,10 +1,13 @@
 /** Specialized archetype steering, separation, boar wall-stun, bear bluff, spider pounce, and slime cohesion. */
-import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, canReachMeleeTarget, entityHurtbox, hasClearChargeLane, hashUnit2d, isInSanctuary, playerHurtbox, resolveMovement, type AiState, type WorldEvent } from "@dc2d/engine";
+import { AI_TUNING, GroundKind, PropKind, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, canReachMeleeTarget, entityHurtbox, hasClearChargeLane, hashUnit2d, isInSanctuary, isInWorldSanctuary, playerHurtbox, resolveMovement, type AiState, type WorldEvent } from "@dc2d/engine";
 import { CREATURE_SPECS, ITEM_RAW_MEAT, ST_ALERT, ST_AMBUSH, ST_CHARGE, ST_FEED, ST_IDLE, ST_PATROL, type WildlifeEntity } from "./creatureSpecs.js";
 import { applyEntityMoveResult, creatureWaterSpeedMult, faceTarget, isClearSpot, moveCreatureToward } from "./creatureNavigation.js";
 import type { CombatTarget } from "./factionTargeting.js";
 
-const SPIDER_COVER_PROPS = new Set<PropKind>([PropKind.TallGrass, PropKind.Bush, PropKind.OakTree, PropKind.PineTree]);
+const SPIDER_COVER_PROPS = new Set<PropKind>([
+  PropKind.TallGrass, PropKind.Bush, PropKind.OakTree, PropKind.PineTree,
+  PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree, PropKind.GiantMushroom, PropKind.BogReed, PropKind.RuinPillar,
+]);
 
 export { moveCreatureToward };
 
@@ -72,11 +75,11 @@ function continueBearBluff(e: WildlifeEntity, target: CombatPlayerCandidate, inf
   return e.bluffTimer > 0 ? "bluffing" : "engage";
 }
 
-function findNearestFood(e: WildlifeEntity, foods: readonly EcologyFoodSource[]): { readonly food: EcologyFoodSource; readonly dist: number } | null {
-  let food: EcologyFoodSource | null = null;
-  let dist: number = AI_TUNING.bearScavengeRadiusTiles;
+function findNearestFood(e: WildlifeEntity, foods: readonly EcologyFoodSource[], cache?: WorldChunkCache): { readonly food: EcologyFoodSource; readonly dist: number } | null {
+  let food: EcologyFoodSource | null = null; let dist: number = AI_TUNING.bearScavengeRadiusTiles;
+  const blocked = cache ? (x: number, y: number) => isInWorldSanctuary(cache, x, y) : (x: number, y: number) => isInSanctuary(x, y);
   for (const f of foods) {
-    if (isInSanctuary(f.x, f.y)) continue;
+    if (blocked(f.x, f.y)) continue;
     const d = Math.hypot(f.x - e.x, f.y - e.y);
     if (d < dist) { dist = d; food = f; }
   }
@@ -85,12 +88,12 @@ function findNearestFood(e: WildlifeEntity, foods: readonly EcologyFoodSource[])
 
 export function stepBearScavenge(opts: {
   readonly e: WildlifeEntity; readonly foods: readonly EcologyFoodSource[]; readonly dt: number;
-  readonly onConsume?: (food: EcologyFoodSource) => void;
+  readonly cache?: WorldChunkCache | undefined; readonly onConsume?: (food: EcologyFoodSource) => void;
 }): SteerTarget | null {
-  const { e, foods, dt, onConsume } = opts;
+  const { e, foods, dt, cache, onConsume } = opts;
   e.hunger = Math.min(1, e.hunger + dt * 0.05);
   if (e.feedTimer > 0) { e.feedTimer = Math.max(0, e.feedTimer - dt); e.aiState = ST_FEED; return { x: e.x, y: e.y, speedMult: 0 }; }
-  const hit = e.hunger >= 0.35 || foods.length > 0 ? findNearestFood(e, foods) : null;
+  const hit = e.hunger >= 0.35 || foods.length > 0 ? findNearestFood(e, foods, cache) : null;
   if (!hit) return null;
   e.aiState = ST_FEED;
   if (hit.dist <= 0.95) {
@@ -256,8 +259,7 @@ function pickPatrolWaypoint(cache: WorldChunkCache, e: WildlifeEntity, timeSec: 
 
 function staticPatrolHoldState(cache: WorldChunkCache, e: WildlifeEntity, dayPhase?: number): AiState | null {
   if (CREATURE_SPECS[e.kind].sentryIdle) return ST_IDLE;
-  if (e.kind !== "spider" || dayPhase === undefined) return null;
-  return isSpiderConcealed({ cache, x: e.x, y: e.y, dayPhase }) ? ST_AMBUSH : null;
+  return e.kind === "spider" && dayPhase !== undefined && isSpiderConcealed({ cache, x: e.x, y: e.y, dayPhase }) ? ST_AMBUSH : null;
 }
 
 export function stepHomePatrol(opts: {

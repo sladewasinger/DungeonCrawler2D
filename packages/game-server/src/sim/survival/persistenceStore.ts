@@ -8,6 +8,8 @@ import type { SavedChestRecord } from "../wildlife/lootManager.js";
 
 export interface PersistedPlayerRecord {
   readonly ownerKey: string;
+  readonly accountId?: string | undefined;
+  readonly tokenHash?: string | undefined;
   readonly x: number;
   readonly y: number;
   readonly elevation: number;
@@ -22,6 +24,8 @@ export interface PersistedWorldFile {
   readonly version: 1;
   readonly worldSeed: number;
   readonly dayPhase: number;
+  readonly dayPaused?: boolean | undefined;
+  readonly worldClockSec?: number | undefined;
   readonly savedAtMs: number;
   readonly depleted: readonly DepletedPropDelta[];
   readonly structures: readonly PlacedStructureRecord[];
@@ -35,10 +39,13 @@ const arr = <T>(v: unknown): readonly T[] => (Array.isArray(v) ? (v as T[]) : []
 
 function sanitizeLoadedWorld(data: Partial<PersistedWorldFile>, expectedSeed: number): PersistedWorldFile | null {
   if (data.version !== 1 || data.worldSeed !== expectedSeed) return null;
+  const worldClockSec = typeof data.worldClockSec === "number" && Number.isFinite(data.worldClockSec) ? Math.max(0, data.worldClockSec) : 0;
   return {
     version: 1,
     worldSeed: expectedSeed,
     dayPhase: typeof data.dayPhase === "number" ? data.dayPhase : 0.62,
+    dayPaused: Boolean(data.dayPaused),
+    worldClockSec,
     savedAtMs: typeof data.savedAtMs === "number" ? data.savedAtMs : 0,
     depleted: arr(data.depleted),
     structures: arr(data.structures),

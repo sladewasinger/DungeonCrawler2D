@@ -261,4 +261,16 @@ describe("collision", () => {
     });
     expect(turned.x).toBeLessThanOrEqual(69.205);
   });
+
+  it("ignores blocking obstacles located on different elevations", () => {
+    const cache = new (class extends WorldChunkCache {
+      override tileAt() { return { ground: GroundKind.Grass, elevation: 1, stairs: false }; }
+      override propsNear() {
+        return [{ id: "low-boulder", kind: PropKind.Boulder, x: 20, y: 20, variant: 0, elevation: 0, radius: 0.45, blocksMovement: true }];
+      }
+      override poisNear() { return []; }
+    })(1337);
+    const moved = resolveMovement({ cache, x: 19.4, y: 20, dx: 0.5, dy: 0, radius: 0.25, elevation: 1 });
+    expect(moved.x).toBeCloseTo(19.9, 4);
+  });
 });

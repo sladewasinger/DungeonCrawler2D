@@ -1,5 +1,5 @@
 /** Lookup, floor grounding, mask check, and prop/brazier stamping for the 18 frontier POI kinds. */
-import { GroundKind, PropKind, type ChunkPoi, type ChunkProp, type PoiKind, type PoiLayoutKind, type PointLightSpec } from "../types.js";
+import { GroundKind, PropKind, type ChunkPoi, type ChunkProp, type PoiLayoutKind, type PointLightSpec } from "../types.js";
 import { LAIR_AND_PUZZLE_LAYOUTS } from "./lairAndPuzzleLayouts.js";
 import { MICRO_SCENE_LAYOUTS } from "./microLayouts.js";
 import { SHRINE_AND_FRIENDLY_LAYOUTS, type FrontierPoiLayoutSpec } from "./shrineLayouts.js";
@@ -68,8 +68,4 @@ export function stampFrontierPoiProps(opts: {
       id: b.id, kind: PropKind.BrazierUnlit, x: b.x, y: b.y, variant: 0, elevation: poi.elevation, radius: 0.36, blocksMovement: true,
     });
   });
-}
-
-export function isFrontierPoiKind(kind: PoiKind): boolean {
-  return kind !== "bandit-camp" && kind !== "ancient-ruins";
 }

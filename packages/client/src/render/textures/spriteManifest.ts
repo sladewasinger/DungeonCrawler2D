@@ -25,7 +25,7 @@ export interface SpriteSheetAnimSpec {
 }
 
 export interface SpriteManifestEntry {
-  readonly path: string;
+  readonly path?: string | undefined;
   readonly width: number;
   readonly height: number;
   readonly contentWidth?: number;
@@ -103,17 +103,34 @@ async function loadSheetAnimations(spec: SpriteSheetAnimSpec, onStep?: () => voi
   return { frameWidth: spec.frameWidth, frameHeight: spec.frameHeight, clips };
 }
 
+function pickFirstAnimationFrame(anims: LoadedSpriteAnimations): Texture | null {
+  const idleFirst = anims.clips.idle?.south?.frames[0];
+  if (idleFirst) return idleFirst;
+  for (const dirClips of Object.values(anims.clips)) {
+    const first = Object.values(dirClips ?? {}).find((clip) => Boolean(clip?.frames[0]));
+    if (first?.frames[0]) return first.frames[0];
+  }
+  return null;
+}
+
 async function loadManifestEntry(
   id: string,
   entry: SpriteManifestEntry,
   onStep?: () => void,
 ): Promise<void> {
+  if (entry.animations) {
+    const loadedAnimations = await loadSheetAnimations(entry.animations, onStep);
+    const frame = pickFirstAnimationFrame(loadedAnimations);
+    if (!frame) throw new Error(`No animation frames found for manifest asset '${id}'`);
+    registry.set(id, { ...entry, id, texture: frame, loadedAnimations });
+    return;
+  }
+  if (!entry.path) throw new Error(`Missing texture path for manifest asset '${id}'`);
   const texture = await Assets.load<Texture>(entry.path);
   texture.source.scaleMode = "nearest";
   texture.source.update();
   onStep?.();
-  const loadedAnimations = entry.animations ? await loadSheetAnimations(entry.animations, onStep) : undefined;
-  registry.set(id, { ...entry, id, texture, loadedAnimations });
+  registry.set(id, { ...entry, id, texture });
 }
 
 async function fetchAndLoadManifest(includePlayer: boolean): Promise<void> {
@@ -123,8 +140,7 @@ async function fetchAndLoadManifest(includePlayer: boolean): Promise<void> {
     if (!res.ok) return;
     const data = (await res.json()) as ManifestFile;
     const entries = Object.entries(data.assets ?? {});
-    const sheetCount = entries.filter(([, e]) => Boolean(e.animations)).length;
-    const total = entries.length + sheetCount + (includePlayer ? 1 : 0);
+    const total = entries.length + (includePlayer ? 1 : 0);
     let done = 0;
     emitManifestProgress(0, total);
     const bump = (): void => emitManifestProgress(++done, total);
@@ -159,10 +175,6 @@ export function preloadSpriteManifest(opts?: PreloadManifestOptions): Promise<vo
 
 export function getLoadedSpriteAsset(id: string): LoadedSpriteAsset | null {
   return registry.get(id) ?? null;
-}
-
-export function isSpriteManifestLoaded(): boolean {
-  return loadedOnce;
 }
 
 export function getLoadedSpriteIds(): readonly string[] {

@@ -7,6 +7,11 @@ const MAX_WEB_NODES = 96;
 const SPOKE_COUNT = 6;
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
+const HEAT_PROPS = new Set<PropKind>([PropKind.Campfire, PropKind.Torch, PropKind.BrazierLit, PropKind.RunicForge]);
+
+const isHeatPropNear = (pr: { readonly kind: PropKind; readonly x: number; readonly y: number }, x: number, y: number): boolean =>
+  HEAT_PROPS.has(pr.kind) && Math.hypot(pr.x - x, pr.y - y) <= 2.4;
+
 export class WorldWebNetwork {
   readonly nodes: WebNode[] = [];
   readonly strands: WebStrand[] = [];
@@ -90,6 +95,10 @@ export class WorldWebNetwork {
     }
   }
 
+  removePlayer(playerId: string): void {
+    this.prevPos.delete(playerId);
+  }
+
   step(opts: { readonly cache: WorldChunkCache; readonly players: Iterable<CombatPlayerRef>; readonly dt: number }): void {
     if (this.strands.length === 0 && this.nodes.length === 0) { this.decayClearPlayers(opts.players, opts.dt); return; }
     this.stepPlayerWebContact(opts.players, opts.dt);
@@ -133,7 +142,7 @@ export class WorldWebNetwork {
   private hasHeatSourceNear(opts: {
     readonly cache: WorldChunkCache; readonly players: Iterable<CombatPlayerRef>; readonly x: number; readonly y: number;
   }): boolean {
-    if (opts.cache.propsNear(opts.x, opts.y).some((pr) => pr.kind === PropKind.Campfire && Math.hypot(pr.x - opts.x, pr.y - opts.y) <= 2.4)) return true;
+    if (opts.cache.propsNear(opts.x, opts.y).some((pr) => isHeatPropNear(pr, opts.x, opts.y))) return true;
     for (const p of opts.players) if (p.combat.burnTimer > 0 && Math.hypot(p.x - opts.x, p.y - opts.y) <= 1.25) return true;
     return false;
   }
@@ -208,9 +217,7 @@ export class WorldWebNetwork {
   }
 
   private pullStrandNodes(s: WebStrand, impulse: { readonly vx: number; readonly vy: number }): void {
-    for (const n of [s.a, s.b]) {
-      if (!n.pinned) { n.vx += impulse.vx; n.vy += impulse.vy; }
-    }
+    for (const n of [s.a, s.b]) if (!n.pinned) { n.vx += impulse.vx; n.vy += impulse.vy; }
   }
 
   private pullTouchedNodes(opts: { readonly p: CombatPlayerRef; readonly moveDx: number; readonly moveDy: number; readonly dt: number }): boolean {
@@ -218,8 +225,7 @@ export class WorldWebNetwork {
     let touched = false;
     for (const s of this.strands) {
       if (pointToSegDistSq(opts.p, { ax: s.a.x, ay: s.a.y, bx: s.b.x, by: s.b.y }) > 0.24) continue;
-      touched = true;
-      this.pullStrandNodes(s, impulse);
+      touched = true; this.pullStrandNodes(s, impulse);
     }
     return touched;
   }
@@ -263,8 +269,8 @@ export class WorldWebNetwork {
     const rSq = radius * radius;
     for (let i = this.strands.length - 1; i >= 0; i--) {
       const s = this.strands[i]!;
-      const mx = (s.a.x + s.b.x) * 0.5; const my = (s.a.y + s.b.y) * 0.5;
-      if ((mx - x) * (mx - x) + (my - y) * (my - y) <= rSq) this.strands.splice(i, 1);
+      const dx = (s.a.x + s.b.x) * 0.5 - x; const dy = (s.a.y + s.b.y) * 0.5 - y;
+      if (dx * dx + dy * dy <= rSq) this.strands.splice(i, 1);
     }
     this.pruneOrphanNodes();
   }

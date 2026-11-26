@@ -1,8 +1,9 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
-import { STARTER_ARMOR, isBowItem } from "@dc2d/content";
+import { STARTER_ARMOR, getItemDef, isBowItem } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, MELEE_FEEL_TUNING, STEALTH_TUNING,
-  WorldChunkCache, playerFootSegment, resolveMovement, stepJumpArc, type CharacterAppearance, type PlayerSnapshot,
+  WorldChunkCache, getWeaponStepSpec, playerFootSegment, resolveMovement, resolveWeaponArchetype, stepJumpArc,
+  type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
 const PLAYER_SPEED = COMBAT_TUNING.movement.runSpeedTilesPerSec;
@@ -106,10 +107,19 @@ export function reconcilePredictedPlayer(
   };
 }
 
+function swingSpeedMultiplier(player: PlayerSnapshot): number {
+  const def = player.heldItem ? getItemDef(player.heldItem) : undefined;
+  const arch = resolveWeaponArchetype(player.heldItem, def?.weaponArchetype);
+  const stepSpec = getWeaponStepSpec(arch, player.comboStep ?? 1);
+  if ((player.swingProgress ?? 0) > stepSpec.windupEnd) return COMBAT_TUNING.movementMults.swing;
+  if (stepSpec.weightTier === "light") return 0.85;
+  return stepSpec.weightTier === "heavy" ? 0.58 : 0.72;
+}
+
 function baseActionMultiplier(player: PlayerSnapshot): number {
   const m = COMBAT_TUNING.movementMults;
   if (player.dodging) return m.dodge;
-  if ((player.swingProgress ?? 0) > 0) return m.swing;
+  if ((player.swingProgress ?? 0) > 0) return swingSpeedMultiplier(player);
   if (player.blocking) return m.block;
   if ((player.bowCharge ?? 0) > 0) return m.bowDraw;
   return 1;
@@ -130,21 +140,28 @@ function webStickMultiplier(player: PlayerSnapshot): number {
 
 function movementMultiplier(player: PlayerSnapshot): number {
   const crouchMult = player.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
-  return baseActionMultiplier(player) * waterSpeedMultiplier(player) * crouchMult * webStickMultiplier(player);
+  const gearMult = Math.max(0.65, player.moveSpeedMult ?? 1);
+  return baseActionMultiplier(player) * waterSpeedMultiplier(player) * crouchMult * webStickMultiplier(player) * gearMult;
 }
 
 const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0) > 0 || (p.staggerTimer ?? 0) > 0;
 
-function resolvePredictedBowCharge(player: PlayerSnapshot, bowDraw: boolean | undefined, dt: number): number | undefined {
-  if (bowDraw === undefined) return player.bowCharge;
-  if (!bowDraw || !isBowItem(player.heldItem) || isBowDrawDisabled(player)) return 0;
-  return Math.min(1, (player.bowCharge ?? 0) + dt / BOW_MAX_CHARGE_SEC);
+function resolvePredictedBowCharge(opts: {
+  readonly player: PlayerSnapshot;
+  readonly bowDraw: boolean | undefined;
+  readonly dt: number;
+  readonly bowDrawSpeedMult?: number | undefined;
+}): number | undefined {
+  if (opts.bowDraw === undefined) return opts.player.bowCharge;
+  if (!opts.bowDraw || !isBowItem(opts.player.heldItem) || isBowDrawDisabled(opts.player)) return 0;
+  const speed = 1 + (opts.bowDrawSpeedMult ?? 0);
+  return Math.min(1, (opts.player.bowCharge ?? 0) + (opts.dt * speed) / BOW_MAX_CHARGE_SEC);
 }
 
 function preparePredictedPlayer(opts: {
-  readonly player: PlayerSnapshot; readonly bowDraw: boolean | undefined; readonly crouch: boolean | undefined; readonly dt: number;
+  readonly player: PlayerSnapshot; readonly bowDraw: boolean | undefined; readonly crouch: boolean | undefined; readonly dt: number; readonly bowDrawSpeedMult?: number | undefined;
 }): PlayerSnapshot {
-  const bowCharge = resolvePredictedBowCharge(opts.player, opts.bowDraw, opts.dt);
+  const bowCharge = resolvePredictedBowCharge(opts);
   const basePlayer = bowCharge !== opts.player.bowCharge ? { ...opts.player, bowCharge } : opts.player;
   return opts.crouch !== undefined ? { ...basePlayer, crouching: opts.crouch } : basePlayer;
 }
@@ -171,29 +188,18 @@ function stationaryTurnPos(opts: {
   });
 }
 
-export function predictLocalPlayerMove(input: {
-  readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
-  readonly nx: number; readonly ny: number; readonly dt: number;
-  readonly aim?: { readonly x: number; readonly y: number } | undefined;
-  readonly jump?: boolean | undefined;
-  readonly crouch?: boolean | undefined;
-  readonly bowDraw?: boolean | undefined;
+function advanceMovingPrediction(opts: {
+  readonly cache: WorldChunkCache; readonly curPlayer: PlayerSnapshot;
+  readonly aimVec: { readonly facingX: number; readonly facingY: number; readonly aimX: number; readonly aimY: number };
+  readonly seg: { readonly segX: number; readonly segY: number };
+  readonly arc: ReturnType<typeof stepJumpArc>;
+  readonly moveX: number; readonly moveY: number; readonly mag: number; readonly dt: number;
 }): PlayerSnapshot {
-  const curPlayer = preparePredictedPlayer({ player: input.player, bowDraw: input.bowDraw, crouch: input.crouch, dt: input.dt });
-  if (isPlayerImmobilized(curPlayer)) return { ...curPlayer, moving: false, sprinting: false };
-  const wantsJump = Boolean(input.jump) && !curPlayer.inDeepWater;
-  const arc = stepJumpArc({ jumpZ: curPlayer.jumpZ ?? 0, jumpVz: curPlayer.jumpVz ?? 0 }, wantsJump, input.dt);
-  const { moveX, moveY, mag } = resolveMoveVector({ nx: input.nx, ny: input.ny, player: curPlayer });
-  const aimVec = resolveAim({ ...input, player: curPlayer });
-  const seg = playerFootSegment({ ...curPlayer, ...aimVec });
-  if (mag <= 0.05) {
-    const turn = stationaryTurnPos({ cache: input.cache, player: curPlayer, seg, jumpZ: arc.jumpZ });
-    return { ...curPlayer, x: turn.x, y: turn.y, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
-  }
+  const { cache, curPlayer, aimVec, seg, arc, moveX, moveY, mag, dt } = opts;
   const mult = movementMultiplier(curPlayer);
-  const step = PLAYER_SPEED * mult * input.dt;
+  const step = PLAYER_SPEED * mult * dt;
   const moved = resolveMovement({
-    cache: input.cache, x: curPlayer.x, y: curPlayer.y, dx: moveX * step, dy: moveY * step,
+    cache, x: curPlayer.x, y: curPlayer.y, dx: moveX * step, dy: moveY * step,
     radius: PLAYER_RADIUS, footSegX: seg.segX, footSegY: seg.segY,
     elevation: curPlayer.elevation, airborne: arc.jumpZ > 0.02, jumpZ: arc.jumpZ,
   });
@@ -204,6 +210,30 @@ export function predictLocalPlayerMove(input: {
     crouching: sprinting ? false : Boolean(curPlayer.crouching),
     moving: true, sprinting, inWater: moved.inWater, inDeepWater: moved.inDeepWater,
   };
+}
+
+export function predictLocalPlayerMove(input: {
+  readonly cache: WorldChunkCache; readonly player: PlayerSnapshot;
+  readonly nx: number; readonly ny: number; readonly dt: number;
+  readonly aim?: { readonly x: number; readonly y: number } | undefined;
+  readonly jump?: boolean | undefined;
+  readonly crouch?: boolean | undefined;
+  readonly bowDraw?: boolean | undefined;
+  readonly bowDrawSpeedMult?: number | undefined;
+}): PlayerSnapshot {
+  const curPlayer = preparePredictedPlayer({
+    player: input.player, bowDraw: input.bowDraw, crouch: input.crouch, dt: input.dt, bowDrawSpeedMult: input.bowDrawSpeedMult,
+  });
+  if (isPlayerImmobilized(curPlayer)) return { ...curPlayer, moving: false, sprinting: false };
+  const arc = stepJumpArc({ jumpZ: curPlayer.jumpZ ?? 0, jumpVz: curPlayer.jumpVz ?? 0 }, Boolean(input.jump) && !curPlayer.inDeepWater, input.dt);
+  const { moveX, moveY, mag } = resolveMoveVector({ nx: input.nx, ny: input.ny, player: curPlayer });
+  const aimVec = resolveAim({ ...input, player: curPlayer });
+  const seg = playerFootSegment({ ...curPlayer, ...aimVec });
+  if (mag <= 0.05) {
+    const turn = stationaryTurnPos({ cache: input.cache, player: curPlayer, seg, jumpZ: arc.jumpZ });
+    return { ...curPlayer, x: turn.x, y: turn.y, ...aimVec, jumpZ: arc.jumpZ, jumpVz: arc.jumpVz, moving: false, sprinting: false };
+  }
+  return advanceMovingPrediction({ cache: input.cache, curPlayer, aimVec, seg, arc, moveX, moveY, mag, dt: input.dt });
 }
 
 function isSprintingPrediction(opts: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean {

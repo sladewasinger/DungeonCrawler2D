@@ -2,7 +2,7 @@
 import { getItemDef, isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  evaluateBowShot, isInSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
+  evaluateBowShot, isInSanctuary, isInWorldSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
   type GoreStyle, type SlotItem, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, resolveMeleeHits, type CombatPlayerRef } from "../combatActions.js";
@@ -13,7 +13,7 @@ import { tryCutOrIgniteCocoon } from "../webs/webCocoon.js";
 import { CREATURE_SPECS, type WildlifeEntity } from "../wildlife/creatureSpecs.js";
 import { createArrowProjectile, type SimProjectile } from "../wildlife/projectileSim.js";
 import type { WorldEcology } from "../wildlife/worldEcology.js";
-import { applyThornsToCreature, resolvePlayerGear } from "./gearEffects.js";
+import { applyThornsToCreature, resolvePlayerGear, rollCritDamage } from "./gearEffects.js";
 import { buildPendingSwing, computeSwingNoiseRadius, type PendingMeleeSwing } from "./meleeTimeline.js";
 
 const DEFAULT_MELEE_STATS = { cost: 8, damage: 10, range: 1.5, halfArc: 0.75, gore: "splatter" as GoreStyle };
@@ -36,6 +36,7 @@ function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, pre
     range: def.range || DEFAULT_MELEE_STATS.range,
     halfArc: (def.arcRad || 1.5) * 0.5,
     gore: def.goreStyle || DEFAULT_MELEE_STATS.gore,
+    harvestPower: def.harvestPower,
   };
 }
 
@@ -94,7 +95,7 @@ function buildGearCombatExtras(p: CombatPlayerRef) {
   };
 }
 
-export function buildPlayerCombatExtras(p: CombatPlayerRef) {
+export function buildPlayerCombatExtras(p: CombatPlayerRef, cache?: WorldChunkCache) {
   const c = p.combat;
   return {
     hp: c.hp, maxHp: c.maxHp, stamina: Math.round(c.stamina), maxStamina: c.maxStamina, comboStep: c.comboStep,
@@ -104,7 +105,7 @@ export function buildPlayerCombatExtras(p: CombatPlayerRef) {
     bleedTimer: c.bleedTimer, burnTimer: c.burnTimer, poisonTimer: c.poisonTimer, poisonLocked: c.poisonLocked,
     webSlowTimer: c.webSlowTimer, webStick: Number(c.webStick.toFixed(2)), cocoonProgress: Number(c.cocoonProgress.toFixed(2)),
     hitTimer: c.hitTimer, respawnTimer: c.respawnTimer, wellFedTimer: c.wellFedTimer, restedTimer: c.restedTimer,
-    inSanctuary: isInSanctuary(p.x, p.y), ...buildGearCombatExtras(p),
+    inSanctuary: cache ? isInWorldSanctuary(cache, p.x, p.y) : isInSanctuary(p.x, p.y), ...buildGearCombatExtras(p),
   };
 }
 
@@ -189,17 +190,17 @@ export function runSwingActivePass(opts: {
   sw.harvested = true;
   harvester.hitHarvestableInSector({
     cache, loot: ecology.loot, attacker: p, range: sw.range, halfArcRad: sw.halfArcRad,
-    toolKind: sw.moveset.harvestKind, toolPower: sw.moveset.harvestPower, timeSec, events,
+    toolKind: sw.moveset.harvestKind, toolPower: sw.harvestPower, timeSec, events,
   });
 }
 
 export function applyCreatureStrikeToPlayer(opts: {
-  readonly hitPlayer: CombatPlayerRef | undefined; readonly entity: WildlifeEntity; readonly events: WorldEvent[];
+  readonly hitPlayer: CombatPlayerRef | undefined; readonly entity: WildlifeEntity; readonly cache?: WorldChunkCache | undefined; readonly events: WorldEvent[];
 }): void {
   if (!opts.hitPlayer) return;
   const spec = CREATURE_SPECS[opts.entity.kind];
   applyIncomingPlayerHit({
-    target: opts.hitPlayer, attackerOrigin: opts.entity, attackerId: opts.entity.id, rawDamage: Math.round(spec.damage * opts.entity.damageMult),
+    cache: opts.cache, target: opts.hitPlayer, attackerOrigin: opts.entity, attackerId: opts.entity.id, rawDamage: Math.round(spec.damage * opts.entity.damageMult),
     goreStyle: spec.goreStyle, attackerIsPlayer: false, events: opts.events, appliesPoison: opts.entity.kind === "spider",
     shakePx: opts.entity.kind === "golem" ? 3.5 : undefined,
     onParry: () => {
@@ -212,6 +213,13 @@ export function applyCreatureStrikeToPlayer(opts: {
   applyThornsToCreature({ targetPlayer: opts.hitPlayer, attacker: opts.entity, events: opts.events });
 }
 
+function resolveArrowStats(opts: { readonly resolved: ReturnType<typeof resolveItemInstance> | undefined; readonly gear: ReturnType<typeof resolvePlayerGear>; readonly shotDamageMult: number }) {
+  const baseDamage = opts.resolved?.damage || 22;
+  const { damage } = rollCritDamage(Math.round(baseDamage * opts.shotDamageMult), opts.gear);
+  const element = opts.gear.burnDamage > 0 ? "fire" : opts.gear.poisonDamage > 0 ? "poison" : "none";
+  return { damage, element, staminaCost: opts.resolved?.staminaCost || 10 } as const;
+}
+
 export function spawnChargedBowArrow(opts: {
   readonly p: CombatPlayerRef & { attackFlashTimer?: number }; readonly chargeSec: number;
   readonly projId: string; readonly projectiles: SimProjectile[];
@@ -220,12 +228,16 @@ export function spawnChargedBowArrow(opts: {
   const { p, chargeSec, projId, projectiles, ecology, events } = opts;
   const heldSlot = p.inventory.slots[p.selectedHotbar];
   const resolved = heldSlot ? resolveItemInstance(heldSlot.itemId, heldSlot.prefixId) : undefined;
-  if (!p.combat.godMode) p.combat.stamina = Math.max(0, p.combat.stamina - (resolved?.staminaCost || 10));
+  const shot = evaluateBowShot(chargeSec);
+  const gear = resolvePlayerGear(p);
+  const { damage, element, staminaCost } = resolveArrowStats({ resolved, gear, shotDamageMult: shot.damageMult });
+  if (!p.combat.godMode) p.combat.stamina = Math.max(0, p.combat.stamina - staminaCost);
   p.combat.actionCooldown = 0.25;
   p.attackFlashTimer = STEALTH_TUNING.attackFlashSec;
-  const shot = evaluateBowShot(chargeSec);
-  const baseDmg = resolved?.damage || 22;
-  projectiles.push(createArrowProjectile({ id: projId, p, speed: shot.speedTilesPerSec, charge: shot.ratio, damage: Math.round(baseDmg * shot.damageMult) }));
+  projectiles.push(createArrowProjectile({
+    id: projId, p, speed: shot.speedTilesPerSec, charge: shot.ratio, damage,
+    perks: { element, lifestealRatio: gear.lifestealRatio, burnDamage: gear.burnDamage, poisonDamage: gear.poisonDamage, bleedDamage: gear.bleedDamage },
+  }));
   events.push({ kind: "arrowFire", x: p.x, y: p.y, dirX: p.aimX, dirY: p.aimY, actorId: p.id, value: shot.ratio });
   ecology.emitNoise({ x: p.x, y: p.y, radius: p.crouching ? 3.2 : STEALTH_TUNING.combatNoiseRadiusTiles, sourceId: p.id });
 }

@@ -3,7 +3,8 @@ import { CREATURE_VOCAL_KINDS, CREATURE_VOICE_KINDS } from "../audio/creatures/s
 import { formatGameCodeSnippet, parseImportedPresetJson } from "./io/studioCodeExport.js";
 import { STUDIO_PRESETS } from "./studioPresets.js";
 import { mergePresetLibrary, tracksFingerprint, upsertSavedPreset } from "./studioStorage.js";
-import { activeStudioTracks, computeTrackWindow, totalTracksDurationSec } from "./studioSynth.js";
+import { exactTracksDurationSec } from "../audio/proceduralSynth.js";
+import { activeStudioTracks, computeTrackWindow } from "./studioSynth.js";
 import type { SoundTrackSpec } from "./studioTypes.js";
 
 function sampleTrack(overrides: Partial<SoundTrackSpec> = {}): SoundTrackSpec {
@@ -28,7 +29,7 @@ describe("soundStudio", () => {
     expect(computeTrackWindow(t, 0.31)).toBeNull();
 
     const bird = STUDIO_PRESETS.find((p) => p.id === "dawn-bird")!;
-    expect(totalTracksDurationSec(bird.tracks)).toBeCloseTo(0.21, 5);
+    expect(exactTracksDurationSec(bird.tracks)).toBeCloseTo(0.21, 5);
   });
 
   it("tracks dirty fingerprints and merges custom / overridden presets cleanly", () => {

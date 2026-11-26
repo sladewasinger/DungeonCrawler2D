@@ -11,12 +11,12 @@ const GORE_DRIP: GoreStyle = "drip";
 export const FRONTIER_WEAPONS: readonly ItemDef[] = [
   {
     id: "copper-pickaxe", name: "Copper Pickaxe", category: CAT_TOOL, maxStack: 1, rarity: "uncommon",
-    weaponArchetype: "pickaxe", damage: 18, staminaCost: 12, range: 1.75, arcRad: 1.45, critChance: 0.06,
+    weaponArchetype: "pickaxe", harvestPower: 42, damage: 18, staminaCost: 12, range: 1.75, arcRad: 1.45, critChance: 0.06,
     goreStyle: GORE_CHUNK, description: "Tempered copper mining pick that cracks rich ore veins and stone armor cleanly.",
   },
   {
     id: "copper-axe", name: "Copper Hatchet", category: CAT_TOOL, maxStack: 1, rarity: "uncommon",
-    weaponArchetype: "axe", damage: 24, staminaCost: 15, range: 1.8, arcRad: 1.65, critChance: 0.08,
+    weaponArchetype: "axe", harvestPower: 42, damage: 24, staminaCost: 15, range: 1.8, arcRad: 1.65, critChance: 0.08,
     goreStyle: GORE_CHUNK, description: "Balanced copper felling axe built to drop mature timber in fewer swings.",
   },
   {
@@ -41,13 +41,13 @@ export const FRONTIER_WEAPONS: readonly ItemDef[] = [
     description: "Swamp-forged stinger coated in fermented bog spore toxin.",
   },
   {
-    id: "amber-recurve-bow", name: "Amber Recurve Bow", category: CAT_WEAPON, maxStack: 1, rarity: "rare",
+    id: "amber-recurve-bow", name: "Amber Recurve Bow", category: CAT_WEAPON, maxStack: 1, rarity: "rare", weaponArchetype: "bow",
     damage: 27, staminaCost: 13, range: 12.5, critChance: 0.15, bowDrawSpeedMult: 0.2, twoHanded: true,
     goreStyle: GORE_DRIP, description: "Laminated autumn-wood bow sealed with amber resin for rapid, high-velocity draws.",
   },
   {
     id: "frost-hatchet", name: "Highland Cleaver", category: CAT_TOOL, maxStack: 1, rarity: "rare",
-    weaponArchetype: "axe", damage: 27, staminaCost: 14, range: 1.85, arcRad: 1.75, critChance: 0.12, perk: "bleed", perkValue: 4,
+    weaponArchetype: "axe", harvestPower: 56, damage: 27, staminaCost: 14, range: 1.85, arcRad: 1.75, critChance: 0.12, perk: "bleed", perkValue: 4,
     goreStyle: GORE_CHUNK, description: "Heavy bearded axe notched by highland warbands to carve deep bleeding wounds.",
   },
   {
@@ -80,7 +80,7 @@ export const FRONTIER_WEAPONS: readonly ItemDef[] = [
     description: "Ancient hooked warblade that siphons vitality from every wound it opens.",
   },
   {
-    id: "whisperwind-bow", name: "Whisperwind Longbow", category: CAT_WEAPON, maxStack: 1, rarity: "legendary",
+    id: "whisperwind-bow", name: "Whisperwind Longbow", category: CAT_WEAPON, maxStack: 1, rarity: "legendary", weaponArchetype: "bow",
     damage: 34, staminaCost: 12, range: 14, critChance: 0.25, critMult: 1.75, bowDrawSpeedMult: 0.35, moveSpeedMult: 0.06,
     twoHanded: true, goreStyle: GORE_DRIP,
     description: "Featherlight mythic longbow that looses arrows faster than the eye can track.",

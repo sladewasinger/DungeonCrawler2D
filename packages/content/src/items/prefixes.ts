@@ -55,14 +55,15 @@ export function prefixGroupsForItem(opts: {
   readonly id: string;
   readonly category: string;
   readonly armorSlot?: string | undefined;
+  readonly weaponArchetype?: string | undefined;
   readonly maxStack: number;
 }): readonly PrefixTargetGroup[] {
   if (opts.maxStack > 1) return [];
-  if (opts.id.includes("bow")) return ["bow", "weapon"];
+  if (opts.weaponArchetype === "bow") return ["bow", "weapon"];
   if (opts.armorSlot === "offhand") return ["offhand", "armor"];
   if (opts.category === "armor") return ["armor"];
   if (opts.category === "weapon") return ["weapon"];
-  if (opts.category === "tool" && opts.id !== "map") return ["tool"];
+  if (opts.category === "tool") return ["tool"];
   return [];
 }
 
@@ -70,6 +71,7 @@ export function eligiblePrefixesForItem(opts: {
   readonly id: string;
   readonly category: string;
   readonly armorSlot?: string | undefined;
+  readonly weaponArchetype?: string | undefined;
   readonly maxStack: number;
 }): readonly ItemPrefixDef[] {
   const groups = prefixGroupsForItem(opts);

@@ -1,7 +1,6 @@
 /** Relative camera zoom stops centered at 4x internal scale = 1.0x user zoom. */
 
 export const BASE_CAMERA_ZOOM = 4.0;
-export const RELATIVE_ZOOM_STOPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0] as const;
 export const CAMERA_ZOOM_STOPS = [2.0, 3.0, 4.0, 5.0, 6.0, 8.0] as const;
 
 function nearestStopIndex(internalZoom: number): number {

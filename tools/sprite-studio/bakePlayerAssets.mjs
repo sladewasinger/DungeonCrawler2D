@@ -4,7 +4,7 @@ import path from "node:path";
 import { applyInternalDepthCreases, applyOuterSelOut, binarizeAndClean, finalizeTrimRect, shiftSpriteFrame, updateBoundsExtremes } from "./pixelPost.mjs";
 import { decodePng, encodeLosslessWebp } from "./pngCodec.mjs";
 
-const OUT_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/player";
+const OUT_DIR = path.resolve(import.meta.dirname, "../../packages/client/public/assets/player");
 const RIG_META_PATH = path.join(OUT_DIR, "player-rig.json");
 const CELL = 192;
 const GROUND_Y = 148;
@@ -228,7 +228,6 @@ function buildFullRigMeta({ rawDir, anchorsByGender, bowOverlay, trimByClip }) {
     ...(bowOverlay ? { bowOverlay } : {}),
     bakeVersion: Date.now(),
     anchorsByGender,
-    sockets: convertSockets(rawSockets, anchorsByGender),
     handSockets: rawSockets.handSockets ? convertSockets(rawSockets.handSockets, anchorsByGender) : undefined,
   };
 }
@@ -243,7 +242,7 @@ function runBowOnlyBake({ rawDir, anchorsByGender, prevMeta }) {
   const bowOverlay = packBowOverlaySheet({ rawDir, anchors }) ?? prevMeta?.bowOverlay;
   if (!prevMeta) return null;
   const updated = { ...prevMeta, ...(bowOverlay ? { bowOverlay } : {}), bakeVersion: Date.now() };
-  fs.writeFileSync(RIG_META_PATH, JSON.stringify(updated, null, 2) + "\n");
+  fs.writeFileSync(RIG_META_PATH, JSON.stringify(updated) + "\n");
   console.log("Baked 3D bow overlay:", { outDir: OUT_DIR, bowOverlay, bakeVersion: updated.bakeVersion });
   return updated;
 }
@@ -270,7 +269,7 @@ function run() {
   const trimByClip = onlyLayers ? null : {};
   for (const layer of targets) packTargetLayer({ rawDir, layer, anchors: anchorsByGender[layer.gender], trimByClip });
   const rigMeta = resolveRigMeta({ rawDir, anchorsByGender, bowOverlay, onlyLayers, prevMeta, trimByClip });
-  fs.writeFileSync(RIG_META_PATH, JSON.stringify(rigMeta, null, 2) + "\n");
+  fs.writeFileSync(RIG_META_PATH, JSON.stringify(rigMeta) + "\n");
   console.log("Baked player assets:", { outDir: OUT_DIR, bakedLayers: targets.length, bakeVersion: rigMeta.bakeVersion });
 }
 

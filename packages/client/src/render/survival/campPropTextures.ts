@@ -60,23 +60,11 @@ export function makeHdCampBedTexture(): Texture {
   return canvasToNearestTexture(canvas);
 }
 
-export function makeHdWoodChestTexture(): Texture {
-  const w = 52; const h = 48;
-  const { canvas, ctx } = createPixelCanvas(w, h);
-  ctx.fillStyle = "#5c3419"; ctx.fillRect(12, 20, 28, 20);
-  ctx.fillStyle = "#8a5229"; ctx.fillRect(14, 15, 24, 9);
-  ctx.fillStyle = "#b45309"; ctx.fillRect(12, 23, 28, 2);
-  ctx.fillStyle = "#facc15"; ctx.fillRect(24, 22, 4, 5);
-  stampSelOutOutline(ctx, { w, h, solidPx: ACTIVE_OUTLINE_STYLE.propSolidPx });
-  return canvasToNearestTexture(canvas);
-}
-
 export interface CampPropTextures {
   readonly copperVein: Texture;
   readonly ironVein: Texture;
   readonly workbench: Texture;
   readonly bed: Texture;
-  readonly woodChest: Texture;
 }
 
 export function createCampPropTextures(): CampPropTextures {
@@ -85,6 +73,5 @@ export function createCampPropTextures(): CampPropTextures {
     ironVein: makeHdIronVeinTexture(),
     workbench: makeHdWorkbenchTexture(),
     bed: makeHdCampBedTexture(),
-    woodChest: makeHdWoodChestTexture(),
   };
 }

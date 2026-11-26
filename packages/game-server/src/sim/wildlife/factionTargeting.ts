@@ -1,7 +1,7 @@
 /** Multi-faction hostile target sensing, gradual suspicion fill, group/corpse alerting, and hit wakeup. */
 import {
   AI_TUNING, STEALTH_TUNING, WorldChunkCache, canHearTarget, canPerceiveTarget,
-  computeLineOfSightClarity, hasElevationLineOfSight, isInSanctuary,
+  computeLineOfSightClarity, hasElevationLineOfSight, isInSanctuary, isInWorldSanctuary,
 } from "@dc2d/engine";
 import { clearNavPath } from "./creatureNavigation.js";
 import type { CombatPlayerCandidate } from "./creatureBehaviors.js";
@@ -74,11 +74,12 @@ function asEntityTarget(o: WildlifeEntity): CombatTarget {
 }
 
 export function resolveLockedTarget(opts: {
-  readonly id: string; readonly players: readonly CombatPlayerCandidate[]; readonly allEntities: readonly WildlifeEntity[];
+  readonly id: string; readonly players: readonly CombatPlayerCandidate[]; readonly allEntities: readonly WildlifeEntity[]; readonly cache?: WorldChunkCache | undefined;
 }): CombatTarget | null {
-  const pl = opts.players.find((p) => p.id === opts.id && !isInSanctuary(p.x, p.y));
+  const safe = (x: number, y: number): boolean => (opts.cache ? isInWorldSanctuary(opts.cache, x, y) : isInSanctuary(x, y));
+  const pl = opts.players.find((p) => p.id === opts.id && !safe(p.x, p.y));
   if (pl) return { ...pl, targetKind: "player" };
-  const ent = opts.allEntities.find((o) => o.id === opts.id && !o.corpse && o.hp > 0 && !isInSanctuary(o.x, o.y));
+  const ent = opts.allEntities.find((o) => o.id === opts.id && !o.corpse && o.hp > 0 && !safe(o.x, o.y));
   return ent ? asEntityTarget(ent) : null;
 }
 
@@ -89,7 +90,7 @@ export function findHeardHostilePlayer(opts: {
   let target: CombatTarget | null = null;
   let dist = Infinity;
   for (const p of opts.players) {
-    const d = isCocoonedFromSpider(opts.e, p) || isInSanctuary(p.x, p.y) ? Infinity : Math.hypot(p.x - opts.e.x, p.y - opts.e.y);
+    const d = isCocoonedFromSpider(opts.e, p) || isInWorldSanctuary(opts.cache, p.x, p.y) ? Infinity : Math.hypot(p.x - opts.e.x, p.y - opts.e.y);
     if (d < dist && canHearTarget({ cache: opts.cache, observer: opts.e, target: p, visionRange: spec.visionRange, halfConeRad: AI_TUNING.halfConeRad, hearRange: spec.hearRange })) {
       dist = d; target = { ...p, targetKind: "player" };
     }
@@ -103,7 +104,7 @@ function findBestPlayerTarget(opts: {
   let target: CombatTarget | null = null;
   let dist = Infinity;
   for (const p of opts.players) {
-    if (isCocoonedFromSpider(opts.e, p) || isInSanctuary(p.x, p.y)) continue;
+    if (isCocoonedFromSpider(opts.e, p) || isInWorldSanctuary(opts.cache, p.x, p.y)) continue;
     const d = Math.hypot(p.x - opts.e.x, p.y - opts.e.y);
     const cand: CombatTarget = { ...p, targetKind: "player" };
     if (d < dist && canSeeCandidate({ cache: opts.cache, e: opts.e, cand, dist: d, rangeMult: 1 })) {
@@ -113,8 +114,8 @@ function findBestPlayerTarget(opts: {
   return target ? { target, dist } : null;
 }
 
-function isEligibleHostileEntity(e: WildlifeEntity, o: WildlifeEntity): boolean {
-  if (o.corpse || o.hp <= 0 || o.id === e.id || isInSanctuary(o.x, o.y)) return false;
+function isEligibleHostileEntity(cache: WorldChunkCache, e: WildlifeEntity, o: WildlifeEntity): boolean {
+  if (o.corpse || o.hp <= 0 || o.id === e.id || isInWorldSanctuary(cache, o.x, o.y)) return false;
   if (e.poiId !== null && e.poiId === o.poiId) return false;
   return areFactionsHostile(factionOfKind(e.kind), factionOfKind(o.kind));
 }
@@ -129,7 +130,7 @@ function scoreEntityCandidate(opts: {
   readonly maxDist: number; readonly hasPlayer: boolean;
 }): number | null {
   const { cache, e, o, maxDist, hasPlayer } = opts;
-  if (!isEligibleHostileEntity(e, o) || isCalmBehindWithPlayer(e, o, hasPlayer)) return null;
+  if (!isEligibleHostileEntity(cache, e, o) || isCalmBehindWithPlayer(e, o, hasPlayer)) return null;
   const d = Math.hypot(o.x - e.x, o.y - e.y);
   if (d >= maxDist) return null;
   const mult = e.targetPlayerId === o.id ? 1.0 : 0.85;

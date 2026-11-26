@@ -6,6 +6,8 @@ export interface DepletedPropDelta {
   readonly propId: string;
   readonly replacementKind: PropKind | null;
   readonly regrowAtSec: number;
+  readonly cx?: number | undefined;
+  readonly cy?: number | undefined;
 }
 
 export interface WorldDeltaSnapshot {
@@ -31,8 +33,8 @@ function keyFromBrazierId(brazierId: string, x?: number, y?: number): string | n
   return null;
 }
 
-function keyFromPropIdOrPos(propId: string, x?: number, y?: number): string | null {
-  if (x !== undefined && y !== undefined) return chunkKey(worldToChunkCoord(Math.floor(x)), worldToChunkCoord(Math.floor(y)));
+function keyFromPropIdOrPos(propId: string, delta?: { readonly cx?: number | undefined; readonly cy?: number | undefined }): string | null {
+  if (delta?.cx !== undefined && delta?.cy !== undefined) return chunkKey(delta.cx, delta.cy);
   const colon = propId.indexOf(":");
   if (colon < 0) return null;
   const parts = propId.slice(colon + 1).split(",");
@@ -108,15 +110,16 @@ export class WorldDeltaOverlay {
   setDepletedProp(delta: DepletedPropDelta): string | null {
     this.depleted.set(delta.propId, delta);
     this.revision += 1;
-    const key = keyFromPropIdOrPos(delta.propId);
+    const key = keyFromPropIdOrPos(delta.propId, delta);
     if (key) bumpKey(this.chunkRevs, key);
     return key;
   }
 
   restoreProp(propId: string): string | null {
+    const prev = this.depleted.get(propId);
     if (!this.depleted.delete(propId)) return null;
     this.revision += 1;
-    const key = keyFromPropIdOrPos(propId);
+    const key = keyFromPropIdOrPos(propId, prev);
     if (key) bumpKey(this.chunkRevs, key);
     return key;
   }
@@ -146,43 +149,40 @@ export class WorldDeltaOverlay {
     return key;
   }
 
-  private collectExistingDirtyChunks(dirty: Set<string>): void {
-    for (const p of this.depleted.keys()) {
-      const k = keyFromPropIdOrPos(p);
-      if (k) dirty.add(k);
-    }
-    for (const k of this.structureChunks.keys()) dirty.add(k);
-    for (const id of this.litBraziers) {
-      const k = keyFromBrazierId(id);
-      if (k) dirty.add(k);
-    }
-  }
-
-  private applyReplacedDepletedAndBraziers(dirty: Set<string>, snap: WorldDeltaSnapshot): void {
-    for (const d of snap.depleted) {
-      this.depleted.set(d.propId, d);
-      const k = keyFromPropIdOrPos(d.propId);
-      if (k) dirty.add(k);
-    }
-    for (const b of snap.litBraziers ?? []) {
-      this.litBraziers.add(b);
-      const k = keyFromBrazierId(b);
-      if (k) dirty.add(k);
-    }
+  private collectChunkFingerprints(): Map<string, string> {
+    const sigs = new Map<string, string[]>();
+    const add = (key: string | null, token: string): void => {
+      if (!key) return;
+      const list = sigs.get(key) ?? [];
+      list.push(token);
+      sigs.set(key, list);
+    };
+    for (const d of this.depleted.values()) add(keyFromPropIdOrPos(d.propId, d), `d:${d.propId}:${d.replacementKind ?? "null"}`);
+    for (const [k, list] of this.structureChunks) for (const s of list) add(k, `s:${s.id}:${s.x},${s.y}`);
+    for (const id of this.litBraziers) add(keyFromBrazierId(id), `b:${id}`);
+    const out = new Map<string, string>();
+    for (const [k, list] of sigs) out.set(k, list.sort().join("|"));
+    return out;
   }
 
   replaceFromSnapshot(snap: WorldDeltaSnapshot): readonly string[] {
-    const dirty = new Set<string>();
-    this.collectExistingDirtyChunks(dirty);
+    const before = this.collectChunkFingerprints();
     this.depleted.clear();
     this.structures.clear();
     this.structureChunks.clear();
     this.litBraziers.clear();
-    this.applyReplacedDepletedAndBraziers(dirty, snap);
-    for (const s of snap.structures) dirty.add(this.addStructureWithoutRev(s));
+    for (const d of snap.depleted) this.depleted.set(d.propId, d);
+    for (const b of snap.litBraziers ?? []) this.litBraziers.add(b);
+    for (const s of snap.structures) this.addStructureWithoutRev(s);
+    const after = this.collectChunkFingerprints();
+    const dirty: string[] = [];
+    for (const k of new Set([...before.keys(), ...after.keys()])) {
+      if (before.get(k) === after.get(k)) continue;
+      bumpKey(this.chunkRevs, k);
+      dirty.push(k);
+    }
     this.revision += 1;
-    for (const k of dirty) bumpKey(this.chunkRevs, k);
-    return Array.from(dirty);
+    return dirty;
   }
 
   private addStructureWithoutRev(rec: PlacedStructureRecord): string {

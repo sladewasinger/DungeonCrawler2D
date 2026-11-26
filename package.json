@@ -10,7 +10,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n server,client -c cyan,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
+    "dev": "node scripts/dev.mjs",
+    "dev:lan": "node scripts/dev.mjs --lan",
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
     "preview-prod": "node scripts/preview-prod.mjs",
     "test": "vitest run",
@@ -28,7 +29,6 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@types/node": "^24.13.3",
-    "concurrently": "^10.0.3",
     "eslint": "^10.7.0",
     "eslint-import-resolver-node": "^0.4.0",
     "eslint-plugin-import-x": "^4.17.1",
@@ -36,6 +36,6 @@
     "globals": "^17.7.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.64.0",
-    "vitest": "^4.1.10"
+    "vitest": "^5.1.2"
   }
 }

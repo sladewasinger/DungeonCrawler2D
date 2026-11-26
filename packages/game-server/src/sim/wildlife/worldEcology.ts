@@ -1,7 +1,7 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
   AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, computeDangerTier, getPoiGuardRoster,
-  isInSanctuary, sampleMacroBiome, worldToChunkCoord,
+  isInWorldSanctuary, sampleMacroBiome, worldToChunkCoord,
   type ChunkPoi, type DangerTier, type GoreStyle, type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -77,7 +77,7 @@ export class WorldEcology {
   }
 
   private isValidWildlifeSpawn(wx: number, wy: number): boolean {
-    if (isInSanctuary(wx, wy)) return false;
+    if (isInWorldSanctuary(this.cache, wx, wy)) return false;
     const ground = this.cache.tileAt(Math.floor(wx), Math.floor(wy)).ground;
     return ground !== GroundKind.DeepWater && ground !== GroundKind.ShallowWater;
   }

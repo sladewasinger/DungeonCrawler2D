@@ -18,7 +18,7 @@ export const PROTOCOL_VERSION = 1;
 
 const SlotIndexSchema = z.number().int().min(0).max(35);
 const HotbarIndexSchema = z.number().int().min(0).max(8);
-const SeqSchema = z.number().int().nonnegative().optional();
+const SeqSchema = z.number().int().nonnegative().max(2_147_483_647).optional();
 
 export const ArmorSlotKeySchema = z.enum(["head", "chest", "legs", "feet", "offhand"]);
 export const SlotItemSchema = z.object({
@@ -42,6 +42,7 @@ export const InventorySnapshotSchema = z.object({
   armorPrefixes: ArmorPrefixesSchema.optional(),
   selectedHotbar: HotbarIndexSchema,
   nearCampfire: z.boolean(),
+  nearWorkbench: z.boolean().optional(),
   ackSeq: SeqSchema,
 });
 
@@ -52,6 +53,8 @@ export const ClientHelloSchema = z.object({
   version: z.literal(PROTOCOL_VERSION),
   name: z.string().min(1).max(24),
   appearance: CharacterAppearanceSchema.optional(),
+  accountId: z.string().min(4).max(64).optional(),
+  resumeToken: z.string().min(16).max(128).optional(),
 });
 
 export const ClientSetAppearanceSchema = z.object({
@@ -229,14 +232,11 @@ export type GroundLootSnapshot = z.infer<typeof GroundLootSnapshotSchema>;
 export const ServerWelcomeSchema = z.object({
   t: z.literal("welcome"), playerId: z.string(), worldSeed: z.number().int(),
   dayPhase: z.number(), dayPaused: z.boolean(), tickRate: z.number(),
+  accountId: z.string().optional(), resumeToken: z.string().optional(),
 });
 
-export const WebNodeSnapshotSchema = z.object({ id: z.number().int(), x: z.number(), y: z.number(), pinned: z.boolean(), fire: z.number().optional() });
-export type WebNodeSnapshot = z.infer<typeof WebNodeSnapshotSchema>;
-
-export const WebStrandSnapshotSchema = z.object({ a: z.number().int(), b: z.number().int(), fire: z.number().optional() });
-export type WebStrandSnapshot = z.infer<typeof WebStrandSnapshotSchema>;
-
+const WebNodeSnapshotSchema = z.object({ id: z.number().int(), x: z.number(), y: z.number(), pinned: z.boolean(), fire: z.number().optional() });
+const WebStrandSnapshotSchema = z.object({ a: z.number().int(), b: z.number().int(), fire: z.number().optional() });
 export const WorldWebSnapshotSchema = z.object({ nodes: z.array(WebNodeSnapshotSchema), strands: z.array(WebStrandSnapshotSchema) });
 export type WorldWebSnapshot = z.infer<typeof WorldWebSnapshotSchema>;
 

@@ -1,7 +1,7 @@
 /** Always-visible bottom hotbar (slots 1..9 plus permanent Map [M] and Lantern [F] buttons). */
 import { HOTBAR_SLOT_COUNT, type InventorySlot, type InventorySnapshot } from "@dc2d/engine";
-import { getItemIconUrl } from "../icons/itemIcons.js";
-import type { DragSource, SlotDragManager } from "./slotDragManager.js";
+import { makeMapUiIconUrl } from "../icons/itemIcons.js";
+import type { SlotDragManager } from "./slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_BTN = "button";
@@ -46,7 +46,7 @@ function buildMapHotbarButton(onToggleMap: () => void): HTMLButtonElement {
   btn.type = TAG_BTN;
   btn.title = "Overworld Map (M)";
   btn.setAttribute(ATTR_ARIA_LABEL, "Toggle Overworld Map (M)");
-  btn.innerHTML = `<span class="ow-slot-key">M</span><img class="ow-slot-img" src="${getItemIconUrl("map")}" alt="Overworld Map" draggable="false" />`;
+  btn.innerHTML = `<span class="ow-slot-key">M</span><img class="ow-slot-img" src="${makeMapUiIconUrl()}" alt="Overworld Map" draggable="false" />`;
   bindHotbarActionButton(btn, onToggleMap);
   return btn;
 }
@@ -90,13 +90,12 @@ export class BottomHotbar {
     host.append(this.el);
   }
 
-  sync(inv: InventorySnapshot, tapSource: DragSource | null, opts: { readonly torchLit?: boolean; readonly mapOpen?: boolean } = {}): void {
+  sync(inv: InventorySnapshot, opts: { readonly torchLit?: boolean; readonly mapOpen?: boolean } = {}): void {
     this.syncActionButtons(opts);
-    const tapIdx = tapSource?.kind === "slot" ? tapSource.index : -1;
-    const fp = `${slotsFingerprint(inv.slots, 0, HOTBAR_SLOT_COUNT)}#${inv.selectedHotbar}#${tapIdx}`;
+    const fp = `${slotsFingerprint(inv.slots, 0, HOTBAR_SLOT_COUNT)}#${inv.selectedHotbar}`;
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
-    for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) this.syncSlot(i, inv, tapIdx);
+    for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) this.syncSlot(i, inv);
   }
 
   private syncActionButtons(opts: { readonly torchLit?: boolean; readonly mapOpen?: boolean }): void {
@@ -113,19 +112,17 @@ export class BottomHotbar {
     }
   }
 
-  private syncSlot(index: number, inv: InventorySnapshot, tapIdx: number): void {
+  private syncSlot(index: number, inv: InventorySnapshot): void {
     const btn = this.buttons[index];
     if (!btn) return;
     const item = inv.slots[index] ?? null;
     const itemKey = slotItemKey(item);
     const selected = inv.selectedHotbar === index;
-    const tap = tapIdx === index;
     if (this.slotItemKeys[index] === itemKey) {
       btn.dataset.selected = String(selected);
-      btn.dataset.tapSource = String(tap);
       return;
     }
     this.slotItemKeys[index] = itemKey;
-    renderSlotContent(btn, { item, keyLabel: String(index + 1), selected, tapSource: tap });
+    renderSlotContent(btn, { item, keyLabel: String(index + 1), selected });
   }
 }

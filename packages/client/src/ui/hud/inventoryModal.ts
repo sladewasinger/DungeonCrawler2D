@@ -4,31 +4,28 @@ import {
   ARMOR_SLOT_KEYS, BACKPACK_SLOT_COUNT, HOTBAR_SLOT_COUNT, computePlayerGearStats,
   type ArmorSlotKey, type InventorySnapshot, type PlayerSnapshot,
 } from "@dc2d/engine";
-import type { DragSource, SlotDragManager } from "./slotDragManager.js";
+import type { SlotDragManager } from "./slotDragManager.js";
 import { armorLabel, domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_DIV = "div";
 const TAG_BTN = "button";
 const CLS_SLOT = "ow-slot ow-bag-slot";
+const UNARMED_DAMAGE = 10;
 
 function playerStatsFp(player: PlayerSnapshot | undefined): string {
-  if (!player) return "100/100:100";
-  return `${Math.round(player.hp ?? 100)}/${Math.round(player.maxHp ?? 100)}:${Math.round(player.stamina ?? 100)}`;
+  if (!player) return "100/100:100:100";
+  const spd = Math.round((player.moveSpeedMult ?? 1) * 100);
+  return `${Math.round(player.hp ?? 100)}/${Math.round(player.maxHp ?? 100)}:${Math.round(player.stamina ?? 100)}:${spd}`;
 }
 
 function buildInventoryFingerprint(
   inv: InventorySnapshot,
   heldId: string,
-  extra: { readonly tapSource: DragSource | null; readonly player: PlayerSnapshot | undefined },
+  player: PlayerSnapshot | undefined,
 ): string {
   const armorFp = ARMOR_SLOT_KEYS.map((k) => `${inv.armor[k] ?? "-"}:${inv.armorPrefixes?.[k] ?? ""}`).join(",");
   const bagFp = slotsFingerprint(inv.slots, HOTBAR_SLOT_COUNT, BACKPACK_SLOT_COUNT);
-  return `${armorFp}#${bagFp}#${heldId}#${tapSourceFingerprint(extra.tapSource)}#${playerStatsFp(extra.player)}`;
-}
-
-function tapSourceFingerprint(tap: DragSource | null): string {
-  if (!tap) return "none";
-  return tap.kind === "armor" ? tap.armorSlot : String(tap.index);
+  return `${armorFp}#${bagFp}#${heldId}#${playerStatsFp(player)}`;
 }
 
 export class InventoryModal {
@@ -89,49 +86,42 @@ export class InventoryModal {
 
   sync(inv: InventorySnapshot, opts: {
     readonly open: boolean;
-    readonly tapSource: DragSource | null;
     readonly player?: PlayerSnapshot | undefined;
   }): void {
     this.el.hidden = !opts.open;
-    if (opts.open) this.syncOpenModal(inv, opts.tapSource, opts.player);
+    if (opts.open) this.syncOpenModal(inv, opts.player);
   }
 
-  private syncOpenModal(inv: InventorySnapshot, tapSource: DragSource | null, player: PlayerSnapshot | undefined): void {
+  private syncOpenModal(inv: InventorySnapshot, player: PlayerSnapshot | undefined): void {
     const heldId = inv.slots[inv.selectedHotbar]?.itemId ?? "-";
-    const fp = buildInventoryFingerprint(inv, heldId, { tapSource, player });
+    const fp = buildInventoryFingerprint(inv, heldId, player);
     if (fp === this.lastFingerprint) return;
     this.lastFingerprint = fp;
-    for (const key of ARMOR_SLOT_KEYS) this.syncSingleArmor(key, inv, tapSource);
-    const tapIdx = tapSource?.kind === "slot" ? tapSource.index : -1;
-    for (let i = 0; i < BACKPACK_SLOT_COUNT; i++) this.syncSingleBagSlot(i, inv, tapIdx);
+    for (const key of ARMOR_SLOT_KEYS) this.syncSingleArmor(key, inv);
+    for (let i = 0; i < BACKPACK_SLOT_COUNT; i++) this.syncSingleBagSlot(i, inv);
     this.syncStats(inv, heldId, player);
   }
 
-  private syncSingleArmor(key: ArmorSlotKey, inv: InventorySnapshot, tapSource: DragSource | null): void {
+  private syncSingleArmor(key: ArmorSlotKey, inv: InventorySnapshot): void {
     const btn = this.armorButtons.get(key);
     if (!btn) return;
     const itemId = inv.armor[key];
     const prefixId = inv.armorPrefixes?.[key];
     const itemKey = itemId ? `${itemId}:${prefixId ?? ""}` : "-";
-    const tap = tapSource?.kind === "armor" && tapSource.armorSlot === key;
-    if (this.armorItemKeys.get(key) === itemKey) { btn.dataset.tapSource = String(tap); return; }
+    if (this.armorItemKeys.get(key) === itemKey) return;
     this.armorItemKeys.set(key, itemKey);
-    renderSlotContent(btn, { item: buildArmorSlotItem(itemId, prefixId), emptyHint: armorLabel(key), tapSource: tap });
+    renderSlotContent(btn, { item: buildArmorSlotItem(itemId, prefixId), emptyHint: armorLabel(key) });
   }
 
-  private syncSingleBagSlot(bagIdx: number, inv: InventorySnapshot, tapIdx: number): void {
+  private syncSingleBagSlot(bagIdx: number, inv: InventorySnapshot): void {
     const btn = this.bagButtons[bagIdx];
     if (!btn) return;
     const slotIndex = HOTBAR_SLOT_COUNT + bagIdx;
     const item = inv.slots[slotIndex] ?? null;
     const itemKey = item ? `${item.itemId}:${item.count}:${item.prefixId ?? ""}` : "-";
-    const tap = tapIdx === slotIndex;
-    if (this.bagItemKeys[bagIdx] === itemKey) {
-      btn.dataset.tapSource = String(tap);
-      return;
-    }
+    if (this.bagItemKeys[bagIdx] === itemKey) return;
     this.bagItemKeys[bagIdx] = itemKey;
-    renderSlotContent(btn, { item, tapSource: tap });
+    renderSlotContent(btn, { item });
   }
 
   private syncStats(inv: InventorySnapshot, heldId: string, player: PlayerSnapshot | undefined): void {
@@ -155,6 +145,21 @@ function formatHeldName(inv: InventorySnapshot): string {
   return resolveItemInstance(held.itemId, held.prefixId).displayName;
 }
 
+function resolveDisplayVitals(
+  gear: ReturnType<typeof computePlayerGearStats>,
+  player: PlayerSnapshot | undefined,
+): { readonly hp: number; readonly maxHp: number; readonly stam: number; readonly spdPct: number } {
+  if (!player) {
+    return { hp: 100, maxHp: 100 + gear.maxHpBonus, stam: 100, spdPct: Math.round(Math.max(0.65, 1 + gear.moveSpeedMult) * 100) };
+  }
+  return {
+    hp: player.hp ?? 100,
+    maxHp: player.maxHp ?? (100 + gear.maxHpBonus),
+    stam: player.stamina ?? 100,
+    spdPct: Math.round((player.moveSpeedMult ?? Math.max(0.65, 1 + gear.moveSpeedMult)) * 100),
+  };
+}
+
 function formatStatRows(opts: {
   readonly inv: InventorySnapshot; readonly heldId: string; readonly player: PlayerSnapshot | undefined;
 }): readonly string[] {
@@ -163,15 +168,12 @@ function formatStatRows(opts: {
     armor: opts.inv.armor, armorPrefixes: opts.inv.armorPrefixes, heldItem: held,
     lookup: (id, pId) => resolveItemInstance(id, pId),
   });
-  const p = opts.player;
-  const hp = p?.hp ?? 100;
-  const maxHp = p?.maxHp ?? (100 + gear.maxHpBonus);
-  const stam = p?.stamina ?? 100;
+  const v = resolveDisplayVitals(gear, opts.player);
   return [
-    `HP: ${Math.round(hp)} / ${Math.round(maxHp)}`,
-    `Stamina: ${Math.round(stam)}`,
+    `HP: ${Math.round(v.hp)} / ${Math.round(v.maxHp)}`,
+    `Stamina: ${Math.round(v.stam)}`,
     `Defense: ${gear.defense} · Crit: ${Math.round(gear.critChance * 100)}%`,
-    `Dmg: ${gear.heldDamage || 8} · Spd: ${Math.round((1 + gear.moveSpeedMult) * 100)}%`,
+    `Dmg: ${gear.heldDamage || UNARMED_DAMAGE} · Spd: ${v.spdPct}%`,
     `Held: ${formatHeldName(opts.inv)}`,
     "Tap item to inspect · Q Drop",
   ];

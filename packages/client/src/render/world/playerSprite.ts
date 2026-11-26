@@ -1,7 +1,7 @@
 /** Renders 3D 8-dir Hero sprites with baked arms/hand sockets, 3D 8-dir bow overlay, dashed aim line, and swim mask. */
 import { isBowItem } from "@dc2d/content";
 import { DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX, advanceGaitClock, createGaitClock, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
-import { Container, Graphics, Sprite, type Text, type Texture } from "pixi.js";
+import { Container, Graphics, Sprite, type Text } from "pixi.js";
 import { drawPlayerWebOverlay } from "../combat/webs/webRenderer.js";
 import type { ArmPlacement } from "../character/armRig.js";
 import {
@@ -59,7 +59,7 @@ export class PlayerView {
   private dodgeStartSec: number | null = null;
   private readonly gaitClock = createGaitClock();
 
-  constructor(_torchTex: Texture, snap: PlayerSnapshot) {
+  constructor(snap: PlayerSnapshot) {
     const appearance = snap.appearance ?? DEFAULT_APPEARANCE;
     const armor = snap.armor ?? EMPTY_ARMOR;
     this.appearanceKey = characterCacheKey(appearance, armor);
@@ -81,7 +81,7 @@ export class PlayerView {
   }
 
   sync(input: {
-    readonly snap: PlayerSnapshot; readonly torchFrames: readonly Texture[];
+    readonly snap: PlayerSnapshot;
     readonly timeSec: number; readonly visualElev?: number; readonly sortBoost?: number;
   }): void {
     const { snap, timeSec } = input;

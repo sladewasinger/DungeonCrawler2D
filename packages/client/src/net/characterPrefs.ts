@@ -35,3 +35,27 @@ export function saveCharacterPrefs(prefs: CharacterPrefs): void {
     // Ignore storage quota or private-mode restrictions.
   }
 }
+
+const AUTH_STORAGE_KEY = "dc2d:auth-token:v1";
+
+export interface StoredAuthToken {
+  readonly accountId: string;
+  readonly resumeToken: string;
+}
+
+export function readStoredAuthToken(): StoredAuthToken | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw || raw.length > 512) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredAuthToken>;
+    return typeof parsed.accountId === "string" && typeof parsed.resumeToken === "string"
+      ? { accountId: parsed.accountId, resumeToken: parsed.resumeToken } : null;
+  } catch { return null; }
+}
+
+export function writeStoredAuthToken(token: StoredAuthToken): void {
+  try {
+    if (typeof window !== "undefined") window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(token));
+  } catch { /* ignore storage quota errors */ }
+}

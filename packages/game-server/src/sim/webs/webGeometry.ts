@@ -22,7 +22,8 @@ export interface WebStrand {
 }
 
 const ANCHOR_PROPS = new Set<PropKind>([
-  PropKind.OakTree, PropKind.PineTree, PropKind.Boulder, PropKind.Palisade, PropKind.RuinPillar,
+  PropKind.OakTree, PropKind.PineTree, PropKind.BirchTree, PropKind.MapleTree, PropKind.DeadTree,
+  PropKind.GiantMushroom, PropKind.GreatStump, PropKind.Boulder, PropKind.Palisade, PropKind.RuinPillar,
 ]);
 
 export function pickWebAnchor(cache: WorldChunkCache, wx: number, wy: number): { readonly x: number; readonly y: number } {

@@ -5,8 +5,9 @@ import { updateCreatureManifest } from "./manifestSync.mjs";
 import { postProcessFrame, measureSpriteBounds } from "./pixelPost.mjs";
 import { decodePng, encodeLosslessWebp, encodePng } from "./pngCodec.mjs";
 
-const DEFAULT_CREATURES_DIR = "D:/repos/dungeoncrawler2D/packages/client/public/assets/creatures";
-const DEFAULT_MANIFEST = "D:/repos/dungeoncrawler2D/packages/client/public/assets/sprite-manifest.json";
+const REPO_ASSETS = path.resolve(import.meta.dirname, "../../packages/client/public/assets");
+const DEFAULT_CREATURES_DIR = path.join(REPO_ASSETS, "creatures");
+const DEFAULT_MANIFEST = path.join(REPO_ASSETS, "sprite-manifest.json");
 
 function readFlagMap(argv) {
   const map = new Map();

@@ -79,7 +79,7 @@ export class LootManager {
     player: CombatPlayerRef,
     req: { readonly chestId: string; readonly slotIndex: number; readonly count?: number | undefined },
   ): boolean {
-    const chest = this.findChestInReach(player, req.chestId, 1.35);
+    const chest = this.findUnsealedChestInReach(player, req.chestId, 1.35);
     if (!chest) return false;
     chest.opened = true;
     const removed = removeFromSlot(chest.slots, req.slotIndex, req.count);
@@ -103,9 +103,14 @@ export class LootManager {
     return best;
   }
 
+  private findUnsealedChestInReach(player: { readonly x: number; readonly y: number }, chestId?: string, radiusPad = 0): StoredChest | null {
+    const chest = this.findChestInReach(player, chestId, radiusPad);
+    return chest && !chest.sealed ? chest : null;
+  }
+
   openChest(player: CombatPlayerRef, chestId: string | undefined, events: WorldEvent[]): string | null {
-    const chest = this.findChestInReach(player, chestId, 0.35);
-    if (!chest || chest.sealed) return null;
+    const chest = this.findUnsealedChestInReach(player, chestId, 0.35);
+    if (!chest) return null;
     if (!chest.opened) {
       chest.opened = true;
       events.push({ kind: "chestOpen", x: chest.x, y: chest.y, actorId: player.id });
@@ -117,8 +122,8 @@ export class LootManager {
     readonly chestId: string; readonly from: "chest" | "inv"; readonly fromSlot: number;
     readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined;
   }): boolean {
-    const chest = this.findChestInReach(player, req.chestId, 1.35);
-    if (!chest || chest.sealed) return false;
+    const chest = this.findUnsealedChestInReach(player, req.chestId, 1.35);
+    if (!chest) return false;
     chest.opened = true;
     if (req.quick) {
       return quickTransferChestSlot({
@@ -132,8 +137,8 @@ export class LootManager {
   }
 
   takeAllChest(player: CombatPlayerRef, chestId: string, events: WorldEvent[]): number {
-    const chest = this.findChestInReach(player, chestId, 1.35);
-    if (!chest || chest.sealed) return 0;
+    const chest = this.findUnsealedChestInReach(player, chestId, 1.35);
+    if (!chest) return 0;
     chest.opened = true;
     const moved = takeAllFromChest({ chestSlots: chest.slots, invSlots: player.inventory.slots, maxStackFor: maxStackForItem });
     if (moved > 0) events.push({ kind: "loot", x: chest.x, y: chest.y, actorId: player.id, value: moved });
