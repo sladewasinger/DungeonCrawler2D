@@ -7,7 +7,7 @@ export type ContentBiomeId =
   | "craggy-highlands"
   | "cursed-ruinlands";
 
-export type ContentDangerTier = 1 | 2 | 3 | 4;
+export type ContentDangerTier = 1 | 2 | 3 | 4 | 5;
 export type AmbientParticleTheme = "sunmotes" | "leaves" | "spores" | "embers" | "wisps";
 
 export interface BiomeCatalogEntry {

@@ -1,7 +1,7 @@
 /** Public exports for @dc2d/content. */
 export { BIOME_CATALOG, getBiomeEntry } from "./biomes/biomeCatalog.js";
 export type { AmbientParticleTheme, BiomeCatalogEntry, ContentBiomeId, ContentDangerTier } from "./biomes/biomeCatalog.js";
-export { ITEM_CATALOG, STARTER_ARMOR, STARTER_LOADOUT, getItemDef, isMeleeItem, maxStackForItem, resolveBlockMode } from "./items/catalog.js";
+export { ITEM_CATALOG, STARTER_ARMOR, STARTER_LOADOUT, getItemDef, isBowItem, isMeleeItem, isShieldItem, maxStackForItem, resolveBlockMode } from "./items/catalog.js";
 export { classifyPoiLootCategory, rollChestLoot, rollEnemyDrop } from "./items/lootTables.js";
 export type { LootPoiCategory, RolledLootEntry } from "./items/lootTables.js";
 export type {

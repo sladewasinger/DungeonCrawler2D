@@ -108,12 +108,17 @@ function resolveTargetZone(opts: {
   return chestRect && !bagRect ? ZONE_CHEST : ZONE_BACKPACK;
 }
 
-function canMergeSlot(s: MeasuredSlot, itemId: string, maxStack: number): boolean {
-  return s.item !== null && s.item.itemId === itemId && maxStack > 1 && s.item.count < maxStack;
+interface MatchQuery {
+  readonly s: MeasuredSlot; readonly itemId: string; readonly maxStack: number; readonly prefixId?: string | undefined;
 }
 
-function isAvailableSlot(s: MeasuredSlot, itemId: string, maxStack: number): boolean {
-  return s.item === null || canMergeSlot(s, itemId, maxStack);
+function canMergeSlot(q: MatchQuery): boolean {
+  const samePrefix = (q.s.item?.prefixId ?? undefined) === (q.prefixId ?? undefined);
+  return q.s.item !== null && q.s.item.itemId === q.itemId && samePrefix && q.maxStack > 1 && q.s.item.count < q.maxStack;
+}
+
+function isAvailableSlot(q: MatchQuery): boolean {
+  return q.s.item === null || canMergeSlot(q);
 }
 
 interface SlotScore { readonly source: DragSource; readonly p: number; readonly sec: number }
@@ -138,38 +143,46 @@ function pickBestSlot(slots: readonly MeasuredSlot[], opts: { readonly x: number
   return best.source;
 }
 
+function findCompanionSpill(opts: {
+  readonly x: number; readonly y: number; readonly from: DragSource; readonly targetZone: HudDropZone;
+  readonly itemId: string; readonly maxStack: number; readonly prefixId?: string | undefined; readonly slots: readonly MeasuredSlot[];
+}): DragSource | null {
+  const { x, y, from, targetZone, itemId, maxStack, prefixId, slots } = opts;
+  if (targetZone !== ZONE_BACKPACK && targetZone !== ZONE_HOTBAR) return null;
+  const companion = targetZone === ZONE_BACKPACK ? ZONE_HOTBAR : ZONE_BACKPACK;
+  const spill = slots.filter((s) => s.zone === companion && !isSameDragSource(s.source, from) && isAvailableSlot({ s, itemId, maxStack, prefixId }));
+  return spill.length > 0 ? pickBestSlot(spill, { x, y, byCenter: true }) : null;
+}
+
 function resolveCrossContainerSlot(opts: {
   readonly x: number; readonly y: number; readonly from: DragSource; readonly targetZone: HudDropZone;
-  readonly itemId: string; readonly maxStack: number; readonly slots: readonly MeasuredSlot[];
+  readonly itemId: string; readonly maxStack: number; readonly prefixId?: string | undefined; readonly slots: readonly MeasuredSlot[];
 }): DragSource | null {
-  const { x, y, from, targetZone, itemId, maxStack, slots } = opts;
+  const { x, y, from, targetZone, itemId, maxStack, prefixId, slots } = opts;
   const targetSlots = slots.filter((s) => s.zone === targetZone && !isSameDragSource(s.source, from));
-  const mergeNear = targetSlots.filter((s) => canMergeSlot(s, itemId, maxStack) && edgeDistToRect(x, y, s.rect) <= 18);
+  const direct = targetSlots.find((s) => edgeDistToRect(x, y, s.rect) === 0);
+  if (direct && isAvailableSlot({ s: direct, itemId, maxStack, prefixId })) return direct.source;
+  const mergeNear = targetSlots.filter((s) => canMergeSlot({ s, itemId, maxStack, prefixId }) && edgeDistToRect(x, y, s.rect) <= 18);
   if (mergeNear.length > 0) return pickBestSlot(mergeNear, { x, y, byCenter: true });
-  const avail = targetSlots.filter((s) => isAvailableSlot(s, itemId, maxStack));
+  const avail = targetSlots.filter((s) => isAvailableSlot({ s, itemId, maxStack, prefixId }));
   if (avail.length > 0) return pickBestSlot(avail, { x, y, byCenter: true });
-  if (targetZone === ZONE_BACKPACK || targetZone === ZONE_HOTBAR) {
-    const companion = targetZone === ZONE_BACKPACK ? ZONE_HOTBAR : ZONE_BACKPACK;
-    const spill = slots.filter((s) => s.zone === companion && !isSameDragSource(s.source, from) && isAvailableSlot(s, itemId, maxStack));
-    if (spill.length > 0) return pickBestSlot(spill, { x, y, byCenter: true });
-  }
-  const nearAny = targetSlots.filter((s) => edgeDistToRect(x, y, s.rect) <= 20);
-  return pickBestSlot(nearAny, { x, y, byCenter: false });
+  if (direct) return direct.source;
+  return findCompanionSpill(opts) ?? pickBestSlot(targetSlots.filter((s) => edgeDistToRect(x, y, s.rect) <= 20), { x, y, byCenter: false });
 }
 
 function resolveSameContainerSlot(opts: {
   readonly x: number; readonly y: number; readonly from: DragSource; readonly targetZone: HudDropZone;
-  readonly itemId: string; readonly maxStack: number; readonly slots: readonly MeasuredSlot[];
+  readonly itemId: string; readonly maxStack: number; readonly prefixId?: string | undefined; readonly slots: readonly MeasuredSlot[];
 }): DragSource | null {
-  const { x, y, from, targetZone, itemId, maxStack, slots } = opts;
+  const { x, y, from, targetZone, itemId, maxStack, prefixId, slots } = opts;
   const zoneSlots = slots.filter((s) => s.zone === targetZone);
   const hit = zoneSlots.find((s) => edgeDistToRect(x, y, s.rect) === 0);
   if (hit) {
     if (isSameDragSource(from, hit.source)) return null;
-    if (isAvailableSlot(hit, itemId, maxStack) || rectInset(x, y, hit.rect) >= 5) return hit.source;
+    if (isAvailableSlot({ s: hit, itemId, maxStack, prefixId }) || rectInset(x, y, hit.rect) >= 5) return hit.source;
   }
   const others = zoneSlots.filter((s) => !isSameDragSource(from, s.source));
-  const nearAvail = others.filter((s) => isAvailableSlot(s, itemId, maxStack) && edgeDistToRect(x, y, s.rect) <= 24);
+  const nearAvail = others.filter((s) => isAvailableSlot({ s, itemId, maxStack, prefixId }) && edgeDistToRect(x, y, s.rect) <= 24);
   if (nearAvail.length > 0) return pickBestSlot(nearAvail, { x, y, byCenter: false });
   return pickBestSlot(others.filter((s) => edgeDistToRect(x, y, s.rect) <= 36), { x, y, byCenter: false });
 }
@@ -192,6 +205,7 @@ export function resolvePointerDrop(input: {
   readonly from: DragSource;
   readonly itemId: string;
   readonly maxStack: number;
+  readonly prefixId?: string | undefined;
   readonly itemArmorSlot?: ArmorSlotKey | undefined;
   readonly zones: readonly MeasuredZone[];
   readonly slots: readonly MeasuredSlot[];

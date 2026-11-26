@@ -1,5 +1,5 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
-import { STARTER_ARMOR } from "@dc2d/content";
+import { STARTER_ARMOR, isBowItem } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, MELEE_FEEL_TUNING, STEALTH_TUNING,
   WorldChunkCache, playerFootSegment, resolveMovement, stepJumpArc, type CharacterAppearance, type PlayerSnapshot,
@@ -69,6 +69,8 @@ function serverCombatFields(serverMe: PlayerSnapshot): Partial<PlayerSnapshot> {
     burnTimer: serverMe.burnTimer, poisonTimer: serverMe.poisonTimer, poisonLocked: serverMe.poisonLocked,
     webSlowTimer: serverMe.webSlowTimer, webStick: serverMe.webStick, cocoonProgress: serverMe.cocoonProgress, hitTimer: serverMe.hitTimer,
     respawnTimer: serverMe.respawnTimer, inSanctuary: serverMe.inSanctuary, godMode: serverMe.godMode,
+    shrineBuff: serverMe.shrineBuff, glowRadiusBonus: serverMe.glowRadiusBonus, moveSpeedMult: serverMe.moveSpeedMult,
+    activeBubble: serverMe.activeBubble,
     stealthVis: serverMe.stealthVis, inCover: serverMe.inCover, attackFlash: serverMe.attackFlash,
     inWater: Boolean(serverMe.inWater), inDeepWater: Boolean(serverMe.inDeepWater),
   };
@@ -135,7 +137,7 @@ const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0
 
 function resolvePredictedBowCharge(player: PlayerSnapshot, bowDraw: boolean | undefined, dt: number): number | undefined {
   if (bowDraw === undefined) return player.bowCharge;
-  if (!bowDraw || player.heldItem !== "bow" || isBowDrawDisabled(player)) return 0;
+  if (!bowDraw || !isBowItem(player.heldItem) || isBowDrawDisabled(player)) return 0;
   return Math.min(1, (player.bowCharge ?? 0) + dt / BOW_MAX_CHARGE_SEC);
 }
 

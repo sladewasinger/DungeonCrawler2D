@@ -1,6 +1,7 @@
-/** Renders POI chests, floating Open/Pickup prompts, and ground loot/arrow views. */
-import { AI_TUNING, TILE_PX, type GroundLootSnapshot, type PlayerSnapshot, type WorldChestSnapshot } from "@dc2d/engine";
+/** Renders POI chests, floating Open/Pickup/POI prompts, and ground loot/arrow views. */
+import { AI_TUNING, TILE_PX, type GroundLootSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache } from "@dc2d/engine";
 import { Container, Graphics, Sprite } from "pixi.js";
+import { resolveWorldInteractPrompt } from "../../ui/discovery/poiPromptHelper.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
 import { ELEVATION_LIFT_PX } from "../world/cliffStrips.js";
 import { createGroundLootView, syncGroundLootView, type LootView } from "./lootViewHelpers.js";
@@ -42,24 +43,26 @@ interface ChestView {
 }
 
 function chestSpriteKey(c: WorldChestSnapshot): string {
-  const stone = c.poiKind === "ancient-ruins";
+  const stone = c.poiKind === "ancient-ruins" || c.poiKind === "brazier-vault" || Boolean(c.sealed);
   return `${stone ? "chest-stone" : "chest-wood"}-${c.opened ? "open" : "closed"}`;
 }
 
-function syncChestHighlight(view: ChestView, highlighted: boolean): void {
-  if (view.lastHighlight === highlighted) return;
+function syncChestHighlight(view: ChestView, highlighted: boolean, sealed: boolean): void {
+  if (view.lastHighlight === highlighted && view.lastKey.endsWith(String(sealed))) return;
   view.highlight.clear();
-  if (highlighted) view.highlight.ellipse(0, -1, 11, 4.5).stroke({ color: 0xfde047, width: 1.5 });
+  if (sealed) view.highlight.ellipse(0, -2, 12, 5).stroke({ color: 0xf97316, width: 1.8 });
+  else if (highlighted) view.highlight.ellipse(0, -1, 11, 4.5).stroke({ color: 0xfde047, width: 1.5 });
 }
 
 function syncChestViewVisual(view: ChestView, c: WorldChestSnapshot, highlighted: boolean): void {
-  const key = chestSpriteKey(c);
+  const sealed = Boolean(c.sealed);
+  const key = `${chestSpriteKey(c)}:${sealed}`;
   if (view.sprite) {
-    const asset = view.lastKey !== key ? getLoadedSpriteAsset(key) : null;
+    const asset = view.lastKey.split(":")[0] !== key.split(":")[0] ? getLoadedSpriteAsset(chestSpriteKey(c)) : null;
     if (asset) { view.sprite.texture = asset.texture; view.sprite.scale.set(asset.scale); view.sprite.anchor.set(asset.anchorX, asset.anchorY); }
-    syncChestHighlight(view, highlighted);
+    syncChestHighlight(view, highlighted, sealed);
   } else if (view.fallback && (view.lastKey !== key || view.lastHighlight !== highlighted)) {
-    drawChestGraphic(view.fallback, c, highlighted);
+    drawChestGraphic(view.fallback, c, highlighted || sealed);
   }
   view.lastKey = key;
   view.lastHighlight = highlighted;
@@ -104,25 +107,29 @@ export class WorldPickupsRenderer {
     readonly chests: readonly WorldChestSnapshot[];
     readonly groundLoot: readonly GroundLootSnapshot[];
     readonly local: PlayerSnapshot | undefined;
+    readonly cache?: WorldChunkCache | undefined;
     readonly timeSec: number;
   }): void {
-    const nearChestId = this.syncChests(opts.chests, opts.local);
-    const nearArrowId = this.syncGroundLoot(opts.groundLoot, opts.local, opts.timeSec);
-    this.nearLootId = nearChestId ? undefined : (nearArrowId ?? undefined);
-    this.promptBtn.hidden = nearChestId === null && nearArrowId === null;
-    if (nearChestId) this.promptBtn.textContent = "[E] Open Chest";
-    else if (nearArrowId) this.promptBtn.textContent = "[E] Pick up Arrow";
+    const nearChest = this.syncChests(opts.chests, opts.local);
+    const nearLoot = this.syncGroundLoot(opts.groundLoot, opts.local, opts.timeSec);
+    this.nearLootId = nearChest ? undefined : nearLoot?.id;
+    const prompt = resolveWorldInteractPrompt({ nearestChest: nearChest, nearestLoot: nearLoot, local: opts.local, cache: opts.cache });
+    this.promptBtn.hidden = !prompt;
+    if (!prompt) return;
+    this.promptBtn.textContent = prompt.label;
+    this.promptBtn.style.borderColor = prompt.locked ? "rgba(249, 115, 22, 0.75)" : "rgba(250, 204, 21, 0.55)";
+    this.promptBtn.style.color = prompt.locked ? "#fdba74" : "#fde047";
   }
 
-  private syncChests(chests: readonly WorldChestSnapshot[], local: PlayerSnapshot | undefined): string | null {
+  private syncChests(chests: readonly WorldChestSnapshot[], local: PlayerSnapshot | undefined): WorldChestSnapshot | undefined {
     pruneChestViews(this.chestViews, chests);
-    let nearestOpenable: string | null = null;
+    let nearestOpenable: WorldChestSnapshot | undefined;
     let bestDist: number = AI_TUNING.chestInteractRadiusTiles;
     for (const c of chests) {
       const dist = local ? Math.hypot(c.x - local.x, c.y - local.y) : 99;
-      if (dist <= bestDist) { bestDist = dist; nearestOpenable = c.id; }
+      if (dist <= bestDist) { bestDist = dist; nearestOpenable = c; }
       const view = this.chestViews.get(c.id) ?? this.createChestView(c);
-      syncChestViewVisual(view, c, c.id === nearestOpenable);
+      syncChestViewVisual(view, c, c.id === nearestOpenable?.id);
       view.root.position.set(c.x * TILE_PX, c.y * TILE_PX - c.elevation * ELEVATION_LIFT_PX);
       view.root.zIndex = Math.round(c.y * TILE_PX) + c.elevation * 2;
     }
@@ -145,29 +152,29 @@ export class WorldPickupsRenderer {
     return view;
   }
 
-  private findNearestManualLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined): string | null {
-    if (!local) return null;
-    let bestId: string | null = null;
+  private findNearestManualLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined): GroundLootSnapshot | undefined {
+    if (!local) return undefined;
+    let best: GroundLootSnapshot | undefined;
     let bestDist = 2.25;
     for (const item of list) {
       if (!item.manualPickup) continue;
       const d = Math.hypot(item.x - local.x, item.y - local.y);
-      if (d <= bestDist) { bestDist = d; bestId = item.id; }
+      if (d <= bestDist) { bestDist = d; best = item; }
     }
-    return bestId;
+    return best;
   }
 
-  private syncGroundLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined, timeSec: number): string | null {
+  private syncGroundLoot(list: readonly GroundLootSnapshot[], local: PlayerSnapshot | undefined, timeSec: number): GroundLootSnapshot | undefined {
     const active = new Set(list.map((g) => g.id));
     for (const [id, view] of this.lootViews) {
       if (!active.has(id)) { view.root.destroy({ children: true }); this.lootViews.delete(id); }
     }
-    const nearId = this.findNearestManualLoot(list, local);
+    const nearItem = this.findNearestManualLoot(list, local);
     for (const item of list) {
       let view = this.lootViews.get(item.id);
       if (!view) { view = createGroundLootView(item); this.lootViews.set(item.id, view); this.container.addChild(view.root); }
-      syncGroundLootView(view, { item, tilePx: TILE_PX, timeSec, highlighted: item.id === nearId });
+      syncGroundLootView(view, { item, tilePx: TILE_PX, timeSec, highlighted: item.id === nearItem?.id });
     }
-    return nearId;
+    return nearItem;
   }
 }

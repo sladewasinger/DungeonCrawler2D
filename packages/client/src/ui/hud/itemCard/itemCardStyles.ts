@@ -9,12 +9,14 @@ const ITEM_CARD_CSS = `
 
 .ow-item-card {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  z-index: 56; width: min(350px, calc(100vw - 24px));
+  z-index: 56; width: min(340px, calc(100vw - 24px));
   padding: 14px; border-radius: 14px;
   background: rgba(10, 15, 24, 0.96); border: 2px solid rgba(148, 163, 184, 0.45);
   box-shadow: 0 20px 52px rgba(0, 0, 0, 0.78); backdrop-filter: blur(12px);
   color: #f8fafc; display: flex; flex-direction: column; gap: 10px;
 }
+.ow-item-card[data-anchored="true"] { transform: none; }
+.ow-item-card[data-mode="hover"] { pointer-events: none; z-index: 55; opacity: 0.96; }
 .ow-item-card[hidden] { display: none; }
 .ow-ic-head { display: flex; align-items: center; gap: 12px; }
 .ow-ic-icon-wrap {

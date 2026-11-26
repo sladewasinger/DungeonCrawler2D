@@ -4,11 +4,12 @@ import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { createPixelCanvas } from "../../textures/pixelCanvas.js";
 import { getPlayerLayerImage, getPlayerPortraitLayer, getPlayerRigMeta, resolvePortraitCell, type PlayerRigMeta } from "../playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "../playerRecolor.js";
+import { drawRecoloredCell, type StyledLayerEntry } from "./armorLayerRecolor.js";
 import { CORE_CLIP_NAMES, findSlotInPlan, type PackedTierAtlas } from "./playerAtlasPacker.js";
 
 const BODY_FEMALE = "female";
 
-interface OrderedLayer { readonly id: string; readonly zOrder: number; }
+interface OrderedLayer extends StyledLayerEntry { readonly zOrder: number; }
 
 export interface PortraitCropRect {
   readonly cw: number;
@@ -33,14 +34,20 @@ function acquireScratch(current: ScratchSurface | null, w: number, h: number): S
   return createPixelCanvas(w, h);
 }
 
+const layerRecolorProps = (spec: { readonly recolorPrimary?: string; readonly recolorTrim?: string }) => ({
+  ...(spec.recolorPrimary ? { recolorPrimary: spec.recolorPrimary } : {}),
+  ...(spec.recolorTrim ? { recolorTrim: spec.recolorTrim } : {}),
+});
+
 function pushSingleItemLayer(opts: {
   readonly itemId: string | null; readonly gTag: string; readonly includeArms: boolean; readonly list: OrderedLayer[];
 }): boolean {
   const spec = opts.itemId ? getItemDef(opts.itemId)?.visualLayer : undefined;
   if (!spec) return false;
-  opts.list.push({ id: spec.gendered ? `${spec.assetId}-${opts.gTag}` : spec.assetId, zOrder: spec.zOrder });
+  const recolor = layerRecolorProps(spec);
+  opts.list.push({ id: spec.gendered ? `${spec.assetId}-${opts.gTag}` : spec.assetId, zOrder: spec.zOrder, ...recolor });
   if (opts.includeArms && spec.sleeveAssetId) {
-    opts.list.push({ id: `${spec.sleeveAssetId}-${opts.gTag}`, zOrder: spec.zOrder + 5 });
+    opts.list.push({ id: `${spec.sleeveAssetId}-${opts.gTag}`, zOrder: spec.zOrder + 5, ...recolor });
   }
   return Boolean(spec.hidesHair);
 }
@@ -55,14 +62,22 @@ function pushEquipmentLayers(opts: {
   return hidesHair;
 }
 
-export function resolveLayerStack(appearance: CharacterAppearance, armor: ArmorEquipment, includeArms = true): string[] {
+export function resolveStyledLayerStack(appearance: CharacterAppearance, armor: ArmorEquipment, includeArms = true): StyledLayerEntry[] {
   const gTag = appearance.body === BODY_FEMALE ? BODY_FEMALE : "male";
   const list: OrderedLayer[] = [{ id: `body-${gTag}`, zOrder: 0 }];
   if (includeArms) list.push({ id: `body-${gTag}-arms`, zOrder: 5 });
   const hidesHair = pushEquipmentLayers({ armor, gTag, includeArms, list });
   if (!hidesHair && appearance.hairStyle !== "bald") list.push({ id: `hair-${appearance.hairStyle}`, zOrder: 45 });
   list.sort((a, b) => a.zOrder - b.zOrder);
-  return list.map((e) => e.id);
+  return list.map(({ id, recolorPrimary, recolorTrim }) => ({
+    id,
+    ...(recolorPrimary ? { recolorPrimary } : {}),
+    ...(recolorTrim ? { recolorTrim } : {}),
+  }));
+}
+
+export function resolveLayerStack(appearance: CharacterAppearance, armor: ArmorEquipment, includeArms = true): string[] {
+  return resolveStyledLayerStack(appearance, armor, includeArms).map((e) => e.id);
 }
 
 export function computePortraitCropRect(
@@ -80,19 +95,20 @@ export function computePortraitCropRect(
 }
 
 function drawPortraitLayers(opts: {
-  readonly ctx: CanvasRenderingContext2D; readonly layerIds: readonly string[]; readonly meta: PlayerRigMeta;
+  readonly ctx: CanvasRenderingContext2D; readonly layers: readonly StyledLayerEntry[]; readonly meta: PlayerRigMeta;
 }): void {
-  const { ctx, layerIds, meta } = opts;
-  const fw = meta.frameWidth;
-  const fh = meta.frameHeight;
+  const { ctx, layers, meta } = opts;
+  const fw = meta.frameWidth; const fh = meta.frameHeight;
   const cell = resolvePortraitCell(meta);
-  const sx = cell.col * fw;
-  const sy = cell.row * fh;
-  for (const id of layerIds) {
-    const sliced = getPlayerPortraitLayer(id);
-    if (sliced) { ctx.drawImage(sliced, 0, 0); continue; }
-    const fullImg = getPlayerLayerImage(id);
-    if (fullImg) ctx.drawImage(fullImg, sx, sy, fw, fh, 0, 0, fw, fh);
+  const sx = cell.col * fw; const sy = cell.row * fh;
+  for (const layer of layers) {
+    const sliced = getPlayerPortraitLayer(layer.id);
+    if (sliced) {
+      drawRecoloredCell({ ctx, source: sliced, sx: 0, sy: 0, w: fw, h: fh, recolorPrimary: layer.recolorPrimary, recolorTrim: layer.recolorTrim });
+      continue;
+    }
+    const fullImg = getPlayerLayerImage(layer.id);
+    if (fullImg) drawRecoloredCell({ ctx, source: fullImg, sx, sy, w: fw, h: fh, recolorPrimary: layer.recolorPrimary, recolorTrim: layer.recolorTrim });
   }
 }
 
@@ -106,7 +122,7 @@ export function build3dCharacterPortraitUrl(
   const fw = meta.frameWidth;
   const fh = meta.frameHeight;
   portraitCellScratch = acquireScratch(portraitCellScratch, fw, fh);
-  drawPortraitLayers({ ctx: portraitCellScratch.ctx, layerIds: resolveLayerStack(appearance, armor, true), meta });
+  drawPortraitLayers({ ctx: portraitCellScratch.ctx, layers: resolveStyledLayerStack(appearance, armor, true), meta });
   const imgData = portraitCellScratch.ctx.getImageData(0, 0, fw, fh);
   applyRecolorPass({
     data: imgData.data, width: fw, height: fh, palettes: resolveSentinelPalettes(appearance), cellW: fw, cellH: fh,

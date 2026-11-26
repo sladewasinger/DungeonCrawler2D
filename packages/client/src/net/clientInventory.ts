@@ -107,23 +107,24 @@ export function applyChestTransfer(opts: {
   readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot;
   readonly from: "chest" | "inv"; readonly fromSlot: number;
   readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined;
-}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot } {
+}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot; readonly changed: boolean } {
   const nextSlots = opts.inv.slots.map((s) => (s ? { ...s } : null));
   const nextChestSlots = opts.chest.slots.map((s) => (s ? { ...s } : null));
   const changed = opts.quick
     ? quickTransferChestSlot({ chestSlots: nextChestSlots, invSlots: nextSlots, from: opts.from, slotIndex: opts.fromSlot, maxStackFor: maxStackForItem })
     : transferChestSlot({ chestSlots: nextChestSlots, invSlots: nextSlots, from: opts.from, fromSlot: opts.fromSlot, to: opts.to, toSlot: opts.toSlot, maxStackFor: maxStackForItem });
-  if (!changed) return { inv: opts.inv, chest: opts.chest };
-  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots } };
+  if (!changed) return { inv: opts.inv, chest: opts.chest, changed: false };
+  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots }, changed: true };
 }
 
 export function applyChestTakeAll(opts: {
   readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot;
-}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot } {
+}): { readonly inv: InventorySnapshot; readonly chest: WorldChestSnapshot; readonly changed: boolean } {
   const nextSlots = opts.inv.slots.map((s) => (s ? { ...s } : null));
   const nextChestSlots = opts.chest.slots.map((s) => (s ? { ...s } : null));
-  takeAllFromChest({ chestSlots: nextChestSlots, invSlots: nextSlots, maxStackFor: maxStackForItem });
-  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots } };
+  const moved = takeAllFromChest({ chestSlots: nextChestSlots, invSlots: nextSlots, maxStackFor: maxStackForItem });
+  if (moved <= 0) return { inv: opts.inv, chest: opts.chest, changed: false };
+  return { inv: { ...opts.inv, slots: nextSlots }, chest: { ...opts.chest, opened: true, slots: nextChestSlots }, changed: true };
 }
 
 function dropFromChestSlot(opts: { readonly inv: InventorySnapshot; readonly chest?: WorldChestSnapshot | undefined; readonly req: DropItemRequest }) {

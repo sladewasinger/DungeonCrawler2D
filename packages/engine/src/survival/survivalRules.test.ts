@@ -4,6 +4,7 @@ import { GroundKind, PropKind } from "../world/types.js";
 import { canPlaceStructure } from "./campBuilding.js";
 import { computeHarvestDamage, rollHarvestDrops } from "./harvestRules.js";
 import { computeSurvivalRegen } from "./survivalBuffs.js";
+import { WorldDeltaOverlay } from "./worldDeltas.js";
 
 class FlatCampCache extends WorldChunkCache {
   override tileAt(wx: number) {
@@ -50,5 +51,30 @@ describe("Phase 8 engine survival rules and chunk deltas", () => {
     const hurt = computeSurvivalRegen({ wellFedTimer: 30, restedTimer: 60, hitTimer: 0.2 });
     expect(hurt.hpPerSec).toBe(0);
     expect(hurt.staminaBonusPerSec).toBe(18);
+  });
+
+  it("replaces BrazierUnlit props and bumps chunk revision when litBraziers delta arrives", () => {
+    const cache = new FlatCampCache(1337);
+    const overlay = new WorldDeltaOverlay();
+    const brazierId = "brazier:brazier-vault:4,-2:0";
+    const dirty = overlay.replaceFromSnapshot({ depleted: [], structures: [], litBraziers: [brazierId] });
+    expect(dirty).toContain("4,-2");
+    expect(overlay.chunkRevision(4, -2)).toBeGreaterThan(0);
+
+    const revBefore = cache.chunkRevision(4, -2);
+    cache.applyWorldDeltaSnapshot({ depleted: [], structures: [], litBraziers: [brazierId] });
+    expect(cache.chunkRevision(4, -2)).toBeGreaterThan(revBefore);
+
+    const chunk = cache.getChunk(4, -2);
+    const withUnlit = {
+      ...chunk,
+      props: [
+        ...chunk.props,
+        { id: brazierId, kind: PropKind.BrazierUnlit, x: 64.5, y: -32.5, variant: 0, elevation: 0, radius: 0.36, blocksMovement: true },
+      ],
+    };
+    const updated = overlay.applyChunkDeltas(withUnlit);
+    expect(updated.props.find((p) => p.id === brazierId)?.kind).toBe(PropKind.BrazierLit);
+    expect(updated.lights.some((l) => l.id === `${brazierId}-light`)).toBe(true);
   });
 });

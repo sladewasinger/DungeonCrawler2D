@@ -14,14 +14,21 @@ export interface WorldDeltaSnapshot {
   readonly litBraziers?: readonly string[] | undefined;
 }
 
-function keyFromBrazierId(brazierId: string, x?: number, y?: number): string | null {
-  if (x !== undefined && y !== undefined) return chunkKey(worldToChunkCoord(Math.floor(x)), worldToChunkCoord(Math.floor(y)));
-  const chunkPart = brazierId.split(":")[1];
-  if (!chunkPart) return null;
-  const [cxStr, cyStr] = chunkPart.split(",");
+function parseChunkCoordToken(part: string): string | null {
+  if (!part.includes(",")) return null;
+  const [cxStr, cyStr] = part.split(",");
   const cx = Number(cxStr);
   const cy = Number(cyStr);
   return Number.isFinite(cx) && Number.isFinite(cy) ? chunkKey(cx, cy) : null;
+}
+
+function keyFromBrazierId(brazierId: string, x?: number, y?: number): string | null {
+  if (x !== undefined && y !== undefined) return chunkKey(worldToChunkCoord(Math.floor(x)), worldToChunkCoord(Math.floor(y)));
+  for (const part of brazierId.split(":").slice(1)) {
+    const parsed = parseChunkCoordToken(part);
+    if (parsed) return parsed;
+  }
+  return null;
 }
 
 function keyFromPropIdOrPos(propId: string, x?: number, y?: number): string | null {

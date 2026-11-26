@@ -173,7 +173,7 @@ export class WorldScene {
   }): void {
     const { input, local, simDt, lights, campfires, casters, preset } = opts;
     const entities = input.entities ?? [];
-    this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, timeSec: input.timeSec });
+    this.pickups.sync({ chests: input.chests ?? [], groundLoot: input.groundLoot ?? [], local, cache: input.cache, timeSec: input.timeSec });
     const dayNight = sampleDayNight(input.dayPhase);
     this.castShadows.update(casters, dayNight);
     this.updateShaders({ timeSec: input.timeSec, dayNight, preset });

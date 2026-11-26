@@ -19,7 +19,7 @@ export function findTapManualLootAt(opts: {
 }): GroundLootSnapshot | undefined {
   return opts.groundLoot.find((g) => {
     const gy = g.y - g.elevation * 0.625;
-    return g.manualPickup && Math.hypot(opts.world.x - g.x, opts.world.y - gy) <= 0.95 && Math.hypot(g.x - opts.me.x, g.y - opts.me.y) <= 2.25;
+    return Math.hypot(opts.world.x - g.x, opts.world.y - gy) <= 0.95 && Math.hypot(g.x - opts.me.x, g.y - opts.me.y) <= 2.25;
   });
 }
 

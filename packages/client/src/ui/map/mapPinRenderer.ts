@@ -15,7 +15,7 @@ const CATEGORY_PIN: Readonly<Record<PoiCategory, { readonly color: string; reado
   ruins: { color: "#94a3b8", shape: "diamond" },
 };
 
-const ROMAN: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
+const ROMAN: Readonly<Record<number, string>> = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
 
 function drawPinGlyph(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly color: string; readonly shape: string }): void {
   const { px, py, color, shape } = opts;
@@ -54,22 +54,50 @@ function inBounds(px: number, py: number, mapPx: number): boolean {
   return px >= -6 && py >= -6 && px <= mapPx + 6 && py <= mapPx + 6;
 }
 
-interface PinDrawParams {
+interface PinEntry {
+  readonly cx: number; readonly cy: number;
+  readonly x: number; readonly y: number;
+  readonly id: string; readonly color: string; readonly shape: string;
+}
+
+let cachedPinKey = "";
+let cachedPins: PinEntry[] = [];
+
+function getWindowPins(opts: { readonly cache: WorldChunkCache; readonly pcx: number; readonly pcy: number; readonly halfChunks: number }): readonly PinEntry[] {
+  const { cache, pcx, pcy, halfChunks } = opts;
+  const key = `${cache.worldSeed}:${pcx}:${pcy}:${halfChunks}`;
+  if (key === cachedPinKey) return cachedPins;
+  cachedPinKey = key;
+  const out: PinEntry[] = [];
+  for (let oy = -halfChunks; oy <= halfChunks; oy++) {
+    for (let ox = -halfChunks; ox <= halfChunks; ox++) {
+      for (const poi of cache.getChunk(pcx + ox, pcy + oy).pois) {
+        const pin = CATEGORY_PIN[getPoiCatalogEntry(poi.kind).category];
+        out.push({ cx: pcx + ox, cy: pcy + oy, x: poi.centerX, y: poi.centerY, id: poi.id, ...pin });
+      }
+    }
+  }
+  cachedPins = out;
+  return out;
+}
+
+function drawWindowPoiPins(opts: {
   readonly ctx: CanvasRenderingContext2D; readonly cache: WorldChunkCache;
   readonly localX: number; readonly localY: number; readonly zoom: number; readonly mapPx: number;
   readonly discovered: ReadonlySet<string>;
-}
-
-function drawChunkPoiPins(p: PinDrawParams, cx: number, cy: number): void {
-  const center = p.mapPx * 0.5;
-  for (const poi of p.cache.getChunk(cx, cy).pois) {
-    const show = p.discovered.size > 0
-      ? p.discovered.has(poi.id)
-      : Math.hypot(poi.centerX - p.localX, poi.centerY - p.localY) <= 36;
+}): void {
+  const halfChunks = Math.min(4, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
+  const pcx = Math.floor(opts.localX / 32);
+  const pcy = Math.floor(opts.localY / 32);
+  const center = opts.mapPx * 0.5;
+  for (const poi of getWindowPins({ cache: opts.cache, pcx, pcy, halfChunks })) {
+    const show = opts.discovered.size > 0
+      ? opts.discovered.has(poi.id)
+      : Math.hypot(poi.x - opts.localX, poi.y - opts.localY) <= 36;
     if (!show) continue;
-    const px = center + (poi.centerX - p.localX) * p.zoom;
-    const py = center + (poi.centerY - p.localY) * p.zoom;
-    if (inBounds(px, py, p.mapPx)) drawPinGlyph(p.ctx, { px, py, ...CATEGORY_PIN[getPoiCatalogEntry(poi.kind).category] });
+    const px = center + (poi.x - opts.localX) * opts.zoom;
+    const py = center + (poi.y - opts.localY) * opts.zoom;
+    if (inBounds(px, py, opts.mapPx)) drawPinGlyph(opts.ctx, { px, py, color: poi.color, shape: poi.shape });
   }
 }
 
@@ -92,13 +120,7 @@ export function drawFrontierMapPins(opts: {
   readonly discovery?: DiscoveryStateSnapshot | undefined; readonly nowMs: number;
 }): void {
   const discovered = new Set(opts.discovery?.discoveredPoiIds ?? []);
-  const halfChunks = Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1;
-  const pcx = Math.floor(opts.localX / 32);
-  const pcy = Math.floor(opts.localY / 32);
-  const params: PinDrawParams = { ...opts, discovered };
-  for (let oy = -halfChunks; oy <= halfChunks; oy++) {
-    for (let ox = -halfChunks; ox <= halfChunks; ox++) drawChunkPoiPins(params, pcx + ox, pcy + oy);
-  }
+  drawWindowPoiPins({ ...opts, discovered });
   drawRevealedBeacons({ ...opts, beacons: opts.discovery?.revealedBeacons ?? [] });
 }
 
@@ -106,7 +128,8 @@ export function formatCompassBiomeHint(worldSeed: number, x: number, y: number):
   const biome = sampleMacroBiome(worldSeed, x, y);
   const entry = getBiomeEntry(biome);
   const tier = computeDangerTier(biome, x, y);
-  return `${entry.displayName} · T${ROMAN[tier] ?? tier}`;
+  const dist = Math.round(Math.hypot(x, y));
+  return `${entry.displayName} · T${ROMAN[tier] ?? tier} · ${dist}m`;
 }
 
 export function formatMapFooterSummary(opts: {

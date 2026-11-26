@@ -70,7 +70,7 @@ export interface PlayerStanceInput {
 
 function isAimLockedStance(snap: PlayerStanceInput): boolean {
   if ((snap.heavyCharge ?? 0) > 0) return true;
-  return snap.heldItem === "bow" && (snap.bowCharge ?? 0) > 0.001;
+  return (snap.bowCharge ?? 0) > 0.001;
 }
 
 function pickStanceVector(snap: PlayerStanceInput): Vec2Like {

@@ -1,4 +1,5 @@
 /** Pose-track selection, combat FX, swim bob, Pixi slot builders, and legacy arm rig helpers. */
+import { isBowItem } from "@dc2d/content";
 import { gaitFrameIndex, getWeaponStepSpec, resolveWeaponArchetype, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { ARM_PIVOT_ANCHOR, computeArmRig, type AirborneState, type ArmRigPose } from "../character/armRig.js";
@@ -42,7 +43,7 @@ export function cardinalFromDir(dir: FacingDir, flipX: boolean): CardinalFacing 
 }
 
 export function isBowActivelyAiming(snap: PlayerSnapshot): boolean {
-  return snap.heldItem === "bow" && (snap.bowCharge ?? 0) > 0.001;
+  return isBowItem(snap.heldItem) && (snap.bowCharge ?? 0) > 0.001;
 }
 
 export function needsSecondaryAnimTier(snap: PlayerSnapshot): boolean {
@@ -103,7 +104,7 @@ function isBowAiming(snap: PlayerSnapshot, anim: DirectionAnim): boolean {
 }
 
 function isMeleeAttacking(snap: PlayerSnapshot, anim: DirectionAnim): boolean {
-  if (snap.heldItem === "bow" || !anim.attack?.length) return false;
+  if (isBowItem(snap.heldItem) || !anim.attack?.length) return false;
   return (snap.swingProgress ?? 0) > 0 || (snap.heavyCharge ?? 0) > 0;
 }
 

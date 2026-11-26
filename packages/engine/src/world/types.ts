@@ -70,7 +70,7 @@ export type BiomeKind =
   | "craggy-highlands"
   | "cursed-ruinlands";
 
-export type DangerTier = 1 | 2 | 3 | 4;
+export type DangerTier = 1 | 2 | 3 | 4 | 5;
 export type PoiCategory = "camp" | "ruins" | "shrine" | "micro" | "lair" | "puzzle" | "friendly";
 
 export type PoiKind =

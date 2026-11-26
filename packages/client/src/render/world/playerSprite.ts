@@ -1,4 +1,5 @@
 /** Renders 3D 8-dir Hero sprites with baked arms/hand sockets, 3D 8-dir bow overlay, dashed aim line, and swim mask. */
+import { isBowItem } from "@dc2d/content";
 import { DEFAULT_APPEARANCE, JUMP_VISUAL_PX_PER_TILE, TILE_PX, advanceGaitClock, createGaitClock, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
 import { Container, Graphics, Sprite, type Text, type Texture } from "pixi.js";
 import { drawPlayerWebOverlay } from "../combat/webs/webRenderer.js";
@@ -20,6 +21,8 @@ import {
   solveLegacyArmRigForSnap, syncBowAimGuide, syncSubmergedSprite, syncWaterSubmergeState, type ActivePose,
 } from "./playerPoseHelpers.js";
 
+const BOW_TINTS: Readonly<Record<string, number>> = { "amber-recurve-bow": 0xfcd34d, "whisperwind-bow": 0x99f6e4 };
+const bowOverlayTint = (heldItem: string | null | undefined): number => (heldItem ? (BOW_TINTS[heldItem] ?? 0xffffff) : 0xffffff);
 const EMPTY_ARMOR: ArmorEquipment = { head: null, chest: null, legs: null, feet: null, offhand: null };
 
 const BACK_BOW_DIRS = new Set<FacingDir>(["north", "ne"]);
@@ -185,7 +188,7 @@ export class PlayerView {
     const showHands = !this.sprites.is3d;
     this.syncMainHand({ snap, active, tint: handTint, visual, main: layout.main, showGripHands: showHands });
     this.syncOffhand({ tint: handTint, off: layout.offhand, timeSec, showHand: showHands });
-    this.syncShield(layout.shield);
+    this.syncShield(layout.shield, snap.armor?.offhand);
     if (this.sprites.is3d) { this.rightArmSprite.visible = false; this.leftArmSprite.visible = false; return; }
     const rig = solveLegacyArmRigForSnap({ snap, active, layout, visual });
     this.syncArm(this.rightArmSprite, rig.right); this.syncArm(this.leftArmSprite, rig.left);
@@ -197,10 +200,10 @@ export class PlayerView {
     this.rightArmSprite.visible = false; this.leftArmSprite.visible = false;
   }
 
-  private syncShield(shield: ShieldPlacement): void {
+  private syncShield(shield: ShieldPlacement, offhandId?: string | null): void {
     if (!shield.equipped) { this.shieldSprite.visible = false; return; }
-    const scale = this.sprites.is3d ? getGearScale("gear-shield") : CHARACTER_WORLD_SCALE;
-    this.shieldSprite.texture = getShieldTexture();
+    const scale = this.sprites.is3d && (!offhandId || offhandId === "wooden-shield") ? getGearScale("gear-shield") : CHARACTER_WORLD_SCALE;
+    this.shieldSprite.texture = getShieldTexture(offhandId);
     this.shieldSprite.position.set(shield.x, shield.y); this.shieldSprite.rotation = shield.rotation;
     this.shieldSprite.scale.set(Math.sign(shield.scaleX) * scale, scale); this.shieldSprite.visible = true;
     attachToSlot(shield.behindBody ? this.backSlot : this.frontSlot, this.shieldSprite);
@@ -214,12 +217,13 @@ export class PlayerView {
   }
 
   private tryMount3dBowOverlay(snap: PlayerSnapshot, active: ActivePose): boolean {
-    if (!this.sprites.is3d || snap.heldItem !== "bow" || active.clip !== "bow") return false;
+    if (!this.sprites.is3d || !isBowItem(snap.heldItem) || active.clip !== "bow") return false;
     const bowTex = getBowOverlayTexture(active.dir, active.frameIdx);
     if (!bowTex) return false;
     const scale = this.sprites.worldScale ?? CHARACTER_WORLD_SCALE;
     this.bowOverlaySprite.texture = bowTex;
     this.bowOverlaySprite.scale.set(active.flipX ? -scale : scale, scale);
+    this.bowOverlaySprite.tint = bowOverlayTint(snap.heldItem);
     this.bowOverlaySprite.visible = true;
     attachToSlot(BACK_BOW_DIRS.has(active.dir) ? this.backSlot : this.frontSlot, this.bowOverlaySprite);
     return true;

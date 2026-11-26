@@ -7,6 +7,7 @@ import {
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { TICK_RATE, WorldSim } from "../sim/worldSim.js";
+import { executeAdminSlashCommand } from "../sim/frontier/adminSlashCommands.js";
 import { attemptAdminAuth, resolveAdminAuthConfig, type AdminAuthConfig } from "./adminAuth.js";
 import { filterSnapshotForPlayer, inventorySignature } from "./snapshotFilter.js";
 
@@ -126,11 +127,22 @@ function handleAdminPacket(opts: {
   return true;
 }
 
+function handleChatPacket(ctx: { readonly msg: Extract<ClientMessage, { t: "chat" }>; readonly session: ClientSession; readonly sim: WorldSim; readonly ws: WebSocket; readonly onSkipBroadcast: () => void }): void {
+  const { msg, session, sim, ws, onSkipBroadcast } = ctx;
+  const reply = session.isAdmin ? executeAdminSlashCommand(sim, session.playerId, msg.text) : null;
+  if (!reply) { sim.sendChat(session.playerId, msg.text, msg.shout); return; }
+  onSkipBroadcast();
+  const p = sim.getPlayer(session.playerId);
+  const data = makeTickBroadcastData(sim, false);
+  const snap = buildClientSnapshot({ sim, session, data: { ...data, chatMessages: [{ id: `adm-${Date.now()}`, senderId: session.playerId, senderName: "Admin", text: reply, shout: true, x: p?.x ?? 0, y: p?.y ?? 0, sentAtTick: sim.tick }] } });
+  sendJson(ws, snap);
+}
+
 function buildMessageHandlers(ctx: {
   readonly msg: ClientMessage; readonly session: ClientSession; readonly sim: WorldSim;
-  readonly authConfig: AdminAuthConfig; readonly onSkipBroadcast: () => void;
+  readonly authConfig: AdminAuthConfig; readonly ws: WebSocket; readonly onSkipBroadcast: () => void;
 }): Record<ClientMessage["t"], () => void> {
-  const { msg, session, sim, authConfig, onSkipBroadcast } = ctx;
+  const { msg, session, sim, authConfig, ws, onSkipBroadcast } = ctx;
   const { playerId } = session;
   return {
     hello: () => msg.t === "hello" && (msg.appearance ? sim.setAppearance(playerId, { name: msg.name, appearance: msg.appearance }) : sim.setPlayerName(playerId, msg.name)),
@@ -152,7 +164,7 @@ function buildMessageHandlers(ctx: {
     pickupLoot: () => msg.t === "pickupLoot" && sim.pickupLoot(playerId, msg.lootId),
     dropItem: () => msg.t === "dropItem" && sim.dropItem(playerId, msg),
     useItem: () => msg.t === "useItem" && sim.useItem(playerId, msg.slotIndex),
-    chat: () => msg.t === "chat" && sim.sendChat(playerId, msg.text, msg.shout),
+    chat: () => msg.t === "chat" && handleChatPacket({ msg, session, sim, ws, onSkipBroadcast }),
     ping: () => {},
     debugSpawn: () => msg.t === "debugSpawn" && session.isAdmin && !DUMMY_ENTITY_KINDS.has(msg.kind) && sim.debugSpawnNearPlayer(playerId, msg.kind as Exclude<typeof msg.kind, "dummy" | "slime-dummy" | "spar-dummy">, msg.count),
     admin: () => { if (msg.t === "admin" && !handleAdminPacket({ msg, session, sim, authConfig })) onSkipBroadcast(); },
@@ -167,9 +179,9 @@ function dispatchMessage(ctx: {
   if (msg.t === "ping") { sendJson(ws, { t: "pong", t0: msg.t0 }); return; }
   if ("seq" in msg && msg.t !== "input") sim.ackActionSeq(session.playerId, msg.seq);
   let shouldBroadcast = BROADCAST_ACTIONS.has(msg.t);
-  const handlers = buildMessageHandlers({ msg, session, sim, authConfig, onSkipBroadcast: () => { shouldBroadcast = false; } });
+  const handlers = buildMessageHandlers({ msg, session, sim, authConfig, ws, onSkipBroadcast: () => { shouldBroadcast = false; } });
   handlers[msg.t]();
-  if (shouldBroadcast) broadcastTickSnapshots({ clients, sim, includeEvents: false });
+  if (shouldBroadcast) broadcastTickSnapshots({ clients, sim, includeEvents: msg.t === "chat" });
   else if (msg.t !== "input") sendJson(ws, buildClientSnapshot({ sim, session, data: makeTickBroadcastData(sim, false) }));
 }
 

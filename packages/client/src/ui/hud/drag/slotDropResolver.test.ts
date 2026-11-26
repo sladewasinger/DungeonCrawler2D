@@ -68,4 +68,13 @@ describe("slotDropResolver", () => {
     const outside = resolvePointerDrop({ x: 40, y: 180, from, itemId: "wood", maxStack: 64, zones, slots });
     expect(outside).toEqual({ kind: "worldDrop" });
   });
+
+  it("swaps directly onto occupied backpack slot when chest-to-bag transfer targets a full inventory", () => {
+    const { zones, slots } = buildChestAndBagSetup();
+    const fullSlots = slots.map((s) => (s.item === null ? { ...s, item: { itemId: "flint-dagger", count: 1 } } : s));
+    const swap = resolvePointerDrop({
+      x: 390, y: 150, from: { kind: "chest", index: 0 }, itemId: "copper-sword", maxStack: 1, zones, slots: fullSlots,
+    });
+    expect(swap).toEqual({ kind: "transfer", target: { kind: "slot", index: 9 } });
+  });
 });

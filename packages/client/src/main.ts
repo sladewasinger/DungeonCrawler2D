@@ -1,25 +1,25 @@
 /** Client boot entry: mounts PixiJS v8 shader scene, Web Audio engine, networking, input, and HUD. */
+import { isBowItem, isShieldItem } from "@dc2d/content";
 import { ELEVATION_LIFT_TILES, type PlayerSnapshot, type WorldEntitySnapshot } from "@dc2d/engine";
 import { installAdminConsole } from "./admin/adminConsole.js";
 import { AudioEngine } from "./audio/audioEngine.js";
 import { EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim } from "./input/autoAim.js";
 import { InputController, type CombatInputsFrame } from "./input/controller.js";
+import { buildClientHudActions, createClientInputHooks, handleWorldInteract, mountSettingsForUi } from "./input/worldInteractHooks.js";
 import { saveCharacterPrefs } from "./net/characterPrefs.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
-import { findManualLootInReach, resolveTapInteractTarget } from "./render/combat/lootViewHelpers.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
 import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { DiscoveryOverlay } from "./ui/discovery/discoveryOverlay.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
 import { HudRoot } from "./ui/hud/hudRoot.js";
-import type { HudActions } from "./ui/hud/slotRenderer.js";
 import { runBootPreloadFlow } from "./ui/loading/bootPreloader.js";
 import { formatCompassBiomeHint } from "./ui/map/mapPinRenderer.js";
 import { CombatFeedbackOverlay } from "./ui/overlays/combatFeedbackOverlay.js";
 import { ConnectionStatusOverlay } from "./ui/overlays/connectionOverlay.js";
-import { SettingsMenu } from "./ui/settings/settingsMenu.js";
-import { isLocalDebugOrigin, type SettingsPrefs } from "./ui/settings/settingsPrefs.js";
+import type { SettingsMenu } from "./ui/settings/settingsMenu.js";
+import { isLocalDebugOrigin } from "./ui/settings/settingsPrefs.js";
 import { isLocalhostOrigin, TitleScreen } from "./ui/title/titleScreen.js";
 
 interface AppCtx {
@@ -50,16 +50,9 @@ function resolveTouchMeleeSnap(opts: {
   readonly local?: PlayerSnapshot | undefined; readonly entities: readonly WorldEntitySnapshot[];
 }): { readonly x: number; readonly y: number } | undefined {
   const { local, combat, move, entities } = opts;
-  if (!local || !combat.attack || local.heldItem === "bow" || !isTouchViewport()) return undefined;
+  if (!local || !combat.attack || isBowItem(local.heldItem) || !isTouchViewport()) return undefined;
   const facing = Math.hypot(move.x, move.y) > 0.05 ? move : { x: local.facingX, y: local.facingY };
   return resolveMobileMeleeAutoAim({ local, entities, facing });
-}
-
-function resolveDesktopAim(opts: {
-  readonly ctx: AppCtx & { readonly nowMs: number }; readonly combat: CombatInputsFrame;
-  readonly move: { readonly x: number; readonly y: number }; readonly local?: PlayerSnapshot | undefined;
-}) {
-  return Math.hypot(opts.move.x, opts.move.y) <= 0.05 || wantsCombatAim(opts.combat, opts.local) ? resolveMouseAim(opts.ctx) : undefined;
 }
 
 function resolveAimForTick(opts: {
@@ -69,22 +62,27 @@ function resolveAimForTick(opts: {
 }): { readonly x: number; readonly y: number } | undefined {
   const autoOn = opts.ctx.settings.currentPrefs().autoAim;
   if (opts.combat.mobileAim) {
-    return autoOn && opts.local
-      ? resolveMobileBowAutoAim({ aim: opts.combat.mobileAim, local: opts.local, entities: opts.entities, tracker: opts.ctx.velTracker })
-      : opts.combat.mobileAim;
+    if (!autoOn || !opts.local) return opts.combat.mobileAim;
+    return resolveMobileBowAutoAim({ aim: opts.combat.mobileAim, local: opts.local, entities: opts.entities, tracker: opts.ctx.velTracker });
   }
-  const snap = autoOn ? resolveTouchMeleeSnap(opts) : undefined;
-  return isTouchViewport() ? snap : resolveDesktopAim(opts);
+  if (isTouchViewport()) return autoOn ? resolveTouchMeleeSnap(opts) : undefined;
+  const stationary = Math.hypot(opts.move.x, opts.move.y) <= 0.05;
+  return stationary || wantsCombatAim(opts.combat, opts.local) ? resolveMouseAim(opts.ctx) : undefined;
 }
 
-function syncUiAndAudio(opts: { readonly ctx: AppCtx; readonly view: WorldViewState; readonly events: WorldViewState["events"]; readonly dt: number; readonly dists: { readonly campfireDist: number; readonly waterDist: number } }): void {
+const mergeFrameChat = (pre: WorldViewState, view: WorldViewState) => [
+  ...(pre.chatMessages ?? []),
+  ...(view.chatMessages ?? []),
+];
+
+function syncUiAndAudio(opts: { readonly ctx: AppCtx; readonly view: WorldViewState; readonly events: WorldViewState["events"]; readonly chatMessages: NonNullable<WorldViewState["chatMessages"]>; readonly dt: number; readonly dists: { readonly campfireDist: number; readonly waterDist: number } }): void {
   const { ctx, view, events, dists } = opts;
   const local = view.players.find((p) => p.id === view.localPlayerId);
   const lx = local?.x ?? 0; const ly = local?.y ?? 0;
   ctx.audio.handleWorldEvents(events, { x: lx, y: ly });
   ctx.audio.stepFrame({ local, cache: view.cache, dt: opts.dt, dayPhase: view.dayPhase, ...dists });
   ctx.hud.sync({ inventory: view.inventory, name: view.localName, appearance: view.localAppearance, localPlayer: local, cache: view.cache, players: view.players, entities: view.entities, chests: view.chests, discovery: view.discovery });
-  ctx.chat.pushMessages(view.chatMessages ?? [], performance.now()); ctx.chat.pruneExpired(performance.now());
+  ctx.chat.pushMessages(opts.chatMessages, performance.now()); ctx.chat.pruneExpired(performance.now());
   ctx.discovery.sync({ x: lx, y: ly, worldSeed: view.cache.worldSeed, events, localPlayerId: view.localPlayerId, nowMs: performance.now(), onChime: () => ctx.audio.playUi("discover") });
   ctx.feedback.sync({ local, events, localId: view.localPlayerId, dt: opts.dt });
   ctx.toolbar.sync({ mode: view.mode, dayPhase: view.dayPhase, dayPaused: view.dayPaused, quality: ctx.scene.qualityPreset(), activePanel: ctx.hud.activePanel(), settingsOpen: ctx.settings.isOpen(), playerX: lx, playerY: ly, biomeHint: formatCompassBiomeHint(view.cache.worldSeed, lx, ly), pingMs: view.pingMs });
@@ -106,7 +104,7 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   ctx.input.setEnabled(connected);
   ctx.velTracker.update(pre.entities, ctx.nowMs);
   const preLocal = pre.players.find((p) => p.id === pre.localPlayerId);
-  ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, hasShield: pre.inventory.armor.offhand === "wooden-shield" });
+  ctx.input.setGearState({ heldItem: preLocal?.heldItem ?? null, offhandItem: pre.inventory.armor.offhand, hasShield: isShieldItem(pre.inventory.armor.offhand) });
   const move = ctx.input.movement();
   const combat = ctx.input.consumeCombat();
   const aim = resolveAimForTick({ ctx, combat, move, local: preLocal, entities: pre.entities });
@@ -118,7 +116,7 @@ function renderTick(ctx: AppCtx & { readonly nowMs: number; readonly dt: number 
   const view = ctx.client.snapshot();
   const frameEvents = [...pre.events, ...view.events];
   const dists = ctx.scene.renderFrame({ dt: ctx.dt, timeSec: ctx.nowMs / 1000, dayPhase: view.dayPhase, cache: view.cache, players: view.players, localPlayerId: view.localPlayerId, projectiles: view.projectiles, entities: view.entities, chests: view.chests, groundLoot: view.groundLoot, webs: view.webs, events: frameEvents });
-  syncUiAndAudio({ ctx, view, events: frameEvents, dt: ctx.dt, dists });
+  syncUiAndAudio({ ctx, view, events: frameEvents, chatMessages: mergeFrameChat(pre, view), dt: ctx.dt, dists });
 }
 
 function startRenderLoop(ctx: AppCtx): void {
@@ -132,76 +130,12 @@ function startRenderLoop(ctx: AppCtx): void {
   requestAnimationFrame(loop);
 }
 
-function buildHudActions(client: WorldClient, audio: AudioEngine, toggleTorch: () => void): HudActions {
-  return {
-    onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); }, onMoveSlot: (move) => client.moveSlot(move),
-    onEquipArmor: (req) => { client.equipArmor(req); audio.playUi("equip"); }, onUnequipArmor: (req) => { client.unequipArmor(req); audio.playUi("equip"); },
-    onChestTransfer: (req) => { if (req.chestId) { client.chestTransfer({ ...req, chestId: req.chestId }); audio.playUi("click"); } },
-    onChestTakeAll: (chestId) => { client.chestTakeAll(chestId); audio.playUi("equip"); }, onCraft: (recipeId) => { client.craftRecipe(recipeId); audio.playUi("craft"); },
-    onDropItem: (req) => { client.dropItem(req); audio.playUi("click"); }, onUseItem: (slot) => { client.useItem(slot); audio.playUi("equip"); }, onSetCharacter: (req) => client.setCharacter(req),
-    onToggleTorch: toggleTorch, onMapToggled: () => audio.playUi("open"),
-  };
-}
-
-function tryTapWorldInteract(opts: { readonly clientX: number; readonly clientY: number; readonly scene: WorldScene; readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine }): void {
-  const snap = opts.client.snapshot(); const me = snap.players.find((p) => p.id === snap.localPlayerId);
-  const hit = resolveTapInteractTarget({ chests: snap.chests, groundLoot: snap.groundLoot, world: opts.scene.screenToWorldTile(opts.clientX, opts.clientY), me });
-  if (!hit) return;
-  if (hit.kind === "chest") { opts.client.openChest(hit.id); opts.hud.openChest(hit.id); opts.audio.playUi("open"); }
-  else { opts.client.pickupLoot(hit.id); opts.audio.playUi("equip"); }
-}
-
-function applySettingsPrefs(opts: { readonly prefs: SettingsPrefs; readonly toolbar: AtmosphereToolbar; readonly scene: WorldScene; readonly onCrouchMode?: ((mode: "toggle" | "hold") => void) | undefined }): void {
-  opts.toolbar.setFpsVisible(opts.prefs.showFps); opts.toolbar.setPingVisible(opts.prefs.showPing);
-  if (opts.scene.qualityPreset() !== opts.prefs.quality) opts.scene.setQualityPreset(opts.prefs.quality);
-  opts.scene.setShowHitboxes(opts.prefs.showHitboxes && isLocalDebugOrigin()); opts.onCrouchMode?.(opts.prefs.crouchMode);
-}
-
-function mountSettingsForUi(opts: { readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly audio: AudioEngine; readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot; readonly onReturnToTitle: () => void; readonly onCrouchMode?: (mode: "toggle" | "hold") => void }): SettingsMenu {
-  const { host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode } = opts;
-  const settings = new SettingsMenu(host, {
-    audio, isLocalDebug: isLocalDebugOrigin(), initialQuality: scene.qualityPreset(), initialZoom: scene.currentZoom(),
-    onSetQuality: (q) => scene.setQualityPreset(q), onSetGoreLevel: (lvl) => scene.setGoreLevel(lvl),
-    onZoom: (f) => { scene.adjustZoom(f); return scene.currentZoom(); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onRespawn: () => { client.respawn(); audio.playUi("open"); }, onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
-    onPrefsChange: (p) => applySettingsPrefs({ prefs: p, toolbar, scene, onCrouchMode }),
-  });
-  const prefs = settings.currentPrefs();
-  scene.setZoom(prefs.cameraZoom); applySettingsPrefs({ prefs, toolbar, scene, onCrouchMode });
-  settings.syncExternalState(scene.qualityPreset(), scene.currentZoom());
-  return settings;
-}
-
-function createInputHooks(opts: { readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly hud: HudRoot; readonly chat: ChatOverlay; readonly audio: AudioEngine; readonly settings: SettingsMenu; readonly onInteractWorld: (lootId?: string) => void; readonly onCloseAll: () => void }): InputController {
-  const { host, scene, client, hud, chat, audio, settings, onInteractWorld, onCloseAll } = opts;
-  return new InputController(host, {
-    onToggleTorch: () => { client.toggleTorch(); audio.playUi("click"); }, onZoom: (f) => { scene.adjustZoom(f); settings.syncZoomPref(scene.currentZoom()); },
-    onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); }, onDropItem: () => { if (hud.dropShortcutItem()) audio.playUi("click"); },
-    onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); }, onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); }, onInteract: () => onInteractWorld(), onOpenChat: () => chat.openInput(),
-    onWorldTap: (cx, cy) => tryTapWorldInteract({ clientX: cx, clientY: cy, scene, client, hud, audio }), onClosePanels: onCloseAll,
-  });
-}
-
-function handleWorldInteract(opts: { readonly client: WorldClient; readonly hud: HudRoot; readonly audio: AudioEngine; readonly lootId?: string | undefined }): void {
-  const { client, hud, audio, lootId } = opts;
-  if (hud.activePanel() === "chest") { hud.closePanels(); return; }
-  if (lootId) { client.pickupLoot(lootId); audio.playUi("equip"); return; }
-  const near = client.nearestChest();
-  if (near && !near.sealed) {
-    client.openChest(near.id); hud.openChest(near.id); audio.playUi("open"); return;
-  }
-  const snap = client.snapshot(); const me = snap.players.find((p) => p.id === snap.localPlayerId);
-  const arrow = me ? findManualLootInReach(snap.groundLoot, me) : undefined;
-  if (arrow) { client.pickupLoot(arrow.id); audio.playUi("equip"); }
-}
-
 function mountUiControllers(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
   readonly audio: AudioEngine; readonly onReturnToTitle: () => void;
 }) {
   const { host, scene, client, audio, onReturnToTitle } = opts;
-  const hud = new HudRoot(host, buildHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
+  const hud = new HudRoot(host, buildClientHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
   const chat = new ChatOverlay(host, (text, shout) => client.sendChat(text, shout));
   const discovery = new DiscoveryOverlay(host);
   const feedback = new CombatFeedbackOverlay(host);
@@ -209,9 +143,11 @@ function mountUiControllers(opts: {
     onReconnectNow: () => client.reconnectNow(),
     onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
   });
-  const onInteractWorld = (lootId?: string) => handleWorldInteract({ client, hud, audio, lootId });
-  const settingsRef: { current: SettingsMenu | null } = { current: null };
   let inputRef: InputController | null = null;
+  const onInteractWorld = (lootId?: string) => {
+    if (!handleWorldInteract({ client, hud, discovery, audio, lootId })) inputRef?.queueInteract();
+  };
+  const settingsRef: { current: SettingsMenu | null } = { current: null };
   const toolbar = new AtmosphereToolbar(host, {
     onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
     onToggleInventory: () => { settingsRef.current?.setOpen(false); hud.toggleInventory(); audio.playUi("open"); },
@@ -220,7 +156,7 @@ function mountUiControllers(opts: {
   });
   const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m) });
   settingsRef.current = settings;
-  const input = createInputHooks({ host, scene, client, hud, chat, audio, settings, onInteractWorld, onCloseAll: () => { chat.closeInput(); hud.closePanels(); settings.setOpen(false); } });
+  const input = createClientInputHooks({ host, scene, client, hud, chat, discovery, audio, settings, onInteractWorld, onCloseAll: () => { chat.closeInput(); hud.closePanels(); settings.setOpen(false); } });
   inputRef = input; input.setCrouchMode(settings.currentPrefs().crouchMode);
   return { hud, chat, discovery, feedback, connOverlay, input, toolbar, settings, onInteractWorld };
 }

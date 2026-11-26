@@ -14,7 +14,7 @@ export {
 export type { BiomeKind, ChunkPoi, ChunkProp, DangerTier, PoiCategory, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
 export { POI_CATALOG, POI_CATALOG_LIST, TOTAL_POI_TYPES, getPoiCatalogEntry, pickBiomeWeightedPoiKind } from "./world/pois/poiCatalog.js";
 export type { PoiCatalogEntry } from "./world/pois/poiCatalog.js";
-export { biomeBaseDangerTier, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./world/biomes/macroBiome.js";
+export { TIER_DISTANCES, biomeBaseDangerTier, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./world/biomes/macroBiome.js";
 export { sampleWorldTile } from "./world/biomeSampler.js";
 export type { TileSample } from "./world/biomeSampler.js";
 export { generateChunk } from "./world/chunkGenerator.js";

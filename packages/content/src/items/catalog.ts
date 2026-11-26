@@ -181,6 +181,17 @@ const ITEM_MAP = new Map<string, ItemDef>(ITEM_CATALOG.map((item) => [item.id, i
 export function getItemDef(itemId: string): ItemDef | undefined { return ITEM_MAP.get(itemId); }
 export function maxStackForItem(itemId: string): number { return ITEM_MAP.get(itemId)?.maxStack ?? 64; }
 export function isMeleeItem(itemId: string | null | undefined): boolean { return !itemId || Boolean(ITEM_MAP.get(itemId)?.weaponArchetype); }
+export function isBowItem(itemId: string | null | undefined): boolean {
+  if (!itemId) return false;
+  if (itemId === "bow") return true;
+  const def = ITEM_MAP.get(itemId);
+  return Boolean(def && def.category === "weapon" && !def.weaponArchetype && (def.range ?? 0) > 4);
+}
+export function isShieldItem(itemId: string | null | undefined): boolean {
+  if (!itemId) return false;
+  const def = ITEM_MAP.get(itemId);
+  return Boolean(def && def.armorSlot === "offhand" && (def.blockMitigation ?? 0) > 0);
+}
 export function resolveBlockMode(heldItem: string | null | undefined, offhand: string | null | undefined): BlockMode {
   const def = heldItem ? ITEM_MAP.get(heldItem) : undefined;
   if (def?.twoHanded) return def.weaponArchetype ? "twoHanded" : "none";

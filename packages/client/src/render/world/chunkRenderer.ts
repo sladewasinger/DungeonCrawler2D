@@ -110,12 +110,13 @@ export class ChunkRenderer {
   private appendPlayerVisuals(player: PlayerSnapshot, out: { readonly lights: PointLightSpec[]; readonly casters: ShadowCaster[] }): void {
     const liftTiles = player.elevation * (ELEVATION_LIFT_PX / TILE_PX);
     out.casters.push({ x: player.x, y: player.y - liftTiles, widthPx: 10, lengthPx: 16 });
-    if (!player.torchLit) return;
+    const glow = player.glowRadiusBonus ?? 0;
+    if (!player.torchLit && glow <= 0) return;
     out.lights.push({
       id: `player:${player.id}`, kind: "torch", x: player.x, y: player.y - 0.35 - liftTiles,
-      color: FOREST_LIGHT_STYLE.playerTorchColor,
-      radiusPx: FOREST_LIGHT_STYLE.playerTorchRadiusPx + (player.glowRadiusBonus ?? 0),
-      intensity: 1.05,
+      color: player.torchLit ? FOREST_LIGHT_STYLE.playerTorchColor : 0xfde047,
+      radiusPx: (player.torchLit ? FOREST_LIGHT_STYLE.playerTorchRadiusPx : 68) + glow,
+      intensity: player.torchLit ? 1.05 : 0.88,
     });
   }
 

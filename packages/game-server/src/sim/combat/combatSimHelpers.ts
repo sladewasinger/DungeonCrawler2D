@@ -1,5 +1,5 @@
 /** Extracted combat movement multipliers, active swing pass dispatch, and input buffer helpers. */
-import { getItemDef, resolveItemInstance } from "@dc2d/content";
+import { getItemDef, isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
   evaluateBowShot, isInSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
@@ -19,10 +19,7 @@ import { buildPendingSwing, computeSwingNoiseRadius, type PendingMeleeSwing } fr
 const DEFAULT_MELEE_STATS = { cost: 8, damage: 10, range: 1.5, halfArc: 0.75, gore: "splatter" as GoreStyle };
 
 export function isBowItemId(heldId: string | null): boolean {
-  if (!heldId) return false;
-  if (heldId === "bow") return true;
-  const def = getItemDef(heldId);
-  return Boolean(def && def.category === "weapon" && !def.weaponArchetype && (def.range ?? 0) > 4);
+  return isBowItem(heldId);
 }
 
 function extractHeldInfo(held: string | SlotItem | null): { readonly itemId: string | null; readonly prefixId?: string | undefined } {

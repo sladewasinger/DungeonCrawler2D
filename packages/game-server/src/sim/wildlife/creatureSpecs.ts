@@ -123,7 +123,7 @@ export interface WildlifeEntity {
   lastScentSeq: number; scentTrackTimer: number; scentHuntElapsed: number;
   investigateElapsed: number; passiveSniffCooldown: number;
   coldTrailSearchDone: boolean; searchStepCount: number;
-  dangerTier: DangerTier; isElite: boolean; title: string | undefined; damageMult: number;
+  dangerTier: DangerTier; isElite: boolean; title: string | undefined; damageMult: number; speedMult: number;
 }
 
 export function createWildlifeEntity(opts: {
@@ -142,7 +142,7 @@ export function createWildlifeEntity(opts: {
     homeX: opts.x, homeY: opts.y, homeRadius: opts.homeRadius, poiId: opts.poiId,
     packId: opts.packId, packSlot: opts.packSlot, x: opts.x, y: opts.y, elevation: opts.elevation,
     facingX: 0, facingY: 1, hp: scaledHp, maxHp: scaledHp, hitTimer: 0, staggerTimer: 0, stunnedTimer: 0,
-    dangerTier, isElite, title: opts.title, damageMult: scale.dmgMult,
+    dangerTier, isElite, title: opts.title, damageMult: scale.dmgMult, speedMult: scale.speedMult,
     bleedTimer: 0, burnTimer: 0, burnTickAcc: 0, poisonTimer: 0, poisonTickAcc: 0, poisonLocked: false, parried: false, telegraphTimer: 0, windupDuration: spec.windupSec,
     strikeTimer: 0, strikeDuration: 0.16, strikeHitIds: new Set<string>(), attackCooldown: 0.4,
     aiState: ST_PATROL, corpse: false, corpseTimer: 0, lastKnownX: opts.x, lastKnownY: opts.y,

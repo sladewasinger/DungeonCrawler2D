@@ -94,6 +94,7 @@ export class MinimapOverlay {
   private readonly coordsEl: HTMLSpanElement;
   private zoom = 2;
   private terrainCacheKey = "";
+  private lastDrawMs = 0;
 
   constructor(host: HTMLElement, onClose?: () => void) {
     this.el = document.createElement("div");
@@ -128,7 +129,7 @@ export class MinimapOverlay {
     btn.addEventListener("pointerdown", (e) => e.stopPropagation());
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.zoom = this.zoom >= 4 ? 2 : this.zoom + 1;
+      this.zoom = this.zoom >= 4 ? 1 : this.zoom + 1;
       btn.textContent = `${this.zoom}×`;
       this.terrainCacheKey = "";
     });
@@ -148,16 +149,22 @@ export class MinimapOverlay {
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
     readonly chests: readonly WorldChestSnapshot[]; readonly discovery?: DiscoveryStateSnapshot | undefined;
   }): void {
+    const wasHidden = this.el.hidden;
     this.el.hidden = !opts.visible || !opts.local;
-    if (this.el.hidden || !opts.local) return;
+    if (this.el.hidden || !opts.local) { this.lastDrawMs = 0; return; }
     const { local } = opts;
+    const nowMs = performance.now();
+    const tx0 = Math.floor(local.x); const ty0 = Math.floor(local.y);
+    const cacheKey = `${opts.cache.worldSeed}:${tx0}:${ty0}:${this.zoom}`;
+    if (!wasHidden && cacheKey === this.terrainCacheKey && nowMs - this.lastDrawMs < 95) return;
+    this.lastDrawMs = nowMs;
     const summary = formatMapFooterSummary({ worldSeed: opts.cache.worldSeed, x: local.x, y: local.y, discovery: opts.discovery });
-    this.coordsEl.textContent = `${summary} · (${Math.floor(local.x)}, ${Math.floor(local.y)})`;
-    this.refreshTerrainLayer(opts.cache, Math.floor(local.x), Math.floor(local.y));
+    this.coordsEl.textContent = `${summary} · (${tx0}, ${ty0})`;
+    this.refreshTerrainLayer(opts.cache, tx0, ty0);
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(this.terrainBuf, 0, 0);
-    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs: performance.now() });
+    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs });
     this.drawMarkers(ctx, { ...opts, local });
     drawPlayerArrow(ctx, local.facingX, local.facingY);
   }
@@ -169,11 +176,12 @@ export class MinimapOverlay {
     const ctx = this.terrainBuf.getContext("2d");
     if (!ctx) return;
     const img = ctx.createImageData(MAP_PX, MAP_PX);
-    const step = this.zoom;
-    const half = Math.floor(MAP_PX / (2 * step));
-    for (let dy = -half; dy < half; dy++) {
-      for (let dx = -half; dx < half; dx++) {
-        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * step, py: (dy + half) * step, step });
+    const paintStep = this.zoom < 2 ? 2 : this.zoom;
+    const tileStep = this.zoom < 2 ? 2 : 1;
+    const half = Math.floor(MAP_PX / (2 * this.zoom));
+    for (let dy = -half; dy < half; dy += tileStep) {
+      for (let dx = -half; dx < half; dx += tileStep) {
+        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * this.zoom, py: (dy + half) * this.zoom, step: paintStep });
       }
     }
     ctx.putImageData(img, 0, 0);
