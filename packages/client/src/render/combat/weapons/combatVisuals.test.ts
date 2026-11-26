@@ -7,7 +7,7 @@ import { WEAPON_ITEM_PAINTERS } from "../../../ui/icons/weaponItemIcons.js";
 import { canShowBackstabReticle } from "../aiStateIndicators.js";
 import type { DirectionAnim } from "../../character/characterTypes.js";
 import { getHeldWeaponVisual } from "../../character/heldWeapons.js";
-import { computePoseFrameIdx, gearLayoutFor, resolvePoseTrack, resolveWeaponChargeTint } from "../../world/playerPoseHelpers.js";
+import { computePoseFrameIdx, gearLayoutFor, resolvePoseTrack, resolveWeaponChargeTint } from "../../world/player/playerPoseHelpers.js";
 import { resolveFeedbackEventCue } from "./combatFeedbackSpecs.js";
 import { resolveWeaponSmearSpec } from "./weaponSmearDraw.js";
 

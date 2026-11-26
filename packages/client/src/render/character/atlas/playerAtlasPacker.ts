@@ -163,12 +163,3 @@ export function buildTierAtlasPlan(
     slots: packed.slots,
   };
 }
-
-export function findSlotInPlan(
-  plan: PackedTierAtlas,
-  target: { readonly clip: string; readonly dirIdx: number; readonly col: number },
-): AtlasFrameSlot | null {
-  return plan.slots.find(
-    (s) => s.clip === target.clip && s.dirIdx === target.dirIdx && s.col === target.col,
-  ) ?? null;
-}

@@ -12,6 +12,7 @@ import { createWebProjectile, stepWebProjectile } from "../webs/webCocoon.js";
 import type { WorldWebNetwork } from "../webs/webNetwork.js";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
 import { UNAWARE_STATES } from "./ecologyHelpers.js";
+import { collectSegmentProps } from "./ecologyStepHelpers.js";
 import type { WorldEcology } from "./worldEcology.js";
 
 export { createWebProjectile };
@@ -125,7 +126,14 @@ function applyWildlifeArrowHit(opts: { readonly ctx: RayHitCtx; readonly w: Wild
 }
 
 function hitWildlife(ctx: RayHitCtx, ecology: WorldEcology, players: Map<string, CombatPlayerRef>): boolean {
-  for (const w of ecology.list) {
+  const candidates = ecology.entityGrid.size > 0
+    ? ecology.entityGrid.queryRadius({
+      x: (ctx.x0 + ctx.pr.x) * 0.5,
+      y: (ctx.y0 + ctx.pr.y) * 0.5,
+      radius: Math.hypot(ctx.pr.x - ctx.x0, ctx.pr.y - ctx.y0) * 0.5 + 2.5,
+    })
+    : ecology.list;
+  for (const w of candidates) {
     if (w.corpse || w.hp <= 0) continue;
     const t = projectileHitsHurtbox({ x0: ctx.x0, y0: ctx.y0, x1: ctx.pr.x, y1: ctx.pr.y, projectileElevation: ctx.pr.elevation, projectileOnStairs: ctx.onStairs, box: entityHurtbox(w, w.kind, ctx.cache) });
     if (t === null) continue;
@@ -224,7 +232,7 @@ function stepArrowProjectile(opts: {
   if (tile.elevation > pr.elevation) { events.push({ kind: "arrowRicochet", x: x0, y: y0, dirX: -pr.vx / spd, dirY: -pr.vy / spd }); return false; }
   const ctx: RayHitCtx = { cache, pr, x0, y0, dx: pr.vx / spd, dy: pr.vy / spd, onStairs: tile.stairs, events };
   if (hitDummy(ctx, dummies, ecology) || hitWildlife(ctx, ecology, players) || hitPlayer(ctx, players)) return false;
-  if (cache.propsNear(pr.x, pr.y).some((prop) => testPropImpact(ctx, prop, ecology))) return false;
+  if (collectSegmentProps({ cache, x0, y0, x1: pr.x, y1: pr.y }).some((prop) => testPropImpact(ctx, prop, ecology))) return false;
   if (pr.ttl > 0) return true;
   if (tile.ground !== GroundKind.DeepWater) {
     events.push({ kind: "arrowEmbed", x: pr.x, y: pr.y, dirX: ctx.dx, dirY: ctx.dy });

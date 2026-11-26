@@ -1,8 +1,8 @@
 /** Elite mini-boss lair layouts and Torch-Brazier puzzle vault layouts. */
 import { PropKind } from "../types.js";
-import type { FrontierPoiLayoutSpec } from "./shrineLayouts.js";
+import type { BiomePoiLayoutSpec } from "./shrineLayouts.js";
 
-export const LAIR_AND_PUZZLE_LAYOUTS: Readonly<Record<string, FrontierPoiLayoutSpec>> = {
+export const LAIR_AND_PUZZLE_LAYOUTS: Readonly<Record<string, BiomePoiLayoutSpec>> = {
   "broodmother-hollow": {
     kind: "broodmother-hollow", radiusX: 4, radiusY: 3, floor: "moss", chestOffset: [0, -1.7], guards: ["spider", "spider"],
     props: [

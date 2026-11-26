@@ -23,6 +23,7 @@ export interface HudActions {
   readonly onSetCharacter: (req: { readonly name: string; readonly appearance: CharacterAppearance }) => void;
   readonly onToggleTorch: () => void;
   readonly onMapToggled?: () => void;
+  readonly onPanelOpened?: () => void;
   readonly onDropItem: (req: DropItemRequest) => void;
   readonly onUseItem?: (slotIndex: number) => void;
   readonly onInspectItem?: (source: DragSource, anchorRect?: DOMRect) => void;

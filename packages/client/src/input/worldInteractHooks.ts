@@ -1,7 +1,8 @@
 /** HUD action builders, settings mount, input wiring, and world-tap / [E] interaction handlers. */
+import { ModalRouter } from "../app/modalRouter.js";
 import type { AudioEngine } from "../audio/audioEngine.js";
 import type { WorldClient } from "../net/worldClient.js";
-import { findManualLootInReach, resolveTapInteractTarget } from "../render/combat/lootViewHelpers.js";
+import { findManualLootInReach, resolveTapInteractTarget } from "../render/combat/pickups/lootViewHelpers.js";
 import type { WorldScene } from "../render/world/worldScene.js";
 import type { AtmosphereToolbar } from "../ui/atmosphereToolbar.js";
 import type { ChatOverlay } from "../ui/chat/chatOverlay.js";
@@ -90,12 +91,29 @@ function applySettingsPrefs(opts: {
   opts.onCrouchMode?.(opts.prefs.crouchMode);
 }
 
+export function createOverworldModalRouter(opts: {
+  readonly hud: HudRoot; readonly chat: ChatOverlay; readonly settings: SettingsMenu;
+}): ModalRouter {
+  const { hud, chat, settings } = opts;
+  const router = new ModalRouter();
+  const closeMap = () => { if (hud.isMapOpen()) hud.toggleMap(); };
+  router.register("inventory", { isOpen: () => hud.activePanel() === "inventory", open: () => hud.toggleInventory(), close: () => hud.closePanels() });
+  router.register("crafting", { isOpen: () => hud.activePanel() === "crafting", open: () => hud.toggleCrafting(), close: () => hud.closePanels() });
+  router.register("character", { isOpen: () => hud.activePanel() === "character", open: () => hud.toggleCharacter(), close: () => hud.closePanels() });
+  router.register("chest", { isOpen: () => hud.activePanel() === "chest", open: () => {}, close: () => hud.closePanels() });
+  router.register("minimap", { isOpen: () => hud.isMapOpen(), open: () => hud.toggleMap(), close: closeMap });
+  router.register("settings", { isOpen: () => settings.isOpen(), open: () => settings.setOpen(true), close: () => settings.setOpen(false) });
+  router.register("chat", { isOpen: () => chat.isOpen(), open: () => chat.openInput(), close: () => chat.closeInput() });
+  chat.setOpenListener((open) => { if (open) { hud.closePanels(); settings.setOpen(false); } });
+  return router;
+}
+
 export function mountSettingsForUi(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly audio: AudioEngine;
   readonly toolbar: AtmosphereToolbar; readonly hud: HudRoot; readonly onReturnToTitle: () => void;
-  readonly onCrouchMode?: (mode: "toggle" | "hold") => void;
+  readonly onCrouchMode?: (mode: "toggle" | "hold") => void; readonly onOpenChange?: (open: boolean) => void;
 }): SettingsMenu {
-  const { host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode } = opts;
+  const { host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode, onOpenChange } = opts;
   const settings = new SettingsMenu(host, {
     audio, isLocalDebug: isLocalDebugOrigin(), initialQuality: scene.qualityPreset(), initialZoom: scene.currentZoom(),
     onSetQuality: (q) => scene.setQualityPreset(q), onSetGoreLevel: (lvl) => scene.setGoreLevel(lvl),
@@ -104,6 +122,7 @@ export function mountSettingsForUi(opts: {
     onRespawn: () => { client.respawn(); audio.playUi("open"); },
     onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
     onPrefsChange: (p) => applySettingsPrefs({ prefs: p, toolbar, scene, onCrouchMode }),
+    onOpenChange,
   });
   const prefs = settings.currentPrefs();
   scene.setZoom(prefs.cameraZoom); applySettingsPrefs({ prefs, toolbar, scene, onCrouchMode });
@@ -113,21 +132,21 @@ export function mountSettingsForUi(opts: {
 
 export function createClientInputHooks(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient; readonly hud: HudRoot;
-  readonly chat: ChatOverlay; readonly discovery: DiscoveryOverlay; readonly audio: AudioEngine;
-  readonly settings: SettingsMenu; readonly onInteractWorld: (lootId?: string) => void; readonly onCloseAll: () => void;
+  readonly discovery: DiscoveryOverlay; readonly audio: AudioEngine; readonly settings: SettingsMenu;
+  readonly modals: ModalRouter; readonly onInteractWorld: (lootId?: string) => void;
 }): InputController {
-  const { host, scene, client, hud, chat, discovery, audio, settings, onInteractWorld, onCloseAll } = opts;
+  const { host, scene, client, hud, discovery, audio, settings, modals, onInteractWorld } = opts;
   return new InputController(host, {
     onToggleTorch: () => { client.toggleTorch(); audio.playUi("click"); },
     onZoom: (f) => { scene.adjustZoom(f); settings.syncZoomPref(scene.currentZoom()); },
     onSelectHotbar: (slot) => { client.selectHotbar(slot); audio.playUi("click"); },
     onDropItem: () => { if (hud.dropShortcutItem()) audio.playUi("click"); },
-    onToggleInventory: () => { hud.toggleInventory(); audio.playUi("open"); },
-    onToggleCharacter: () => { hud.toggleCharacter(); audio.playUi("open"); },
-    onToggleMap: () => { hud.toggleMap(); audio.playUi("open"); },
+    onToggleInventory: () => { modals.toggle("inventory"); audio.playUi("open"); },
+    onToggleCharacter: () => { modals.toggle("character"); audio.playUi("open"); },
+    onToggleMap: () => { modals.toggle("minimap"); audio.playUi("open"); },
     onInteract: () => onInteractWorld(),
-    onOpenChat: () => chat.openInput(),
+    onOpenChat: () => modals.open("chat"),
     onWorldTap: (cx, cy) => tryTapWorldInteract({ clientX: cx, clientY: cy, scene, client, hud, discovery, audio }),
-    onClosePanels: onCloseAll,
+    onClosePanels: () => { modals.closeAll(); },
   });
 }

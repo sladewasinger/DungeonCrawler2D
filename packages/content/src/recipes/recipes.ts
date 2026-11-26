@@ -1,6 +1,6 @@
 /** Authoritative hand and campfire crafting recipes. */
 import type { RecipeDef, RecipeIngredientDef } from "@dc2d/contracts";
-import { FRONTIER_RECIPES } from "./frontierRecipes.js";
+import { GEAR_RECIPES } from "./gearRecipes.js";
 
 export type { RecipeDef, RecipeIngredientDef };
 
@@ -175,7 +175,7 @@ const BASE_RECIPES: readonly RecipeDef[] = [
   },
 ];
 
-export const RECIPE_CATALOG: readonly RecipeDef[] = [...BASE_RECIPES, ...FRONTIER_RECIPES];
+export const RECIPE_CATALOG: readonly RecipeDef[] = [...BASE_RECIPES, ...GEAR_RECIPES];
 
 const RECIPE_MAP = new Map<string, RecipeDef>(RECIPE_CATALOG.map((recipe) => [recipe.id, recipe]));
 

@@ -67,7 +67,7 @@ export const ClientSetAppearanceSchema = z.object({
 
 export const ClientInputSchema = z.object({
   t: z.literal("input"),
-  seq: z.number().int().nonnegative(),
+  seq: z.number().int().nonnegative().max(2_147_483_647),
   moveX: z.number().min(-1).max(1),
   moveY: z.number().min(-1).max(1),
   aimX: z.number().min(-1).max(1).optional(),

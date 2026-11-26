@@ -44,6 +44,9 @@ function playSongbirdPhrase(ctx: AudioContext, dst: AudioNode): void {
   }
 }
 
+const AMBIENT_PARAM_STEP_SEC = 0.1;
+const GAIN_EPSILON = 0.0005;
+
 export class AmbienceBed {
   private windBed: { readonly gain: GainNode; readonly filter: BiquadFilterNode } | null = null;
   private fireBed: GainNode | null = null;
@@ -51,20 +54,32 @@ export class AmbienceBed {
   private bioTimer = 2.5;
   private fireTimer = 0.7;
   private tensionTimer = 0.5;
+  private paramAccum = AMBIENT_PARAM_STEP_SEC;
+  private lastNight: boolean | null = null;
+  private lastFireGain = -1;
+  private lastWaterGain = -1;
 
   update(input: AmbienceStepInput): void {
     this.ensureBeds(input.ctx, input.sfxDst, input.musicDst);
     const now = input.ctx.currentTime;
     const isNight = input.dayPhase < 0.23 || input.dayPhase > 0.77;
-    if (this.windBed) {
-      const w = AUDIO_TUNING.wind;
-      this.windBed.gain.gain.setTargetAtTime(isNight ? w.nightGain : w.dayGain, now, 0.25);
-      this.windBed.filter.frequency.setTargetAtTime(isNight ? w.nightFreqHz : w.dayFreqHz, now, 0.25);
+    this.paramAccum += input.dt;
+    if (this.paramAccum >= AMBIENT_PARAM_STEP_SEC) {
+      this.paramAccum = 0;
+      this.syncWindBed(isNight, now);
+      this.updateSpatialBeds(input, now);
     }
-    this.updateSpatialBeds(input, now);
     this.stepBiosphere(input, isNight);
     this.stepCampfireEmber(input);
     this.stepTensionPulse(input);
+  }
+
+  private syncWindBed(isNight: boolean, now: number): void {
+    if (!this.windBed || isNight === this.lastNight) return;
+    this.lastNight = isNight;
+    const w = AUDIO_TUNING.wind;
+    this.windBed.gain.gain.setTargetAtTime(isNight ? w.nightGain : w.dayGain, now, 0.25);
+    this.windBed.filter.frequency.setTargetAtTime(isNight ? w.nightFreqHz : w.dayFreqHz, now, 0.25);
   }
 
   private ensureBeds(ctx: AudioContext, sfxDst: AudioNode, musicDst: AudioNode): void {
@@ -82,8 +97,14 @@ export class AmbienceBed {
     const waterGain = input.waterDist > river.maxDistTiles
       ? 0.0001
       : Math.max(0.001, (1 - input.waterDist / river.maxDistTiles) * river.gain);
-    this.fireBed?.gain.setTargetAtTime(fireGain, now, 0.2);
-    this.waterBed?.gain.setTargetAtTime(waterGain, now, 0.2);
+    if (this.fireBed && Math.abs(fireGain - this.lastFireGain) >= GAIN_EPSILON) {
+      this.lastFireGain = fireGain;
+      this.fireBed.gain.setTargetAtTime(fireGain, now, 0.2);
+    }
+    if (this.waterBed && Math.abs(waterGain - this.lastWaterGain) >= GAIN_EPSILON) {
+      this.lastWaterGain = waterGain;
+      this.waterBed.gain.setTargetAtTime(waterGain, now, 0.2);
+    }
   }
 
   private stepBiosphere(input: AmbienceStepInput, isNight: boolean): void {

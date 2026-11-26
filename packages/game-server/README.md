@@ -7,9 +7,11 @@ Tier-4 authoritative 20 Hz Node + `ws` multiplayer game server built over `@dc2d
 | --- | --- |
 | [`src/net/`](./src/net/README.md) | WebSocket `/health` & game server, 20 Hz coalesced broadcasts, rate/origin limits, session/admin auth, AOI redaction |
 | [`src/sim/`](./src/sim/README.md) | `WorldSim` loop, combat, inventory, proximity chat, training dummies |
-| [`src/sim/frontier/`](./src/sim/frontier/README.md) | Shrines, waystones, brazier puzzles, biome/POI discovery tracking, and admin slash commands |
+| [`src/sim/admin/`](./src/sim/admin/README.md) | Authenticated server chat slash commands (`/god`, `/give`, `/tp`, `/biome`, `/poi`) |
+| [`src/sim/exploration/`](./src/sim/exploration/README.md) | Shrines, waystones, brazier puzzles, and biome/POI discovery tracking |
 | [`src/sim/wildlife/`](./src/sim/wildlife/README.md) | Living wildlife/POI ecology, scent trails, wolf packs, swept projectiles, and seeded loot |
-| `src/sim/survival/`, `src/sim/webs/` | Node depletion, camp building, JSON persistence flushes, and dynamic cloth spider webs (see [`src/sim/README.md`](./src/sim/README.md)) |
+| [`src/sim/persistence/`](./src/sim/persistence/README.md) | `node:sqlite` WAL transactional persistence, schema migrations, and offline profile eviction |
+| `src/sim/survival/`, `src/sim/webs/` | Node depletion, camp building, persistence DTOs, and dynamic cloth spider webs (see [`src/sim/README.md`](./src/sim/README.md)) |
 | [`src/testing/`](./src/testing/README.md) | Headless deterministic `SimScenario` harness for multi-tick & persistence-reboot tests |
 
 Production builds bundle to `dist/main.cjs` for Fly.io `dfw` deployment (see [`docs/FLY-DEPLOYMENT.md`](../../docs/FLY-DEPLOYMENT.md)).

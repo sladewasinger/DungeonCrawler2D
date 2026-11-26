@@ -7,6 +7,7 @@
       "entry": [
         "scripts/**/*.mjs",
         "tools/sprite-studio/*.mjs",
+        "tools/sprite-studio/bake/*.mjs",
         "tests/**/*.test.ts",
         "e2e/**/*.ts"
       ],

@@ -2,7 +2,7 @@
 import { BIOME_CATALOG, rollChestLoot, rollEnemyDrop } from "@dc2d/content";
 import { computeDangerTier, createEmptyChestSlots, hashUnit2d, sampleMacroBiome, type BiomeKind, type ChunkPoi, type DangerTier, type InventorySlot, type WorldChunkCache } from "@dc2d/engine";
 import type { WildlifeEntity, WildlifeKind } from "../creatureSpecs.js";
-import type { LootManager } from "../lootManager.js";
+import type { LootManager } from "./lootManager.js";
 
 const TIER_SCALE: Readonly<Record<DangerTier, { readonly hp: number; readonly dmg: number; readonly speed: number }>> = {
   1: { hp: 1.0, dmg: 1.0, speed: 1.0 },

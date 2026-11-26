@@ -35,6 +35,7 @@ export { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLig
 export { getPoiGuardRoster } from "./world/poiLayouts.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { BlockingObstacle, MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
+export { SpatialHashGrid, type SpatialPoint } from "./world/spatialHashGrid.js";
 export {
   POI_CHEST_OBSTACLE_SHAPE,
   closestObstacleCorePoint,
@@ -144,6 +145,11 @@ export {
   segmentHitsEllipse,
 } from "./combat/combatRules.js";
 export type { EllipseHurtbox, GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
+export {
+  computeCharacterMoveMultiplier,
+  swingMoveSpeedMult,
+  type CharacterKinematicsInput,
+} from "./combat/kinematics.js";
 export {
   ENTITY_ATTACK_SPECS,
   ENTITY_HURTBOX_SPECS,

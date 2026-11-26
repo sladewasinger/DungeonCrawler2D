@@ -1,6 +1,8 @@
 /** A* waypoint following, prop avoidance, true-velocity facing sync, and knockback physics. */
 import { COMBAT_TUNING, ELEVATION_DROP_TO_JUMP_Z, GroundKind, WorldChunkCache, closestObstacleCorePoint, findTilePath, hasElevationLineOfSight, isInWorldSanctuary, resolveMovement, stepJumpArc } from "@dc2d/engine";
 import { CREATURE_SPECS, type WildlifeEntity } from "./creatureSpecs.js";
+import { syncWaterState, tryConsumePathfindBudget } from "./ecologyStepHelpers.js";
+export { syncWaterState as syncCreatureWaterState };
 
 export interface MoveCreatureOpts {
   readonly cache: WorldChunkCache;
@@ -124,20 +126,9 @@ function shouldJumpLedge(cache: WorldChunkCache, e: WildlifeEntity, step: { read
 }
 
 export function stepIdleJumpArc(e: WildlifeEntity, dt: number): void {
-  if (e.jumpStepped || (e.jumpZ <= 0 && e.jumpVz <= 0)) {
-    e.jumpStepped = false;
-    return;
-  }
+  if (e.jumpStepped || (e.jumpZ <= 0 && e.jumpVz <= 0)) { e.jumpStepped = false; return; }
   const arc = stepJumpArc({ jumpZ: e.jumpZ, jumpVz: e.jumpVz }, false, dt);
-  e.jumpZ = arc.jumpZ;
-  e.jumpVz = arc.jumpVz;
-  e.jumpStepped = false;
-}
-
-export function syncCreatureWaterState(cache: WorldChunkCache, e: WildlifeEntity): void {
-  const ground = cache.tileAt(Math.floor(e.x), Math.floor(e.y)).ground;
-  e.inDeepWater = ground === GroundKind.DeepWater;
-  e.inWater = e.inDeepWater || ground === GroundKind.ShallowWater;
+  e.jumpZ = arc.jumpZ; e.jumpVz = arc.jumpVz; e.jumpStepped = false;
 }
 
 export function creatureWaterSpeedMult(e: Pick<WildlifeEntity, "inWater" | "inDeepWater">): number {
@@ -207,6 +198,7 @@ function refreshPathIfNeeded(cache: WorldChunkCache, e: WildlifeEntity, goal: { 
   const goalShifted = Math.hypot(goal.x - e.navGoalX, goal.y - e.navGoalY) > 1.25;
   const needReachable = e.navReachedGoal && e.navPath.length === 0 && Math.hypot(goal.x - e.x, goal.y - e.y) > 0.75;
   if (e.navTimer > 0 && !goalShifted && !needReachable) return;
+  if (!tryConsumePathfindBudget()) return;
   const res = findTilePath({
     cache, startX: e.x, startY: e.y, goalX: goal.x, goalY: goal.y, agentRadius: 0.34, maxRadiusTiles: 22, maxNodes: 900,
   });

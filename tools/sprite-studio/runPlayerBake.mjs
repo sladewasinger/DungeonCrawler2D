@@ -58,7 +58,7 @@ function parseCliOpts(argv) {
 function buildBlenderArgs({ blendPath, rawDir, layers, socketsOnly, bowOnly }) {
   const args = [
     "--background", blendPath, "--python-exit-code", "1",
-    "--python", path.join(STUDIO_DIR, "export_player_layers.py"), "--", "--out", rawDir,
+    "--python", path.join(STUDIO_DIR, "blender", "export_player_layers.py"), "--", "--out", rawDir,
   ];
   if (layers) args.push("--layers", layers);
   if (socketsOnly) args.push("--sockets-only");
@@ -71,7 +71,7 @@ function shouldRunBaker(rawDir, socketsOnly, bowOnly) {
 }
 
 function buildBakerArgs({ rawDir, layers, bowOnly }) {
-  const bakerArgs = [path.join(STUDIO_DIR, "bakePlayerAssets.mjs"), rawDir];
+  const bakerArgs = [path.join(STUDIO_DIR, "bake", "bakePlayerAssets.mjs"), rawDir];
   if (layers) bakerArgs.push("--layers", layers);
   if (bowOnly) bakerArgs.push(FLAG_BOW_ONLY);
   return bakerArgs;

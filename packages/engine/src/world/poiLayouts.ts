@@ -4,8 +4,8 @@ import {
   type ChunkPoi, type ChunkProp, type PoiKind, type PoiLayoutKind, type PointLightSpec,
 } from "./types.js";
 import {
-  frontierPoiFloorGround, getFrontierPoiSpec, isInsideFrontierPoiMask, stampFrontierPoiProps,
-} from "./pois/frontierPoiLayouts.js";
+  getBiomePoiSpec, isInsidePoiMask, poiFloorGround, stampBiomePoiProps,
+} from "./pois/biomePoiLayouts.js";
 
 export type PoiGuardKind = "goblin" | "orc" | "skeleton" | "golem" | "spider" | "slime";
 
@@ -112,8 +112,8 @@ export const POI_LAYOUTS: Readonly<Record<string, PoiLayoutSpec>> = {
 };
 
 export function getPoiGuardRoster(layout: PoiLayoutKind): readonly PoiGuardKind[] {
-  const frontier = getFrontierPoiSpec(layout);
-  if (frontier) return frontier.guards;
+  const biomePoi = getBiomePoiSpec(layout);
+  if (biomePoi) return biomePoi.guards;
   return POI_LAYOUTS[layout]?.guards ?? [];
 }
 
@@ -128,8 +128,8 @@ const MASK_TESTERS: Readonly<Record<PoiLayoutSpec["mask"], (q: {
 };
 
 export function isInsidePoiLayoutMask(poi: ChunkPoi, wx: number, wy: number): boolean {
-  const frontier = getFrontierPoiSpec(poi.layout);
-  if (frontier) return isInsideFrontierPoiMask(poi, wx, wy);
+  const biomePoi = getBiomePoiSpec(poi.layout);
+  if (biomePoi) return isInsidePoiMask(poi, wx, wy);
   const spec = POI_LAYOUTS[poi.layout];
   if (!spec) return false;
   const dx = wx - Math.floor(poi.centerX);
@@ -141,8 +141,8 @@ export function isInsidePoiLayoutMask(poi: ChunkPoi, wx: number, wy: number): bo
 }
 
 export function layoutFloorGround(poi: ChunkPoi, wx: number, wy: number): GroundKind {
-  const frontier = getFrontierPoiSpec(poi.layout);
-  if (frontier) return frontierPoiFloorGround(frontier);
+  const biomePoi = getBiomePoiSpec(poi.layout);
+  if (biomePoi) return poiFloorGround(biomePoi);
   const ax = Math.abs(wx - Math.floor(poi.centerX));
   const ay = Math.abs(wy - Math.floor(poi.centerY));
   if (poi.kind === POI_BANDIT) {
@@ -166,8 +166,8 @@ export function stampPoiLayoutPropsAndLights(opts: {
   readonly poi: ChunkPoi; readonly props: ChunkProp[]; readonly lights: PointLightSpec[];
 }): void {
   const { poi, props, lights } = opts;
-  const frontier = getFrontierPoiSpec(poi.layout);
-  if (frontier) { stampFrontierPoiProps({ poi, spec: frontier, props, lights }); return; }
+  const biomePoi = getBiomePoiSpec(poi.layout);
+  if (biomePoi) { stampBiomePoiProps({ poi, spec: biomePoi, props, lights }); return; }
   const spec = POI_LAYOUTS[poi.layout];
   if (!spec) return;
   const { centerX: cx, centerY: cy, elevation } = poi;

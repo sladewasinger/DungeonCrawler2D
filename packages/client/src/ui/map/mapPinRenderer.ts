@@ -104,7 +104,7 @@ function drawWindowPoiPins(opts: {
   readonly localX: number; readonly localY: number; readonly zoom: number; readonly mapPx: number;
   readonly discovered: ReadonlySet<string>;
 }): void {
-  const halfChunks = Math.min(4, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
+  const halfChunks = Math.min(8, Math.ceil(opts.mapPx / (2 * opts.zoom * 32)) + 1);
   const pcx = Math.floor(opts.localX / 32);
   const pcy = Math.floor(opts.localY / 32);
   const center = opts.mapPx * 0.5;
@@ -129,7 +129,7 @@ function drawRevealedBeacons(opts: {
   }
 }
 
-export function drawFrontierMapPins(opts: {
+export function drawMapPins(opts: {
   readonly ctx: CanvasRenderingContext2D; readonly cache: WorldChunkCache;
   readonly localX: number; readonly localY: number; readonly zoom: number; readonly mapPx: number;
   readonly discovery?: DiscoveryStateSnapshot | undefined; readonly nowMs: number;

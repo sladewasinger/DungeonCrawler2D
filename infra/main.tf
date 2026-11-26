@@ -549,6 +549,46 @@ resource "aws_acm_certificate_validation" "frontend" {
   ]
 }
 
+resource "aws_cloudfront_response_headers_policy" "frontend_security" {
+  count = var.enable_distribution ? 1 : 0
+  name  = "${local.name}-security-headers"
+
+  security_headers_config {
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+    content_security_policy {
+      override = true
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' blob:",
+        "connect-src 'self' wss://ws.${var.domain_name}",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "frame-ancestors 'none'",
+      ])
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   count = var.enable_distribution ? 1 : 0
 
@@ -578,12 +618,13 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   default_cache_behavior {
-    target_origin_id       = local.frontend_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
-    compress               = true
+    target_origin_id           = local.frontend_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
+    response_headers_policy_id = var.enable_distribution ? aws_cloudfront_response_headers_policy.frontend_security[0].id : null
+    compress                   = true
   }
 
   ordered_cache_behavior {

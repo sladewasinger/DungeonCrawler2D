@@ -1,36 +1,37 @@
 /** Authoritative 20 Hz overworld simulation state. */
 import {
-  COMBAT_TUNING, DAY_DURATION_SECONDS, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache,
-  playerFootSegment, resolveMovement, sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
+  DAY_DURATION_SECONDS, HOTBAR_SLOT_COUNT, sanitizeCharacterAppearance, wrapDayPhase,
   type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type DiscoveryStateSnapshot, type DropItemRequest, type InventorySnapshot,
-  type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot, type GroundLootSnapshot,
+  type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot, type GroundLootSnapshot,
 } from "@dc2d/engine";
 import { ProximityChatManager } from "./chat/proximityChat.js";
-import { stepStationaryPlayerTurn } from "./combat/combatSimHelpers.js";
-import { CombatWorld } from "./combatSim.js";
+import type { CombatWorld } from "./combatSim.js";
 import {
   applyLoadoutEntries, buildInventorySnapshot, craftPlayerRecipe, equipPlayerArmor,
   isPlayerNearCampfire, isPlayerNearWorkbench, movePlayerInventorySlot, unequipPlayerArmor,
 } from "./playerInventory.js";
 import { normalizeOwnerKey } from "./survival/campStructures.js";
-import { WorldPersistenceStore, type PersistedPlayerRecord, type PersistedWorldFile } from "./survival/persistenceStore.js";
-import { applyPlayerAimInput, buildPlayerSnapshotRecord, computeDesiredPlayerDir, computeEffectiveStealthVis, isSprintingMove, setPlayerAimVec, stepPlayerSurvivalBuffs } from "./survival/playerSurvivalState.js";
+import type { PersistedPlayerRecord, PersistedWorldFile } from "./survival/persistenceStore.js";
+import { SqliteWorldStore } from "./persistence/sqliteWorldStore.js";
+import { applyPlayerAimInput, buildPlayerSnapshotRecord } from "./survival/playerSurvivalState.js";
 import {
   buildFullWorldSaveSnapshot, createInitialSimPlayer, hydratePlayerProfileIfFound, loadWorldPersistence,
   persistPlayerSnapshotRecord, resolveSessionAuth, type SessionAuthResult, type SimPlayer,
 } from "./survival/worldPersistenceSync.js";
+import { OVERWORLD_ZONE_ID, ZoneManager } from "./zones/zoneManager.js";
 
 export type { SimPlayer } from "./survival/worldPersistenceSync.js";
-export const TICK_RATE = 20; const PLAYER_SPEED_TILES_PER_SEC = COMBAT_TUNING.movement.runSpeedTilesPerSec;
-const PLAYER_RADIUS = COMBAT_TUNING.movement.collisionRadiusTiles; const INITIAL_DAY_PHASE = 0.62;
+const TICK_RATE = 20;
+const INITIAL_DAY_PHASE = 0.62;
+const MAX_QUEUED_COMMANDS = 4096;
+export { TICK_RATE };
 
 export class WorldSim {
-  readonly cache: WorldChunkCache;
-  readonly combat: CombatWorld;
+  readonly zones: ZoneManager;
   readonly chat = new ProximityChatManager();
-  private readonly players = new Map<string, SimPlayer>();
   private readonly activeByAccountId = new Map<string, string>();
-  private readonly persistence: WorldPersistenceStore;
+  private readonly commandQueue: (() => void)[] = [];
+  private readonly persistence: SqliteWorldStore;
   private readonly savedProfiles: Map<string, PersistedPlayerRecord>;
   private lastSavedDeltaRev = 0;
   private nextPlayerNum = 1;
@@ -39,11 +40,14 @@ export class WorldSim {
   dayPhase = INITIAL_DAY_PHASE;
   dayPaused = false;
 
-  constructor(readonly worldSeed = 1337, options?: { readonly persistencePath?: string | undefined }) {
-    this.cache = new WorldChunkCache(worldSeed);
-    this.cache.getChunk(0, 0);
-    this.combat = new CombatWorld(this.cache);
-    this.persistence = new WorldPersistenceStore(options?.persistencePath);
+  get cache(): WorldChunkCache { return this.zones.defaultZone.cache; }
+  get combat(): CombatWorld { return this.zones.defaultZone.combat; }
+  private get players(): Map<string, SimPlayer> { return this.zones.defaultZone.players; }
+
+  constructor(readonly worldSeed = 1337, options?: { readonly persistencePath?: string | undefined; readonly maxClients?: number | undefined }) {
+    const maxCachedChunks = Math.max(512, (options?.maxClients ?? 32) * 16);
+    this.zones = new ZoneManager({ worldSeed, maxCachedChunks });
+    this.persistence = new SqliteWorldStore(options?.persistencePath);
     this.savedProfiles = loadWorldPersistence({
       store: this.persistence, worldSeed,
       onHydrate: (file) => this.hydrateWorldFile(file),
@@ -64,20 +68,24 @@ export class WorldSim {
     this.lastSavedDeltaRev = this.cache.deltaRevision();
   }
 
-  private persistPlayer(p: SimPlayer): void {
+  private persistPlayer(p: SimPlayer, evictIfPersisted = false): void {
     persistPlayerSnapshotRecord({
       host: { savedProfiles: this.savedProfiles, store: this.persistence },
       player: p,
       discovery: this.combat.discovery.snapshotFor(p.id),
+      evictIfPersisted,
     });
   }
 
+  offlineProfileCount(): number { return this.savedProfiles.size; }
+  closePersistence(): void { this.persistence.close(); }
+
   authenticateSession(req?: { readonly accountId?: string | undefined; readonly resumeToken?: string | undefined }): SessionAuthResult {
-    return resolveSessionAuth({ savedProfiles: this.savedProfiles, ...req });
+    return resolveSessionAuth({ savedProfiles: this.savedProfiles, store: this.persistence, ...req });
   }
 
   private activatePlayer(player: SimPlayer, accountId: string, persistNew: boolean): void {
-    this.players.set(player.id, player);
+    this.zones.assignPlayer(player, OVERWORLD_ZONE_ID);
     this.activeByAccountId.set(accountId, player.id);
     hydratePlayerProfileIfFound({
       host: { savedProfiles: this.savedProfiles, store: this.persistence },
@@ -105,10 +113,11 @@ export class WorldSim {
     const p = this.players.get(playerId);
     if (p) {
       if (this.activeByAccountId.get(p.accountId) === p.id) this.activeByAccountId.delete(p.accountId);
-      this.persistPlayer(p);
+      this.persistPlayer(p, true);
       this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
     }
-    this.chat.removePlayer(playerId); this.combat.removePlayer(playerId); this.players.delete(playerId);
+    this.chat.removePlayer(playerId);
+    this.zones.removePlayer(playerId);
   }
   getPlayer(playerId: string): SimPlayer | undefined { return this.players.get(playerId); }
   markPersistenceDirty(): void { this.persistence.markDirty(); }
@@ -198,65 +207,27 @@ export class WorldSim {
     return p ? buildInventorySnapshot({ state: p.inventory, selectedHotbar: p.selectedHotbar, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), nearWorkbench: isPlayerNearWorkbench(this.cache, p.x, p.y), ackSeq: p.lastActionAckSeq }) : undefined;
   }
 
+  enqueueCommand(cmd: () => void): void {
+    if (this.commandQueue.length < MAX_QUEUED_COMMANDS) this.commandQueue.push(cmd);
+  }
+
+  drainCommands(): void {
+    if (this.commandQueue.length === 0) return;
+    const batch = this.commandQueue.splice(0);
+    for (const cmd of batch) cmd();
+  }
+
   step(dtSeconds = 1 / TICK_RATE): void {
+    this.drainCommands();
     this.tick += 1; this.worldClockSec += dtSeconds;
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
     this.chat.step(dtSeconds);
-    for (const p of this.players.values()) this.stepPlayer(p, dtSeconds);
-    if (this.combat.stepWorld({ players: this.players, dt: dtSeconds, dayPhase: this.dayPhase, timeSec: this.worldClockSec })) this.persistence.markDirty();
+    if (this.zones.stepActiveZones({ dtSeconds, dayPhase: this.dayPhase, worldClockSec: this.worldClockSec })) this.persistence.markDirty();
     if (this.cache.deltaRevision() !== this.lastSavedDeltaRev) { this.lastSavedDeltaRev = this.cache.deltaRevision(); this.persistence.markDirty(); }
     this.persistence.maybeFlush(Date.now(), () => this.buildSaveSnapshot());
   }
 
-  private stepPlayer(p: SimPlayer, dtSeconds: number): void {
-    const arc = stepJumpArc({ jumpZ: p.jumpZ, jumpVz: p.jumpVz }, p.jumpQueued && !p.inDeepWater, dtSeconds);
-    p.jumpZ = arc.jumpZ; p.jumpVz = arc.jumpVz;
-    this.combat.stepPlayerAction({
-      player: p, players: this.players, playerName: p.name, respawnPos: this.combat.structures.respawnPointFor(p.accountId), dt: dtSeconds,
-      input: { moveX: p.moveX, moveY: p.moveY, attackQueued: p.attackQueued, attackHold: p.attackHold, bowDrawing: p.bowDrawing, bowReleaseQueued: p.bowReleaseQueued, blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued, dodgeDirX: p.dodgeDirX, dodgeDirY: p.dodgeDirY, throwPebble: p.throwPebbleQueued, interactQueued: p.interactQueued },
-    });
-    stepPlayerSurvivalBuffs({ p, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y), dt: dtSeconds });
-    p.jumpQueued = false; p.attackQueued = false; p.bowReleaseQueued = false; p.dodgeQueued = false;
-    p.dodgeDirX = undefined; p.dodgeDirY = undefined; p.throwPebbleQueued = false; p.interactQueued = false;
-    this.movePlayer(p, dtSeconds);
-    this.updateStealthAndNoise(p, dtSeconds);
-  }
-
-  private updateStealthAndNoise(p: SimPlayer, dtSeconds: number): void {
-    if (p.sprinting) p.crouching = false;
-    p.attackFlashTimer = Math.max(0, p.attackFlashTimer - dtSeconds);
-    const exp = sampleStealthExposure({ cache: this.cache, x: p.x, y: p.y, dayPhase: this.dayPhase, torchLit: p.torchLit, crouching: p.crouching, moving: p.moving, sprinting: p.sprinting, inWater: p.inWater || p.inDeepWater, attackFlash: p.attackFlashTimer > 0 });
-    const vis = computeEffectiveStealthVis(p, exp.visibility);
-    p.stealthVis = vis; p.visibility = vis; p.inCover = exp.inCover; p.noiseRadius = exp.noiseRadius;
-    if (p.sprinting && !p.crouching) {
-      p.sprintNoiseAcc += dtSeconds;
-      if (p.sprintNoiseAcc >= 0.45) { p.sprintNoiseAcc = 0; this.combat.ecology.emitNoise({ x: p.x, y: p.y, radius: STEALTH_TUNING.sprintNoiseRadiusTiles, sourceId: p.id }); }
-    } else {
-      p.sprintNoiseAcc = 0;
-    }
-  }
-
-  private movePlayer(p: SimPlayer, dtSeconds: number): void {
-    const dir = computeDesiredPlayerDir(p);
-    const heldItem = p.inventory.slots[p.selectedHotbar]?.itemId;
-    const combat = p.combat;
-    if (!dir) {
-      p.moving = false; p.sprinting = false;
-      stepStationaryPlayerTurn({ cache: this.cache, p: { ...p, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge } });
-      return;
-    }
-    if (!p.hasExplicitAim && combat.dodgeTimer <= 0) setPlayerAimVec(p, dir.ux, dir.uy);
-    const seg = playerFootSegment({ facingX: p.facingX, facingY: p.facingY, aimX: p.aimX, aimY: p.aimY, heldItem, bowCharge: combat.bowCharge, heavyCharge: combat.heavyCharge });
-    const mult = this.combat.moveMultiplier(p);
-    const step = PLAYER_SPEED_TILES_PER_SEC * mult * dtSeconds;
-    const res = resolveMovement({ cache: this.cache, x: p.x, y: p.y, dx: dir.nx * step, dy: dir.ny * step, radius: PLAYER_RADIUS, footSegX: seg.segX, footSegY: seg.segY, elevation: p.elevation, airborne: p.jumpZ > 0.02, jumpZ: p.jumpZ });
-    p.x = res.x; p.y = res.y; p.elevation = res.elevation;
-    p.inWater = res.inWater; p.inDeepWater = res.inDeepWater;
-    p.moving = true; p.sprinting = isSprintingMove({ mag: dir.mag, mult, inWater: res.inWater, dodging: combat.dodgeTimer > 0 });
-    if (res.elevationDrop !== 0) p.jumpZ = Math.max(0, p.jumpZ + res.elevationDrop * ELEVATION_DROP_TO_JUMP_Z);
-  }
-
-  combatSnapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(); }
+  combatSnapshots(redactUnopened = false): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(redactUnopened); }
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => buildPlayerSnapshotRecord(p, {

@@ -1,34 +1,14 @@
 /** Centered parchment Overworld Map (toggled with [M] or hotbar [M] button) showing terrain, POIs, and players. */
 import {
-  GroundKind, PropKind, type DiscoveryStateSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
+  PropKind, type DiscoveryStateSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
 } from "@dc2d/engine";
-import { drawFrontierMapPins, formatMapFooterSummary } from "./mapPinRenderer.js";
+import { drawMapPins, formatMapFooterSummary } from "./mapPinRenderer.js";
+import { MinimapTileCache } from "./minimapTileCache.js";
 
 const MAP_PX = 480;
 const COLOR_ENEMY = "#ef4444";
 const COLOR_PLAYER_REMOTE = "#a855f7";
 const COLOR_CAMPFIRE = "#fb923c";
-
-const DEFAULT_RGB: readonly [number, number, number] = [63, 125, 58];
-const GROUND_RGB: Readonly<Record<number, readonly [number, number, number]>> = {
-  [GroundKind.DeepWater]: [29, 78, 216],
-  [GroundKind.ShallowWater]: [59, 130, 246],
-  [GroundKind.Sand]: [212, 163, 89],
-  [GroundKind.Grass]: [63, 125, 58],
-  [GroundKind.MeadowGrass]: [83, 154, 72],
-  [GroundKind.ForestFloor]: [45, 90, 43],
-  [GroundKind.DirtPath]: [140, 91, 54],
-  [GroundKind.CliffStone]: [100, 116, 139],
-  [GroundKind.MossStone]: [71, 105, 79],
-  [GroundKind.AutumnGrass]: [140, 148, 62],
-  [GroundKind.AutumnFloor]: [140, 74, 39],
-  [GroundKind.BogMud]: [71, 59, 50],
-  [GroundKind.BogMoss]: [55, 104, 80],
-  [GroundKind.SlateRock]: [87, 96, 107],
-  [GroundKind.AshGround]: [112, 107, 104],
-  [GroundKind.RuinFlagstone]: [71, 70, 87],
-  [GroundKind.CursedMoss]: [58, 46, 84],
-};
 
 function drawDot(ctx: CanvasRenderingContext2D, opts: { readonly px: number; readonly py: number; readonly size: number; readonly color: string }): void {
   const half = opts.size * 0.5;
@@ -57,38 +37,11 @@ function drawPlayerArrow(ctx: CanvasRenderingContext2D, fx: number, fy: number):
   ctx.restore();
 }
 
-function fillTerrainBlock(data: Uint8ClampedArray, opts: {
-  readonly rgb: readonly [number, number, number]; readonly lift: number;
-  readonly px: number; readonly py: number; readonly step: number;
-}): void {
-  const r = Math.min(255, opts.rgb[0] + opts.lift);
-  const g = Math.min(255, opts.rgb[1] + opts.lift);
-  const b = Math.min(255, opts.rgb[2] + opts.lift);
-  const y0 = Math.max(0, opts.py);
-  const y1 = Math.min(MAP_PX, opts.py + opts.step);
-  const x0 = Math.max(0, opts.px);
-  const x1 = Math.min(MAP_PX, opts.px + opts.step);
-  for (let py = y0; py < y1; py++) {
-    for (let px = x0; px < x1; px++) {
-      const off = (py * MAP_PX + px) * 4;
-      data[off] = r; data[off + 1] = g; data[off + 2] = b; data[off + 3] = 255;
-    }
-  }
-}
-
-function paintTileBlock(data: Uint8ClampedArray, opts: {
-  readonly cache: WorldChunkCache; readonly wx: number; readonly wy: number; readonly px: number; readonly py: number; readonly step: number;
-}): void {
-  const tile = opts.cache.tileAt(opts.wx, opts.wy);
-  const rgb = GROUND_RGB[tile.ground] ?? DEFAULT_RGB;
-  const lift = tile.elevation > 0 ? Math.min(48, tile.elevation * 22) : 0;
-  fillTerrainBlock(data, { rgb, lift, px: opts.px, py: opts.py, step: opts.step });
-}
-
 export class MinimapOverlay {
   readonly el: HTMLDivElement;
   private readonly canvas: HTMLCanvasElement;
   private readonly terrainBuf: HTMLCanvasElement;
+  private readonly tileCache = new MinimapTileCache();
   private readonly zoomBtn: HTMLButtonElement;
   private readonly coordsEl: HTMLSpanElement;
   private zoom = 2;
@@ -163,7 +116,7 @@ export class MinimapOverlay {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(this.terrainBuf, 0, 0);
-    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs });
+    drawMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs });
     this.drawMarkers(ctx, { ...opts, local });
     drawPlayerArrow(ctx, local.facingX, local.facingY);
   }
@@ -174,16 +127,7 @@ export class MinimapOverlay {
     this.terrainCacheKey = key;
     const ctx = this.terrainBuf.getContext("2d");
     if (!ctx) return;
-    const img = ctx.createImageData(MAP_PX, MAP_PX);
-    const paintStep = this.zoom < 2 ? 2 : this.zoom;
-    const tileStep = this.zoom < 2 ? 2 : 1;
-    const half = Math.floor(MAP_PX / (2 * this.zoom));
-    for (let dy = -half; dy < half; dy += tileStep) {
-      for (let dx = -half; dx < half; dx += tileStep) {
-        paintTileBlock(img.data, { cache, wx: tx0 + dx, wy: ty0 + dy, px: (dx + half) * this.zoom, py: (dy + half) * this.zoom, step: paintStep });
-      }
-    }
-    ctx.putImageData(img, 0, 0);
+    this.tileCache.paintViewport({ ctx, cache, tx0, ty0, zoom: this.zoom, mapPx: MAP_PX });
   }
 
   private drawMarkers(ctx: CanvasRenderingContext2D, opts: {
@@ -217,12 +161,17 @@ function drawChestMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, chests: 
   }
 }
 
+function shouldDrawEntityPin(e: WorldEntitySnapshot, local: PlayerSnapshot): boolean {
+  if (e.corpse || e.hp <= 0) return false;
+  const aggro = e.aiState === "chase" || e.aiState === "flank" || e.aiState === "charge" || e.aiState === "alert";
+  return aggro || Math.hypot(e.x - local.x, e.y - local.y) <= 12;
+}
+
 function drawEntityMarkers(ctx: CanvasRenderingContext2D, v: MarkerView, entities: readonly WorldEntitySnapshot[]): void {
   for (const e of entities) {
-    if (e.corpse || e.hp <= 0) continue;
-    const alert = Boolean(e.aiState && e.aiState !== "idle");
-    if (!alert && Math.hypot(e.x - v.local.x, e.y - v.local.y) > 18) continue;
-    drawDot(ctx, { px: v.cx + (e.x - v.local.x) * v.zoom, py: v.cy + (e.y - v.local.y) * v.zoom, size: 5, color: COLOR_ENEMY });
+    if (shouldDrawEntityPin(e, v.local)) {
+      drawDot(ctx, { px: v.cx + (e.x - v.local.x) * v.zoom, py: v.cy + (e.y - v.local.y) * v.zoom, size: 5, color: COLOR_ENEMY });
+    }
   }
 }
 

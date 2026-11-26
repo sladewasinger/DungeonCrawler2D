@@ -1,12 +1,13 @@
 /** Right-side interactive Sandbox Pose Tuner drawer with preview overrides and JSON save. */
 import { DEFAULT_APPEARANCE, type ArmorEquipment, type PlayerSnapshot } from "@dc2d/engine";
+import { z } from "zod";
 import { resolveFacingDir8 } from "../../render/character/characterTypes.js";
 import {
   copyBodyTuning, getFullPoseTuning, mirrorEastWestPair,
   resetPoseTuning, resetPoseTuningDir, savePoseTuningToServer,
 } from "../../render/poseTuning/poseTuningStore.js";
 import { DIR8_LABELS, DIR8_VECTORS, type BodyKind } from "../../render/poseTuning/poseTuningTypes.js";
-import { resolveDir8Idx } from "../../render/world/playerPoseHelpers.js";
+import { resolveDir8Idx } from "../../render/world/player/playerPoseHelpers.js";
 import { isolateDrawerEvents, makeActionBtn, makePillGroup, makeSliderRow, ptNode } from "./poseTunerControls.js";
 import { renderTuneFields, type TuneTab } from "./poseTunerSections.js";
 import { ensurePoseTunerStyles } from "./poseTunerStyles.js";
@@ -48,13 +49,24 @@ const TAB_ITEMS: readonly { readonly id: TuneTab; readonly label: string }[] = [
   { id: "sword", label: "Sword" }, { id: "lantern", label: "Lantern" }, { id: "bow", label: "Bow" },
 ];
 
+const UiStateSchema = z.object({
+  open: z.boolean().default(false),
+  body: z.enum(["male", "female"]).default("female"),
+  loadout: z.enum(["empty", "sword", "bow"]).default("empty"),
+  lantern: z.boolean().default(false),
+  bowCharge: z.number().finite().min(0).max(1).default(0.85),
+  dirLock: z.union([z.number().int().min(0).max(7), z.literal("mouse")]).default(0),
+  tab: z.enum(["freeLeft", "freeRight", "sword", "lantern", "bow"]).default("freeLeft"),
+  syncCardinalLR: z.boolean().default(true),
+});
+
 function loadInitialUi(): UiState {
   const urlOpen = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tuner") === "1";
   const base: UiState = { open: urlOpen, body: "female", loadout: "empty", lantern: false, bowCharge: 0.85, dirLock: 0, tab: "freeLeft", syncCardinalLR: true };
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return base;
-    return { ...base, ...(JSON.parse(raw) as Partial<UiState>), open: urlOpen || Boolean((JSON.parse(raw) as Partial<UiState>).open) };
+    const res = raw ? UiStateSchema.safeParse(JSON.parse(raw)) : null;
+    return res?.success ? { ...res.data, open: urlOpen || res.data.open } : base;
   } catch {
     return base;
   }

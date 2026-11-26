@@ -8,7 +8,7 @@ import {
   CORE_CLIP_NAMES, SECONDARY_CLIP_NAMES, buildTierAtlasPlan,
   type PackedTierAtlas,
 } from "./atlas/playerAtlasPacker.js";
-import { extractPortraitUrlFromCore, resolveStyledLayerStack } from "./atlas/playerPortraitBake.js";
+import { resolveStyledLayerStack } from "./atlas/playerPortraitBake.js";
 import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
@@ -147,6 +147,5 @@ export function build3dCharacterSpriteSet(
     frontArm: Texture.EMPTY, backArm: Texture.EMPTY,
     worldScale: meta.scale, anchorY: meta.anchorY, is3d: true,
     hasSecondaryTracks: secondaryPlan.slots.length > 0, ensureSecondary,
-    previewUrl: extractPortraitUrlFromCore({ coreCanvas: core.canvas, meta, corePlan, appearance, armor }),
   };
 }

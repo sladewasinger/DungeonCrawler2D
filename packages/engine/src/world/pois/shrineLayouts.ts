@@ -1,7 +1,7 @@
 /** Layout specs for interactive Shrines, Ancient Waystones, and Friendly Sanctuaries. */
 import { PropKind, type PoiKind } from "../types.js";
 
-export interface FrontierPropSpec {
+export interface BiomePropSpec {
   readonly kind: PropKind;
   readonly dx: number;
   readonly dy: number;
@@ -10,7 +10,7 @@ export interface FrontierPropSpec {
   readonly light?: { readonly kind: "torch" | "campfire" | "firefly"; readonly color: number; readonly radiusPx: number; readonly intensity: number } | undefined;
 }
 
-export interface FrontierPoiLayoutSpec {
+export interface BiomePoiLayoutSpec {
   readonly kind: PoiKind;
   readonly radiusX: number;
   readonly radiusY: number;
@@ -18,10 +18,10 @@ export interface FrontierPoiLayoutSpec {
   readonly chestOffset: readonly [number, number];
   readonly guards: readonly ("goblin" | "orc" | "skeleton" | "golem" | "spider" | "slime")[];
   readonly braziers?: readonly (readonly [number, number])[];
-  readonly props: readonly FrontierPropSpec[];
+  readonly props: readonly BiomePropSpec[];
 }
 
-export const SHRINE_AND_FRIENDLY_LAYOUTS: Readonly<Record<string, FrontierPoiLayoutSpec>> = {
+export const SHRINE_AND_FRIENDLY_LAYOUTS: Readonly<Record<string, BiomePoiLayoutSpec>> = {
   "shrine-swiftness": {
     kind: "shrine-swiftness", radiusX: 2, radiusY: 2, floor: "stone", chestOffset: [0, 0], guards: [],
     props: [

@@ -3,7 +3,7 @@ import { Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../textures/pixelCanvas.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
-import { FRONTIER_HELD_GEAR_IDS, getFrontierShieldTexture, getFrontierWeaponMeta } from "./atlas/frontierHeldGear.js";
+import { getTierShieldTexture, getTierWeaponMeta, TIER_HELD_GEAR_IDS } from "./atlas/tierHeldGear.js";
 import { CHARACTER_WORLD_SCALE, OUTLINE_RGB } from "./characterTypes.js";
 
 export type HeldAimMode = "aim360" | "meleeCarry" | "upright";
@@ -117,7 +117,7 @@ export function getGearScale(key: string): number {
 }
 
 export function getShieldTexture(offhandId?: string | null): Texture {
-  const custom = getFrontierShieldTexture(offhandId);
+  const custom = getTierShieldTexture(offhandId);
   if (custom) return custom;
   const loaded = getLoadedSpriteAsset("gear-shield");
   if (loaded) return loaded.texture;
@@ -207,7 +207,7 @@ export const REGISTERED_HELD_GEAR_IDS: readonly string[] = [
   ...Object.keys(WEAPON_SPECS),
   "torch",
   "wooden-shield",
-  ...FRONTIER_HELD_GEAR_IDS,
+  ...TIER_HELD_GEAR_IDS,
 ];
 
 function scaleGripSocket(g: GripSocket, ratio: number): GripSocket {
@@ -263,10 +263,10 @@ export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: 
   const spec = WEAPON_SPECS[itemId];
   if (spec) return buildSpecVisual(spec, itemId, bowCharge);
   if (itemId === "torch") return buildTorchVisual(timeSec);
-  const frontier = getFrontierWeaponMeta(itemId);
-  if (frontier) {
-    const d = ARCHETYPE_DEFAULTS[frontier.archetype]!;
-    return { texture: frontier.tex, ...d, spriteScale: CHARACTER_WORLD_SCALE };
+  const tiered = getTierWeaponMeta(itemId);
+  if (tiered) {
+    const d = ARCHETYPE_DEFAULTS[tiered.archetype]!;
+    return { texture: tiered.tex, ...d, spriteScale: CHARACTER_WORLD_SCALE };
   }
   const fallback = getItemHeldTexture(itemId);
   if (!fallback) return null;

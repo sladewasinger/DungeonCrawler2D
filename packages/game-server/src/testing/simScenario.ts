@@ -129,6 +129,7 @@ export class SimScenario {
 
   rebootFromPersistence(): { readonly scenario: SimScenario; readonly handles: readonly ScenarioPlayerHandle[] } {
     this.sim.savePersistenceNow();
+    this.sim.closePersistence();
     const next = new SimScenario({
       seed: this.seed,
       persistencePath: this.persistencePath,
@@ -142,6 +143,7 @@ export class SimScenario {
   }
 
   dispose(): void {
+    this.sim.closePersistence();
     if (this.ownedTempDir) rmSync(this.ownedTempDir, { recursive: true, force: true });
   }
 }

@@ -2,7 +2,7 @@
 import { AI_TUNING, GroundKind, WorldChunkCache, findTilePath, isInWorldSanctuary } from "@dc2d/engine";
 import { CREATURE_SPECS, ST_INVESTIGATE, type SearchPhase, type WildlifeEntity } from "../creatureSpecs.js";
 import { clearNavPath, isClearSpot, moveCreatureToward } from "../creatureNavigation.js";
-import type { ScentTrail } from "../scentTrail.js";
+import type { ScentTrail } from "./scentTrail.js";
 
 const PHASE_CLUE: SearchPhase = "move_to_clue";
 const PHASE_SCAN: SearchPhase = "scan";

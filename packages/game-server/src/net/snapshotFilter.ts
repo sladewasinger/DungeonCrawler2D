@@ -1,9 +1,19 @@
 /** Per-client AOI snapshot culling, float rounding, proximity chat filtering, and inventory dirty-check helpers. */
-import type {
-  ChatEntry, GroundLootSnapshot, InventorySnapshot, PlayerSnapshot, ProjectileSnapshot,
-  WorldChestSnapshot, WorldEntitySnapshot, WorldEvent, WorldWebSnapshot,
+import {
+  SpatialHashGrid,
+  type ChatEntry, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot,
+  type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { isWithinChatRadius } from "../sim/chat/proximityChat.js";
+
+export interface SpatialBroadcastIndex {
+  readonly players: SpatialHashGrid<PlayerSnapshot>;
+  readonly projectiles: SpatialHashGrid<ProjectileSnapshot>;
+  readonly entities: SpatialHashGrid<WorldEntitySnapshot>;
+  readonly chests: SpatialHashGrid<WorldChestSnapshot>;
+  readonly groundLoot: SpatialHashGrid<GroundLootSnapshot>;
+  readonly events: SpatialHashGrid<WorldEvent>;
+}
 
 export interface BroadcastPayload {
   readonly players: PlayerSnapshot[];
@@ -14,6 +24,28 @@ export interface BroadcastPayload {
   readonly webs?: WorldWebSnapshot | undefined;
   readonly events: WorldEvent[];
   readonly chatMessages?: ChatEntry[] | undefined;
+  readonly spatialIndex?: SpatialBroadcastIndex | undefined;
+}
+
+export function createSpatialBroadcastIndex(): SpatialBroadcastIndex {
+  return {
+    players: new SpatialHashGrid(32),
+    projectiles: new SpatialHashGrid(32),
+    entities: new SpatialHashGrid(32),
+    chests: new SpatialHashGrid(32),
+    groundLoot: new SpatialHashGrid(32),
+    events: new SpatialHashGrid(32),
+  };
+}
+
+export function populateSpatialBroadcastIndex(idx: SpatialBroadcastIndex, data: BroadcastPayload): SpatialBroadcastIndex {
+  idx.players.clear(); idx.players.insertAll(data.players);
+  idx.projectiles.clear(); idx.projectiles.insertAll(data.projectiles);
+  idx.entities.clear(); idx.entities.insertAll(data.entities);
+  idx.chests.clear(); idx.chests.insertAll(data.chests);
+  idx.groundLoot.clear(); idx.groundLoot.insertAll(data.groundLoot);
+  idx.events.clear(); idx.events.insertAll(data.events);
+  return idx;
 }
 
 const DEFAULT_AOI_RADIUS_TILES = 42;
@@ -103,9 +135,66 @@ function filterWebs(q: { readonly webs: WorldWebSnapshot | undefined; readonly p
   };
 }
 
+const ARMOR_SIG_KEYS = ["head", "chest", "legs", "feet", "offhand"] as const;
+
+function slotsSig(slots: InventorySnapshot["slots"]): string {
+  let out = "";
+  for (const s of slots) out += s ? `${s.itemId}:${s.count}:${s.prefixId ?? ""};` : ";";
+  return out;
+}
+
 export function inventorySignature(inv: InventorySnapshot | undefined): string {
   if (!inv) return "";
-  return JSON.stringify(inv);
+  const armor = ARMOR_SIG_KEYS.map((k) => inv.armor[k] ?? "").join(",");
+  return `${inv.selectedHotbar}|${inv.nearCampfire ? 1 : 0}|${inv.nearWorkbench ? 1 : 0}|${inv.ackSeq ?? 0}|${slotsSig(inv.slots)}|${armor}`;
+}
+
+function queryAoiPlayers(opts: {
+  readonly data: BroadcastPayload; readonly me: PlayerSnapshot; readonly r: number;
+}): PlayerSnapshot[] {
+  const { data, me, r } = opts;
+  const pool = data.spatialIndex ? data.spatialIndex.players.queryRadius({ x: me.x, y: me.y, radius: r }) : data.players;
+  const out = pool
+    .filter((p) => playerVisibleInAoi({ p, selfId: me.id, px: me.x, py: me.y, r }))
+    .map((p) => roundPlayer(p, me.id, { x: me.x, y: me.y }));
+  if (!out.some((p) => p.id === me.id)) out.unshift(roundPlayer(me, me.id, { x: me.x, y: me.y }));
+  return out;
+}
+
+function queryBucket<T extends { readonly x: number; readonly y: number }>(
+  grid: SpatialHashGrid<T> | undefined,
+  fallback: readonly T[],
+  q: { readonly px: number; readonly py: number; readonly r: number; readonly rSq: number },
+): readonly T[] {
+  if (grid) return grid.queryRadius({ x: q.px, y: q.py, radius: q.r });
+  return fallback.filter((item) => withinRadius({ ax: item.x, ay: item.y, px: q.px, py: q.py, rSq: q.rSq }));
+}
+
+function buildOptionalViewFields(opts: {
+  readonly data: BroadcastPayload; readonly me: PlayerSnapshot; readonly rSq: number;
+}): Pick<BroadcastPayload, "webs" | "chatMessages"> {
+  const webs = filterWebs({ webs: opts.data.webs, px: opts.me.x, py: opts.me.y, rSq: opts.rSq });
+  const chat = opts.data.chatMessages?.filter((m) => isWithinChatRadius({ ax: m.x, ay: m.y, bx: opts.me.x, by: opts.me.y, shout: m.shout }));
+  return {
+    ...(chat && chat.length > 0 ? { chatMessages: chat } : {}),
+    ...(webs ? { webs } : {}),
+  };
+}
+
+function buildCoreSnapshotEntities(opts: {
+  readonly data: BroadcastPayload; readonly me: PlayerSnapshot; readonly r: number; readonly rSq: number;
+}): BroadcastPayload {
+  const { data, me, r, rSq } = opts;
+  const idx = data.spatialIndex;
+  const q = { px: me.x, py: me.y, r, rSq };
+  return {
+    players: queryAoiPlayers({ data, me, r }),
+    projectiles: queryBucket(idx?.projectiles, data.projectiles, q).map(roundProjectile),
+    entities: queryBucket(idx?.entities, data.entities, q).map(roundEntity),
+    chests: queryBucket(idx?.chests, data.chests, q).map(redactChest),
+    groundLoot: [...queryBucket(idx?.groundLoot, data.groundLoot, q)],
+    events: [...queryBucket(idx?.events, data.events, q)],
+  };
 }
 
 export function filterSnapshotForPlayer(opts: {
@@ -115,23 +204,8 @@ export function filterSnapshotForPlayer(opts: {
 }): BroadcastPayload {
   const { data, playerId } = opts;
   const r = opts.aoiRadiusTiles ?? DEFAULT_AOI_RADIUS_TILES;
-  const rSq = r * r;
   const me = data.players.find((p) => p.id === playerId) ?? data.players[0];
   if (!me) return { ...data, players: data.players.map((p) => roundPlayer(p, playerId)) };
-  const { x: px, y: py } = me;
-  const players = data.players
-    .filter((p) => playerVisibleInAoi({ p, selfId: me.id, px, py, r }))
-    .map((p) => roundPlayer(p, me.id, { x: px, y: py }));
-  const webs = filterWebs({ webs: data.webs, px, py, rSq });
-  const chatMessages = data.chatMessages?.filter((m) => isWithinChatRadius({ ax: m.x, ay: m.y, bx: px, by: py, shout: m.shout }));
-  return {
-    players,
-    projectiles: data.projectiles.filter((p) => withinRadius({ ax: p.x, ay: p.y, px, py, rSq })).map(roundProjectile),
-    entities: data.entities.filter((e) => withinRadius({ ax: e.x, ay: e.y, px, py, rSq })).map(roundEntity),
-    chests: data.chests.filter((c) => withinRadius({ ax: c.x, ay: c.y, px, py, rSq })).map(redactChest),
-    groundLoot: data.groundLoot.filter((g) => withinRadius({ ax: g.x, ay: g.y, px, py, rSq })),
-    events: data.events.filter((ev) => withinRadius({ ax: ev.x, ay: ev.y, px, py, rSq })),
-    ...(chatMessages && chatMessages.length > 0 ? { chatMessages } : {}),
-    ...(webs ? { webs } : {}),
-  };
+  const rSq = r * r;
+  return { ...buildCoreSnapshotEntities({ data, me, r, rSq }), ...buildOptionalViewFields({ data, me, rSq }) };
 }

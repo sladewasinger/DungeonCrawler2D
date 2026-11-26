@@ -112,8 +112,10 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
   it("places camp bed for custom respawn, activates Well-Fed/Rested buffs, and persists across reboots", () => {
     const dir = mkdtempSync(join(tmpdir(), "dc2d-save-"));
     const savePath = join(dir, "world.json");
+    let sim: WorldSim | undefined;
+    let rebooted: WorldSim | undefined;
     try {
-      const sim = new WorldSim(1337, { persistencePath: savePath });
+      sim = new WorldSim(1337, { persistencePath: savePath });
       const id = sim.addPlayer("Builder");
       sim.grantPlayerItems(id, [
         { slot: 11, itemId: "wood", count: 8 },
@@ -142,11 +144,14 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
       verifyRestedBuffNearCampfire();
 
       sim.savePersistenceNow();
-      const rebooted = new WorldSim(1337, { persistencePath: savePath });
+      sim.closePersistence();
+      rebooted = new WorldSim(1337, { persistencePath: savePath });
       expect(rebooted.worldDeltaSnapshot().structures.some((s) => s.kind === "bed")).toBe(true);
       const idReboot = rebooted.addPlayer("Builder");
       expect(rebooted.snapshots().find((p) => p.id === idReboot)?.hasBedRespawn).toBe(true);
     } finally {
+      sim?.closePersistence();
+      rebooted?.closePersistence();
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -180,8 +185,10 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
   it("blocks dropFromChest on sealed chests, enforces bed ward & structure cap, and persists worldClockSec & dayPaused", () => {
     const dir = mkdtempSync(join(tmpdir(), "dc2d-stage1-"));
     const savePath = join(dir, "world.json");
+    let sim: WorldSim | undefined;
+    let reloaded: WorldSim | undefined;
     try {
-      const sim = new WorldSim(1337, { persistencePath: savePath });
+      sim = new WorldSim(1337, { persistencePath: savePath });
       const ownerId = sim.addPlayer("Mason", undefined, { accountId: "acc_mason" });
       const guestId = sim.addPlayer("Guest", undefined, { accountId: "acc_guest" });
       const owner = sim.getPlayer(ownerId)!;
@@ -215,11 +222,14 @@ describe("Phase 8 gathering, camp building, survival buffs, and persistence", ()
       const clockBeforeSave = sim.worldClockSec;
       expect(clockBeforeSave).toBeGreaterThan(0.4);
       sim.savePersistenceNow();
+      sim.closePersistence();
 
-      const reloaded = new WorldSim(1337, { persistencePath: savePath });
+      reloaded = new WorldSim(1337, { persistencePath: savePath });
       expect(reloaded.worldClockSec).toBeCloseTo(clockBeforeSave, 3);
       expect(reloaded.dayPaused).toBe(true);
     } finally {
+      sim?.closePersistence();
+      reloaded?.closePersistence();
       rmSync(dir, { recursive: true, force: true });
     }
   });

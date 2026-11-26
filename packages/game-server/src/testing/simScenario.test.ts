@@ -23,6 +23,7 @@ describe("SimScenario headless harness [sim]", () => {
 
   it("persists player position and inventory across rebootFromPersistence()", () => {
     const sc = SimScenario.create({ seed: 1337 });
+    let nextSc: SimScenario | undefined;
     try {
       const p = sc.joinPlayer({ name: "Survivor" });
       sc.getWorld().grantPlayerItems(p.id, [{ slot: 5, itemId: "wood", count: 8 }]);
@@ -33,13 +34,15 @@ describe("SimScenario headless harness [sim]", () => {
       const beforeY = before.y;
 
       const rebooted = sc.rebootFromPersistence();
+      nextSc = rebooted.scenario;
       const restoredHandle = rebooted.handles[0]!;
-      const restored = rebooted.scenario.getPlayer(restoredHandle.id)!;
+      const restored = nextSc.getPlayer(restoredHandle.id)!;
       expect(restored.x).toBeCloseTo(beforeX, 5);
       expect(restored.y).toBeCloseTo(beforeY, 5);
       expect(restored.inventory.slots[5]?.itemId).toBe("wood");
       expect(restored.inventory.slots[5]?.count).toBe(8);
     } finally {
+      nextSc?.dispose();
       sc.dispose();
     }
   });

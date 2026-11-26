@@ -1,16 +1,11 @@
 /** Dynamic spring-cloth cobweb network: auto-stitching hubs, fire propagation, stretching & sharp cutting. */
-import { MELEE_FEEL_TUNING, PropKind, WorldChunkCache, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
+import { MELEE_FEEL_TUNING, WorldChunkCache, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { pickWebAnchor, pointToSegDistSq, segHitsSector, type WebNode, type WebStrand } from "./webGeometry.js";
+import { isHeatPropNear, pickWebAnchor, pointToSegDistSq, segHitsSector, type WebNode, type WebStrand } from "./webGeometry.js";
 
 const MAX_WEB_NODES = 96;
 const SPOKE_COUNT = 6;
 const round2 = (v: number): number => Math.round(v * 100) / 100;
-
-const HEAT_PROPS = new Set<PropKind>([PropKind.Campfire, PropKind.Torch, PropKind.BrazierLit, PropKind.RunicForge]);
-
-const isHeatPropNear = (pr: { readonly kind: PropKind; readonly x: number; readonly y: number }, x: number, y: number): boolean =>
-  HEAT_PROPS.has(pr.kind) && Math.hypot(pr.x - x, pr.y - y) <= 2.4;
 
 export class WorldWebNetwork {
   readonly nodes: WebNode[] = [];
@@ -95,21 +90,15 @@ export class WorldWebNetwork {
     }
   }
 
-  removePlayer(playerId: string): void {
-    this.prevPos.delete(playerId);
-  }
+  removePlayer(playerId: string): void { this.prevPos.delete(playerId); }
 
   step(opts: { readonly cache: WorldChunkCache; readonly players: Iterable<CombatPlayerRef>; readonly dt: number }): void {
     if (this.strands.length === 0 && this.nodes.length === 0) { this.decayClearPlayers(opts.players, opts.dt); return; }
-    this.stepPlayerWebContact(opts.players, opts.dt);
-    this.stepClothSprings(opts.dt);
-    this.stepFirePropagation(opts.cache, opts.players, opts.dt);
+    this.stepPlayerWebContact(opts.players, opts.dt); this.stepClothSprings(opts.dt); this.stepFirePropagation(opts.cache, opts.players, opts.dt);
   }
 
   private decayClearPlayers(players: Iterable<CombatPlayerRef>, dt: number): void {
-    for (const p of players) {
-      if (p.combat.cocoonProgress <= 0) p.combat.webStick = Math.max(0, p.combat.webStick - 0.65 * dt);
-    }
+    for (const p of players) if (p.combat.cocoonProgress <= 0) p.combat.webStick = Math.max(0, p.combat.webStick - 0.65 * dt);
   }
 
   private stepClothSprings(dt: number): void {
@@ -139,18 +128,28 @@ export class WorldWebNetwork {
     }
   }
 
-  private hasHeatSourceNear(opts: {
-    readonly cache: WorldChunkCache; readonly players: Iterable<CombatPlayerRef>; readonly x: number; readonly y: number;
-  }): boolean {
-    if (opts.cache.propsNear(opts.x, opts.y).some((pr) => isHeatPropNear(pr, opts.x, opts.y))) return true;
-    for (const p of opts.players) if (p.combat.burnTimer > 0 && Math.hypot(p.x - opts.x, p.y - opts.y) <= 1.25) return true;
+  private hasStaticHeatNear(s: WebStrand, cache: WorldChunkCache): boolean {
+    const rev = cache.deltaRevision();
+    if (s.staticHeatRev === rev && s.nearStaticHeat !== undefined) return s.nearStaticHeat;
+    const mx = (s.a.x + s.b.x) * 0.5;
+    const my = (s.a.y + s.b.y) * 0.5;
+    const near = cache.propsNear(mx, my).some((pr) => isHeatPropNear(pr, mx, my));
+    s.nearStaticHeat = near;
+    s.staticHeatRev = rev;
+    return near;
+  }
+
+  private hasPlayerHeatNear(players: Iterable<CombatPlayerRef>, x: number, y: number): boolean {
+    for (const p of players) if (p.combat.burnTimer > 0 && Math.hypot(p.x - x, p.y - y) <= 1.25) return true;
     return false;
   }
 
   private igniteStrandIfWarm(opts: { readonly s: WebStrand; readonly cache: WorldChunkCache; readonly players: Iterable<CombatPlayerRef> }): void {
     const { s, cache, players } = opts;
     if (s.fire > 0) return;
-    if (s.a.fire > 0 || s.b.fire > 0 || this.hasHeatSourceNear({ cache, players, x: (s.a.x + s.b.x) * 0.5, y: (s.a.y + s.b.y) * 0.5 })) s.fire = 0.08;
+    if (s.a.fire > 0 || s.b.fire > 0 || this.hasStaticHeatNear(s, cache) || this.hasPlayerHeatNear(players, (s.a.x + s.b.x) * 0.5, (s.a.y + s.b.y) * 0.5)) {
+      s.fire = 0.08;
+    }
   }
 
   private stepFirePropagation(cache: WorldChunkCache, players: Iterable<CombatPlayerRef>, dt: number): void {

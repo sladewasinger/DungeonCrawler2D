@@ -11,13 +11,15 @@ export type { BlockingObstacle };
 export interface TileLookup { readonly ground: GroundKind; readonly elevation: number; readonly stairs: boolean; }
 
 export class WorldChunkCache {
-  private static readonly maxCachedChunks = 96;
+  readonly maxCachedChunks: number;
   private readonly chunks = new Map<string, WorldChunk>();
   private readonly deltaOverlay = new WorldDeltaOverlay();
   private lastChunkKey: string | null = null;
   private lastChunk: WorldChunk | null = null;
 
-  constructor(readonly worldSeed: number) {}
+  constructor(readonly worldSeed: number, options?: { readonly maxCachedChunks?: number | undefined }) {
+    this.maxCachedChunks = Math.max(16, options?.maxCachedChunks ?? 256);
+  }
 
   getChunk(cx: number, cy: number): WorldChunk {
     const key = chunkKey(cx, cy);
@@ -30,7 +32,7 @@ export class WorldChunkCache {
     }
     const generated = this.deltaOverlay.applyChunkDeltas(generateChunk(this.worldSeed, cx, cy));
     this.chunks.set(key, generated);
-    if (this.chunks.size > WorldChunkCache.maxCachedChunks) this.deleteCachedChunk(this.chunks.keys().next().value);
+    if (this.chunks.size > this.maxCachedChunks) this.deleteCachedChunk(this.chunks.keys().next().value);
     this.lastChunkKey = key; this.lastChunk = generated;
     return generated;
   }

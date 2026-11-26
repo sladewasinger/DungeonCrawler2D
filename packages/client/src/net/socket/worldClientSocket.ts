@@ -142,6 +142,12 @@ export interface StepLoopContext {
   readonly queuedEvents: WorldEvent[]; readonly send: (msg: ClientMessage) => void;
 }
 
+function resolvePredictedMoveSpeedMult(player: PlayerSnapshot, gearSpeedMult: number): number {
+  const shrine = player.shrineBuff;
+  const swiftBonus = shrine?.kind === "swiftness" && shrine.remainingSec > 0 ? 0.22 : 0;
+  return Math.max(0.65, 1 + gearSpeedMult + swiftBonus);
+}
+
 function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void {
   const { state } = ctx;
   const heldSlot = ctx.inventory.slots[ctx.inventory.selectedHotbar] ?? null;
@@ -162,7 +168,8 @@ function stepServerPrediction(ctx: StepLoopContext, input: StepInputFrame): void
     armor: ctx.inventory.armor, armorPrefixes: ctx.inventory.armorPrefixes, heldItem: heldSlot, lookup: resolveItemInstance,
   });
   const nextPlayer = {
-    ...state.player, heldItem: heldId, swingProgress: ctx.swing.activeProgress(state.player.swingProgress), moveSpeedMult: 1 + gear.moveSpeedMult,
+    ...state.player, heldItem: heldId, swingProgress: ctx.swing.activeProgress(state.player.swingProgress),
+    moveSpeedMult: resolvePredictedMoveSpeedMult(state.player, gear.moveSpeedMult),
   };
   state.player = predictLocalPlayerMove({
     cache: ctx.cache, player: nextPlayer, nx: moveDir.x, ny: moveDir.y, dt: input.dt,

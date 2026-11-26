@@ -3,9 +3,9 @@ import type { ArmorEquipment, CharacterAppearance } from "@dc2d/engine";
 import { Texture, type TextureSource } from "pixi.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline } from "../textures/pixelCanvas.js";
 import { armCanvasSize, buildArmRects } from "./armRig.js";
-import { buildArmorRects } from "./characterArmorLayers.js";
-import { buildBodyRects } from "./characterBodyLayers.js";
-import { buildHairRects } from "./characterHairLayers.js";
+import { buildArmorRects } from "./layers/characterArmorLayers.js";
+import { buildBodyRects } from "./layers/characterBodyLayers.js";
+import { buildHairRects } from "./layers/characterHairLayers.js";
 import {
   FALL_POSES, FRAME_SIZE, IDLE_POSES, JUMP_POSES, OUTLINE_RGB, RUN_POSES, WALK_POSES,
   type CharacterPose, type CharacterSpriteSet, type DirectionAnim, type FacingDir,
@@ -19,6 +19,7 @@ export { CHARACTER_WORLD_SCALE, resolveFacingDir, resolveFacingDir8 } from "./ch
 const MAX_CACHED_SETS = 32;
 const MAX_CACHED_PORTRAITS = 256;
 const spriteCache = new Map<string, CharacterSpriteSet>();
+const spriteRefCounts = new Map<string, number>();
 const portraitCache = new Map<string, string>();
 let cacheRevision = 0;
 
@@ -121,9 +122,16 @@ function destroySpriteSet(set: CharacterSpriteSet | undefined): void {
   }
 }
 
+function findEvictableCacheKey(): string | undefined {
+  for (const key of spriteCache.keys()) {
+    if ((spriteRefCounts.get(key) ?? 0) === 0) return key;
+  }
+  return undefined;
+}
+
 function evictOldestIfFull(): void {
   if (spriteCache.size < MAX_CACHED_SETS) return;
-  const oldestKey = spriteCache.keys().next().value;
+  const oldestKey = findEvictableCacheKey();
   if (!oldestKey) return;
   const evicted = spriteCache.get(oldestKey);
   spriteCache.delete(oldestKey);
@@ -132,17 +140,13 @@ function evictOldestIfFull(): void {
 }
 
 function buildFallbackSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
-  const previewFrame = renderPoseFrame({ appearance, armor, dir: "south", pose: IDLE_POSES[0]!, includeArms: true });
-  const created: CharacterSpriteSet = {
+  return {
     south: buildDirectionAnim({ appearance, armor, dir: "south" }),
     north: buildDirectionAnim({ appearance, armor, dir: "north" }),
     side: buildDirectionAnim({ appearance, armor, dir: "side" }),
     frontArm: buildArmTexture(appearance, armor, false),
     backArm: buildArmTexture(appearance, armor, true),
-    previewUrl: previewFrame.canvas.toDataURL(),
   };
-  previewFrame.texture.destroy(true);
-  return created;
 }
 
 function storePortraitLru(key: string, url: string): string {
@@ -160,10 +164,26 @@ export function getCharacterPortraitUrl(appearance: CharacterAppearance, armor: 
   const cached = portraitCache.get(key);
   if (cached) return storePortraitLru(key, cached);
   const full = spriteCache.get(key);
-  if (full) return storePortraitLru(key, full.previewUrl);
+  if (full?.previewUrl) return storePortraitLru(key, full.previewUrl);
   const url = (isPlayer3dReady() ? build3dCharacterPortraitUrl(appearance, armor) : null)
     ?? renderPoseCanvas({ appearance, armor, dir: "south", pose: IDLE_POSES[0]!, includeArms: true }).toDataURL();
   return storePortraitLru(key, url);
+}
+
+export function acquireCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): {
+  readonly key: string; readonly sprites: CharacterSpriteSet;
+} {
+  const key = characterCacheKey(appearance, armor);
+  const sprites = getCharacterSpriteSet(appearance, armor);
+  spriteRefCounts.set(key, (spriteRefCounts.get(key) ?? 0) + 1);
+  return { key, sprites };
+}
+
+export function releaseCharacterSpriteSet(key: string): void {
+  if (!key) return;
+  const count = spriteRefCounts.get(key) ?? 0;
+  if (count <= 1) spriteRefCounts.delete(key);
+  else spriteRefCounts.set(key, count - 1);
 }
 
 export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: ArmorEquipment): CharacterSpriteSet {
@@ -179,6 +199,5 @@ export function getCharacterSpriteSet(appearance: CharacterAppearance, armor: Ar
     (isPlayer3dReady() ? build3dCharacterSpriteSet(appearance, armor, () => invalidateCharacterCacheKey(key)) : null)
     ?? buildFallbackSpriteSet(appearance, armor);
   spriteCache.set(key, created);
-  storePortraitLru(key, created.previewUrl);
   return created;
 }
