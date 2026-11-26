@@ -26,6 +26,8 @@ import { ResourceHarvester } from "./survival/resourceHarvester.js";
 import { WorldWebNetwork } from "./webs/webNetwork.js";
 import { stepPlayerWebAndCocoonTimers } from "./webs/webCocoon.js";
 import { type WildlifeEntity } from "./wildlife/creatureSpecs.js";
+import { DiscoveryTracker } from "./frontier/discoveryTracker.js";
+import { PoiInteractionManager, tryExecutePlayerDodge } from "./frontier/poiInteractions.js";
 import {
   createPebbleProjectile, createWebProjectile, serializeProjectiles, stepProjectileList, type SimProjectile,
 } from "./wildlife/projectileSim.js";
@@ -60,6 +62,8 @@ export class CombatWorld {
   readonly harvester = new ResourceHarvester();
   readonly structures = new CampStructureManager();
   readonly webs = new WorldWebNetwork();
+  readonly discovery = new DiscoveryTracker();
+  readonly poiInteractions = new PoiInteractionManager();
   private readonly projectiles: SimProjectile[] = [];
   private events: WorldEvent[] = [];
   private nextProjId = 1;
@@ -72,6 +76,7 @@ export class CombatWorld {
 
   removePlayer(playerId: string): void {
     this.ecology.removePlayer(playerId);
+    this.discovery.removePlayer(playerId);
   }
 
   stepPlayerAction(req: CombatStepRequest): void {
@@ -93,21 +98,17 @@ export class CombatWorld {
   private handleInteract(p: CombatPlayerRef, playerName: string): void {
     if (this.ecology.openChest(p, undefined, this.events)) return;
     if (this.ecology.pickupManualLoot(p, undefined, this.events)) return;
+    if (this.poiInteractions.interactWithPoi({ player: p, cache: this.cache, loot: this.ecology.loot, discovery: this.discovery, simTimeSec: this.simTimeSec, events: this.events })) return;
     this.structures.bindNearestBed({ player: p, playerName, events: this.events });
   }
 
   pickupLoot(p: CombatPlayerRef, lootId?: string): boolean { return this.ecology.pickupManualLoot(p, lootId, this.events); }
 
   dropPlayerItem(p: CombatPlayerRef, req: DropItemRequest): boolean {
-    if (req.source === "chest") {
-      if (!req.chestId || req.slotIndex === undefined) return false;
-      return this.ecology.loot.dropFromChest(p, { chestId: req.chestId, slotIndex: req.slotIndex, count: req.count });
-    }
+    if (req.source === "chest") return Boolean(req.chestId && req.slotIndex !== undefined && this.ecology.loot.dropFromChest(p, { chestId: req.chestId, slotIndex: req.slotIndex, count: req.count }));
     const res = takeDroppedPlayerItem(p.inventory, req);
     if (!res) return false;
-    p.inventory = res.nextState;
-    this.ecology.loot.spawnPlayerDrop(p, res.item);
-    return true;
+    p.inventory = res.nextState; this.ecology.loot.spawnPlayerDrop(p, res.item); return true;
   }
 
   private handleDodgeOrBuffer(p: CombatPlayerRef, input: CombatInputFlags): void {
@@ -154,6 +155,8 @@ export class CombatWorld {
     c.swingTimer = Math.max(0, sw.durationSec - sw.elapsedSec);
     if (swingOverlapsActive({ swing: sw, prevElapsed: prev, nextElapsed: sw.elapsedSec })) {
       runSwingActivePass({ cache: this.cache, p, players, dummies: this.dummies, ecology: this.ecology, harvester: this.harvester, webs: this.webs, sw, timeSec: this.simTimeSec, events: this.events });
+      const slot = p.inventory.slots[p.selectedHotbar];
+      this.poiInteractions.hitBraziersInSector({ attacker: p, heldItemId: slot?.itemId ?? null, prefixId: slot?.prefixId, cache: this.cache, loot: this.ecology.loot, events: this.events });
     }
     if (sw.elapsedSec >= sw.durationSec - 1e-6) {
       c.pendingSwing = null; c.swingTimer = 0; c.heavyCharge = 0;
@@ -215,6 +218,7 @@ export class CombatWorld {
     this.simTimeSec = timeSec;
     this.harvester.stepRegrowth(timeSec, this.cache);
     const targets = Array.from(players.values());
+    for (const pl of targets) this.discovery.trackNearbyPois({ playerId: pl.id, x: pl.x, y: pl.y, cache: this.cache, events: this.events });
     stepTrainingDummies({
       dummies: this.dummies, dt, players: targets, events: this.events,
       onStrike: (entity, target, dmg) => {
@@ -253,15 +257,12 @@ export class CombatWorld {
   }
 
   private tryStartDodge(p: CombatPlayerRef, moveX: number, moveY: number): void {
-    const c = p.combat;
-    if (c.dodgeCooldown > 0 || c.dodgeTimer > 0 || (!c.godMode && c.stamina < DODGE_STAMINA_COST)) return;
-    if (!c.godMode) c.stamina -= DODGE_STAMINA_COST;
-    c.dodgeTimer = DODGE_DURATION_SEC; c.invulnTimer = DODGE_IFRAME_SEC; c.dodgeCooldown = DODGE_COOLDOWN_SEC;
-    c.bowCharge = 0; c.blocking = false;
-    const mag = Math.hypot(moveX, moveY);
-    c.dodgeDirX = mag > 0.05 ? moveX / mag : p.facingX;
-    c.dodgeDirY = mag > 0.05 ? moveY / mag : p.facingY;
-    this.events.push({ kind: "dodge", x: p.x, y: p.y, dirX: c.dodgeDirX, dirY: c.dodgeDirY, actorId: p.id });
+    tryExecutePlayerDodge({ p, moveX, moveY, cost: DODGE_STAMINA_COST, durSec: DODGE_DURATION_SEC, iframeSec: DODGE_IFRAME_SEC, cdSec: DODGE_COOLDOWN_SEC, events: this.events });
+  }
+
+  private fireArrowIfReady(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {
+    if ((!p.combat.godMode && p.combat.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
+    spawnChargedBowArrow({ p, chargeSec, projId: `p${this.nextProjId++}`, projectiles: this.projectiles, ecology: this.ecology, events: this.events });
   }
 
   private stepBowAction(p: CombatPlayerRef & { attackFlashTimer?: number }, input: CombatInputFlags, dt: number): void {
@@ -269,11 +270,6 @@ export class CombatWorld {
     if (c.dodgeTimer > 0 || c.actionCooldown > 0) return;
     if (input.bowDrawing) { c.bowCharge = Math.min(COMBAT_TUNING.bow.maxChargeSec, c.bowCharge + dt * (1 + resolvePlayerGear(p).bowDrawSpeedMult)); return; }
     if (!input.bowReleaseQueued && c.bowCharge <= 0) return;
-    const chargeSec = c.bowCharge; c.bowCharge = 0; this.fireArrow(p, chargeSec);
-  }
-
-  private fireArrow(p: CombatPlayerRef & { attackFlashTimer?: number }, chargeSec: number): void {
-    if ((!p.combat.godMode && p.combat.stamina < 10) || !consumeItemFromSlots(p.inventory.slots, "arrow", 1)) return;
-    spawnChargedBowArrow({ p, chargeSec, projId: `p${this.nextProjId++}`, projectiles: this.projectiles, ecology: this.ecology, events: this.events });
+    const chargeSec = c.bowCharge; c.bowCharge = 0; this.fireArrowIfReady(p, chargeSec);
   }
 }

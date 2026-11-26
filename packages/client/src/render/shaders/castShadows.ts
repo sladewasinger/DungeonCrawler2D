@@ -64,6 +64,14 @@ const PROP_SHADOW_SPECS: Readonly<Partial<Record<PropKind, { readonly widthPx: n
   [PropKind.Palisade]: { widthPx: 12, lengthPx: 20 },
   [PropKind.RuinPillar]: { widthPx: 12, lengthPx: 20 },
   [PropKind.Tent]: { widthPx: 24, lengthPx: 30 },
+  [PropKind.Waystone]: { widthPx: 14, lengthPx: 26 },
+  [PropKind.CursedObelisk]: { widthPx: 16, lengthPx: 28 },
+  [PropKind.HermitHut]: { widthPx: 28, lengthPx: 34 },
+  [PropKind.GreatStump]: { widthPx: 24, lengthPx: 26 },
+  [PropKind.BrokenCart]: { widthPx: 22, lengthPx: 24 },
+  [PropKind.RunicForge]: { widthPx: 20, lengthPx: 24 },
+  [PropKind.ShrineAltar]: { widthPx: 16, lengthPx: 20 },
+  [PropKind.BoneTotem]: { widthPx: 12, lengthPx: 20 },
 };
 
 export function shadowCasterForProp(prop: ChunkProp): ShadowCaster | null {

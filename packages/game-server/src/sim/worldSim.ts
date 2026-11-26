@@ -2,7 +2,7 @@
 import {
   COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, STEALTH_TUNING, WorldChunkCache,
   playerFootSegment, resolveMovement, sanitizeCharacterAppearance, sampleStealthExposure, stepJumpArc, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type DropItemRequest, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
+  type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type DiscoveryStateSnapshot, type DropItemRequest, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
   type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldDeltaSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
 import { ProximityChatManager } from "./chat/proximityChat.js";
@@ -15,7 +15,7 @@ import {
 } from "./playerInventory.js";
 import { normalizeOwnerKey } from "./survival/campStructures.js";
 import { WorldPersistenceStore, type PersistedPlayerRecord, type PersistedWorldFile } from "./survival/persistenceStore.js";
-import { applyPlayerAimInput, buildPlayerSnapshotRecord, computeEffectiveStealthVis, setPlayerAimVec, stepPlayerSurvivalBuffs } from "./survival/playerSurvivalState.js";
+import { applyPlayerAimInput, buildPlayerSnapshotRecord, computeDesiredPlayerDir, computeEffectiveStealthVis, isSprintingMove, setPlayerAimVec, stepPlayerSurvivalBuffs } from "./survival/playerSurvivalState.js";
 import { buildFullWorldSaveSnapshot, hydratePlayerProfileIfFound, loadWorldPersistence } from "./survival/worldPersistenceSync.js";
 
 export const TICK_RATE = 20; export const PLAYER_SPEED_TILES_PER_SEC = COMBAT_TUNING.movement.runSpeedTilesPerSec;
@@ -62,7 +62,19 @@ export class WorldSim {
     this.combat.harvester.importDepleted(file.depleted, this.cache);
     this.combat.structures.importState({ structures: file.structures, beds: file.beds, cache: this.cache, loot: this.combat.ecology.loot });
     this.combat.ecology.loot.importChests(file.chests);
+    if (file.litBraziers?.length) {
+      const cur = this.cache.worldDeltaSnapshot();
+      this.cache.applyWorldDeltaSnapshot({ ...cur, litBraziers: file.litBraziers });
+    }
     this.lastSavedDeltaRev = this.cache.deltaRevision();
+  }
+
+  private hydratePlayerDiscovery(p: SimPlayer): void {
+    hydratePlayerProfileIfFound({
+      host: { savedProfiles: this.savedProfiles, store: this.persistence },
+      player: p,
+      onHydrateDiscovery: (id, d) => this.combat.discovery.hydratePlayer(id, d),
+    });
   }
 
   addPlayer(name: string, appearance: CharacterAppearance = DEFAULT_APPEARANCE): string {
@@ -79,14 +91,15 @@ export class WorldSim {
       combat: createCombatState(), profileHydrated: false,
     };
     this.players.set(id, player);
-    hydratePlayerProfileIfFound({ host: { savedProfiles: this.savedProfiles, store: this.persistence }, player });
+    this.hydratePlayerDiscovery(player);
     return id;
   }
 
   removePlayer(playerId: string): void {
     const p = this.players.get(playerId);
     if (p) {
-      this.savedProfiles.set(normalizeOwnerKey(p.name), { ownerKey: normalizeOwnerKey(p.name), x: p.x, y: p.y, elevation: p.elevation, appearance: p.appearance, inventory: p.inventory, wellFedTimer: p.combat.wellFedTimer, restedTimer: p.combat.restedTimer });
+      const discovery = this.combat.discovery.snapshotFor(p.id);
+      this.savedProfiles.set(normalizeOwnerKey(p.name), { ownerKey: normalizeOwnerKey(p.name), x: p.x, y: p.y, elevation: p.elevation, appearance: p.appearance, inventory: p.inventory, wellFedTimer: p.combat.wellFedTimer, restedTimer: p.combat.restedTimer, discovery });
       this.persistence.markDirty();
       this.combat.pushEvent({ kind: "playerLeave", x: p.x, y: p.y, actorId: p.id });
     }
@@ -94,6 +107,7 @@ export class WorldSim {
     this.combat.removePlayer(playerId);
     this.players.delete(playerId);
   }
+  discoverySnapshot(playerId: string): DiscoveryStateSnapshot { return this.combat.discovery.snapshotFor(playerId); }
   sendChat(playerId: string, text: string, shout?: boolean): ChatEntry | null { const p = this.players.get(playerId); return p ? this.chat.sendMessage({ senderId: p.id, senderName: p.name, x: p.x, y: p.y, rawText: text, shout, tick: this.tick }) : null; }
   useItem(playerId: string, slotIndex: number): void { const p = this.players.get(playerId); if (p && this.combat.useItemSlot(p, slotIndex)) this.persistence.markDirty(); }
   drainChatMessages(): ChatEntry[] { return this.chat.drainMessages(); }
@@ -102,7 +116,7 @@ export class WorldSim {
     if (!p) return;
     if (p.name === "Traveler" && name !== "Traveler") p.profileHydrated = false;
     p.name = name;
-    hydratePlayerProfileIfFound({ host: { savedProfiles: this.savedProfiles, store: this.persistence }, player: p });
+    this.hydratePlayerDiscovery(p);
   }
 
   setAppearance(playerId: string, req: { readonly name?: string | undefined; readonly appearance: CharacterAppearance }): void {
@@ -111,7 +125,7 @@ export class WorldSim {
     const prevName = p.name;
     if (req.name) p.name = req.name.trim().slice(0, 24) || p.name;
     if (prevName === "Traveler" && p.name !== "Traveler") p.profileHydrated = false;
-    hydratePlayerProfileIfFound({ host: { savedProfiles: this.savedProfiles, store: this.persistence }, player: p });
+    this.hydratePlayerDiscovery(p);
     p.appearance = sanitizeCharacterAppearance(req.appearance);
     this.persistence.markDirty();
   }
@@ -219,7 +233,7 @@ export class WorldSim {
   }
 
   private movePlayer(p: SimPlayer, dtSeconds: number): void {
-    const dir = desiredPlayerDir(p);
+    const dir = computeDesiredPlayerDir(p);
     const heldItem = p.inventory.slots[p.selectedHotbar]?.itemId;
     const combat = p.combat;
     if (!dir) {
@@ -240,25 +254,10 @@ export class WorldSim {
 
   combatSnapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[]; readonly chests: WorldChestSnapshot[]; readonly groundLoot: GroundLootSnapshot[]; readonly webs?: WorldWebSnapshot | undefined } { return this.combat.snapshots(); }
   drainCombatEvents(): WorldEvent[] { return this.combat.drainEvents(); }
-
   snapshots(): PlayerSnapshot[] {
     return Array.from(this.players.values(), (p) => buildPlayerSnapshotRecord(p, {
       hasBedRespawn: this.combat.structures.hasBedFor(p.name),
       bubble: this.chat.activeBubbleFor(p.id),
     }));
   }
-}
-
-const isSprintingMove = (o: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean =>
-  o.mag > 0.82 && o.mult >= 0.99 && !o.inWater && !o.dodging;
-
-function desiredPlayerDir(p: SimPlayer): { readonly ux: number; readonly uy: number; readonly nx: number; readonly ny: number; readonly mag: number } | null {
-  if (p.combat.staggerTimer > 0 || p.combat.respawnTimer > 0) return null;
-  const dodging = p.combat.dodgeTimer > 0;
-  const rawX = dodging ? p.combat.dodgeDirX : p.moveX; const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
-  const rawMag = Math.hypot(rawX, rawY);
-  if (rawMag < 0.05) return null;
-  const ux = rawX / rawMag; const uy = rawY / rawMag;
-  const mag = Math.min(rawMag, !dodging && p.combat.bowCharge > 0 ? COMBAT_TUNING.movement.walkSpeedRatio : 1);
-  return { ux, uy, nx: ux * mag, ny: uy * mag, mag };
 }

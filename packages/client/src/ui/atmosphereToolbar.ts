@@ -122,12 +122,13 @@ export class AtmosphereToolbar {
     readonly settingsOpen: boolean;
     readonly playerX?: number;
     readonly playerY?: number;
+    readonly biomeHint?: string;
   }): void {
     this.bagBtn.dataset.active = String(state.activePanel === "inventory");
     this.settingsBtn.dataset.active = String(state.settingsOpen);
     this.syncFullscreenBtn();
     this.ping.sync(state.mode, state.pingMs);
-    this.compass.sync(state.playerX ?? 0, state.playerY ?? 0);
+    this.compass.sync(state.playerX ?? 0, state.playerY ?? 0, state.biomeHint);
     if (this.debug) this.syncDebugBar(state);
   }
 

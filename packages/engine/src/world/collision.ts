@@ -81,6 +81,7 @@ export class WorldChunkCache {
     for (const prop of this.propsNear(wx, wy)) pushPropObstacles(prop, out);
     const s = POI_CHEST_OBSTACLE_SHAPE;
     for (const poi of this.poisNear(wx, wy)) {
+      if (poi.hasChest === false) continue;
       out.push({
         id: `${poi.id}:chest`, x: poi.chestX, y: poi.chestY + s.offsetY,
         radius: s.radius, halfX: s.halfX, halfY: s.halfY, elevation: poi.elevation,
@@ -97,6 +98,8 @@ export class WorldChunkCache {
   restoreProp(propId: string): void { this.deleteCachedChunk(this.deltaOverlay.restoreProp(propId)); }
   addPlacedStructure(rec: PlacedStructureRecord): void { this.deleteCachedChunk(this.deltaOverlay.addStructure(rec)); }
   removePlacedStructure(id: string): void { this.deleteCachedChunk(this.deltaOverlay.removeStructure(id)); }
+  lightBrazier(brazierId: string, pos: { readonly x: number; readonly y: number }): void { this.deleteCachedChunk(this.deltaOverlay.lightBrazier(brazierId, pos)); }
+  isBrazierLit(brazierId: string): boolean { return this.deltaOverlay.isBrazierLit(brazierId); }
   applyWorldDeltaSnapshot(snap: WorldDeltaSnapshot): void { for (const k of this.deltaOverlay.replaceFromSnapshot(snap)) this.deleteCachedChunk(k); }
 }
 

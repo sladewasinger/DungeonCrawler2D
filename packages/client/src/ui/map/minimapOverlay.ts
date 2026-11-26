@@ -1,5 +1,8 @@
 /** Centered parchment Overworld Map (toggled with [M] or hotbar [M] button) showing terrain, POIs, and players. */
-import { GroundKind, PropKind, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot } from "@dc2d/engine";
+import {
+  GroundKind, PropKind, type DiscoveryStateSnapshot, type PlayerSnapshot, type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
+} from "@dc2d/engine";
+import { drawFrontierMapPins, formatMapFooterSummary } from "./mapPinRenderer.js";
 
 const MAP_PX = 480;
 const COLOR_ENEMY = "#ef4444";
@@ -143,16 +146,18 @@ export class MinimapOverlay {
   sync(opts: {
     readonly visible: boolean; readonly cache: WorldChunkCache; readonly local: PlayerSnapshot | undefined;
     readonly players: readonly PlayerSnapshot[]; readonly entities: readonly WorldEntitySnapshot[];
-    readonly chests: readonly WorldChestSnapshot[];
+    readonly chests: readonly WorldChestSnapshot[]; readonly discovery?: DiscoveryStateSnapshot | undefined;
   }): void {
     this.el.hidden = !opts.visible || !opts.local;
     if (this.el.hidden || !opts.local) return;
     const { local } = opts;
-    this.coordsEl.textContent = `(${Math.floor(local.x)}, ${Math.floor(local.y)})`;
+    const summary = formatMapFooterSummary({ worldSeed: opts.cache.worldSeed, x: local.x, y: local.y, discovery: opts.discovery });
+    this.coordsEl.textContent = `${summary} · (${Math.floor(local.x)}, ${Math.floor(local.y)})`;
     this.refreshTerrainLayer(opts.cache, Math.floor(local.x), Math.floor(local.y));
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(this.terrainBuf, 0, 0);
+    drawFrontierMapPins({ ctx, cache: opts.cache, localX: local.x, localY: local.y, zoom: this.zoom, mapPx: MAP_PX, discovery: opts.discovery, nowMs: performance.now() });
     this.drawMarkers(ctx, { ...opts, local });
     drawPlayerArrow(ctx, local.facingX, local.facingY);
   }

@@ -67,6 +67,19 @@ const PROP_COLLISION_OFFSET_Y: Readonly<Partial<Record<PropKind, number>>> = {
   [PropKind.CursedCrystal]: -0.28,
   [PropKind.Campfire]: -0.17,
   [PropKind.RuinPillar]: -0.20,
+  [PropKind.ShrineAltar]: -0.22,
+  [PropKind.Waystone]: -0.22,
+  [PropKind.Gravestone]: -0.18,
+  [PropKind.BrokenCart]: -0.24,
+  [PropKind.GreatStump]: -0.24,
+  [PropKind.SunkenBoat]: -0.22,
+  [PropKind.LoreSign]: -0.16,
+  [PropKind.BoneTotem]: -0.20,
+  [PropKind.RunicForge]: -0.24,
+  [PropKind.CursedObelisk]: -0.24,
+  [PropKind.BrazierUnlit]: -0.18,
+  [PropKind.BrazierLit]: -0.18,
+  [PropKind.HermitHut]: -0.28,
 };
 
 export function propStructureShape(kind: PropKind): StructureFootprintSpec | undefined {
@@ -204,6 +217,7 @@ export function buildChunkObstacles(chunk: WorldChunk): readonly BlockingObstacl
   for (const prop of chunk.props) pushPropObstacles(prop, out);
   const s = POI_CHEST_OBSTACLE_SHAPE;
   for (const poi of chunk.pois) {
+    if (poi.hasChest === false) continue;
     out.push({ id: `${poi.id}:chest`, x: poi.chestX, y: poi.chestY + s.offsetY, radius: s.radius, halfX: s.halfX, halfY: s.halfY, elevation: poi.elevation });
   }
   CHUNK_OBSTACLE_CACHE.set(chunk, out);

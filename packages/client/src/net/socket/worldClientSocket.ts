@@ -1,7 +1,7 @@
 /** WebSocket connection, lifecycle, and snapshot helper utilities for WorldClient. */
 import {
   DEFAULT_APPEARANCE, MAX_CHAT_LENGTH, STEALTH_TUNING, ServerMessageSchema,
-  type ChatEntry, type ClientMessage, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
+  type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot,
   type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldChunkCache,
   type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot,
 } from "@dc2d/engine";
@@ -40,6 +40,7 @@ export interface ServerSnapshotTarget {
   queuedEvents: WorldEvent[];
   readonly queuedChat: ChatEntry[];
   readonly swing: LocalSwingTracker;
+  discovery?: DiscoveryStateSnapshot | undefined;
 }
 
 function reconcilePlayersWithGates(opts: {
@@ -97,6 +98,7 @@ export function applyServerSnapshotMessage(t: ServerSnapshotTarget, msg: Extract
     t.inventory = rec.inventory;
     if (rec.clearedPending) t.gates.inv = IDLE_GATE;
   }
+  if (msg.selfDiscovery) t.discovery = msg.selfDiscovery;
   reconcilePlayersWithGates({ t, players: msg.players, serverAck, nowMs });
   applyStreamEntities({ t, msg, serverAck, nowMs });
 }

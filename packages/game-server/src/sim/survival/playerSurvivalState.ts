@@ -1,9 +1,28 @@
 /** Player survival buff progression (Well-Fed & hearth-warmed Rested), stealth/snapshot helpers, and persistence hydration. */
-import { SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, sanitizeCharacterAppearance, type PlayerBubble, type PlayerSnapshot } from "@dc2d/engine";
+import { COMBAT_TUNING, SURVIVAL_BUFF_TUNING, clamp, computeSurvivalRegen, cloneInventoryState, sanitizeCharacterAppearance, type PlayerBubble, type PlayerSnapshot } from "@dc2d/engine";
 import { resolvePlayerGear } from "../combat/gearEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { playerCombatExtras } from "../combatSim.js";
 import type { PersistedPlayerRecord, PersistedWorldFile } from "./persistenceStore.js";
+
+export function isSprintingMove(o: { readonly mag: number; readonly mult: number; readonly inWater: boolean; readonly dodging: boolean }): boolean {
+  return o.mag > 0.82 && o.mult >= 0.99 && !o.inWater && !o.dodging;
+}
+
+export function computeDesiredPlayerDir(p: {
+  readonly moveX: number; readonly moveY: number;
+  readonly combat: { readonly staggerTimer: number; readonly respawnTimer: number; readonly dodgeTimer: number; readonly dodgeDirX: number; readonly dodgeDirY: number; readonly bowCharge: number };
+}): { readonly ux: number; readonly uy: number; readonly nx: number; readonly ny: number; readonly mag: number } | null {
+  if (p.combat.staggerTimer > 0 || p.combat.respawnTimer > 0) return null;
+  const dodging = p.combat.dodgeTimer > 0;
+  const rawX = dodging ? p.combat.dodgeDirX : p.moveX;
+  const rawY = dodging ? p.combat.dodgeDirY : p.moveY;
+  const rawMag = Math.hypot(rawX, rawY);
+  if (rawMag < 0.05) return null;
+  const ux = rawX / rawMag; const uy = rawY / rawMag;
+  const mag = Math.min(rawMag, !dodging && p.combat.bowCharge > 0 ? COMBAT_TUNING.movement.walkSpeedRatio : 1);
+  return { ux, uy, nx: ux * mag, ny: uy * mag, mag };
+}
 
 function updateHearthWarmth(c: CombatPlayerRef["combat"], nearCampfire: boolean, dt: number): void {
   if (!nearCampfire || c.hitTimer > 0) { c.hearthWarmSec = Math.max(0, c.hearthWarmSec - dt * 2); return; }
@@ -39,16 +58,19 @@ export function applySavedPlayerRecord(p: CombatPlayerRef & { x: number; y: numb
 }
 
 export function buildPersistedPlayerList(opts: {
-  readonly activePlayers: Iterable<{ readonly name: string; readonly x: number; readonly y: number; readonly elevation: number; readonly appearance: PersistedPlayerRecord["appearance"]; readonly inventory: PersistedPlayerRecord["inventory"]; readonly combat: CombatPlayerRef["combat"] }>;
+  readonly activePlayers: Iterable<{ readonly id: string; readonly name: string; readonly x: number; readonly y: number; readonly elevation: number; readonly appearance: PersistedPlayerRecord["appearance"]; readonly inventory: PersistedPlayerRecord["inventory"]; readonly combat: CombatPlayerRef["combat"] }>;
   readonly savedProfiles: Map<string, PersistedPlayerRecord>;
   readonly normalizeName: (name: string) => string;
+  readonly discoveryFor?: ((playerId: string) => PersistedPlayerRecord["discovery"]) | undefined;
 }): readonly PersistedPlayerRecord[] {
   for (const p of opts.activePlayers) {
     const key = opts.normalizeName(p.name);
+    const discovery = opts.discoveryFor?.(p.id);
     opts.savedProfiles.set(key, {
       ownerKey: key, x: p.x, y: p.y, elevation: p.elevation,
       appearance: p.appearance, inventory: cloneInventoryState(p.inventory),
       wellFedTimer: p.combat.wellFedTimer, restedTimer: p.combat.restedTimer,
+      ...(discovery ? { discovery } : {}),
     });
   }
   return Array.from(opts.savedProfiles.values());

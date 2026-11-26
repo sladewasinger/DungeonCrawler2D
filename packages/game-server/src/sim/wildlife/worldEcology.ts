@@ -56,6 +56,10 @@ export class WorldEcology {
     this.loot.registerPoiChest(poi);
     const biome = sampleMacroBiome(this.cache.worldSeed, poi.centerX, poi.centerY);
     const dangerTier = computeDangerTier(biome, poi.centerX, poi.centerY);
+    if (poi.eliteKind) {
+      const bossPos = findClearGuardSpot(this.cache, poi, { x: poi.centerX + 0.6, y: poi.centerY + 0.6 });
+      this.spawnEntity({ kind: poi.eliteKind, x: bossPos.x, y: bossPos.y, dangerTier, isElite: true, title: poi.eliteTitle, homeRadius: Math.max(8, poi.radiusX + 5), poiId: poi.id, packId: poi.id, packSlot: 0 });
+    }
     const guards = getPoiGuardRoster(poi.layout);
     const rx = Math.max(1.8, poi.radiusX - 1.2);
     const ry = Math.max(1.8, poi.radiusY - 1.0);
@@ -67,7 +71,7 @@ export class WorldEcology {
       });
       this.spawnEntity({
         kind, x: pos.x, y: pos.y, dangerTier,
-        homeRadius: Math.max(8, Math.max(poi.radiusX, poi.radiusY) + 5), poiId: poi.id, packId: poi.id, packSlot: idx,
+        homeRadius: Math.max(8, Math.max(poi.radiusX, poi.radiusY) + 5), poiId: poi.id, packId: poi.id, packSlot: idx + 1,
       });
     });
   }

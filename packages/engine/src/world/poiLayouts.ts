@@ -3,8 +3,11 @@ import {
   GroundKind, PropKind,
   type ChunkPoi, type ChunkProp, type PoiKind, type PoiLayoutKind, type PointLightSpec,
 } from "./types.js";
+import {
+  frontierPoiFloorGround, getFrontierPoiSpec, isInsideFrontierPoiMask, stampFrontierPoiProps,
+} from "./pois/frontierPoiLayouts.js";
 
-export type PoiGuardKind = "goblin" | "orc" | "skeleton" | "golem";
+export type PoiGuardKind = "goblin" | "orc" | "skeleton" | "golem" | "spider" | "slime";
 
 export interface PoiLayoutSpec {
   readonly kind: PoiKind;
@@ -25,7 +28,7 @@ const TORCH_COLOR = 0xffb357;
 const POI_BANDIT: PoiKind = "bandit-camp";
 const POI_RUINS: PoiKind = "ancient-ruins";
 
-export const POI_LAYOUTS: Readonly<Record<PoiLayoutKind, PoiLayoutSpec>> = {
+export const POI_LAYOUTS: Readonly<Record<string, PoiLayoutSpec>> = {
   "camp-outpost": {
     kind: POI_BANDIT, radiusX: 3, radiusY: 3, chestOffset: [0, -1.75],
     guards: ["goblin", "goblin"], mask: "oct",
@@ -109,7 +112,9 @@ export const POI_LAYOUTS: Readonly<Record<PoiLayoutKind, PoiLayoutSpec>> = {
 };
 
 export function getPoiGuardRoster(layout: PoiLayoutKind): readonly PoiGuardKind[] {
-  return POI_LAYOUTS[layout].guards;
+  const frontier = getFrontierPoiSpec(layout);
+  if (frontier) return frontier.guards;
+  return POI_LAYOUTS[layout]?.guards ?? [];
 }
 
 const MASK_TESTERS: Readonly<Record<PoiLayoutSpec["mask"], (q: {
@@ -123,15 +128,21 @@ const MASK_TESTERS: Readonly<Record<PoiLayoutSpec["mask"], (q: {
 };
 
 export function isInsidePoiLayoutMask(poi: ChunkPoi, wx: number, wy: number): boolean {
+  const frontier = getFrontierPoiSpec(poi.layout);
+  if (frontier) return isInsideFrontierPoiMask(poi, wx, wy);
+  const spec = POI_LAYOUTS[poi.layout];
+  if (!spec) return false;
   const dx = wx - Math.floor(poi.centerX);
   const dy = wy - Math.floor(poi.centerY);
   const ax = Math.abs(dx);
   const ay = Math.abs(dy);
   if (ax > poi.radiusX || ay > poi.radiusY) return false;
-  return MASK_TESTERS[POI_LAYOUTS[poi.layout].mask]({ dx, dy, ax, ay, rx: poi.radiusX, ry: poi.radiusY });
+  return MASK_TESTERS[spec.mask]({ dx, dy, ax, ay, rx: poi.radiusX, ry: poi.radiusY });
 }
 
 export function layoutFloorGround(poi: ChunkPoi, wx: number, wy: number): GroundKind {
+  const frontier = getFrontierPoiSpec(poi.layout);
+  if (frontier) return frontierPoiFloorGround(frontier);
   const ax = Math.abs(wx - Math.floor(poi.centerX));
   const ay = Math.abs(wy - Math.floor(poi.centerY));
   if (poi.kind === POI_BANDIT) {
@@ -155,7 +166,10 @@ export function stampPoiLayoutPropsAndLights(opts: {
   readonly poi: ChunkPoi; readonly props: ChunkProp[]; readonly lights: PointLightSpec[];
 }): void {
   const { poi, props, lights } = opts;
+  const frontier = getFrontierPoiSpec(poi.layout);
+  if (frontier) { stampFrontierPoiProps({ poi, spec: frontier, props, lights }); return; }
   const spec = POI_LAYOUTS[poi.layout];
+  if (!spec) return;
   const { centerX: cx, centerY: cy, elevation } = poi;
   for (const [dx, dy] of spec.fences) {
     props.push(makeProp({ kind: PropKind.Palisade, x: cx + dx, y: cy + dy, elevation, radius: 0.5, blocks: true }));

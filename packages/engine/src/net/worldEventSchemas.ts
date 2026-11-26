@@ -13,6 +13,7 @@ export const WORLD_EVENT_KINDS = [
   "arrowFire", "arrowEmbed", "arrowRicochet", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot",
   "creatureVocal", "playerLeave", "distract", "backstab", "ambushShot", "wolfHowl", "bearBluff", "boarCrash",
   "pebbleLand", "harvestHit", "harvestBreak", "placeStructure", "bedSet",
+  "poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead",
 ] as const;
 
 export const WorldEventSchema = z.object({
@@ -35,6 +36,9 @@ export const WorldEventSchema = z.object({
   shakePx: z.number().optional(),
   entityKind: z.enum(ENTITY_KINDS).optional(),
   vocalKind: z.enum(["alert", "attack", "charge", "hurt", "death"]).optional(),
+  label: z.string().max(64).optional(),
+  subtitle: z.string().max(140).optional(),
+  poiCategory: z.string().max(24).optional(),
 });
 
 export type WorldEvent = z.infer<typeof WorldEventSchema>;

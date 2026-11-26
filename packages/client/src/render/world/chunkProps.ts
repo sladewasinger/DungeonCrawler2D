@@ -80,6 +80,20 @@ const PROP_TEX_BY_KIND: Partial<Record<PropKind, (p: PropTextureSet, v: number) 
   [PropKind.GiantMushroom]: (p) => p.giantMushroom,
   [PropKind.BogReed]: (p) => p.bogReed,
   [PropKind.CursedCrystal]: (p) => p.cursedCrystal,
+  [PropKind.ShrineAltar]: (p) => p.shrineAltar,
+  [PropKind.Waystone]: (p) => p.waystone,
+  [PropKind.Gravestone]: (p) => p.gravestone,
+  [PropKind.BrokenCart]: (p) => p.brokenCart,
+  [PropKind.GreatStump]: (p) => p.greatStump,
+  [PropKind.SunkenBoat]: (p) => p.sunkenBoat,
+  [PropKind.LoreSign]: (p) => p.loreSign,
+  [PropKind.BoneTotem]: (p) => p.boneTotem,
+  [PropKind.RunicForge]: (p) => p.runicForge,
+  [PropKind.CursedObelisk]: (p) => p.cursedObelisk,
+  [PropKind.BrazierUnlit]: (p) => p.brazierUnlit,
+  [PropKind.BrazierLit]: (p) => p.brazierLit,
+  [PropKind.HermitHut]: (p) => p.hermitHut,
+  [PropKind.FairyRing]: (p) => p.fairyRing,
 };
 
 const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [Texture, Texture]>> = {

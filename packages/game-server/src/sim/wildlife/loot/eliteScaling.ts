@@ -1,6 +1,6 @@
 /** DangerTier stat scaling, biome wildlife rosters, elite titles, and seeded drop spawning. */
-import { BIOME_CATALOG, rollEnemyDrop } from "@dc2d/content";
-import { computeDangerTier, hashUnit2d, sampleMacroBiome, type BiomeKind, type DangerTier, type WorldChunkCache } from "@dc2d/engine";
+import { BIOME_CATALOG, rollChestLoot, rollEnemyDrop } from "@dc2d/content";
+import { computeDangerTier, createEmptyChestSlots, hashUnit2d, sampleMacroBiome, type BiomeKind, type ChunkPoi, type DangerTier, type InventorySlot, type WorldChunkCache } from "@dc2d/engine";
 import type { WildlifeEntity, WildlifeKind } from "../creatureSpecs.js";
 import type { LootManager } from "../lootManager.js";
 
@@ -65,6 +65,23 @@ export function buildChunkWildlifeSpawns(opts: {
     kind: chosen, x: wx + i * 0.85, y: wy + (i % 2) * 0.7, homeRadius: 11, poiId: null, packId, packSlot: i,
     dangerTier, isElite: isElite && i === 0, ...(isElite && i === 0 ? { title: defaultEliteTitle(chosen) } : {}),
   }));
+}
+
+export function populatePoiChestSlots(cache: WorldChunkCache, poi: ChunkPoi): InventorySlot[] {
+  const slots = createEmptyChestSlots();
+  const biome = sampleMacroBiome(cache.worldSeed, poi.chestX, poi.chestY);
+  const dangerTier = computeDangerTier(biome, poi.chestX, poi.chestY);
+  const rolled = rollChestLoot({ worldSeed: cache.worldSeed, chestId: poi.id, poiKind: poi.kind, biome, dangerTier });
+  rolled.slice(0, slots.length).forEach((entry, idx) => {
+    slots[idx] = { itemId: entry.itemId, count: entry.count, ...(entry.prefixId ? { prefixId: entry.prefixId } : {}) };
+  });
+  return slots;
+}
+
+export function countLitBraziersForChest(cache: WorldChunkCache, chestId: string, total: number): number {
+  let lit = 0;
+  for (let i = 0; i < total; i++) if (cache.isBrazierLit(`brazier:${chestId}:${i}`)) lit += 1;
+  return lit;
 }
 
 export function spawnScaledEnemyDrops(opts: {

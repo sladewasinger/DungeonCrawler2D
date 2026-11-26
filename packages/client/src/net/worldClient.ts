@@ -1,5 +1,5 @@
 /** Authoritative multiplayer WebSocket client with auto-reconnect, lifecycle probes, and input throttling. */
-import { AI_TUNING, CHAT_BUBBLE_DURATION_SEC, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
+import { AI_TUNING, CHAT_BUBBLE_DURATION_SEC, DEFAULT_APPEARANCE, PROTOCOL_VERSION, SANCTUARY_CENTER, WorldChunkCache, wrapDayPhase, type ArmorSlotKey, type CharacterAppearance, type ChatEntry, type ClientMessage, type DiscoveryStateSnapshot, type DropItemRequest, type EntityKind, type GroundLootSnapshot, type InventorySnapshot, type PlayerSnapshot, type ProjectileSnapshot, type ServerMessage, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent, type WorldWebSnapshot } from "@dc2d/engine";
 import { loadCharacterPrefs, sanitizeCharacterName, saveCharacterPrefs } from "./characterPrefs.js";
 import { applyChestTakeAll, applyChestTransfer, applyCraftRecipe, applyDropToClientState, applyEquipArmor, applyMoveSlot, applySelectHotbar, applyUnequipArmor, applyUseItemClient, createStarterInventorySnapshot, findNearestChest, heldItemForInventory } from "./clientInventory.js";
 import { LocalSwingTracker } from "./localSwingTracker.js";
@@ -32,6 +32,7 @@ export class WorldClient {
   private chests: readonly WorldChestSnapshot[] = [];
   private groundLoot: readonly GroundLootSnapshot[] = [];
   private webs: WorldWebSnapshot | undefined;
+  private discovery: DiscoveryStateSnapshot | undefined;
   private queuedEvents: WorldEvent[] = [];
   private queuedChat: ChatEntry[] = [];
   private localBubbleTimer = 0;
@@ -125,13 +126,14 @@ export class WorldClient {
       inventory: this.inventory, localPlayer: this.localPlayer, remotePlayers: this.remotePlayers,
       localPlayerId: this.localPlayerId, localBowDrawing: this.localBowDrawing, remoteSmoother: this.remoteSmoother,
       projectiles: this.projectiles, entities: this.entities, groundLoot: this.groundLoot, webs: this.webs,
-      chests: this.chests, cache: this.cache, queuedEvents: this.queuedEvents, queuedChat: this.queuedChat, swing: this.swing,
+      chests: this.chests, cache: this.cache, queuedEvents: this.queuedEvents, queuedChat: this.queuedChat,
+      swing: this.swing, discovery: this.discovery,
     };
     applyServerSnapshotMessage(target, msg);
     this.dayPhase = target.dayPhase; this.dayPaused = target.dayPaused; this.selfAdmin = target.selfAdmin;
     this.inventory = target.inventory; this.localPlayer = target.localPlayer; this.remotePlayers = target.remotePlayers;
     this.projectiles = target.projectiles; this.entities = target.entities; this.groundLoot = target.groundLoot;
-    this.webs = target.webs; this.chests = target.chests; this.queuedEvents = target.queuedEvents;
+    this.webs = target.webs; this.chests = target.chests; this.queuedEvents = target.queuedEvents; this.discovery = target.discovery;
   }
   private applyWelcome(msg: Extract<ServerMessage, { t: "welcome" }>): void {
     this.clearSocketTimers(); this.mode = "server"; this.reconnectAttempt = 0;
@@ -221,7 +223,9 @@ export class WorldClient {
       mode: this.mode, reconnectAttempt: this.reconnectAttempt, dayPhase: this.dayPhase, dayPaused: this.dayPaused, cache: this.cache,
       players, localPlayerId: this.localPlayerId, inventory: this.inventory, localName: this.localPlayer.name,
       localAppearance: resolvedAppearance(this.localPlayer), projectiles: this.projectiles, entities: this.entities,
-      chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events, ...(chatMessages.length > 0 ? { chatMessages } : {}),
+      chests: this.chests, groundLoot: this.groundLoot, webs: this.webs, events,
+      ...(chatMessages.length > 0 ? { chatMessages } : {}),
+      ...(this.discovery ? { discovery: this.discovery } : {}),
       selfAdmin: this.selfAdmin, pingMs: this.pingMs,
     };
   }

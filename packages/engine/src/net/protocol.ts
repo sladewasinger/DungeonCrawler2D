@@ -3,15 +3,16 @@ import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
 import { ChatEntrySchema, ClientChatSchema, PlayerBubbleSchema, type ChatEntry, type PlayerBubble } from "./chatSchemas.js";
+import { DiscoveryStateSchema, type DiscoveryStateSnapshot, type RevealedBeacon } from "./discoverySchemas.js";
 import { ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema, ServerPongSchema, type DropItemRequest } from "./sessionActionSchemas.js";
 import { ClientPickupLootSchema, ClientPlaceStructureSchema, ClientSetRespawnBedSchema, WorldDeltaSnapshotSchema } from "./worldDeltaSchemas.js";
 import { GoreStyleSchema, GoreSubstanceSchema, WorldEventSchema, type CreatureVocalKind, type WorldEvent } from "./worldEventSchemas.js";
 
 export {
   ChatEntrySchema, ClientChatSchema, ClientDropItemSchema, ClientPingSchema, ClientUseItemSchema,
-  GoreStyleSchema, GoreSubstanceSchema, PlayerBubbleSchema, ServerPongSchema, WorldEventSchema,
+  DiscoveryStateSchema, GoreStyleSchema, GoreSubstanceSchema, PlayerBubbleSchema, ServerPongSchema, WorldEventSchema,
 };
-export type { ChatEntry, CreatureVocalKind, DropItemRequest, PlayerBubble, WorldEvent };
+export type { ChatEntry, CreatureVocalKind, DiscoveryStateSnapshot, DropItemRequest, PlayerBubble, RevealedBeacon, WorldEvent };
 
 export const PROTOCOL_VERSION = 1;
 
@@ -196,11 +197,14 @@ export type WorldEntitySnapshot = z.infer<typeof WorldEntitySnapshotSchema>;
 
 export const WorldChestSnapshotSchema = z.object({
   id: z.string(),
-  poiKind: z.enum(["bandit-camp", "ancient-ruins", "player-chest"]),
+  poiKind: z.string().min(1),
   x: z.number(),
   y: z.number(),
   elevation: z.number(),
   opened: z.boolean(),
+  sealed: z.boolean().optional(),
+  braziersLit: z.number().int().nonnegative().optional(),
+  braziersTotal: z.number().int().nonnegative().optional(),
   slots: z.array(SlotItemSchema.nullable()).length(27),
 });
 
@@ -253,6 +257,7 @@ export const ServerSnapshotSchema = z.object({
   events: z.array(WorldEventSchema).optional(),
   chatMessages: z.array(ChatEntrySchema).optional(),
   worldDeltas: WorldDeltaSnapshotSchema.optional(),
+  selfDiscovery: DiscoveryStateSchema.optional(),
 });
 
 export const ServerMessageSchema = z.discriminatedUnion("t", [ServerWelcomeSchema, ServerSnapshotSchema, ServerPongSchema]);

@@ -22,12 +22,14 @@ export function loadWorldPersistence(opts: {
 
 export function hydratePlayerProfileIfFound(opts: {
   readonly host: PersistenceHost;
-  readonly player: Parameters<typeof applySavedPlayerRecord>[0] & { readonly name: string; profileHydrated: boolean };
+  readonly player: Parameters<typeof applySavedPlayerRecord>[0] & { readonly id: string; readonly name: string; profileHydrated: boolean };
+  readonly onHydrateDiscovery?: (playerId: string, discovery: PersistedPlayerRecord["discovery"]) => void;
 }): void {
   if (opts.player.profileHydrated) return;
   const saved = opts.host.savedProfiles.get(normalizeOwnerKey(opts.player.name));
   if (!saved) return;
   applySavedPlayerRecord(opts.player, saved);
+  opts.onHydrateDiscovery?.(opts.player.id, saved.discovery);
   opts.player.profileHydrated = true;
 }
 
@@ -39,6 +41,7 @@ export function buildFullWorldSaveSnapshot(opts: {
   readonly activePlayers: Parameters<typeof buildPersistedPlayerList>[0]["activePlayers"];
   readonly beds: readonly SavedBedBinding[];
 }): PersistedWorldFile {
+  const lit = opts.sim.cache.worldDeltaSnapshot().litBraziers;
   return {
     version: 1,
     worldSeed: opts.worldSeed,
@@ -48,6 +51,10 @@ export function buildFullWorldSaveSnapshot(opts: {
     structures: opts.sim.combat.structures.exportState().structures,
     beds: opts.beds,
     chests: opts.sim.combat.ecology.loot.exportChests(),
-    players: buildPersistedPlayerList({ activePlayers: opts.activePlayers, savedProfiles: opts.savedProfiles, normalizeName: normalizeOwnerKey }),
+    ...(lit?.length ? { litBraziers: lit } : {}),
+    players: buildPersistedPlayerList({
+      activePlayers: opts.activePlayers, savedProfiles: opts.savedProfiles,
+      normalizeName: normalizeOwnerKey, discoveryFor: (id) => opts.sim.discoverySnapshot(id),
+    }),
   };
 }
