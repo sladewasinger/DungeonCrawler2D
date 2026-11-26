@@ -246,7 +246,12 @@ export function synthCombatCue(ctx: AudioContext, dst: AudioNode, kind: CombatCu
   playNoiseBurst({ ctx, dst, duration: 0.13, freq: 720, filterType: FILTER_BP, gain: 0.14 });
 }
 
-export function synthUi(ctx: AudioContext, dst: AudioNode, kind: "click" | "equip" | "craft" | "open"): void {
+export function synthUi(ctx: AudioContext, dst: AudioNode, kind: "click" | "equip" | "craft" | "open" | "discover"): void {
+  if (kind === "discover") {
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 523, f1: 659, duration: 0.16, gain: 0.12 });
+    playTone({ ctx, dst, wave: WAVE_SINE, f0: 784, f1: 1046, duration: 0.24, gain: 0.12, delay: 0.09 });
+    return;
+  }
   if (kind === "craft") {
     playTone({ ctx, dst, wave: WAVE_TRI, f0: 680, f1: 960, duration: 0.14, gain: 0.13 });
     playTone({ ctx, dst, wave: WAVE_SINE, f0: 960, f1: 1320, duration: 0.18, gain: 0.11, delay: 0.07 });

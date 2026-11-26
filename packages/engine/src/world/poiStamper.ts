@@ -1,9 +1,12 @@
-/** Deterministic sparse Overworld POI stamper with varied Bandit Camps and Ancient Ruins. */
+/** Deterministic sparse Overworld POI stamper spanning 20 diverse frontier landmarks. */
 import { hashUnit2d } from "../math/noise.js";
 import { sampleWorldTile } from "./biomeSampler.js";
+import { sampleMacroBiome } from "./biomes/macroBiome.js";
 import {
   POI_LAYOUTS, layoutFloorGround, isInsidePoiLayoutMask, stampPoiLayoutPropsAndLights,
 } from "./poiLayouts.js";
+import { computeBrazierPositions, getFrontierPoiSpec } from "./pois/frontierPoiLayouts.js";
+import { getPoiCatalogEntry, pickBiomeWeightedPoiKind } from "./pois/poiCatalog.js";
 import {
   CHUNK_SIZE, GroundKind,
   type ChunkPoi, type ChunkProp, type PoiKind, type PoiLayoutKind, type PointLightSpec,
@@ -40,12 +43,14 @@ function chooseChunkPoiLayout(worldSeed: number, cx: number, cy: number): PoiLay
   const fixed = starterPoiLayout(cx, cy);
   if (fixed === "skip") return null;
   if (fixed) return fixed;
-  if (!isSparseMacroCellWinner(worldSeed, cx, cy) || hashUnit2d(worldSeed + 607, cx, cy) >= 0.28) return null;
-  const kind: PoiKind = hashUnit2d(worldSeed + 613, cx, cy) < 0.54 ? POI_KIND_BANDIT : POI_KIND_RUINS;
+  if (!isSparseMacroCellWinner(worldSeed, cx, cy) || hashUnit2d(worldSeed + 607, cx, cy) >= 0.44) return null;
+  const biome = sampleMacroBiome(worldSeed, cx * CHUNK_SIZE + 16, cy * CHUNK_SIZE + 16);
+  const kind = pickBiomeWeightedPoiKind({ worldSeed, cx, cy, biome });
   return pickLayoutForKind({ worldSeed, cx, cy, kind });
 }
 
 function pickLayoutForKind(q: { readonly worldSeed: number; readonly cx: number; readonly cy: number; readonly kind: PoiKind }): PoiLayoutKind {
+  if (q.kind !== POI_KIND_BANDIT && q.kind !== POI_KIND_RUINS) return q.kind as PoiLayoutKind;
   const roll = hashUnit2d(q.worldSeed + 641, q.cx, q.cy);
   const table = q.kind === POI_KIND_BANDIT ? BANDIT_LAYOUTS : RUINS_LAYOUTS;
   return table.find(([thresh]) => roll < thresh)?.[1] ?? table[0]?.[1] ?? LAYOUT_RUINS_SHRINE;
@@ -76,24 +81,34 @@ function isFlatDryFootprint(opts: {
   return center.elevation;
 }
 
+function layoutShapeFor(layout: PoiLayoutKind): { readonly kind: PoiKind; readonly radiusX: number; readonly radiusY: number; readonly chestOffset: readonly [number, number] } {
+  const frontier = getFrontierPoiSpec(layout);
+  if (frontier) return frontier;
+  const classic = POI_LAYOUTS[layout];
+  if (classic) return classic;
+  return { kind: POI_KIND_RUINS, radiusX: 3, radiusY: 3, chestOffset: [0, 0] };
+}
+
 function buildChunkPoiAt(opts: {
   readonly layout: PoiLayoutKind; readonly cx: number; readonly cy: number;
   readonly wx: number; readonly wy: number; readonly elevation: number;
 }): ChunkPoi {
-  const spec = POI_LAYOUTS[opts.layout];
+  const spec = layoutShapeFor(opts.layout);
+  const meta = getPoiCatalogEntry(spec.kind);
+  const id = `${spec.kind}:${opts.cx},${opts.cy}`;
+  const centerX = opts.wx + 0.5;
+  const centerY = opts.wy + 0.5;
+  const braziers = computeBrazierPositions({ poiId: id, layout: opts.layout, centerX, centerY });
   return {
-    id: `${spec.kind}:${opts.cx},${opts.cy}`,
-    kind: spec.kind,
-    layout: opts.layout,
-    cx: opts.cx,
-    cy: opts.cy,
-    centerX: opts.wx + 0.5,
-    centerY: opts.wy + 0.5,
-    radiusX: spec.radiusX,
-    radiusY: spec.radiusY,
-    elevation: opts.elevation,
-    chestX: opts.wx + 0.5 + spec.chestOffset[0],
-    chestY: opts.wy + 0.5 + spec.chestOffset[1],
+    id, kind: spec.kind, layout: opts.layout, cx: opts.cx, cy: opts.cy, centerX, centerY,
+    radiusX: spec.radiusX, radiusY: spec.radiusY, elevation: opts.elevation,
+    chestX: centerX + spec.chestOffset[0], chestY: centerY + spec.chestOffset[1],
+    hasChest: meta.hasChest,
+    ...(meta.isSanctuary ? { isSanctuary: true } : {}),
+    ...(meta.eliteKind ? { eliteKind: meta.eliteKind, eliteTitle: meta.eliteTitle } : {}),
+    ...(meta.shrineKind ? { shrineKind: meta.shrineKind } : {}),
+    ...(meta.loreText ? { loreText: meta.loreText } : {}),
+    ...(braziers ? { brazierPositions: braziers } : {}),
   };
 }
 
@@ -102,7 +117,7 @@ function scanPoiRow(opts: {
   readonly cx: number; readonly cy: number;
   readonly startLx: number; readonly wy: number;
 }): ChunkPoi | null {
-  const { radiusX: rx, radiusY: ry } = POI_LAYOUTS[opts.layout];
+  const { radiusX: rx, radiusY: ry } = layoutShapeFor(opts.layout);
   const span = Math.max(1, CHUNK_SIZE - 2 * rx);
   for (let ox = 0; ox < span; ox++) {
     const lx = rx + ((opts.startLx + ox) % span);
@@ -118,7 +133,7 @@ function scanPoiRow(opts: {
 function findForLayout(q: {
   readonly worldSeed: number; readonly cx: number; readonly cy: number; readonly layout: PoiLayoutKind;
 }): ChunkPoi | null {
-  const { radiusY: ry } = POI_LAYOUTS[q.layout];
+  const { radiusY: ry } = layoutShapeFor(q.layout);
   const span = Math.max(1, CHUNK_SIZE - 2 * ry);
   const startLx = Math.floor(hashUnit2d(q.worldSeed + 619, q.cx, q.cy) * CHUNK_SIZE);
   const startLy = Math.floor(hashUnit2d(q.worldSeed + 631, q.cx, q.cy) * span);
@@ -135,7 +150,7 @@ export function findChunkPoi(worldSeed: number, cx: number, cy: number): ChunkPo
   if (!layout) return null;
   const primary = findForLayout({ worldSeed, cx, cy, layout });
   if (primary) return primary;
-  const fallback: PoiLayoutKind = POI_LAYOUTS[layout].kind === POI_KIND_BANDIT ? "camp-outpost" : LAYOUT_RUINS_SHRINE;
+  const fallback: PoiLayoutKind = layoutShapeFor(layout).kind === POI_KIND_BANDIT ? "camp-outpost" : LAYOUT_RUINS_SHRINE;
   return fallback === layout ? null : findForLayout({ worldSeed, cx, cy, layout: fallback });
 }
 

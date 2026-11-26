@@ -8,6 +8,8 @@ import { synthFootstep, synthJumpOrLand } from "./synthMovementSfx.js";
 import { synthCombatCue, synthImpact, synthSwing, synthUi, type CombatCueKind } from "./synthSfx.js";
 import { synthHarvestSfx } from "./weapons/synthWeaponSfx.js";
 
+const UI_DISCOVERY_EVENTS = new Set<WorldEvent["kind"]>(["poiDiscover", "shrineActivate", "waystoneAttune", "vaultUnlock", "loreRead"]);
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -46,7 +48,7 @@ export class AudioEngine {
     }
   }
 
-  playUi(kind: "click" | "equip" | "craft" | "open"): void {
+  playUi(kind: "click" | "equip" | "craft" | "open" | "discover"): void {
     this.ensureUnlocked();
     if (!this.ctx || !this.sfxGain) return;
     synthUi(this.ctx, this.sfxGain, kind);
@@ -151,13 +153,13 @@ export class AudioEngine {
     this.dispatchCueOrSplash({ kind: ev.kind, dst, value: ev.value });
   }
 
-  private dispatchCueOrSplash(opts: { readonly kind: CombatCueKind; readonly dst: AudioNode; readonly value?: number | undefined }): void {
-    if (!this.ctx) return;
+  private dispatchCueOrSplash(opts: { readonly kind: WorldEvent["kind"]; readonly dst: AudioNode; readonly value?: number | undefined }): void {
+    if (!this.ctx || UI_DISCOVERY_EVENTS.has(opts.kind)) return;
     if (opts.kind === "pebbleLand" && opts.value !== undefined && opts.value <= GroundKind.ShallowWater) {
       synthJumpOrLand({ ctx: this.ctx, dst: opts.dst, landing: true, inWater: true });
       return;
     }
-    synthCombatCue(this.ctx, opts.dst, opts.kind);
+    synthCombatCue(this.ctx, opts.dst, opts.kind as CombatCueKind);
   }
 
   private isWaterGround(ground: GroundKind): boolean {

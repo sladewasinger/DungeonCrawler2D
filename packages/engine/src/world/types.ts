@@ -47,6 +47,20 @@ export const enum PropKind {
   Workbench = "workbench",
   Bed = "bed",
   WoodChest = "wood-chest",
+  ShrineAltar = "shrine-altar",
+  Waystone = "waystone",
+  Gravestone = "gravestone",
+  BrokenCart = "broken-cart",
+  GreatStump = "great-stump",
+  SunkenBoat = "sunken-boat",
+  LoreSign = "lore-sign",
+  BoneTotem = "bone-totem",
+  RunicForge = "runic-forge",
+  CursedObelisk = "cursed-obelisk",
+  BrazierUnlit = "brazier-unlit",
+  BrazierLit = "brazier-lit",
+  HermitHut = "hermit-hut",
+  FairyRing = "fairy-ring",
 }
 
 export type BiomeKind =
@@ -57,7 +71,30 @@ export type BiomeKind =
   | "cursed-ruinlands";
 
 export type DangerTier = 1 | 2 | 3 | 4;
-export type PoiKind = "bandit-camp" | "ancient-ruins";
+export type PoiCategory = "camp" | "ruins" | "shrine" | "micro" | "lair" | "puzzle" | "friendly";
+
+export type PoiKind =
+  | "bandit-camp"
+  | "ancient-ruins"
+  | "shrine-swiftness"
+  | "shrine-vigor"
+  | "shrine-shadow"
+  | "ancient-waystone"
+  | "fallen-knight-grave"
+  | "overturned-cart"
+  | "fairy-ring"
+  | "hollow-great-stump"
+  | "sunken-rowboat"
+  | "hunters-blind"
+  | "broodmother-hollow"
+  | "orc-totem-ring"
+  | "golem-forge"
+  | "cursed-obelisk"
+  | "brazier-vault"
+  | "sun-dial-ruin"
+  | "hermits-hut"
+  | "tinker-camp";
+
 export type PoiLayoutKind =
   | "camp-outpost"
   | "camp-l-shape"
@@ -65,7 +102,8 @@ export type PoiLayoutKind =
   | "camp-warband"
   | "ruins-shrine"
   | "ruins-colonnade"
-  | "ruins-sanctum";
+  | "ruins-sanctum"
+  | Exclude<PoiKind, "bandit-camp" | "ancient-ruins">;
 
 export interface ChunkPoi {
   readonly id: string;
@@ -80,6 +118,13 @@ export interface ChunkPoi {
   readonly elevation: number;
   readonly chestX: number;
   readonly chestY: number;
+  readonly hasChest?: boolean | undefined;
+  readonly isSanctuary?: boolean | undefined;
+  readonly eliteKind?: "spider" | "orc" | "golem" | "skeleton" | undefined;
+  readonly eliteTitle?: string | undefined;
+  readonly shrineKind?: "swiftness" | "vigor" | "shadow" | "waystone" | undefined;
+  readonly loreText?: string | undefined;
+  readonly brazierPositions?: readonly { readonly id: string; readonly x: number; readonly y: number }[] | undefined;
 }
 
 export interface ChunkProp {

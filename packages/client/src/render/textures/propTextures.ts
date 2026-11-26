@@ -3,6 +3,7 @@ import { PropKind } from "@dc2d/engine";
 import type { Texture } from "pixi.js";
 import { createCampPropTextures, type CampPropTextures } from "../survival/campPropTextures.js";
 import { createBiomePropTextures, type BiomePropTextures } from "./biomes/biomePropTextures.js";
+import { createFrontierPoiTextures, type FrontierPoiTextures } from "./pois/frontierPoiTextures.js";
 import { makeFallbackKnight } from "./fxPropTextures.js";
 import {
   makeHdBushVariants, makeHdOakCanopyTexture, makeHdOakTrunkTexture,
@@ -19,7 +20,7 @@ import { getLoadedSpriteAsset } from "./spriteManifest.js";
 /** Scale mapping 48 px/tile HD props cleanly to 16 px/tile world space (zero mixels). */
 export const HD_PROP_SCALE = 1 / 3;
 
-export interface PropTextureSet extends CampPropTextures, BiomePropTextures {
+export interface PropTextureSet extends CampPropTextures, BiomePropTextures, FrontierPoiTextures {
   readonly oakTrunk: Texture;
   readonly oakCanopy: Texture;
   readonly pineTrunk: Texture;
@@ -60,6 +61,7 @@ export function createPropTextureSet(): PropTextureSet {
     ruinPillar: pickPoiOrHdFallback("ruin-pillar", makeRuinPillarTexture, makeHdFallbackRuinPillarTexture),
     ...createCampPropTextures(),
     ...createBiomePropTextures(),
+    ...createFrontierPoiTextures(),
   };
 }
 

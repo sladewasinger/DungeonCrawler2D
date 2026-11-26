@@ -25,12 +25,12 @@ export class CompassBadge {
     this.el.append(this.textEl);
   }
 
-  sync(x: number, y: number): void {
+  sync(x: number, y: number, biomeHint?: string): void {
     const ix = Math.floor(x);
     const iy = Math.floor(y);
-    const key = `${ix},${iy}`;
+    const key = `${ix},${iy}:${biomeHint ?? ""}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
-    this.textEl.textContent = `${ix}, ${iy}`;
+    this.textEl.textContent = biomeHint ? `${ix}, ${iy} · ${biomeHint}` : `${ix}, ${iy}`;
   }
 }

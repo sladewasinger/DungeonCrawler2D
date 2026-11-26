@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { CharacterAppearance, DepletedPropDelta, PlacedStructureRecord, PlayerInventoryState } from "@dc2d/engine";
+import type { CharacterAppearance, DepletedPropDelta, DiscoveryStateSnapshot, PlacedStructureRecord, PlayerInventoryState } from "@dc2d/engine";
 import type { SavedBedBinding } from "./campStructures.js";
 import type { SavedChestRecord } from "../wildlife/lootManager.js";
 
@@ -15,6 +15,7 @@ export interface PersistedPlayerRecord {
   readonly inventory: PlayerInventoryState;
   readonly wellFedTimer?: number | undefined;
   readonly restedTimer?: number | undefined;
+  readonly discovery?: DiscoveryStateSnapshot | undefined;
 }
 
 export interface PersistedWorldFile {
@@ -27,6 +28,7 @@ export interface PersistedWorldFile {
   readonly beds: readonly SavedBedBinding[];
   readonly chests: readonly SavedChestRecord[];
   readonly players: readonly PersistedPlayerRecord[];
+  readonly litBraziers?: readonly string[] | undefined;
 }
 
 const arr = <T>(v: unknown): readonly T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -43,6 +45,7 @@ function sanitizeLoadedWorld(data: Partial<PersistedWorldFile>, expectedSeed: nu
     beds: arr(data.beds),
     chests: arr(data.chests),
     players: arr(data.players),
+    litBraziers: arr(data.litBraziers),
   };
 }
 

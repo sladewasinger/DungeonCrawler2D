@@ -52,10 +52,19 @@ export interface ClientSession {
   readonly playerId: string;
   sentDeltaRev: number;
   lastInvSig: string;
+  lastDiscSig?: string | undefined;
   alive: boolean;
   isAdmin: boolean;
   failedAuthAttempts: number;
   readonly cleanup: () => void;
+}
+
+function syncDiscoveryIfChanged(sim: WorldSim, session: ClientSession) {
+  const d = sim.discoverySnapshot(session.playerId);
+  const sig = `${d.discoveredPoiIds.length}:${d.discoveredPoiKinds.length}:${d.revealedBeacons.length}`;
+  if (sig === session.lastDiscSig) return undefined;
+  session.lastDiscSig = sig;
+  return d;
 }
 
 function syncInventoryIfChanged(sim: WorldSim, session: ClientSession): InventorySnapshot | undefined {
@@ -72,11 +81,13 @@ function buildClientSnapshot(input: {
   const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
   if (sendDeltas) input.session.sentDeltaRev = input.data.deltaRev;
   const selfInventory = syncInventoryIfChanged(input.sim, input.session);
+  const selfDiscovery = syncDiscoveryIfChanged(input.sim, input.session);
   const view = filterSnapshotForPlayer({ data: input.data, playerId: input.session.playerId });
   return {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
     actionAckSeq: input.sim.actionAckSeq(input.session.playerId), players: view.players,
     ...(selfInventory ? { selfInventory } : {}),
+    ...(selfDiscovery ? { selfDiscovery } : {}),
     ...(input.session.isAdmin ? { selfAdmin: true } : {}),
     projectiles: view.projectiles, entities: view.entities,
     chests: view.chests, groundLoot: view.groundLoot, events: view.events,

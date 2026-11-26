@@ -1,11 +1,12 @@
 /** Authoritative persistent 27-slot POI chests and magnetic dropped enemy/wildlife loot. */
-import { maxStackForItem, rollChestLoot } from "@dc2d/content";
+import { maxStackForItem } from "@dc2d/content";
 import {
-  AI_TUNING, WorldChunkCache, canInsertSlotItem, computeDangerTier, createEmptyChestSlots, insertIntoSlots,
-  makeSlotItem, quickTransferChestSlot, removeFromSlot, sampleMacroBiome, takeAllFromChest, transferChestSlot,
+  AI_TUNING, WorldChunkCache, canInsertSlotItem, createEmptyChestSlots, insertIntoSlots,
+  makeSlotItem, quickTransferChestSlot, removeFromSlot, takeAllFromChest, transferChestSlot,
   type ChunkPoi, type GroundLootSnapshot, type InventorySlot, type WorldChestSnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
+import { countLitBraziersForChest, populatePoiChestSlots } from "./loot/eliteScaling.js";
 
 interface GroundLootItem {
   readonly id: string; readonly itemId: string; count: number; readonly prefixId?: string | undefined;
@@ -21,6 +22,8 @@ interface StoredChest {
   readonly y: number;
   readonly elevation: number;
   opened: boolean;
+  sealed?: boolean | undefined;
+  readonly braziersTotal?: number | undefined;
   readonly slots: InventorySlot[];
 }
 
@@ -31,23 +34,14 @@ export interface SavedChestRecord {
   readonly y: number;
   readonly elevation: number;
   readonly opened: boolean;
+  readonly sealed?: boolean | undefined;
+  readonly braziersTotal?: number | undefined;
   readonly slots: readonly InventorySlot[];
 }
 
 const MAX_GROUND_LOOT_AGE_SEC = 180;
 const MAX_STUCK_ARROW_AGE_SEC = 120;
 const MAX_GROUND_LOOT_ITEMS = 120;
-
-function populateChestSlots(cache: WorldChunkCache, poi: ChunkPoi): InventorySlot[] {
-  const slots = createEmptyChestSlots();
-  const biome = sampleMacroBiome(cache.worldSeed, poi.chestX, poi.chestY);
-  const dangerTier = computeDangerTier(biome, poi.chestX, poi.chestY);
-  const rolled = rollChestLoot({ worldSeed: cache.worldSeed, chestId: poi.id, poiKind: poi.kind, biome, dangerTier });
-  rolled.slice(0, slots.length).forEach((entry, idx) => {
-    slots[idx] = { itemId: entry.itemId, count: entry.count, ...(entry.prefixId ? { prefixId: entry.prefixId } : {}) };
-  });
-  return slots;
-}
 
 export class LootManager {
   readonly chests = new Map<string, StoredChest>();
@@ -57,25 +51,31 @@ export class LootManager {
   constructor(private readonly cache: WorldChunkCache) {}
 
   registerPoiChest(poi: ChunkPoi): void {
-    if (this.chests.has(poi.id)) return;
+    if (poi.hasChest === false || this.chests.has(poi.id)) return;
+    const braziers = poi.brazierPositions?.length ?? 0;
     this.chests.set(poi.id, {
       id: poi.id, poiKind: poi.kind, x: poi.chestX, y: poi.chestY, elevation: poi.elevation,
-      opened: false, slots: populateChestSlots(this.cache, poi),
+      opened: false, ...(braziers > 0 ? { sealed: true, braziersTotal: braziers } : {}),
+      slots: populatePoiChestSlots(this.cache, poi),
     });
+  }
+
+  unlockVaultChest(chestId: string): boolean {
+    const chest = this.chests.get(chestId);
+    if (!chest || !chest.sealed) return false;
+    chest.sealed = false; return true;
   }
 
   registerCustomChest(opts: { readonly id: string; readonly x: number; readonly y: number; readonly elevation: number }): void {
     if (this.chests.has(opts.id)) return;
-    this.chests.set(opts.id, {
-      id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation,
-      opened: false, slots: createEmptyChestSlots(),
-    });
+    this.chests.set(opts.id, { id: opts.id, poiKind: "player-chest", x: opts.x, y: opts.y, elevation: opts.elevation, opened: false, slots: createEmptyChestSlots() });
   }
 
   exportChests(): readonly SavedChestRecord[] {
     return Array.from(this.chests.values(), (c) => ({
       id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
-      opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+      opened: c.opened, ...(c.sealed ? { sealed: true } : {}), ...(c.braziersTotal ? { braziersTotal: c.braziersTotal } : {}),
+      slots: c.slots.map((s) => (s ? { ...s } : null)),
     }));
   }
 
@@ -83,7 +83,8 @@ export class LootManager {
     for (const c of list) {
       this.chests.set(c.id, {
         id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation,
-        opened: c.opened, slots: c.slots.map((s) => (s ? { ...s } : null)),
+        opened: c.opened, ...(c.sealed ? { sealed: true } : {}), ...(c.braziersTotal ? { braziersTotal: c.braziersTotal } : {}),
+        slots: c.slots.map((s) => (s ? { ...s } : null)),
       });
     }
   }
@@ -150,7 +151,7 @@ export class LootManager {
 
   openChest(player: CombatPlayerRef, chestId: string | undefined, events: WorldEvent[]): string | null {
     const chest = this.findChestInReach(player, chestId, 0.35);
-    if (!chest) return null;
+    if (!chest || chest.sealed) return null;
     if (!chest.opened) {
       chest.opened = true;
       events.push({ kind: "chestOpen", x: chest.x, y: chest.y, actorId: player.id });
@@ -163,7 +164,7 @@ export class LootManager {
     readonly to: "chest" | "inv"; readonly toSlot: number; readonly quick?: boolean | undefined;
   }): boolean {
     const chest = this.findChestInReach(player, req.chestId, 1.35);
-    if (!chest) return false;
+    if (!chest || chest.sealed) return false;
     chest.opened = true;
     if (req.quick) {
       return quickTransferChestSlot({
@@ -178,7 +179,7 @@ export class LootManager {
 
   takeAllChest(player: CombatPlayerRef, chestId: string, events: WorldEvent[]): number {
     const chest = this.findChestInReach(player, chestId, 1.35);
-    if (!chest) return 0;
+    if (!chest || chest.sealed) return 0;
     chest.opened = true;
     const moved = takeAllFromChest({ chestSlots: chest.slots, invSlots: player.inventory.slots, maxStackFor: maxStackForItem });
     if (moved > 0) events.push({ kind: "loot", x: chest.x, y: chest.y, actorId: player.id, value: moved });
@@ -186,12 +187,10 @@ export class LootManager {
   }
 
   private findManualLootIdx(player: CombatPlayerRef, lootId: string | undefined): number {
-    let idx = -1;
-    let bestDist = 2.25;
+    let idx = -1; let bestDist = 2.25;
     for (let i = 0; i < this.groundLoot.length; i++) {
       const g = this.groundLoot[i]!;
-      const valid = Boolean(g.manualPickup) && (!lootId || g.id === lootId);
-      const d = valid ? Math.hypot(g.x - player.x, g.y - player.y) : Infinity;
+      const d = g.manualPickup && (!lootId || g.id === lootId) ? Math.hypot(g.x - player.x, g.y - player.y) : Infinity;
       if (d <= bestDist) { bestDist = d; idx = i; }
     }
     return idx;
@@ -256,6 +255,8 @@ export class LootManager {
     return {
       chests: Array.from(this.chests.values(), (c) => ({
         id: c.id, poiKind: c.poiKind, x: c.x, y: c.y, elevation: c.elevation, opened: c.opened,
+        ...(c.sealed ? { sealed: true } : {}),
+        ...(c.braziersTotal ? { braziersTotal: c.braziersTotal, braziersLit: countLitBraziersForChest(this.cache, c.id, c.braziersTotal) } : {}),
         slots: c.slots.map((s) => (s ? { ...s } : null)),
       })),
       groundLoot: this.groundLoot.map((g) => ({

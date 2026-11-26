@@ -1,7 +1,8 @@
 /** Pure overworld ecology combat math, POI placement helpers, and entity snapshot serialization. */
-import { BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, buildPlayerAttackHitbox, entityHurtbox, findTilePath, getEntityAttackSpec, isArmorCrushTarget, isBackstabAngle, isInSanctuary, playerHurtbox, type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent } from "@dc2d/engine";
+import { BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, buildPlayerAttackHitbox, entityHurtbox, findTilePath, getEntityAttackSpec, isArmorCrushTarget, isBackstabAngle, playerHurtbox, type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent } from "@dc2d/engine";
 import { igniteBurnable } from "../combat/statusEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
+import { isFriendlyOrSpawnSanctuary } from "../frontier/poiInteractions.js";
 import type { CombatPlayerCandidate, EcologyFoodSource, SteerTarget } from "./creatureBehaviors.js";
 import { applyKnockbackImpulse, clearNavPath, isClearSpot } from "./creatureNavigation.js";
 import {
@@ -139,16 +140,16 @@ export function isSectorTargetHit(opts: {
   return attackHitboxHitsHurtbox(hitbox, entityHurtbox(e, e.kind, cache));
 }
 
+const isSanctuarySafe = (cache: WorldChunkCache | undefined, p: CombatPlayerCandidate): boolean => Boolean(cache && isFriendlyOrSpawnSanctuary(cache, p.x, p.y));
+
 function strikeCandidatePlayers(opts: {
   readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
   readonly hitbox: ReturnType<typeof buildEntityAttackHitbox>; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
 }): void {
   const { cache, e, players, hitbox, onStrike } = opts;
   for (const p of players) {
-    if (e.strikeHitIds.has(p.id) || isInSanctuary(p.x, p.y)) continue;
-    if (!attackHitboxHitsHurtbox(hitbox, playerHurtbox(p, cache))) continue;
-    e.strikeHitIds.add(p.id);
-    onStrike(e, { ...p, targetKind: "player" });
+    if (e.strikeHitIds.has(p.id) || isSanctuarySafe(cache, p) || !attackHitboxHitsHurtbox(hitbox, playerHurtbox(p, cache))) continue;
+    e.strikeHitIds.add(p.id); onStrike(e, { ...p, targetKind: "player" });
     if (e.kind === "wolf") e.peelTimer = 0.85;
   }
 }

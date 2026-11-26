@@ -11,7 +11,9 @@ export {
   worldToChunkCoord,
   worldToLocalCoord,
 } from "./world/types.js";
-export type { BiomeKind, ChunkPoi, ChunkProp, DangerTier, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
+export type { BiomeKind, ChunkPoi, ChunkProp, DangerTier, PoiCategory, PoiKind, PoiLayoutKind, PointLightSpec, WorldChunk } from "./world/types.js";
+export { POI_CATALOG, POI_CATALOG_LIST, TOTAL_POI_TYPES, getPoiCatalogEntry, pickBiomeWeightedPoiKind } from "./world/pois/poiCatalog.js";
+export type { PoiCatalogEntry } from "./world/pois/poiCatalog.js";
 export { biomeBaseDangerTier, computeDangerTier, distanceDangerTier, sampleMacroBiome } from "./world/biomes/macroBiome.js";
 export { sampleWorldTile } from "./world/biomeSampler.js";
 export type { TileSample } from "./world/biomeSampler.js";
@@ -92,15 +94,15 @@ export type {
 } from "./character/appearance.js";
 export {
   ArmorSlotKeySchema, ChatEntrySchema, ClientAdminSchema, ClientChatSchema, ClientDropItemSchema,
-  ClientMessageSchema, ClientPingSchema, ClientUseItemSchema, GoreStyleSchema, GoreSubstanceSchema,
+  ClientMessageSchema, ClientPingSchema, ClientUseItemSchema, DiscoveryStateSchema, GoreStyleSchema, GoreSubstanceSchema,
   GroundLootSnapshotSchema, InventorySnapshotSchema, PROTOCOL_VERSION, PlayerBubbleSchema,
   ProjectileSnapshotSchema, ServerMessageSchema, ServerPongSchema, WorldChestSnapshotSchema,
   WorldEntitySnapshotSchema, WorldEventSchema, WorldWebSnapshotSchema,
 } from "./net/protocol.js";
 export { CHAT_BUBBLE_DURATION_SEC, MAX_CHAT_LENGTH, PROXIMITY_CHAT_RADIUS, PROXIMITY_SHOUT_RADIUS } from "./net/chatSchemas.js";
 export type {
-  ChatEntry, ClientMessage, CreatureVocalKind, DropItemRequest, GroundLootSnapshot, InventorySnapshot,
-  PlayerBubble, PlayerSnapshot, ProjectileSnapshot, ServerMessage, WebNodeSnapshot, WebStrandSnapshot,
+  ChatEntry, ClientMessage, CreatureVocalKind, DiscoveryStateSnapshot, DropItemRequest, GroundLootSnapshot, InventorySnapshot,
+  PlayerBubble, PlayerSnapshot, ProjectileSnapshot, RevealedBeacon, ServerMessage, WebNodeSnapshot, WebStrandSnapshot,
   WorldChestSnapshot, WorldEntitySnapshot, WorldEvent, WorldWebSnapshot,
 } from "./net/protocol.js";
 export {

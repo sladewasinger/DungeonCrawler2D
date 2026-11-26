@@ -1,6 +1,6 @@
 /** Coordinates BottomHotbar, VitalsBar, InventoryModal, ChestModal, CraftingPanel, CharacterPanel, Minimap, and drag/drop. */
 import {
-  AI_TUNING, type CharacterAppearance, type InventorySnapshot, type PlayerSnapshot,
+  AI_TUNING, type CharacterAppearance, type DiscoveryStateSnapshot, type InventorySnapshot, type PlayerSnapshot,
   type WorldChestSnapshot, type WorldChunkCache, type WorldEntitySnapshot,
 } from "@dc2d/engine";
 import { MinimapOverlay } from "../map/minimapOverlay.js";
@@ -26,6 +26,7 @@ export interface HudSyncState {
   readonly players?: readonly PlayerSnapshot[] | undefined;
   readonly entities?: readonly WorldEntitySnapshot[] | undefined;
   readonly chests?: readonly WorldChestSnapshot[] | undefined;
+  readonly discovery?: DiscoveryStateSnapshot | undefined;
 }
 
 export class HudRoot {
@@ -153,7 +154,7 @@ export class HudRoot {
     this.minimap.sync({
       visible: this.isMapVisible(state),
       cache: state.cache, local: state.localPlayer,
-      players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [],
+      players: state.players ?? [], entities: state.entities ?? [], chests: state.chests ?? [], discovery: state.discovery,
     });
   }
 
