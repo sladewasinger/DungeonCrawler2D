@@ -2,7 +2,7 @@
 import { hashUnit2d } from "../math/noise.js";
 import { chooseBiomeTileProp } from "./biomes/biomeProps.js";
 import { sampleWorldTile, type TileSample } from "./biomeSampler.js";
-import { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights } from "./poiStamper.js";
+import { findChunkPoiFromGrid, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLights, type ChunkTileGrid } from "./poiStamper.js";
 import {
   CHUNK_SIZE,
   GroundKind,
@@ -103,20 +103,74 @@ function placeRandomTileProp(ctx: PropBuilderContext): void {
   if (choice) pushProp(ctx.props, choice.kind, { x: px, y: py, elevation: ctx.sample.elevation, radius: choice.radius, blocks: choice.blocks });
 }
 
-function fillChunkTile(opts: {
-  readonly worldSeed: number; readonly wx: number; readonly wy: number; readonly idx: number;
-  readonly poi: ChunkPoi | null; readonly ground: Uint8Array; readonly elevation: Uint8Array;
-  readonly stairs: Uint8Array; readonly variant: Uint8Array;
+function addPrefixVal(opts: { readonly arr: Int32Array | undefined; readonly pIdx: number; readonly pSide: number; readonly val: number }): void {
+  const { arr, pIdx, pSide, val } = opts;
+  if (!arr) return;
+  arr[pIdx] = val + (arr[pIdx - pSide] ?? 0) + (arr[pIdx - 1] ?? 0) - (arr[pIdx - pSide - 1] ?? 0);
+}
+
+function updatePrefixAt(opts: {
+  readonly pIdx: number; readonly pSide: number; readonly sample: TileSample;
+  readonly badPrefix: Int32Array; readonly elevCounts: readonly Int32Array[];
+}): void {
+  const { pIdx, pSide, sample, badPrefix, elevCounts } = opts;
+  const bad = sample.stairs || sample.ground === GroundKind.DeepWater || sample.ground === GroundKind.ShallowWater ? 1 : 0;
+  addPrefixVal({ arr: badPrefix, pIdx, pSide, val: bad });
+  for (let e = 0; e < 4; e++) {
+    addPrefixVal({ arr: elevCounts[e], pIdx, pSide, val: sample.elevation === e ? 1 : 0 });
+  }
+}
+
+function sampleChunkTileGrid(worldSeed: number, cx: number, cy: number): ChunkTileGrid {
+  const size = CHUNK_SIZE * CHUNK_SIZE;
+  const pSide = CHUNK_SIZE + 1;
+  const samples = new Array<TileSample>(size);
+  const badPrefix = new Int32Array(pSide * pSide);
+  const elevCounts = [new Int32Array(pSide * pSide), new Int32Array(pSide * pSide), new Int32Array(pSide * pSide), new Int32Array(pSide * pSide)];
+  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+    const wy = cy * CHUNK_SIZE + ly;
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const sample = sampleWorldTile(worldSeed, cx * CHUNK_SIZE + lx, wy);
+      samples[worldTileIndex(lx, ly)] = sample;
+      updatePrefixAt({ pIdx: (ly + 1) * pSide + (lx + 1), pSide, sample, badPrefix, elevCounts });
+    }
+  }
+  return { samples, badPrefix, elevCounts };
+}
+
+function applyTileFromGrid(opts: {
+  readonly worldSeed: number; readonly wx: number; readonly wy: number; readonly sample: TileSample | undefined;
+  readonly idx: number; readonly poi: ChunkPoi | null;
+  readonly ground: Uint8Array; readonly elevation: Uint8Array; readonly stairs: Uint8Array; readonly variant: Uint8Array;
   readonly props: ChunkProp[]; readonly lights: PointLightSpec[];
 }): void {
-  const sample = sampleWorldTile(opts.worldSeed, opts.wx, opts.wy);
+  const sample = opts.sample;
+  if (!sample) return;
   const inPoi = opts.poi !== null && isInsidePoiFootprint(opts.poi, opts.wx, opts.wy);
   opts.ground[opts.idx] = inPoi && opts.poi ? poiFloorGround(opts.poi, opts.wx, opts.wy) : sample.ground;
   opts.elevation[opts.idx] = sample.elevation;
   opts.stairs[opts.idx] = sample.stairs ? 1 : 0;
   opts.variant[opts.idx] = sample.variant;
-  if (!inPoi) {
-    placeRandomTileProp({ worldSeed: opts.worldSeed, wx: opts.wx, wy: opts.wy, sample, props: opts.props, lights: opts.lights });
+  if (!inPoi) placeRandomTileProp({ worldSeed: opts.worldSeed, wx: opts.wx, wy: opts.wy, sample, props: opts.props, lights: opts.lights });
+}
+
+function applyPreSampledTiles(opts: {
+  readonly worldSeed: number; readonly cx: number; readonly cy: number;
+  readonly tileGrid: ChunkTileGrid; readonly poi: ChunkPoi | null;
+  readonly ground: Uint8Array; readonly elevation: Uint8Array;
+  readonly stairs: Uint8Array; readonly variant: Uint8Array;
+  readonly props: ChunkProp[]; readonly lights: PointLightSpec[];
+}): void {
+  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+    const wy = opts.cy * CHUNK_SIZE + ly;
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const idx = worldTileIndex(lx, ly);
+      applyTileFromGrid({
+        worldSeed: opts.worldSeed, wx: opts.cx * CHUNK_SIZE + lx, wy, sample: opts.tileGrid.samples[idx],
+        idx, poi: opts.poi, ground: opts.ground, elevation: opts.elevation, stairs: opts.stairs, variant: opts.variant,
+        props: opts.props, lights: opts.lights,
+      });
+    }
   }
 }
 
@@ -129,13 +183,9 @@ export function generateChunk(worldSeed: number, cx: number, cy: number): WorldC
   const props: ChunkProp[] = [];
   const lights: PointLightSpec[] = [];
   addSpawnLandmarks({ cx, cy, props, lights });
-  const poi = findChunkPoi(worldSeed, cx, cy);
-  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-    const wy = cy * CHUNK_SIZE + ly;
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      fillChunkTile({ worldSeed, wx: cx * CHUNK_SIZE + lx, wy, idx: worldTileIndex(lx, ly), poi, ground, elevation, stairs, variant, props, lights });
-    }
-  }
+  const tileGrid = sampleChunkTileGrid(worldSeed, cx, cy);
+  const poi = findChunkPoiFromGrid({ worldSeed, cx, cy, tileGrid });
+  applyPreSampledTiles({ worldSeed, cx, cy, tileGrid, poi, ground, elevation, stairs, variant, props, lights });
   if (poi) stampPoiPropsAndLights({ poi, props, lights });
   return { cx, cy, ground, elevation, stairs, variant, props, lights, pois: poi ? [poi] : [] };
 }

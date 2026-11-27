@@ -1,13 +1,30 @@
 /** Centered HP bar + Sanctuary, fixed-width symbol-only Skyrim Stealth Eye, buffs/debuffs & Stamina rail. */
 import type { PlayerSnapshot, WorldEntitySnapshot } from "@dc2d/engine";
+import { parseStaticSvg } from "../dom/staticSvg.js";
 import { domNode } from "./slotRenderer.js";
 
 const ACTIVE_ALERT_STATES = new Set(["chase", "flank", "charge", "alert"]);
-const LEAF_PATH = '<path d="M2 10C2 5 6 2 10 2c0 4-3 8-8 8Z" fill="#4ade80"/>';
-const FLAME_PATH = '<path d="M6.2 1.5C8 3.6 9.2 5.3 9.2 7.2A3.2 3.2 0 1 1 2.8 7.2c0-1.5 1-2.8 2-3.9-.1 1 .4 1.6 1 1.9-.3-1.2.1-2.4.4-3.7Z" fill="#fb923c"/>';
+const LEAF_SVG = '<svg class="ow-stealth-pip" viewBox="0 0 12 12" fill="none"><path d="M2 10C2 5 6 2 10 2c0 4-3 8-8 8Z" fill="#4ade80"/></svg>';
+const FLAME_SVG = '<svg class="ow-stealth-pip" viewBox="0 0 12 12" fill="none"><path d="M6.2 1.5C8 3.6 9.2 5.3 9.2 7.2A3.2 3.2 0 1 1 2.8 7.2c0-1.5 1-2.8 2-3.9-.1 1 .4 1.6 1 1.9-.3-1.2.1-2.4.4-3.7Z" fill="#fb923c"/></svg>';
+const EYE_CLOSED_PATH = "M2 7c5 3.4 11 3.4 16 0";
 
-function pipMarkup(on: boolean, path: string): string {
-  return `<svg class="ow-stealth-pip" data-on="${on}" viewBox="0 0 12 12" fill="none">${path}</svg>`;
+interface StealthEyeDom {
+  readonly coverSvg: SVGElement;
+  readonly flameSvg: SVGElement;
+  readonly eyeOutline: SVGPathElement;
+  readonly eyePupil: SVGEllipseElement;
+}
+
+function createStealthEyeDom(pill: HTMLSpanElement): StealthEyeDom {
+  const coverSvg = parseStaticSvg(LEAF_SVG);
+  const flameSvg = parseStaticSvg(FLAME_SVG);
+  const eyeSvg = parseStaticSvg(
+    '<svg class="ow-stealth-eye" viewBox="0 0 20 14" fill="none"><path d="M2 7c5 3.4 11 3.4 16 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="10" cy="7" rx="0" ry="0" fill="currentColor"/></svg>',
+  );
+  const eyeOutline = eyeSvg.querySelector("path")!;
+  const eyePupil = eyeSvg.querySelector("ellipse")!;
+  pill.append(coverSvg, eyeSvg, flameSvg);
+  return { coverSvg, flameSvg, eyeOutline, eyePupil };
 }
 
 function isSuspiciousEntity(e: WorldEntitySnapshot): boolean {
@@ -26,16 +43,6 @@ function resolveThreatLevel(player: PlayerSnapshot | undefined, entities?: reado
   let rank = 0;
   for (const e of entities) rank = Math.max(rank, entityThreatRank(player, e));
   return rank === 2 ? "spotted" : (rank === 1 ? "suspect" : "calm");
-}
-
-function eyeSvgMarkup(open: number): string {
-  if (open < 0.14) {
-    return '<svg class="ow-stealth-eye" viewBox="0 0 20 14" fill="none"><path d="M2 7c5 3.4 11 3.4 16 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-  }
-  const h = 0.9 + open * 4.9;
-  const rx = Math.min(2.5, 0.7 + open * 1.8).toFixed(1);
-  const ry = Math.min(2.7, h * 0.48).toFixed(1);
-  return `<svg class="ow-stealth-eye" viewBox="0 0 20 14" fill="none"><path d="M2 7Q10 ${(7 - h).toFixed(1)} 18 7Q10 ${(7 + h).toFixed(1)} 2 7Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><ellipse cx="10" cy="7" rx="${rx}" ry="${ry}" fill="currentColor"/></svg>`;
 }
 
 function trappedLabel(player: PlayerSnapshot): string {
@@ -102,6 +109,7 @@ export class VitalsBar {
   private readonly stamFill: HTMLDivElement;
   private readonly sanctuaryPill: HTMLSpanElement;
   private readonly stealthPill: HTMLSpanElement;
+  private readonly stealthDom: StealthEyeDom;
   private readonly fedPill: HTMLSpanElement;
   private readonly restedPill: HTMLSpanElement;
   private readonly poisonPill: HTMLSpanElement;
@@ -110,6 +118,7 @@ export class VitalsBar {
   private readonly godPill: HTMLSpanElement;
   private readonly shrineBuffPill: HTMLSpanElement;
   private lastKey = "";
+  private lastStealthKey = "";
 
   constructor(host: HTMLElement) {
     this.el = domNode("div", "ow-vitals");
@@ -125,6 +134,7 @@ export class VitalsBar {
     this.godPill = domNode("span", "ow-buff-pill ow-buff-god"); this.godPill.textContent = "GOD"; this.godPill.hidden = true;
     this.shrineBuffPill = domNode("span", "ow-buff-pill ow-buff-shrine"); this.shrineBuffPill.hidden = true;
     this.stealthPill = domNode("span", "ow-stealth-pill");
+    this.stealthDom = createStealthEyeDom(this.stealthPill);
     this.sanctuaryPill = domNode("span", "ow-sanctuary-pill"); this.sanctuaryPill.textContent = "Sanctuary";
     this.el.append(hpWrap, this.fedPill, this.restedPill, this.shrineBuffPill, this.poisonPill, this.trappedPill, this.burnPill, this.godPill, this.stealthPill, this.sanctuaryPill);
     this.staminaRail = domNode("div", "ow-stamina-rail");
@@ -133,7 +143,7 @@ export class VitalsBar {
     this.stamFill.dataset.tier = "high";
     this.staminaRail.append(this.stamFill);
     host.append(this.el, this.staminaRail);
-    this.syncStealthEye({ vis: 0.8, cover: false, lit: false, threat: "calm", open: resolveEyeOpenness(0.8, "calm") });
+    this.syncStealthEye({ vis: 0.8, cover: false, lit: false, threat: "calm", open: resolveEyeOpenness(0.8, "calm"), openStep: 8, tier: "exposed" });
   }
 
   sync(player: PlayerSnapshot | undefined, entities?: readonly WorldEntitySnapshot[]): void {
@@ -146,7 +156,7 @@ export class VitalsBar {
     if (key === this.lastKey) return;
     this.lastKey = key;
     this.syncBars(v);
-    this.syncStealthEye({ vis: v.vis, cover: v.cover, lit: v.lit, threat, open });
+    this.syncStealthEye({ vis: v.vis, cover: v.cover, lit: v.lit, threat, open, openStep, tier });
   }
 
   private syncBars(v: ReturnType<typeof readVitals>): void {
@@ -173,11 +183,29 @@ export class VitalsBar {
 
   private syncStealthEye(opts: {
     readonly vis: number; readonly cover: boolean; readonly lit: boolean;
-    readonly threat: "calm" | "suspect" | "spotted"; readonly open: number;
+    readonly threat: "calm" | "suspect" | "spotted"; readonly open: number; readonly openStep: number; readonly tier: string;
   }): void {
-    const tier = resolveStealthTier(opts.vis, opts.threat);
-    this.stealthPill.dataset.tier = tier;
-    this.stealthPill.setAttribute("aria-label", `Stealth: ${tier}`);
-    this.stealthPill.innerHTML = `${pipMarkup(opts.cover, LEAF_PATH)}${eyeSvgMarkup(opts.open)}${pipMarkup(opts.lit, FLAME_PATH)}`;
+    const stealthKey = `${opts.cover}:${opts.lit}:${opts.openStep}:${opts.tier}`;
+    if (stealthKey === this.lastStealthKey) return;
+    this.lastStealthKey = stealthKey;
+    this.stealthPill.dataset.tier = opts.tier;
+    this.stealthPill.setAttribute("aria-label", `Stealth: ${opts.tier}`);
+    this.stealthDom.coverSvg.dataset.on = String(opts.cover);
+    this.stealthDom.flameSvg.dataset.on = String(opts.lit);
+    this.updateEyeGeometry(opts.open);
+  }
+
+  private updateEyeGeometry(open: number): void {
+    const { eyeOutline, eyePupil } = this.stealthDom;
+    if (open < 0.14) {
+      eyeOutline.setAttribute("d", EYE_CLOSED_PATH);
+      eyePupil.setAttribute("rx", "0");
+      eyePupil.setAttribute("ry", "0");
+      return;
+    }
+    const h = 0.9 + open * 4.9;
+    eyeOutline.setAttribute("d", `M2 7Q10 ${(7 - h).toFixed(1)} 18 7Q10 ${(7 + h).toFixed(1)} 2 7Z`);
+    eyePupil.setAttribute("rx", Math.min(2.5, 0.7 + open * 1.8).toFixed(1));
+    eyePupil.setAttribute("ry", Math.min(2.7, h * 0.48).toFixed(1));
   }
 }

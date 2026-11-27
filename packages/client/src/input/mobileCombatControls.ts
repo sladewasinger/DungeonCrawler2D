@@ -40,7 +40,7 @@ function labelFromItemDef(def: NonNullable<ReturnType<typeof getItemDef>>): stri
   return def.healHp || def.buffEffect || def.curesStatuses ? "USE" : "ATK";
 }
 
-export function actionLabelForHeldItem(heldItem: string | null): string {
+function actionLabelForHeldItem(heldItem: string | null): string {
   if (!heldItem) return "ATK";
   if (isBowItem(heldItem)) return "BOW";
   const mapped = ITEM_ACTION_LABELS[heldItem];

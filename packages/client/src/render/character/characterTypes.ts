@@ -4,9 +4,6 @@ import type { Texture } from "pixi.js";
 
 export type FacingDir = "south" | "se" | "side" | "ne" | "north";
 export type FacingDir4 = "south" | "north" | "side";
-export type CharacterAnimState =
-  | "idle" | "walk" | "run" | "jump" | "fall" | "dodge" | "downed" | "swim" | "bow"
-  | "crouchIdle" | "crouchWalk" | "attack";
 
 const DIR_SOUTH = "south" as const;
 const DIR_NORTH = "north" as const;
@@ -99,7 +96,7 @@ export interface CharacterSpriteSet {
   readonly is3d?: boolean;
   readonly hasSecondaryTracks?: boolean;
   readonly ensureSecondary?: () => void;
-  readonly previewUrl: string;
+  readonly previewUrl?: string;
 }
 
 export interface CharacterMetrics {

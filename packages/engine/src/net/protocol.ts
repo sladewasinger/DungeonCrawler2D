@@ -1,4 +1,5 @@
 /** Authoritative multiplayer WebSocket wire protocol schemas. */
+import { ARMOR_SLOT_KEYS } from "@dc2d/contracts";
 import { z } from "zod";
 import { CharacterAppearanceSchema } from "../character/appearance.js";
 import { AI_STATES, ENTITY_KINDS } from "../combat/aiSensing.js";
@@ -20,7 +21,7 @@ const SlotIndexSchema = z.number().int().min(0).max(35);
 const HotbarIndexSchema = z.number().int().min(0).max(8);
 const SeqSchema = z.number().int().nonnegative().max(2_147_483_647).optional();
 
-export const ArmorSlotKeySchema = z.enum(["head", "chest", "legs", "feet", "offhand"]);
+export const ArmorSlotKeySchema = z.enum(ARMOR_SLOT_KEYS);
 export const SlotItemSchema = z.object({
   itemId: z.string().min(1),
   count: z.number().int().min(1),
@@ -66,7 +67,7 @@ export const ClientSetAppearanceSchema = z.object({
 
 export const ClientInputSchema = z.object({
   t: z.literal("input"),
-  seq: z.number().int().nonnegative(),
+  seq: z.number().int().nonnegative().max(2_147_483_647),
   moveX: z.number().min(-1).max(1),
   moveY: z.number().min(-1).max(1),
   aimX: z.number().min(-1).max(1).optional(),

@@ -5,11 +5,12 @@ import { installAdminConsole } from "./admin/adminConsole.js";
 import { AudioEngine } from "./audio/audioEngine.js";
 import { EntityVelocityTracker, isTouchViewport, resolveMobileBowAutoAim, resolveMobileMeleeAutoAim } from "./input/autoAim.js";
 import { InputController, type CombatInputsFrame } from "./input/controller.js";
-import { buildClientHudActions, createClientInputHooks, handleWorldInteract, mountSettingsForUi } from "./input/worldInteractHooks.js";
+import { buildClientHudActions, createClientInputHooks, createOverworldModalRouter, handleWorldInteract, mountSettingsForUi } from "./input/worldInteractHooks.js";
 import { saveCharacterPrefs } from "./net/characterPrefs.js";
 import { WorldClient, type WorldViewState } from "./net/worldClient.js";
 import { WorldScene } from "./render/world/worldScene.js";
 import { AtmosphereToolbar } from "./ui/atmosphereToolbar.js";
+import { installQaDiagBridge } from "./diag/qaDiagBridge.js";
 import { ChatOverlay } from "./ui/chat/chatOverlay.js";
 import { DiscoveryOverlay } from "./ui/discovery/discoveryOverlay.js";
 import { installMobileAutoFullscreen } from "./ui/fullscreen.js";
@@ -130,35 +131,51 @@ function startRenderLoop(ctx: AppCtx): void {
   requestAnimationFrame(loop);
 }
 
+function mountAtmosphereToolbar(opts: {
+  readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
+  readonly audio: AudioEngine; readonly getModals: () => ReturnType<typeof createOverworldModalRouter> | null;
+}): AtmosphereToolbar {
+  const { host, scene, client, audio, getModals } = opts;
+  return new AtmosphereToolbar(host, {
+    onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
+    onToggleInventory: () => { getModals()?.toggle("inventory"); audio.playUi("open"); },
+    onToggleSettings: () => { getModals()?.toggle("settings"); audio.playUi("click"); },
+    onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
+  });
+}
+
 function mountUiControllers(opts: {
   readonly host: HTMLElement; readonly scene: WorldScene; readonly client: WorldClient;
   readonly audio: AudioEngine; readonly onReturnToTitle: () => void;
 }) {
   const { host, scene, client, audio, onReturnToTitle } = opts;
-  const hud = new HudRoot(host, buildClientHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }));
+  let chatRef: ChatOverlay | null = null;
+  let settingsRef: SettingsMenu | null = null;
+  let modalsRef: ReturnType<typeof createOverworldModalRouter> | null = null;
+  let inputRef: InputController | null = null;
+  const hud = new HudRoot(host, {
+    ...buildClientHudActions(client, audio, () => { client.toggleTorch(); audio.playUi("click"); }),
+    onPanelOpened: () => { chatRef?.closeInput(); settingsRef?.setOpen(false); },
+  });
   const chat = new ChatOverlay(host, (text, shout) => client.sendChat(text, shout));
+  chatRef = chat;
   const discovery = new DiscoveryOverlay(host);
   const feedback = new CombatFeedbackOverlay(host);
   const connOverlay = new ConnectionStatusOverlay(host, {
     onReconnectNow: () => client.reconnectNow(),
-    onReturnToTitle: () => { hud.closePanels(); onReturnToTitle(); },
+    onReturnToTitle: () => { modalsRef?.closeAll(); onReturnToTitle(); },
   });
-  let inputRef: InputController | null = null;
-  const onInteractWorld = (lootId?: string) => {
-    if (!handleWorldInteract({ client, hud, discovery, audio, lootId })) inputRef?.queueInteract();
-  };
-  const settingsRef: { current: SettingsMenu | null } = { current: null };
-  const toolbar = new AtmosphereToolbar(host, {
-    onSetDayPhase: (p, paused) => client.setDayPhase(p, paused), onSetQuality: (q) => scene.setQualityPreset(q),
-    onToggleInventory: () => { settingsRef.current?.setOpen(false); hud.toggleInventory(); audio.playUi("open"); },
-    onToggleSettings: () => { hud.closePanels(); settingsRef.current?.toggle(); audio.playUi("click"); },
-    onDebugSpawn: (kind, count) => { client.debugSpawn(kind, count); audio.playUi("open"); },
+  const onInteractWorld = (lootId?: string) => { if (!handleWorldInteract({ client, hud, discovery, audio, lootId })) inputRef?.queueInteract(); };
+  const toolbar = mountAtmosphereToolbar({ host, scene, client, audio, getModals: () => modalsRef });
+  const settings = mountSettingsForUi({
+    host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m),
+    onOpenChange: (open) => { if (open) { hud.closePanels(); chat.closeInput(); } },
   });
-  const settings = mountSettingsForUi({ host, scene, client, audio, toolbar, hud, onReturnToTitle, onCrouchMode: (m) => inputRef?.setCrouchMode(m) });
-  settingsRef.current = settings;
-  const input = createClientInputHooks({ host, scene, client, hud, chat, discovery, audio, settings, onInteractWorld, onCloseAll: () => { chat.closeInput(); hud.closePanels(); settings.setOpen(false); } });
-  inputRef = input; input.setCrouchMode(settings.currentPrefs().crouchMode);
-  return { hud, chat, discovery, feedback, connOverlay, input, toolbar, settings, onInteractWorld };
+  settingsRef = settings;
+  modalsRef = createOverworldModalRouter({ hud, chat, settings });
+  inputRef = createClientInputHooks({ host, scene, client, hud, discovery, audio, settings, modals: modalsRef, onInteractWorld });
+  inputRef.setCrouchMode(settings.currentPrefs().crouchMode);
+  return { hud, chat, discovery, feedback, connOverlay, input: inputRef, toolbar, settings, onInteractWorld };
 }
 
 async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise<AppCtx> {
@@ -180,6 +197,7 @@ async function mountOverworldApp(host: HTMLElement, skipTitle: boolean): Promise
   titleRef.current = titleScreen;
   if (skipTitle) titleScreen.dismiss(); else ui.input.setEnabled(false);
   scene.setInteractHandler((lootId) => ui.onInteractWorld(lootId));
+  installQaDiagBridge({ scene, audio, getPlayerPos: () => { const p = client.localPose(); return { x: p.x, y: p.y }; } });
   return { scene, client, audio, velTracker, titleScreen, ...ui };
 }
 

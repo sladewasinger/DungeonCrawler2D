@@ -1,4 +1,5 @@
 /** Top-right Compass Rose badge displaying integer world (X, Y) coordinates cleanly. */
+import { parseStaticSvg } from "../dom/staticSvg.js";
 
 function compassSvg(): string {
   return `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0">
@@ -18,11 +19,10 @@ export class CompassBadge {
     this.el = document.createElement("div");
     this.el.className = "ow-pill ow-compass-pill";
     this.el.title = "World Coordinates (X, Y) — Spawn Campfire is near (2, -2)";
-    this.el.innerHTML = compassSvg();
     this.textEl = document.createElement("span");
     this.textEl.className = "ow-compass-coords";
     this.textEl.textContent = "0, 0";
-    this.el.append(this.textEl);
+    this.el.append(parseStaticSvg(compassSvg()), this.textEl);
   }
 
   sync(x: number, y: number, biomeHint?: string): void {

@@ -3,7 +3,7 @@ import { ITEM_CATALOG, getItemDef } from "@dc2d/content";
 import type { EntityKind } from "@dc2d/engine";
 import type { WorldClient } from "../net/worldClient.js";
 
-export const ADMIN_SPAWN_KINDS = [
+const ADMIN_SPAWN_KINDS = [
   "wolf", "bear", "boar", "spider", "slime", "goblin", "orc", "skeleton", "golem",
 ] as const;
 

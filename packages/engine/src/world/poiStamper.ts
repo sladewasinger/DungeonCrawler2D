@@ -1,16 +1,23 @@
-/** Deterministic sparse Overworld POI stamper spanning 20 diverse frontier landmarks. */
+/** Deterministic sparse Overworld POI stamper spanning 20 diverse biome landmarks. */
 import { hashUnit2d } from "../math/noise.js";
 import { sampleWorldTile } from "./biomeSampler.js";
 import { computeDangerTier, sampleMacroBiome } from "./biomes/macroBiome.js";
 import {
   POI_LAYOUTS, layoutFloorGround, isInsidePoiLayoutMask, stampPoiLayoutPropsAndLights,
 } from "./poiLayouts.js";
-import { computeBrazierPositions, getFrontierPoiSpec } from "./pois/frontierPoiLayouts.js";
+import { computeBrazierPositions, getBiomePoiSpec } from "./pois/biomePoiLayouts.js";
 import { getPoiCatalogEntry, pickBiomeWeightedPoiKind } from "./pois/poiCatalog.js";
 import {
   CHUNK_SIZE, GroundKind,
   type ChunkPoi, type ChunkProp, type PoiKind, type PoiLayoutKind, type PointLightSpec,
 } from "./types.js";
+import type { TileSample } from "./biomeSampler.js";
+
+export interface ChunkTileGrid {
+  readonly samples: readonly TileSample[];
+  readonly badPrefix: Int32Array;
+  readonly elevCounts: readonly Int32Array[];
+}
 
 const POI_KIND_BANDIT: PoiKind = "bandit-camp";
 const POI_KIND_RUINS: PoiKind = "ancient-ruins";
@@ -70,12 +77,46 @@ function isFlatDryRow(opts: {
   return true;
 }
 
-function isFlatDryFootprint(opts: {
+function queryPrefixBox(p: Int32Array, q: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number }): number {
+  const stride = CHUNK_SIZE + 1;
+  return (p[q.y1 * stride + q.x1] ?? 0) - (p[q.y0 * stride + q.x1] ?? 0) - (p[q.y1 * stride + q.x0] ?? 0) + (p[q.y0 * stride + q.x0] ?? 0);
+}
+
+const isBadCenterTile = (t: { readonly ground: GroundKind; readonly stairs: boolean }): boolean =>
+  t.ground === GroundKind.DeepWater || t.ground === GroundKind.ShallowWater || t.stairs;
+
+function isCenterTileEligible(center: TileSample | undefined): "fallback" | "bad" | "ok" {
+  if (!center || center.elevation >= 4) return "fallback";
+  return isBadCenterTile(center) ? "bad" : "ok";
+}
+
+function checkFlatDryGrid(opts: {
+  readonly grid: ChunkTileGrid; readonly cx: number; readonly cy: number;
+  readonly centerWx: number; readonly centerWy: number; readonly rx: number; readonly ry: number;
+}): number | null | "fallback" {
+  const lx = opts.centerWx - opts.cx * CHUNK_SIZE;
+  const ly = opts.centerWy - opts.cy * CHUNK_SIZE;
+  if (lx - opts.rx < 0 || lx + opts.rx >= CHUNK_SIZE || ly - opts.ry < 0 || ly + opts.ry >= CHUNK_SIZE) return "fallback";
+  return checkCenterGridBox({ grid: opts.grid, lx, ly, rx: opts.rx, ry: opts.ry });
+}
+
+function checkCenterGridBox(opts: {
+  readonly grid: ChunkTileGrid; readonly lx: number; readonly ly: number; readonly rx: number; readonly ry: number;
+}): number | null | "fallback" {
+  const center = opts.grid.samples[opts.ly * CHUNK_SIZE + opts.lx];
+  const state = isCenterTileEligible(center);
+  if (state !== "ok" || !center) return state === "fallback" ? "fallback" : null;
+  const box = { x0: opts.lx - opts.rx, y0: opts.ly - opts.ry, x1: opts.lx + opts.rx + 1, y1: opts.ly + opts.ry + 1 };
+  const elevPref = opts.grid.elevCounts[center.elevation];
+  if (!elevPref || queryPrefixBox(opts.grid.badPrefix, box) > 0) return null;
+  return queryPrefixBox(elevPref, box) === (opts.rx * 2 + 1) * (opts.ry * 2 + 1) ? center.elevation : null;
+}
+
+function scanFlatDryFallback(opts: {
   readonly worldSeed: number; readonly centerWx: number; readonly centerWy: number; readonly rx: number; readonly ry: number;
 }): number | null {
-  if (Math.hypot(opts.centerWx, opts.centerWy) < 15) return null;
   const center = sampleWorldTile(opts.worldSeed, opts.centerWx, opts.centerWy);
-  if (center.ground === GroundKind.DeepWater || center.ground === GroundKind.ShallowWater || center.stairs) return null;
+  if (isBadCenterTile(center)) return null;
   for (let dy = -opts.ry; dy <= opts.ry; dy++) {
     if (!isFlatDryRow({ worldSeed: opts.worldSeed, cxWx: opts.centerWx, wy: opts.centerWy + dy, elev: center.elevation, rx: opts.rx })) {
       return null;
@@ -84,9 +125,21 @@ function isFlatDryFootprint(opts: {
   return center.elevation;
 }
 
+function isFlatDryFootprint(opts: {
+  readonly worldSeed: number; readonly cx: number; readonly cy: number;
+  readonly centerWx: number; readonly centerWy: number; readonly rx: number; readonly ry: number;
+  readonly tileGrid?: ChunkTileGrid | undefined;
+}): number | null {
+  if (Math.hypot(opts.centerWx, opts.centerWy) < 15) return null;
+  const fast = opts.tileGrid
+    ? checkFlatDryGrid({ grid: opts.tileGrid, cx: opts.cx, cy: opts.cy, centerWx: opts.centerWx, centerWy: opts.centerWy, rx: opts.rx, ry: opts.ry })
+    : "fallback";
+  return fast === "fallback" ? scanFlatDryFallback(opts) : fast;
+}
+
 function layoutShapeFor(layout: PoiLayoutKind): { readonly kind: PoiKind; readonly radiusX: number; readonly radiusY: number; readonly chestOffset: readonly [number, number] } {
-  const frontier = getFrontierPoiSpec(layout);
-  if (frontier) return frontier;
+  const biomePoi = getBiomePoiSpec(layout);
+  if (biomePoi) return biomePoi;
   const classic = POI_LAYOUTS[layout];
   if (classic) return classic;
   return { kind: POI_KIND_RUINS, radiusX: 3, radiusY: 3, chestOffset: [0, 0] };
@@ -118,14 +171,14 @@ function buildChunkPoiAt(opts: {
 function scanPoiRow(opts: {
   readonly worldSeed: number; readonly layout: PoiLayoutKind;
   readonly cx: number; readonly cy: number;
-  readonly startLx: number; readonly wy: number;
+  readonly startLx: number; readonly wy: number; readonly tileGrid?: ChunkTileGrid | undefined;
 }): ChunkPoi | null {
   const { radiusX: rx, radiusY: ry } = layoutShapeFor(opts.layout);
   const span = Math.max(1, CHUNK_SIZE - 2 * rx);
   for (let ox = 0; ox < span; ox++) {
     const lx = rx + ((opts.startLx + ox) % span);
     const wx = opts.cx * CHUNK_SIZE + lx;
-    const elevation = isFlatDryFootprint({ worldSeed: opts.worldSeed, centerWx: wx, centerWy: opts.wy, rx, ry });
+    const elevation = isFlatDryFootprint({ worldSeed: opts.worldSeed, cx: opts.cx, cy: opts.cy, centerWx: wx, centerWy: opts.wy, rx, ry, tileGrid: opts.tileGrid });
     if (elevation !== null) {
       return buildChunkPoiAt({ layout: opts.layout, cx: opts.cx, cy: opts.cy, wx, wy: opts.wy, elevation });
     }
@@ -134,7 +187,8 @@ function scanPoiRow(opts: {
 }
 
 function findForLayout(q: {
-  readonly worldSeed: number; readonly cx: number; readonly cy: number; readonly layout: PoiLayoutKind;
+  readonly worldSeed: number; readonly cx: number; readonly cy: number;
+  readonly layout: PoiLayoutKind; readonly tileGrid?: ChunkTileGrid | undefined;
 }): ChunkPoi | null {
   const { radiusY: ry } = layoutShapeFor(q.layout);
   const span = Math.max(1, CHUNK_SIZE - 2 * ry);
@@ -142,19 +196,25 @@ function findForLayout(q: {
   const startLy = Math.floor(hashUnit2d(q.worldSeed + 631, q.cx, q.cy) * span);
   for (let oy = 0; oy < span; oy++) {
     const wy = q.cy * CHUNK_SIZE + ry + ((startLy + oy) % span);
-    const hit = scanPoiRow({ worldSeed: q.worldSeed, layout: q.layout, cx: q.cx, cy: q.cy, startLx, wy });
+    const hit = scanPoiRow({ worldSeed: q.worldSeed, layout: q.layout, cx: q.cx, cy: q.cy, startLx, wy, tileGrid: q.tileGrid });
     if (hit) return hit;
   }
   return null;
 }
 
 export function findChunkPoi(worldSeed: number, cx: number, cy: number): ChunkPoi | null {
-  const layout = chooseChunkPoiLayout(worldSeed, cx, cy);
+  return findChunkPoiFromGrid({ worldSeed, cx, cy });
+}
+
+export function findChunkPoiFromGrid(opts: {
+  readonly worldSeed: number; readonly cx: number; readonly cy: number; readonly tileGrid?: ChunkTileGrid | undefined;
+}): ChunkPoi | null {
+  const layout = chooseChunkPoiLayout(opts.worldSeed, opts.cx, opts.cy);
   if (!layout) return null;
-  const primary = findForLayout({ worldSeed, cx, cy, layout });
+  const primary = findForLayout({ ...opts, layout });
   if (primary) return primary;
   const fallback: PoiLayoutKind = layoutShapeFor(layout).kind === POI_KIND_BANDIT ? "camp-outpost" : LAYOUT_RUINS_SHRINE;
-  return fallback === layout ? null : findForLayout({ worldSeed, cx, cy, layout: fallback });
+  return fallback === layout ? null : findForLayout({ ...opts, layout: fallback });
 }
 
 export function isInsidePoiFootprint(poi: ChunkPoi | null, wx: number, wy: number): boolean {

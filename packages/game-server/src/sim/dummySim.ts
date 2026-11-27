@@ -41,7 +41,7 @@ export interface CombatActorTarget {
 const KIND_SLIME = "slime-dummy" as const;
 const KIND_SPAR = "spar-dummy" as const;
 
-export const TRAINING_DUMMY_TUNING = {
+const TRAINING_DUMMY_TUNING = {
   strawHp: 100, slimeHp: 45, slimeRespawnSec: 3.5, sparHp: 120,
   sparWindupSec: 0.85, sparCooldownSec: 1.85, sparRangeTiles: 2.35,
   sparDamage: 12, idleResetSec: 4.2, defaultRespawnSec: 2.0,

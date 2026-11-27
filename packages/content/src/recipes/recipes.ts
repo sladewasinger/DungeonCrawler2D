@@ -1,19 +1,8 @@
 /** Authoritative hand and campfire crafting recipes. */
-import { FRONTIER_RECIPES } from "./frontierRecipes.js";
+import type { RecipeDef, RecipeIngredientDef } from "@dc2d/contracts";
+import { GEAR_RECIPES } from "./gearRecipes.js";
 
-export interface RecipeIngredientDef {
-  readonly itemId: string;
-  readonly count: number;
-}
-
-export interface RecipeDef {
-  readonly id: string;
-  readonly outputItemId: string;
-  readonly outputCount: number;
-  readonly requiresCampfire?: boolean;
-  readonly requiresWorkbench?: boolean;
-  readonly ingredients: readonly RecipeIngredientDef[];
-}
+export type { RecipeDef, RecipeIngredientDef };
 
 const ITEM_WOOD = "wood";
 const ITEM_STONE = "stone";
@@ -186,7 +175,7 @@ const BASE_RECIPES: readonly RecipeDef[] = [
   },
 ];
 
-export const RECIPE_CATALOG: readonly RecipeDef[] = [...BASE_RECIPES, ...FRONTIER_RECIPES];
+export const RECIPE_CATALOG: readonly RecipeDef[] = [...BASE_RECIPES, ...GEAR_RECIPES];
 
 const RECIPE_MAP = new Map<string, RecipeDef>(RECIPE_CATALOG.map((recipe) => [recipe.id, recipe]));
 

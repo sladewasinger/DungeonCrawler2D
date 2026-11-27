@@ -2,7 +2,8 @@
 import { getItemDef, isBowItem, resolveItemInstance } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, MELEE_FEEL_TUNING, PARRY_STAGGER_SEC, STEALTH_TUNING, WorldChunkCache,
-  evaluateBowShot, isInSanctuary, isInWorldSanctuary, isSharpWeapon, playerFootSegment, resolveMovement, resolveWeaponArchetype,
+  computeCharacterMoveMultiplier, evaluateBowShot, isInSanctuary, isInWorldSanctuary, isSharpWeapon,
+  playerFootSegment, resolveMovement, resolveWeaponArchetype,
   type GoreStyle, type SlotItem, type WorldEvent,
 } from "@dc2d/engine";
 import { applyIncomingPlayerHit, resolveMeleeHits, type CombatPlayerRef } from "../combatActions.js";
@@ -40,46 +41,39 @@ function buildDefMeleeStats(def: NonNullable<ReturnType<typeof getItemDef>>, pre
   };
 }
 
-export function meleeStatsFor(held: string | SlotItem | null) {
+function meleeStatsFor(held: string | SlotItem | null) {
   const { itemId, prefixId } = extractHeldInfo(held);
   const def = itemId ? getItemDef(itemId) : undefined;
   const archetype = resolveWeaponArchetype(itemId, def?.weaponArchetype);
   return def ? buildDefMeleeStats(def, prefixId, archetype) : { ...DEFAULT_MELEE_STATS, archetype };
 }
 
-function waterMoveMult(p: CombatPlayerRef): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (p.inDeepWater) return p.combat.stamina <= 1 ? m.exhaustedSwim : m.deepWater;
-  return p.inWater ? m.shallowWater : 1;
-}
-
-function windupMultForSwing(sw: PendingMeleeSwing): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (sw.elapsedSec > sw.durationSec * sw.spec.windupEnd) return m.swing;
-  if (sw.spec.weightTier === "light") return 0.85;
-  return sw.spec.weightTier === "heavy" ? 0.58 : 0.72;
-}
-
-function baseActionMult(p: CombatPlayerRef): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (p.combat.dodgeTimer > 0) return m.dodge;
-  if (p.combat.pendingSwing) return windupMultForSwing(p.combat.pendingSwing);
-  if (p.combat.swingTimer > 0) return m.swing;
-  if (p.combat.blocking) return m.block;
-  return p.combat.bowCharge > 0 ? m.bowDraw : 1;
-}
-
-function webMoveMult(p: CombatPlayerRef): number {
-  if (p.combat.cocoonProgress >= 0.35 || p.combat.webStick >= MELEE_FEEL_TUNING.webStuckThreshold) return 0;
-  return p.combat.webStick > 0.05 ? 1 - p.combat.webStick * 0.65 : 1;
+function resolveServerSwingState(p: CombatPlayerRef) {
+  const sw = p.combat.pendingSwing;
+  const swingProgress = sw ? sw.elapsedSec / Math.max(0.01, sw.durationSec) : (p.combat.swingTimer > 0 ? 1 : 0);
+  return {
+    swingProgress,
+    swingWindupEnd: sw?.spec.windupEnd ?? 0,
+    swingWeightTier: sw?.spec.weightTier ?? ("medium" as const),
+  };
 }
 
 export function computePlayerMoveMultiplier(p: CombatPlayerRef): number {
-  const crouchMult = p.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
   const gear = resolvePlayerGear(p);
   const swiftBonus = p.combat.buffTimer > 0 && p.combat.buffKind === "swiftness" ? 0.22 : 0;
-  const gearMult = Math.max(0.65, 1 + gear.moveSpeedMult + swiftBonus);
-  return baseActionMult(p) * waterMoveMult(p) * crouchMult * webMoveMult(p) * gearMult;
+  return computeCharacterMoveMultiplier({
+    dodging: p.combat.dodgeTimer > 0,
+    ...resolveServerSwingState(p),
+    blocking: Boolean(p.combat.blocking),
+    bowCharge: p.combat.bowCharge,
+    inWater: Boolean(p.inWater),
+    inDeepWater: Boolean(p.inDeepWater),
+    stamina: p.combat.stamina,
+    crouching: Boolean(p.crouching),
+    webStick: p.combat.webStick,
+    cocoonProgress: p.combat.cocoonProgress,
+    gearAndBuffSpeedMult: 1 + gear.moveSpeedMult + swiftBonus,
+  });
 }
 
 function buildGearCombatExtras(p: CombatPlayerRef) {

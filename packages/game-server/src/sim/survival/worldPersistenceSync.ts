@@ -4,7 +4,8 @@ import { issuePlayerCredentials, verifyResumeToken } from "../../net/playerAuth.
 import { createCombatState, type PlayerCombatState } from "../combatActions.js";
 import { createStarterInventory } from "../playerInventory.js";
 import { normalizeOwnerKey, type SavedBedBinding } from "./campStructures.js";
-import type { PersistedPlayerRecord, PersistedWorldFile, WorldPersistenceStore } from "./persistenceStore.js";
+import type { PersistedPlayerRecord, PersistedWorldFile } from "./persistenceStore.js";
+import type { SqliteWorldStore } from "../persistence/sqliteWorldStore.js";
 import { applySavedPlayerRecord, buildPersistedPlayerList, indexSavedPlayers, toPersistedPlayerRecord, type PersistablePlayerInput } from "./playerSurvivalState.js";
 import type { WorldSim } from "../worldSim.js";
 
@@ -14,7 +15,7 @@ export interface SimPlayer {
   jumpZ: number; jumpVz: number; jumpQueued: boolean; moveX: number; moveY: number; moving: boolean; sprinting: boolean; crouching: boolean;
   stealthVis: number; inCover: boolean; noiseRadius: number; visibility: number; sprintNoiseAcc: number; attackFlashTimer: number;
   torchLit: boolean; inWater: boolean; inDeepWater: boolean; lastAckSeq: number; lastActionAckSeq: number;
-  selectedHotbar: number; inventory: PlayerInventoryState; attackQueued: boolean; attackHold: boolean; bowDrawing: boolean;
+  selectedHotbar: number; inventory: PlayerInventoryState; inventoryRev: number; attackQueued: boolean; attackHold: boolean; bowDrawing: boolean;
   bowReleaseQueued: boolean; blockHeld: boolean; dodgeQueued: boolean; dodgeDirX: number | undefined; dodgeDirY: number | undefined;
   throwPebbleQueued: boolean; interactQueued: boolean; readonly combat: PlayerCombatState; profileHydrated: boolean;
 }
@@ -31,7 +32,7 @@ export function createInitialSimPlayer(opts: {
     jumpZ: 0, jumpVz: 0, jumpQueued: false, moveX: 0, moveY: 0, moving: false, sprinting: false, crouching: false,
     stealthVis: 0.7, inCover: false, noiseRadius: 0.5, visibility: 0.7, sprintNoiseAcc: 0, attackFlashTimer: 0,
     torchLit: true, inWater: false, inDeepWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
-    selectedHotbar: 0, inventory: createStarterInventory(), attackQueued: false, attackHold: false, bowDrawing: false,
+    selectedHotbar: 0, inventory: createStarterInventory(), inventoryRev: 1, attackQueued: false, attackHold: false, bowDrawing: false,
     bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, dodgeDirX: undefined, dodgeDirY: undefined,
     throwPebbleQueued: false, interactQueued: false, combat: createCombatState(), profileHydrated: false,
   };
@@ -39,7 +40,7 @@ export function createInitialSimPlayer(opts: {
 
 export interface PersistenceHost {
   readonly savedProfiles: Map<string, PersistedPlayerRecord>;
-  readonly store: WorldPersistenceStore;
+  readonly store: SqliteWorldStore;
 }
 
 export interface SessionAuthResult {
@@ -48,12 +49,22 @@ export interface SessionAuthResult {
   readonly issuedCredentials?: { readonly accountId: string; readonly resumeToken: string } | undefined;
 }
 
+function lookupSavedProfile(opts: {
+  readonly savedProfiles: Map<string, PersistedPlayerRecord>;
+  readonly store?: SqliteWorldStore | undefined;
+  readonly accountId?: string | undefined;
+}): PersistedPlayerRecord | undefined {
+  if (!opts.accountId) return undefined;
+  return opts.savedProfiles.get(opts.accountId) ?? opts.store?.loadPlayerProfile(opts.accountId) ?? undefined;
+}
+
 export function resolveSessionAuth(opts: {
   readonly savedProfiles: Map<string, PersistedPlayerRecord>;
+  readonly store?: SqliteWorldStore | undefined;
   readonly accountId?: string | undefined;
   readonly resumeToken?: string | undefined;
 }): SessionAuthResult {
-  const existing = opts.accountId ? opts.savedProfiles.get(opts.accountId) : undefined;
+  const existing = lookupSavedProfile(opts);
   if (existing?.tokenHash && opts.accountId && verifyResumeToken(opts.resumeToken, existing.tokenHash)) {
     return { accountId: opts.accountId, tokenHash: existing.tokenHash };
   }
@@ -69,23 +80,28 @@ export function persistPlayerSnapshotRecord(opts: {
   readonly host: PersistenceHost;
   readonly player: PersistablePlayerInput;
   readonly discovery: PersistedPlayerRecord["discovery"];
+  readonly evictIfPersisted?: boolean | undefined;
 }): void {
-  opts.host.savedProfiles.set(
-    opts.player.accountId,
-    toPersistedPlayerRecord({ p: opts.player, normalizeName: normalizeOwnerKey, discovery: opts.discovery }),
-  );
-  opts.host.store.markDirty();
+  const rec = toPersistedPlayerRecord({ p: opts.player, normalizeName: normalizeOwnerKey, discovery: opts.discovery });
+  if (opts.evictIfPersisted && opts.host.store.isEnabled()) {
+    opts.host.store.savePlayerProfile(rec);
+    opts.host.savedProfiles.delete(opts.player.accountId);
+    return;
+  }
+  opts.host.savedProfiles.set(opts.player.accountId, rec);
+  if (opts.host.store.isEnabled()) opts.host.store.savePlayerProfile(rec);
+  else opts.host.store.markDirty();
 }
 
 export function loadWorldPersistence(opts: {
-  readonly store: WorldPersistenceStore;
+  readonly store: SqliteWorldStore;
   readonly worldSeed: number;
   readonly onHydrate: (file: PersistedWorldFile) => void;
 }): Map<string, PersistedPlayerRecord> {
   const file = opts.store.load(opts.worldSeed);
   if (!file) return new Map();
   opts.onHydrate(file);
-  return indexSavedPlayers(file);
+  return opts.store.isEnabled() ? new Map() : indexSavedPlayers(file);
 }
 
 export function hydratePlayerProfileIfFound(opts: {
@@ -94,7 +110,7 @@ export function hydratePlayerProfileIfFound(opts: {
   readonly onHydrateDiscovery?: (playerId: string, discovery: PersistedPlayerRecord["discovery"]) => void;
 }): void {
   if (opts.player.profileHydrated) return;
-  const saved = opts.host.savedProfiles.get(opts.player.accountId);
+  const saved = opts.host.savedProfiles.get(opts.player.accountId) ?? opts.host.store.loadPlayerProfile(opts.player.accountId);
   if (!saved) return;
   applySavedPlayerRecord(opts.player, saved);
   opts.onHydrateDiscovery?.(opts.player.id, saved.discovery);

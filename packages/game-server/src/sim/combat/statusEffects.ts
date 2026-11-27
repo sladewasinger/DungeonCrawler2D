@@ -84,7 +84,7 @@ export function stepBleedTarget(opts: {
   }
 }
 
-export function isTargetInWater(t: Pick<BurnableTarget, "inWater" | "inDeepWater">): boolean {
+function isTargetInWater(t: Pick<BurnableTarget, "inWater" | "inDeepWater">): boolean {
   return Boolean(t.inWater || t.inDeepWater);
 }
 
@@ -110,7 +110,7 @@ export function igniteBurnable(opts: {
   return true;
 }
 
-export function extinguishBurn(opts: {
+function extinguishBurn(opts: {
   readonly target: BurnableTarget;
   readonly x: number;
   readonly y: number;

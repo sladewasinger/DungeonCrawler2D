@@ -7,7 +7,7 @@ import { InputController } from "../input/controller.js";
 import { CombatVfxLayer } from "../render/combat/combatVfx.js";
 import { EntityRenderer } from "../render/combat/entitySprites.js";
 import { GoreSystem } from "../render/combat/gore/goreSystem.js";
-import { WorldPickupsRenderer } from "../render/combat/worldPickups.js";
+import { WorldPickupsRenderer } from "../render/combat/pickups/worldPickups.js";
 import { CastShadowLayer } from "../render/shaders/castShadows.js";
 import { FoliageWindEffect } from "../render/shaders/foliageWindFilter.js";
 import { LightingSystem } from "../render/shaders/lightingSystem.js";
@@ -17,7 +17,7 @@ import { WaterSurfaceEffect } from "../render/shaders/waterFilter.js";
 import { createPropTextureSet } from "../render/textures/propTextures.js";
 import { getLoadedSpriteIds } from "../render/textures/spriteManifest.js";
 import { playerVisualElevation } from "../render/world/cliffStrips.js";
-import { PlayerView } from "../render/world/playerSprite.js";
+import { PlayerView } from "../render/world/player/playerSprite.js";
 import { buildGoreSpawn, resolveEventElev } from "../render/world/sceneHelpers.js";
 import { FpsCounter } from "../ui/fpsCounter.js";
 import { HudRoot } from "../ui/hud/hudRoot.js";
@@ -139,7 +139,7 @@ function stepSandboxFrame(st: SandboxState, nowMs: number, dt: number): void {
     jump: st.input.consumeJump(), bowDraw: combat.bowDraw, bowRelease: combat.bowRelease,
   });
   const pl = st.poseTuner.applyPreview(cur.player);
-  st.input.setGearState({ heldItem: pl.heldItem ?? null, hasShield: isShieldItem(cur.inventory.armor.offhand) });
+  st.input.setGearState({ heldItem: pl.heldItem ?? null, offhandItem: cur.inventory.armor.offhand, hasShield: isShieldItem(cur.inventory.armor.offhand) });
   st.camX += (pl.x - st.camX) * Math.min(1, dt * 8);
   st.camY += (pl.y - pl.elevation * 0.625 - 2.2 - st.camY) * Math.min(1, dt * 8);
   const sw = st.rig.app.screen.width; const sh = st.rig.app.screen.height;

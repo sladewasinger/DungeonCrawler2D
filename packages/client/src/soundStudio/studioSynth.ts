@@ -1,11 +1,11 @@
 /** Sound Studio Web Audio transport wrapper: exact duration playback, Stop, scrub slice, and stereo WAV export. */
 import {
   activeProceduralTracks, computeTrackWindow, exactTracksDurationSec, playProceduralTracks,
-  type ActiveTrackVoice, type TrackWindow,
+  type ActiveTrackVoice,
 } from "../audio/proceduralSynth.js";
 import type { SoundTrackSpec } from "./studioTypes.js";
 
-export { computeTrackWindow, type TrackWindow };
+export { computeTrackWindow };
 
 export function activeStudioTracks(tracks: readonly SoundTrackSpec[]): readonly SoundTrackSpec[] {
   return activeProceduralTracks(tracks);

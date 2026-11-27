@@ -9,7 +9,7 @@ import {
   isWithinSector,
   segmentHitsEllipse,
 } from "../index.js";
-import { projectileHurtbox } from "./hitboxes/combatShapes.js";
+import { entityHurtbox } from "./hitboxes/combatShapes.js";
 
 describe("combatRules", () => {
   it("detects safe spawn campfire sanctuary and scales defense mitigation", () => {
@@ -38,7 +38,7 @@ describe("combatRules", () => {
   });
 
   it("detects swept projectile segment intersections across elliptical entity hurtboxes without tunneling", () => {
-    const box = projectileHurtbox({ x: 5, y: 5 }, "goblin");
+    const box = entityHurtbox({ x: 5, y: 5 }, "goblin");
     expect(segmentHitsEllipse({ x0: 4.1, y0: 5, x1: 6.1, y1: 5, box })).not.toBeNull();
     expect(segmentHitsEllipse({ x0: 3.5, y0: 4.4, x1: 6.5, y1: 4.4, box })).not.toBeNull();
     expect(segmentHitsEllipse({ x0: 3.5, y0: 7.2, x1: 6.5, y1: 7.2, box })).toBeNull();

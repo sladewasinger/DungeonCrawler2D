@@ -1,6 +1,8 @@
 /** Five-tier item rarity metadata, visual accent colors, and rarity-bump helpers. */
+import { RARITY_ORDER, type ItemRarity } from "@dc2d/contracts";
 
-export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export { RARITY_ORDER };
+export type { ItemRarity };
 
 export interface RarityMeta {
   readonly id: ItemRarity;
@@ -11,8 +13,6 @@ export interface RarityMeta {
   readonly bgTint: string;
   readonly rank: number;
 }
-
-export const RARITY_ORDER: readonly ItemRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
 export const RARITY_META: Readonly<Record<ItemRarity, RarityMeta>> = {
   common: {

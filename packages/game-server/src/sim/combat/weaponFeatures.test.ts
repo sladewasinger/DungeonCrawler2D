@@ -2,7 +2,7 @@ import { getItemDef, maxStackForItem, RECIPE_CATALOG, resolveBlockMode, resolveI
 import {
   GroundKind, PARRY_STAGGER_SEC, WEAPON_ARCHETYPES, WorldChunkCache, resolveWeaponArchetype,
 } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCombatState, type CombatPlayerRef } from "../combatActions.js";
 import { CombatWorld } from "../combatSim.js";
 import { createStarterInventory } from "../playerInventory.js";
@@ -40,6 +40,8 @@ function swingAndResolve(opts: { readonly cw: CombatWorld; readonly p: CombatPla
 }
 
 describe("Phase 7 weapon archetypes, recipes, armor-crush, burn DoT, shield-poke, and riposte", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
   it("registers all 8 archetypes, twoHanded flags, and crafting recipes for flint-dagger, wooden-spear & iron-greatsword", () => {
     expect(WEAPON_ARCHETYPES).toHaveLength(8);
     expect(resolveWeaponArchetype(DAGGER_ID, getItemDef(DAGGER_ID)?.weaponArchetype)).toBe("dagger");
@@ -52,6 +54,7 @@ describe("Phase 7 weapon archetypes, recipes, armor-crush, burn DoT, shield-poke
   });
 
   it("deals Pickaxe 1.4x armor-crush vs golem + 0.65-tile AoE slam, and Spear Shield-Poke without dropping block", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
     const cw = new CombatWorld(new TestCache());
     const p = makeArmedPlayer({ id: "p1", x: 20, y: 12, heldItem: "pickaxe" });
     const map = new Map([[p.id, p]]);

@@ -6,12 +6,12 @@ import {
 import { MinimapOverlay } from "../map/minimapOverlay.js";
 import { BottomHotbar } from "./bottomHotbar.js";
 import { CharacterPanel } from "./characterPanel.js";
-import { ChestModal } from "./chestModal.js";
+import { ChestModal } from "./inventory/chestModal.js";
 import { CraftingPanel } from "./craftingPanel.js";
 import { ensureHudStyles } from "./hudStyles.js";
-import { InventoryModal } from "./inventoryModal.js";
+import { InventoryModal } from "./inventory/inventoryModal.js";
 import { ItemCardPopover } from "./itemCard/itemCardPopover.js";
-import { SlotDragManager } from "./slotDragManager.js";
+import { SlotDragManager } from "./inventory/slotDragManager.js";
 import type { HudActions } from "./slotRenderer.js";
 import { VitalsBar } from "./vitalsBar.js";
 
@@ -87,6 +87,7 @@ export class HudRoot {
   }
 
   activePanel(): ActiveHudPanel { return this.openPanel; }
+  isMapOpen(): boolean { return this.mapOpen; }
   private dropHoveredSource(hovered: NonNullable<ReturnType<SlotDragManager["hoveredFilledSource"]>>): void {
     if (hovered.kind === "slot") this.actions.onDropItem({ source: "inv", slotIndex: hovered.index });
     else if (hovered.kind === "armor") this.actions.onDropItem({ source: "armor", armorSlot: hovered.armorSlot });
@@ -108,6 +109,7 @@ export class HudRoot {
   toggleCharacter(): void { this.togglePanel("character"); }
   toggleMap(): void {
     this.mapOpen = !this.mapOpen;
+    if (this.mapOpen) this.actions.onPanelOpened?.();
     if (this.mapOpen && this.openPanel !== "none") {
       this.openPanel = "none"; this.openChestId = null; this.drag.clearTapSelection();
     }
@@ -115,6 +117,7 @@ export class HudRoot {
   }
 
   openChest(chestId: string): void {
+    this.actions.onPanelOpened?.();
     this.openChestId = chestId;
     this.openPanel = "chest";
     this.drag.clearTapSelection();
@@ -124,6 +127,7 @@ export class HudRoot {
   private togglePanel(panel: ActiveHudPanel): void {
     this.itemCard.close();
     this.openPanel = this.openPanel === panel ? "none" : panel;
+    if (this.openPanel !== "none") this.actions.onPanelOpened?.();
     if (this.openPanel !== "chest") this.openChestId = null;
     if (this.openPanel === "none") this.drag.clearTapSelection();
     this.refreshFromCache();

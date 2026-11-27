@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@dc2d/content": "*",
+    "@dc2d/contracts": "*",
     "@dc2d/engine": "*",
-    "ws": "^8.21.1",
-    "zod": "^4.6.6"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",

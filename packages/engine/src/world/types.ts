@@ -1,109 +1,11 @@
 /** Core spatial types for the deterministic infinite chunked overworld. */
+import {
+  CHUNK_SIZE, GroundKind, PropKind,
+  type BiomeKind, type DangerTier, type PoiCategory, type PoiKind, type PoiLayoutKind,
+} from "@dc2d/contracts";
 
-export const CHUNK_SIZE = 32;
-export const TILE_PX = 16;
-
-export const enum GroundKind {
-  DeepWater = 0,
-  ShallowWater = 1,
-  Sand = 2,
-  Grass = 3,
-  MeadowGrass = 4,
-  ForestFloor = 5,
-  DirtPath = 6,
-  CliffStone = 7,
-  MossStone = 8,
-  AutumnGrass = 9,
-  AutumnFloor = 10,
-  BogMud = 11,
-  BogMoss = 12,
-  SlateRock = 13,
-  AshGround = 14,
-  RuinFlagstone = 15,
-  CursedMoss = 16,
-}
-
-export const enum PropKind {
-  OakTree = "oak-tree",
-  PineTree = "pine-tree",
-  BirchTree = "birch-tree",
-  MapleTree = "maple-tree",
-  DeadTree = "dead-tree",
-  GiantMushroom = "giant-mushroom",
-  BogReed = "bog-reed",
-  CursedCrystal = "cursed-crystal",
-  Bush = "bush",
-  TallGrass = "tall-grass",
-  Boulder = "boulder",
-  Wildflower = "wildflower",
-  Campfire = "campfire",
-  Torch = "torch",
-  Stump = "stump",
-  Palisade = "palisade",
-  Tent = "tent",
-  RuinPillar = "ruin-pillar",
-  CopperVein = "copper-vein",
-  IronVein = "iron-vein",
-  Workbench = "workbench",
-  Bed = "bed",
-  WoodChest = "wood-chest",
-  ShrineAltar = "shrine-altar",
-  Waystone = "waystone",
-  Gravestone = "gravestone",
-  BrokenCart = "broken-cart",
-  GreatStump = "great-stump",
-  SunkenBoat = "sunken-boat",
-  LoreSign = "lore-sign",
-  BoneTotem = "bone-totem",
-  RunicForge = "runic-forge",
-  CursedObelisk = "cursed-obelisk",
-  BrazierUnlit = "brazier-unlit",
-  BrazierLit = "brazier-lit",
-  HermitHut = "hermit-hut",
-  FairyRing = "fairy-ring",
-}
-
-export type BiomeKind =
-  | "verdant-forest"
-  | "autumn-woods"
-  | "misty-bog"
-  | "craggy-highlands"
-  | "cursed-ruinlands";
-
-export type DangerTier = 1 | 2 | 3 | 4 | 5;
-export type PoiCategory = "camp" | "ruins" | "shrine" | "micro" | "lair" | "puzzle" | "friendly";
-
-export type PoiKind =
-  | "bandit-camp"
-  | "ancient-ruins"
-  | "shrine-swiftness"
-  | "shrine-vigor"
-  | "shrine-shadow"
-  | "ancient-waystone"
-  | "fallen-knight-grave"
-  | "overturned-cart"
-  | "fairy-ring"
-  | "hollow-great-stump"
-  | "sunken-rowboat"
-  | "hunters-blind"
-  | "broodmother-hollow"
-  | "orc-totem-ring"
-  | "golem-forge"
-  | "cursed-obelisk"
-  | "brazier-vault"
-  | "sun-dial-ruin"
-  | "hermits-hut"
-  | "tinker-camp";
-
-export type PoiLayoutKind =
-  | "camp-outpost"
-  | "camp-l-shape"
-  | "camp-courtyard"
-  | "camp-warband"
-  | "ruins-shrine"
-  | "ruins-colonnade"
-  | "ruins-sanctum"
-  | Exclude<PoiKind, "bandit-camp" | "ancient-ruins">;
+export { CHUNK_SIZE, GroundKind, PropKind };
+export type { BiomeKind, DangerTier, PoiCategory, PoiKind, PoiLayoutKind };
 
 export interface ChunkPoi {
   readonly id: string;

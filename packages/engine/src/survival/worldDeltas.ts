@@ -50,6 +50,7 @@ function bumpKey(map: Map<string, number>, key: string): void {
 
 export class WorldDeltaOverlay {
   private readonly depleted = new Map<string, DepletedPropDelta>();
+  private readonly propIdToChunkKey = new Map<string, string>();
   private readonly structures = new Map<string, PlacedStructureRecord>();
   private readonly structureChunks = new Map<string, PlacedStructureRecord[]>();
   private readonly litBraziers = new Set<string>();
@@ -111,15 +112,20 @@ export class WorldDeltaOverlay {
     this.depleted.set(delta.propId, delta);
     this.revision += 1;
     const key = keyFromPropIdOrPos(delta.propId, delta);
-    if (key) bumpKey(this.chunkRevs, key);
+    if (key) {
+      this.propIdToChunkKey.set(delta.propId, key);
+      bumpKey(this.chunkRevs, key);
+    }
     return key;
   }
 
   restoreProp(propId: string): string | null {
     const prev = this.depleted.get(propId);
+    const mappedKey = this.propIdToChunkKey.get(propId);
+    this.propIdToChunkKey.delete(propId);
     if (!this.depleted.delete(propId)) return null;
     this.revision += 1;
-    const key = keyFromPropIdOrPos(propId, prev);
+    const key = mappedKey ?? keyFromPropIdOrPos(propId, prev);
     if (key) bumpKey(this.chunkRevs, key);
     return key;
   }
@@ -149,6 +155,12 @@ export class WorldDeltaOverlay {
     return key;
   }
 
+  private rememberDepletedChunk(d: DepletedPropDelta): string | null {
+    const k = this.propIdToChunkKey.get(d.propId) ?? keyFromPropIdOrPos(d.propId, d);
+    if (k) this.propIdToChunkKey.set(d.propId, k);
+    return k;
+  }
+
   private collectChunkFingerprints(): Map<string, string> {
     const sigs = new Map<string, string[]>();
     const add = (key: string | null, token: string): void => {
@@ -157,7 +169,7 @@ export class WorldDeltaOverlay {
       list.push(token);
       sigs.set(key, list);
     };
-    for (const d of this.depleted.values()) add(keyFromPropIdOrPos(d.propId, d), `d:${d.propId}:${d.replacementKind ?? "null"}`);
+    for (const d of this.depleted.values()) add(this.rememberDepletedChunk(d), `d:${d.propId}:${d.replacementKind ?? "null"}`);
     for (const [k, list] of this.structureChunks) for (const s of list) add(k, `s:${s.id}:${s.x},${s.y}`);
     for (const id of this.litBraziers) add(keyFromBrazierId(id), `b:${id}`);
     const out = new Map<string, string>();
@@ -168,10 +180,14 @@ export class WorldDeltaOverlay {
   replaceFromSnapshot(snap: WorldDeltaSnapshot): readonly string[] {
     const before = this.collectChunkFingerprints();
     this.depleted.clear();
+    this.propIdToChunkKey.clear();
     this.structures.clear();
     this.structureChunks.clear();
     this.litBraziers.clear();
-    for (const d of snap.depleted) this.depleted.set(d.propId, d);
+    for (const d of snap.depleted) {
+      this.depleted.set(d.propId, d);
+      this.rememberDepletedChunk(d);
+    }
     for (const b of snap.litBraziers ?? []) this.litBraziers.add(b);
     for (const s of snap.structures) this.addStructureWithoutRev(s);
     const after = this.collectChunkFingerprints();

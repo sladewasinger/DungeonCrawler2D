@@ -1,6 +1,17 @@
 /** Persistent client preferences for FPS/ping overlays, camera zoom, mobile auto-aim, quality, and hitboxes. */
 import type { QualityPresetId } from "@dc2d/content";
+import { z } from "zod";
 import { BASE_CAMERA_ZOOM, sanitizeCameraZoom } from "./cameraZoom.js";
+
+const StoredSettingsSchema = z.object({
+  showFps: z.boolean().optional(),
+  showPing: z.boolean().optional(),
+  cameraZoom: z.number().finite().optional(),
+  autoAim: z.boolean().optional(),
+  showHitboxes: z.boolean().optional(),
+  crouchMode: z.enum(["toggle", "hold"]).optional(),
+  quality: z.enum(["high", "balanced", "performance"]).optional(),
+});
 
 export interface SettingsPrefs {
   readonly showFps: boolean;
@@ -33,6 +44,21 @@ function sanitizeQuality(raw: unknown, fallback: QualityPresetId): QualityPreset
   return raw === "high" || raw === "balanced" || raw === "performance" ? raw : fallback;
 }
 
+function applyParsedSettings(
+  parsed: z.infer<typeof StoredSettingsSchema>,
+  defaults: SettingsPrefs,
+): SettingsPrefs {
+  return {
+    showFps: parsed.showFps ?? defaults.showFps,
+    showPing: parsed.showPing ?? defaults.showPing,
+    cameraZoom: sanitizeCameraZoom(parsed.cameraZoom),
+    autoAim: parsed.autoAim ?? defaults.autoAim,
+    showHitboxes: parsed.showHitboxes ?? defaults.showHitboxes,
+    crouchMode: parsed.crouchMode ?? defaults.crouchMode,
+    quality: sanitizeQuality(parsed.quality, defaults.quality),
+  };
+}
+
 export function loadSettingsPrefs(): SettingsPrefs {
   const defaultMetric = !isCoarseMobileDefault();
   const defQuality = defaultQualityPreset();
@@ -42,17 +68,9 @@ export function loadSettingsPrefs(): SettingsPrefs {
   };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw) as Partial<SettingsPrefs>;
-    return {
-      showFps: typeof parsed.showFps === "boolean" ? parsed.showFps : defaultMetric,
-      showPing: typeof parsed.showPing === "boolean" ? parsed.showPing : defaultMetric,
-      cameraZoom: sanitizeCameraZoom(parsed.cameraZoom),
-      autoAim: typeof parsed.autoAim === "boolean" ? parsed.autoAim : true,
-      showHitboxes: typeof parsed.showHitboxes === "boolean" ? parsed.showHitboxes : false,
-      crouchMode: parsed.crouchMode === "hold" ? "hold" : "toggle",
-      quality: sanitizeQuality(parsed.quality, defQuality),
-    };
+    if (!raw || raw.length > 2048) return defaults;
+    const res = StoredSettingsSchema.safeParse(JSON.parse(raw));
+    return res.success ? applyParsedSettings(res.data, defaults) : defaults;
   } catch {
     return defaults;
   }

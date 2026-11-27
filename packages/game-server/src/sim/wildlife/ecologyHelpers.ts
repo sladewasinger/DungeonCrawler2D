@@ -2,7 +2,7 @@
 import { BLEED_DURATION_SEC, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, attackHitboxHitsHurtbox, buildEntityAttackHitbox, buildPlayerAttackHitbox, entityHurtbox, findTilePath, getEntityAttackSpec, isArmorCrushTarget, isBackstabAngle, playerHurtbox, type ChunkPoi, type GoreStyle, type GoreSubstance, type WeaponArchetype, type WorldEntitySnapshot, type WorldEvent } from "@dc2d/engine";
 import { igniteBurnable } from "../combat/statusEffects.js";
 import type { CombatPlayerRef } from "../combatActions.js";
-import { isFriendlyOrSpawnSanctuary } from "../frontier/poiInteractions.js";
+import { isFriendlyOrSpawnSanctuary } from "../exploration/poiInteractions.js";
 import type { CombatPlayerCandidate, EcologyFoodSource, SteerTarget } from "./creatureBehaviors.js";
 import { applyKnockbackImpulse, clearNavPath, isClearSpot } from "./creatureNavigation.js";
 import {
@@ -52,13 +52,13 @@ export function applyBackstabEvent(opts: { readonly e: WildlifeEntity; readonly 
   opts.events.push({ kind: "backstab", x: opts.e.x, y: opts.e.y, value: opts.damage, actorId: opts.attackerId, targetId: opts.e.id, hitstopSec: MELEE_FEEL_TUNING.backstabHitstopSec, shakePx: MELEE_FEEL_TUNING.backstabShakePx });
 }
 
-export function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
+function applyWildlifeBleed(e: WildlifeEntity, substance: GoreSubstance, goreStyle: GoreStyle): void {
   if (!BLEED_SUBSTANCES.has(substance)) return;
   if (goreStyle === "drip") { e.bleedTimer = BLEED_DURATION_SEC; return; }
   if (e.hp <= e.maxHp * 0.5) e.bleedTimer = Math.max(e.bleedTimer, BLEED_DURATION_SEC * 0.85);
 }
 
-export function resolveWildlifeGore(opts: {
+function resolveWildlifeGore(opts: {
   readonly e: WildlifeEntity; readonly spec: CreatureArchetypeSpec;
   readonly fatal: boolean; readonly goreStyle: GoreStyle; readonly comboStep?: number | undefined;
 }): GoreStyle {
@@ -166,7 +166,7 @@ function strikeLockedRival(opts: {
   onStrike(e, { id: rival.id, x: rival.x, y: rival.y, elevation: rival.elevation, moving: false, targetKind: "entity", entityRef: rival });
 }
 
-export function evaluateActiveCreatureStrike(opts: {
+function evaluateActiveCreatureStrike(opts: {
   readonly cache?: WorldChunkCache | undefined; readonly e: WildlifeEntity; readonly players: readonly CombatPlayerCandidate[];
   readonly allEntities: readonly WildlifeEntity[]; readonly onStrike: (entity: WildlifeEntity, target: CombatTarget) => void;
 }): void {

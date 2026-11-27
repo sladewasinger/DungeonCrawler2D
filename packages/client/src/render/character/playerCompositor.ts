@@ -8,18 +8,18 @@ import {
   CORE_CLIP_NAMES, SECONDARY_CLIP_NAMES, buildTierAtlasPlan,
   type PackedTierAtlas,
 } from "./atlas/playerAtlasPacker.js";
-import { extractPortraitUrlFromCore, resolveStyledLayerStack } from "./atlas/playerPortraitBake.js";
+import { resolveStyledLayerStack } from "./atlas/playerPortraitBake.js";
 import type { CharacterSpriteSet, DirectionAnim, FacingDir } from "./characterTypes.js";
 import { ensurePlayerLayersLoaded, getPlayerLayerImage, getPlayerRigMeta, type PlayerRigMeta } from "./playerAssets.js";
 import { applyRecolorPass, applyUnifiedSelOut, resolveSentinelPalettes } from "./playerRecolor.js";
 
-export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type RgbTriad, type SentinelPalettes, type TriadRgbSet } from "./playerRecolor.js";
+export { remapSentinelPixel, remapSentinelPixelAt, resolveSentinelPalettes, type SentinelPalettes } from "./playerRecolor.js";
 export {
-  CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES, TARGET_PLAYER_ATLAS_WIDTH,
-  buildTierAtlasPlan, findSlotInPlan, resolveClipTrim,
-  type AtlasFrameSlot, type FrameTrimRect, type PackedTierAtlas,
+  CORE_CLIP_NAMES, MAX_PLAYER_ATLAS_DIM, SECONDARY_CLIP_NAMES,
+  buildTierAtlasPlan, resolveClipTrim,
+  type AtlasFrameSlot,
 } from "./atlas/playerAtlasPacker.js";
-export { build3dCharacterPortraitUrl, computePortraitCropRect, resolveLayerStack, type PortraitCropRect } from "./atlas/playerPortraitBake.js";
+export { build3dCharacterPortraitUrl, computePortraitCropRect, resolveLayerStack } from "./atlas/playerPortraitBake.js";
 
 interface MutableDirAnim {
   idle: Texture[];
@@ -147,6 +147,5 @@ export function build3dCharacterSpriteSet(
     frontArm: Texture.EMPTY, backArm: Texture.EMPTY,
     worldScale: meta.scale, anchorY: meta.anchorY, is3d: true,
     hasSecondaryTracks: secondaryPlan.slots.length > 0, ensureSecondary,
-    previewUrl: extractPortraitUrlFromCore({ coreCanvas: core.canvas, meta, corePlan, appearance, armor }),
   };
 }

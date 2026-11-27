@@ -37,7 +37,7 @@ export interface GoreDecal {
   readonly driftVy: number;
 }
 
-export function lerpRgb(c0: number, c1: number, t: number): number {
+function lerpRgb(c0: number, c1: number, t: number): number {
   const k = Math.max(0, Math.min(1, t));
   const r = Math.round(((c0 >> 16) & 0xff) * (1 - k) + ((c1 >> 16) & 0xff) * k);
   const g = Math.round(((c0 >> 8) & 0xff) * (1 - k) + ((c1 >> 8) & 0xff) * k);

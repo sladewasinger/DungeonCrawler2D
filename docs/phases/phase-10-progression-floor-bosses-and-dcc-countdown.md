@@ -5,7 +5,7 @@
 > **Primary Touchpoints**:
 > `@dc2d/content` (`src/progression/perks.ts`, `src/progression/masteries.ts`, `src/progression/bossSpecs.ts`),
 > `@dc2d/engine` (`src/progression/xpRules.ts`, `src/progression/floorClock.ts`, `src/world/pois/stairwellLayout.ts`, `src/net/progressionSchemas.ts`, `src/net/protocol.ts`),
-> `@dc2d/game-server` (`src/sim/progression/xpTracker.ts`, `src/sim/progression/floorTimerSim.ts`, `src/sim/bosses/floorBossAi.ts`, `src/sim/frontier/adminSlashCommands.ts`, `src/sim/worldSim.ts`),
+> `@dc2d/game-server` (`src/sim/progression/xpTracker.ts`, `src/sim/progression/floorTimerSim.ts`, `src/sim/bosses/floorBossAi.ts`, `src/sim/admin/adminSlashCommands.ts`, `src/sim/worldSim.ts`),
 > `@dc2d/client` (`src/ui/progression/`, `src/ui/hud/boss/bossHealthBar.ts`, `src/ui/hud/collapseTimerHud.ts`, `src/render/world/effects/collapseStormLayer.ts`, `src/render/textures/pois/stairwellTextures.ts`)
 > **Folder-Size Guardrails**: `packages/engine/src/world/`, `packages/game-server/src/sim/wildlife/`, and `packages/client/src/ui/hud/` are saturated — place new modules strictly in subfolders (`world/pois/`, `sim/bosses/`, `sim/progression/`, `ui/progression/`, `ui/hud/boss/`, `render/world/effects/`).
 

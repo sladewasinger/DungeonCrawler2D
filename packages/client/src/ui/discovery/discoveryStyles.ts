@@ -1,6 +1,6 @@
-/** Injected CSS styles for frontier Biome Entry Banners and Discovery/Interaction Toasts. */
+/** Injected CSS styles for Biome Entry Banners and Discovery/Interaction Toasts. */
 
-const DISCOVERY_STYLE_ID = "dc2d-frontier-discovery-styles";
+const DISCOVERY_STYLE_ID = "dc2d-discovery-styles";
 
 const CSS = `
 .ow-biome-banner {

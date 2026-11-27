@@ -3,7 +3,7 @@ import { Texture } from "pixi.js";
 import { getItemHeldTexture } from "../../ui/icons/itemIcons.js";
 import { canvasToNearestTexture, createPixelCanvas, drawRects, stampDarkOutline, type PixelRect } from "../textures/pixelCanvas.js";
 import { getLoadedSpriteAsset } from "../textures/spriteManifest.js";
-import { getFrontierShieldTexture, getFrontierWeaponMeta } from "./atlas/frontierHeldGear.js";
+import { getTierShieldTexture, getTierWeaponMeta, TIER_HELD_GEAR_IDS } from "./atlas/tierHeldGear.js";
 import { CHARACTER_WORLD_SCALE, OUTLINE_RGB } from "./characterTypes.js";
 
 export type HeldAimMode = "aim360" | "meleeCarry" | "upright";
@@ -117,7 +117,7 @@ export function getGearScale(key: string): number {
 }
 
 export function getShieldTexture(offhandId?: string | null): Texture {
-  const custom = getFrontierShieldTexture(offhandId);
+  const custom = getTierShieldTexture(offhandId);
   if (custom) return custom;
   const loaded = getLoadedSpriteAsset("gear-shield");
   if (loaded) return loaded.texture;
@@ -203,6 +203,13 @@ const WEAPON_SPECS: Readonly<Record<string, WeaponSpec>> = {
   pickaxe: { buildTex: makePickaxeTex, anchorX: 0.22, anchorY: 0.5, aimMode: "meleeCarry", twoHanded: false, grips: SINGLE_HAND_GRIP },
 };
 
+export const REGISTERED_HELD_GEAR_IDS: readonly string[] = [
+  ...Object.keys(WEAPON_SPECS),
+  "torch",
+  "wooden-shield",
+  ...TIER_HELD_GEAR_IDS,
+];
+
 function scaleGripSocket(g: GripSocket, ratio: number): GripSocket {
   return { x: g.x * ratio, y: g.y * ratio, showHand: g.showHand, overWeapon: g.overWeapon };
 }
@@ -256,10 +263,10 @@ export function getHeldWeaponVisual(itemId: string | null | undefined, timeSec: 
   const spec = WEAPON_SPECS[itemId];
   if (spec) return buildSpecVisual(spec, itemId, bowCharge);
   if (itemId === "torch") return buildTorchVisual(timeSec);
-  const frontier = getFrontierWeaponMeta(itemId);
-  if (frontier) {
-    const d = ARCHETYPE_DEFAULTS[frontier.archetype]!;
-    return { texture: frontier.tex, ...d, spriteScale: CHARACTER_WORLD_SCALE };
+  const tiered = getTierWeaponMeta(itemId);
+  if (tiered) {
+    const d = ARCHETYPE_DEFAULTS[tiered.archetype]!;
+    return { texture: tiered.tex, ...d, spriteScale: CHARACTER_WORLD_SCALE };
   }
   const fallback = getItemHeldTexture(itemId);
   if (!fallback) return null;

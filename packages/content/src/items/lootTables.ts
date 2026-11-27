@@ -1,8 +1,7 @@
 /** Deterministic seeded loot table rollers for overworld chests, POI vaults, and enemy drops. */
-import type { ContentBiomeId, ContentDangerTier } from "../biomes/biomeCatalog.js";
-import { getItemDef, maxStackForItem } from "./catalog.js";
+import type { BiomeKind, DangerTier, ItemRarity } from "@dc2d/contracts";
+import { getItemDef, ITEM_CATALOG, maxStackForItem, type ItemDef } from "./catalog.js";
 import { eligiblePrefixesForItem } from "./prefixes.js";
-import type { ItemRarity } from "./rarities.js";
 
 export interface RolledLootEntry {
   readonly itemId: string;
@@ -16,7 +15,7 @@ const ITEM_COOKED_MEAT = "cooked-meat";
 const SUPPLY_COMMON = ["arrow", "bandage", ITEM_COOKED_MEAT, "torch", "berry"] as const;
 const SUPPLY_HIGH = ["arrow", "healing-salve", ITEM_COOKED_MEAT, "swiftness-draught", "ironbark-tonic", "shadow-oil", "phoenix-salve"] as const;
 
-const BIOME_MATERIALS: Readonly<Record<ContentBiomeId, readonly string[]>> = {
+const BIOME_MATERIALS: Readonly<Record<BiomeKind, readonly string[]>> = {
   "verdant-forest": ["wood", "stone", "flint", "herb"],
   "autumn-woods": ["amber-resin", "copper-ore", "wood", "herb"],
   "misty-bog": ["bog-spore", "herb", "flint", "amber-resin"],
@@ -24,15 +23,22 @@ const BIOME_MATERIALS: Readonly<Record<ContentBiomeId, readonly string[]>> = {
   "cursed-ruinlands": ["shadow-shard", "ancient-core", "iron-ingot", "sunstone"],
 };
 
-const GEAR_BY_RARITY: Readonly<Record<ItemRarity, readonly string[]>> = {
-  common: ["sword", "flint-dagger", "wooden-spear", "bow", "axe", "pickaxe", "wooden-shield", "leather-hood", "leather-tunic", "leather-leggings", "leather-boots"],
-  uncommon: ["copper-sword", "copper-spear", "copper-axe", "copper-pickaxe", "bandit-cutlass", "bog-dagger", "reinforced-shield", "moss-stalker-hood", "moss-stalker-tunic", "moss-stalker-leggings", "moss-stalker-boots"],
-  rare: ["iron-greatsword", "amber-recurve-bow", "frost-hatchet", "golem-maul", "runic-buckler", "autumn-ranger-hood", "autumn-ranger-tunic", "autumn-ranger-leggings", "autumn-ranger-boots", "iron-knight-helm", "iron-knight-cuirass", "iron-knight-greaves", "iron-knight-sabatons"],
-  epic: ["shadowfang-spear", "venom-fang-blade", "aegis-tower-shield", "shadowsteel-cowl", "shadowsteel-coat", "shadowsteel-legguards", "shadowsteel-boots"],
-  legendary: ["sunforged-greatsword", "bloodmoon-scythe", "whisperwind-bow"],
-};
+function isLootableGearDef(def: ItemDef): boolean {
+  return def.category === "weapon" || def.category === "armor" || (def.category === "tool" && !def.placeStructure);
+}
 
-const TIER_WEIGHTS: Readonly<Record<ContentDangerTier, readonly [ItemRarity, number][]>> = {
+function buildGearByRarity(catalog: readonly ItemDef[]): Readonly<Record<ItemRarity, readonly string[]>> {
+  const buckets: Record<ItemRarity, string[]> = { common: [], uncommon: [], rare: [], epic: [], legendary: [] };
+  for (const def of catalog) {
+    if (!isLootableGearDef(def)) continue;
+    buckets[def.rarity ?? "common"].push(def.id);
+  }
+  return buckets;
+}
+
+const GEAR_BY_RARITY: Readonly<Record<ItemRarity, readonly string[]>> = buildGearByRarity(ITEM_CATALOG);
+
+const TIER_WEIGHTS: Readonly<Record<DangerTier, readonly [ItemRarity, number][]>> = {
   1: [["common", 0.90], ["uncommon", 0.10]],
   2: [["common", 0.58], ["uncommon", 0.36], ["rare", 0.06]],
   3: [["common", 0.25], ["uncommon", 0.48], ["rare", 0.24], ["epic", 0.03]],
@@ -40,7 +46,7 @@ const TIER_WEIGHTS: Readonly<Record<ContentDangerTier, readonly [ItemRarity, num
   5: [["rare", 0.38], ["epic", 0.48], ["legendary", 0.14]],
 };
 
-const PREFIX_CHANCE: Readonly<Record<ContentDangerTier, number>> = { 1: 0.08, 2: 0.18, 3: 0.35, 4: 0.58, 5: 0.85 };
+const PREFIX_CHANCE: Readonly<Record<DangerTier, number>> = { 1: 0.08, 2: 0.18, 3: 0.35, 4: 0.58, 5: 0.85 };
 const HIGH_POIS = new Set<string>(["broodmother-hollow", "orc-totem-ring", "golem-forge", "cursed-obelisk", "brazier-vault", "sun-dial-ruin"]);
 const FRIENDLY_POIS = new Set<string>(["hermits-hut", "tinker-camp"]);
 const ITEM_ANCIENT_CORE = "ancient-core";
@@ -69,7 +75,7 @@ function pick<T>(arr: readonly T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length) % arr.length]!;
 }
 
-function rollRarity(tier: ContentDangerTier, rng: () => number, minRarity?: ItemRarity): ItemRarity {
+function rollRarity(tier: DangerTier, rng: () => number, minRarity?: ItemRarity): ItemRarity {
   const weights = TIER_WEIGHTS[tier];
   let r = rng();
   let chosen: ItemRarity = weights[weights.length - 1]![0];
@@ -115,7 +121,7 @@ export function classifyPoiLootCategory(poiKind: string): LootPoiCategory {
 }
 
 function appendChestSupplies(opts: {
-  readonly out: RolledLootEntry[]; readonly cat: LootPoiCategory; readonly tier: ContentDangerTier; readonly rng: () => number;
+  readonly out: RolledLootEntry[]; readonly cat: LootPoiCategory; readonly tier: DangerTier; readonly rng: () => number;
 }): void {
   const countSlots = 1 + Math.floor(opts.rng() * 2);
   const pool = opts.tier >= 2 || opts.cat === "friendly" ? SUPPLY_HIGH : SUPPLY_COMMON;
@@ -126,7 +132,7 @@ function appendChestSupplies(opts: {
 }
 
 function appendChestMaterials(opts: {
-  readonly out: RolledLootEntry[]; readonly isVault: boolean; readonly biome: ContentBiomeId; readonly tier: ContentDangerTier; readonly rng: () => number;
+  readonly out: RolledLootEntry[]; readonly isVault: boolean; readonly biome: BiomeKind; readonly tier: DangerTier; readonly rng: () => number;
 }): void {
   const mats = BIOME_MATERIALS[opts.biome];
   const matSlots = opts.isVault ? 2 : 1 + Math.floor(opts.rng() * 2);
@@ -134,20 +140,20 @@ function appendChestMaterials(opts: {
   if (opts.isVault && opts.tier >= 3) opts.out.push({ itemId: ITEM_ANCIENT_CORE, count: 1 });
 }
 
-function vaultMinRarity(isVault: boolean, tier: ContentDangerTier): ItemRarity | undefined {
+function vaultMinRarity(isVault: boolean, tier: DangerTier): ItemRarity | undefined {
   if (!isVault) return undefined;
   if (tier >= 4) return "epic";
   return tier >= 3 ? "rare" : "uncommon";
 }
 
-function chestGearSlots(opts: { readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: ContentDangerTier; readonly rng: () => number }): number {
+function chestGearSlots(opts: { readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: DangerTier; readonly rng: () => number }): number {
   if (opts.isVault) return opts.tier >= 5 || opts.rng() < 0.5 ? 2 : 1;
   if (opts.cat === "micro" || opts.cat === "friendly") return opts.rng() < 0.55 ? 1 : 0;
   return 1;
 }
 
 function appendChestGear(opts: {
-  readonly out: RolledLootEntry[]; readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: ContentDangerTier; readonly rng: () => number;
+  readonly out: RolledLootEntry[]; readonly cat: LootPoiCategory; readonly isVault: boolean; readonly tier: DangerTier; readonly rng: () => number;
 }): void {
   const gearSlots = chestGearSlots(opts);
   const baseMin = vaultMinRarity(opts.isVault, opts.tier);
@@ -161,8 +167,8 @@ export function rollChestLoot(opts: {
   readonly worldSeed: number;
   readonly chestId: string;
   readonly poiKind: string;
-  readonly biome: ContentBiomeId;
-  readonly dangerTier: ContentDangerTier;
+  readonly biome: BiomeKind;
+  readonly dangerTier: DangerTier;
 }): RolledLootEntry[] {
   const rng = makeRng(opts.worldSeed ^ hashString(opts.chestId));
   const out: RolledLootEntry[] = [];
@@ -176,23 +182,35 @@ export function rollChestLoot(opts: {
 
 const MEAT_MOBS = new Set<string>(["wolf", "boar", "bear"]);
 
-function eliteDropMinRarity(tier: ContentDangerTier): ItemRarity {
+function eliteDropMinRarity(tier: DangerTier): ItemRarity {
   if (tier >= 4) return "epic";
   return tier >= 3 ? "rare" : "uncommon";
 }
 
-function appendEliteEnemyDrops(out: RolledLootEntry[], dangerTier: ContentDangerTier, rng: () => number): RolledLootEntry[] {
+function appendEliteEnemyDrops(out: RolledLootEntry[], dangerTier: DangerTier, rng: () => number): RolledLootEntry[] {
   out.push({ itemId: dangerTier >= 3 ? ITEM_ANCIENT_CORE : "sunstone", count: 1 + (dangerTier >= 4 && rng() < 0.4 ? 1 : 0) });
   const rar = rollRarity(dangerTier, rng, eliteDropMinRarity(dangerTier));
   pushRolledGear({ out, rarity: rar, prefixChance: Math.min(0.95, PREFIX_CHANCE[dangerTier] + 0.2), rng });
   return out;
 }
 
+export const ALL_LOOT_TABLE_ITEM_IDS: readonly string[] = [
+  ...new Set<string>([
+    ...SUPPLY_COMMON,
+    ...SUPPLY_HIGH,
+    ...Object.values(BIOME_MATERIALS).flat(),
+    ...Object.values(GEAR_BY_RARITY).flat(),
+    ITEM_ANCIENT_CORE,
+    "sunstone",
+    "raw-meat",
+  ]),
+];
+
 export function rollEnemyDrop(opts: {
   readonly seed: number;
   readonly kind: string;
-  readonly biome: ContentBiomeId;
-  readonly dangerTier: ContentDangerTier;
+  readonly biome: BiomeKind;
+  readonly dangerTier: DangerTier;
   readonly isElite: boolean;
 }): RolledLootEntry[] {
   const rng = makeRng(opts.seed ^ hashString(opts.kind));

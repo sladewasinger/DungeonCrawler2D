@@ -1,7 +1,8 @@
 /** Always-visible bottom hotbar (slots 1..9 plus permanent Map [M] and Lantern [F] buttons). */
 import { HOTBAR_SLOT_COUNT, type InventorySlot, type InventorySnapshot } from "@dc2d/engine";
+import { parseStaticSvg } from "../dom/staticSvg.js";
 import { makeMapUiIconUrl } from "../icons/itemIcons.js";
-import type { SlotDragManager } from "./slotDragManager.js";
+import type { SlotDragManager } from "./inventory/slotDragManager.js";
 import { domNode, renderSlotContent, slotsFingerprint } from "./slotRenderer.js";
 
 const TAG_BTN = "button";
@@ -46,7 +47,14 @@ function buildMapHotbarButton(onToggleMap: () => void): HTMLButtonElement {
   btn.type = TAG_BTN;
   btn.title = "Overworld Map (M)";
   btn.setAttribute(ATTR_ARIA_LABEL, "Toggle Overworld Map (M)");
-  btn.innerHTML = `<span class="ow-slot-key">M</span><img class="ow-slot-img" src="${makeMapUiIconUrl()}" alt="Overworld Map" draggable="false" />`;
+  const key = domNode("span", "ow-slot-key");
+  key.textContent = "M";
+  const img = document.createElement("img");
+  img.className = "ow-slot-img";
+  img.src = makeMapUiIconUrl();
+  img.alt = "Overworld Map";
+  img.draggable = false;
+  btn.append(key, img);
   bindHotbarActionButton(btn, onToggleMap);
   return btn;
 }
@@ -56,7 +64,9 @@ function buildLanternHotbarButton(onToggleTorch: () => void): HTMLButtonElement 
   btn.type = TAG_BTN;
   btn.title = "Toggle Lantern (F)";
   btn.setAttribute(ATTR_ARIA_LABEL, "Toggle lantern (F)");
-  btn.innerHTML = `<span class="ow-slot-key">F</span>${createLanternIconSvg()}`;
+  const key = domNode("span", "ow-slot-key");
+  key.textContent = "F";
+  btn.append(key, parseStaticSvg(createLanternIconSvg()));
   bindHotbarActionButton(btn, onToggleTorch);
   return btn;
 }

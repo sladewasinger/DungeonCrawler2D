@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const TAG_RE = /\[(REQ-P\d+-\d{2})\]/g;
+const TAG_RE = /\[(REQ-P\d+-\d{2})\](?:\[(static|unit|sim|e2e-desktop|e2e-mobile|visual)\])?/g;
 
 function readJsonSafe(filePath) {
   if (!existsSync(filePath)) return null;
@@ -27,7 +27,7 @@ function ingestVitestAssertion(map, layer, assertion) {
   const title = `${assertion.fullName ?? ""} ${assertion.title ?? ""}`;
   const status = assertion.status ?? "unknown";
   for (const m of title.matchAll(TAG_RE)) {
-    recordEntry(map, { reqId: m[1], layer, status });
+    recordEntry(map, { reqId: m[1], layer: m[2] ?? layer, status });
   }
 }
 

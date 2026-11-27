@@ -14,7 +14,7 @@ import { HitboxDebugLayer } from "../combat/hitboxDebugLayer.js";
 import type { GoreLevel } from "../combat/gore/gorePrefs.js";
 import { GoreSystem } from "../combat/gore/goreSystem.js";
 import { WebLayer } from "../combat/webs/webRenderer.js";
-import { WorldPickupsRenderer } from "../combat/worldPickups.js";
+import { WorldPickupsRenderer } from "../combat/pickups/worldPickups.js";
 import { HarvestFxLayer } from "../survival/harvestFxLayer.js";
 import { AmbientParticleLayer } from "../shaders/ambientParticles.js";
 import { CastShadowLayer } from "../shaders/castShadows.js";
@@ -27,8 +27,8 @@ import { createPropTextureSet } from "../textures/propTextures.js";
 import { createTerrainTileAtlas } from "../textures/terrainTextures.js";
 import { ChunkRenderer } from "./chunkRenderer.js";
 import {
-  applyWorldEventFx, bindViewportRectSync, buildGoreSpawn, collectActorParticleEmitters, collectWaterActors,
-  nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
+  applyWorldEventsBatch, bindSceneContextAndViewport, buildSceneFxSinks, collectActorParticleEmitters,
+  collectWaterActors, estimateManagedTextureStats, nearestCampfireDist, nearestWaterDist, type SceneAudioDistances,
 } from "./sceneHelpers.js";
 
 export type { SceneAudioDistances } from "./sceneHelpers.js";
@@ -41,7 +41,7 @@ export interface SceneFrameInput {
   readonly webs?: WorldWebSnapshot | undefined; readonly events?: readonly WorldEvent[];
 }
 
-export const CAMERA_TUNING = { defaultZoom: BASE_CAMERA_ZOOM, minZoom: 2.0, maxZoom: 8.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
+ const CAMERA_TUNING = { defaultZoom: BASE_CAMERA_ZOOM, minZoom: 2.0, maxZoom: 8.0, followLerpRate: 9, hitstopTimeScale: 0.12, grassWindStrength: 0, canopyWindStrength: 0.9 } as const;
 
 export class WorldScene {
   private readonly sceneRoot = new Container();
@@ -60,6 +60,8 @@ export class WorldScene {
   private readonly hitboxDebug = new HitboxDebugLayer();
   private readonly lighting: LightingSystem;
   private readonly chunks: ChunkRenderer;
+  private readonly shaderErrors: readonly string[];
+  private webglContextLost = false;
   private interactHandler: ((lootId?: string) => void) | null = null;
   private qualityId: QualityPresetId = defaultQualityPreset();
   private camX = 0.5;
@@ -93,15 +95,14 @@ export class WorldScene {
       { ground: groundCam!, water: waterCam!, grass: grassCam!, ysort: ysortCam!, canopy: canopyCam! },
       { terrain: createTerrainTileAtlas(), props: createPropTextureSet() },
     );
-    reportShaderDiagnostics(app.renderer, [
-      { name: "tilemap", glProgram: getTilemapGlProgram() },
-      { name: "water", filter: this.waterEffect.filter },
-      { name: "wind", filter: this.canopyWind.filter },
-      { name: "lighting", filter: this.lighting.filter },
+    this.shaderErrors = reportShaderDiagnostics(app.renderer, [
+      { name: "tilemap", glProgram: getTilemapGlProgram() }, { name: "water", filter: this.waterEffect.filter },
+      { name: "wind", filter: this.canopyWind.filter }, { name: "lighting", filter: this.lighting.filter },
     ]);
-    this.unbindViewportSync = bindViewportRectSync(app.canvas, () => {
-      const r = this.app.canvas.getBoundingClientRect();
-      this.canvasRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+    this.unbindViewportSync = bindSceneContextAndViewport({
+      canvas: app.canvas,
+      onContextLoss: (lost) => { this.webglContextLost = lost; },
+      onRectSync: () => { const r = this.app.canvas.getBoundingClientRect(); this.canvasRect = { left: r.left, top: r.top, width: r.width, height: r.height }; },
     });
   }
 
@@ -136,6 +137,10 @@ export class WorldScene {
   }
   qualityPreset(): QualityPresetId { return this.qualityId; }
   currentZoom(): number { return this.zoom; }
+  getDiagnosticState() {
+    const tex = estimateManagedTextureStats("managedTextures" in this.app.renderer.texture ? this.app.renderer.texture : {});
+    return { canvasWidth: this.app.screen.width, canvasHeight: this.app.screen.height, chunkCount: this.chunks.mountedCount(), shaderErrors: this.shaderErrors, webglContextLost: this.webglContextLost, ...tex };
+  }
   setZoom(zoom: number): void { this.zoom = sanitizeCameraZoom(zoom); }
   adjustZoom(factor: number): void { this.zoom = stepCameraZoom(this.zoom, factor); }
 
@@ -209,22 +214,12 @@ export class WorldScene {
     if (events.length === 0) return;
     this.vfx.handleEvents(events, input.localPlayerId, input.players);
     this.harvestFx.handleEvents(events, input.players, local?.elevation ?? 0);
-    const sinks = {
-      spawnSmoke: (x: number, y: number, durationSec?: number) => this.particles.spawnSmokePoof({ x, y, durationSec }),
-      spawnSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
-        this.gore.spawnClashSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
-      spawnCritSparks: (pos: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elev: number }) =>
-        this.gore.spawnCritSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
-      spawnCrack: (x: number, y: number, elevation: number) => this.gore.spawnGroundCrack({ x, y, elevation, cache: input.cache }),
-      spawnGore: (ev: NonNullable<SceneFrameInput["events"]>[number], elev: number) => this.gore.spawn(buildGoreSpawn(ev, elev, input.cache)),
-    };
-    for (const ev of events) {
-      const shake = applyWorldEventFx({
-        ev, localId: input.localPlayerId, entities: input.entities, local,
-        leaveSmokeDur: PLAYER_LEAVE_SMOKE_DURATION_SEC, sinks,
-      });
-      if (shake > 0) this.shakeMag = Math.max(this.shakeMag, shake);
-    }
+    const sinks = buildSceneFxSinks({ particles: this.particles, gore: this.gore, cache: input.cache });
+    const shake = applyWorldEventsBatch({
+      events, localId: input.localPlayerId, entities: input.entities, local,
+      leaveSmokeDur: PLAYER_LEAVE_SMOKE_DURATION_SEC, sinks,
+    });
+    if (shake > 0) this.shakeMag = Math.max(this.shakeMag, shake);
   }
 
   private followTarget(local: PlayerSnapshot | undefined, dt: number): void {

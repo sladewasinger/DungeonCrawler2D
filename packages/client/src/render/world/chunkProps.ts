@@ -45,7 +45,7 @@ function resolvePoiSpec(kind: PropKind | undefined, tex: Texture): PoiPropSprite
   return getPoiPropSpriteSpec(kind);
 }
 
-export function addPropSprite(
+function addPropSprite(
   parent: Container,
   tex: Texture,
   prop: { readonly x: number; readonly y: number; readonly elevation?: number; readonly kind?: PropKind },
@@ -100,6 +100,16 @@ const TREE_TEXTURES: Partial<Record<PropKind, (p: PropTextureSet) => readonly [T
   [PropKind.BirchTree]: (p) => [p.birchTrunk, p.birchCanopy],
   [PropKind.MapleTree]: (p) => [p.mapleTrunk, p.mapleCanopy],
 };
+
+export const REGISTERED_PROP_RENDER_KINDS: readonly PropKind[] = [
+  ...(Object.keys(PROP_TEX_BY_KIND) as PropKind[]),
+  ...(Object.keys(TREE_TEXTURES) as PropKind[]),
+  PropKind.OakTree,
+  PropKind.Stump,
+  PropKind.TallGrass,
+  PropKind.Wildflower,
+  PropKind.WoodChest,
+];
 
 function propTextureFor(prop: ChunkProp, p: PropTextureSet): Texture {
   return PROP_TEX_BY_KIND[prop.kind]?.(p, prop.variant) ?? p.stump;

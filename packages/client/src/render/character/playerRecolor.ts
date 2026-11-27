@@ -16,7 +16,7 @@ function hexToRgb(hex: string): RgbTriad {
   return [Number.parseInt(c.slice(0, 2), 16), Number.parseInt(c.slice(2, 4), 16), Number.parseInt(c.slice(4, 6), 16)];
 }
 
-export function toTriadRgb(triad: ToneTriad): TriadRgbSet {
+function toTriadRgb(triad: ToneTriad): TriadRgbSet {
   return { base: hexToRgb(triad.base), shade: hexToRgb(triad.shade), highlight: hexToRgb(triad.highlight) };
 }
 

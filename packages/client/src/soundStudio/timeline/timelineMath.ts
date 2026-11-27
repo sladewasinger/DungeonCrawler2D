@@ -9,7 +9,7 @@ export function snapSec(sec: number, snapMs: number): number {
   return Math.round((sec / step)) * step;
 }
 
-export function roundMsPrecision(sec: number): number {
+function roundMsPrecision(sec: number): number {
   return Math.round(sec * 1000) / 1000;
 }
 

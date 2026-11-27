@@ -7,7 +7,7 @@ import { WEAPON_ARCHETYPES } from "../combat/weapons/weaponMovesets.js";
 export const GoreSubstanceSchema = z.enum(GORE_SUBSTANCES);
 export const GoreStyleSchema = z.enum(GORE_STYLES);
 
-export const WORLD_EVENT_KINDS = [
+const WORLD_EVENT_KINDS = [
   "swing", "hit", "block", "parry", "guardBreak", "riposte", "heavyCharge", "slamImpact", "burnTick", "burnExtinguish",
   "poisonTick", "webSpit", "webCut", "cocoonWrap", "cocoonBreak",
   "arrowFire", "arrowEmbed", "arrowRicochet", "dodge", "heal", "respawn", "telegraph", "chestOpen", "loot",

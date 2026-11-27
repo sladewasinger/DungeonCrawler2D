@@ -136,12 +136,18 @@ async function fetchBowOverlay(meta: PlayerRigMeta): Promise<void> {
   if (img) bowOverlayFrames = sliceBowOverlayFrames(img, meta.bowOverlay);
 }
 
+function isStarterBootLayer(id: string): boolean {
+  return id.startsWith("body-") || id.startsWith("hair-") || id.startsWith("armor-leather_");
+}
+
 async function fetchAllPlayerAssets(meta: PlayerRigMeta): Promise<boolean> {
-  const total = meta.layers.length + (meta.bowOverlay ? 1 : 0);
+  const starterLayers = meta.layers.filter(isStarterBootLayer);
+  const bootLayers = starterLayers.length > 0 ? starterLayers : meta.layers;
+  const total = bootLayers.length + (meta.bowOverlay ? 1 : 0);
   let done = 0;
   emitPlayerProgress(0, total);
   const bump = (): void => emitPlayerProgress(++done, total);
-  const layerPromises = meta.layers.map(async (id) => {
+  const layerPromises = bootLayers.map(async (id) => {
     const img = await loadSingleLayer(id, meta);
     bump();
     return img;

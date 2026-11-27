@@ -1,23 +1,18 @@
 /** Overworld biome metadata: display names, danger tiers, wildlife rosters, and particle themes. */
+import type { BiomeKind, DangerTier, WildlifeKind } from "@dc2d/contracts";
 
-export type ContentBiomeId =
-  | "verdant-forest"
-  | "autumn-woods"
-  | "misty-bog"
-  | "craggy-highlands"
-  | "cursed-ruinlands";
-
-export type ContentDangerTier = 1 | 2 | 3 | 4 | 5;
+export type ContentBiomeId = BiomeKind;
+export type ContentDangerTier = DangerTier;
 export type AmbientParticleTheme = "sunmotes" | "leaves" | "spores" | "embers" | "wisps";
 
 export interface BiomeCatalogEntry {
-  readonly id: ContentBiomeId;
+  readonly id: BiomeKind;
   readonly displayName: string;
   readonly subtitle: string;
   readonly accentHex: string;
-  readonly baseDangerTier: ContentDangerTier;
+  readonly baseDangerTier: DangerTier;
   readonly particleTheme: AmbientParticleTheme;
-  readonly wildlifeRoster: readonly ("wolf" | "boar" | "bear" | "spider" | "slime" | "goblin" | "orc" | "skeleton" | "golem")[];
+  readonly wildlifeRoster: readonly WildlifeKind[];
 }
 
 export const BIOME_CATALOG: Readonly<Record<ContentBiomeId, BiomeCatalogEntry>> = {

@@ -24,7 +24,7 @@ export function factionOfKind(kind: WildlifeKind): CreatureFaction {
   return kind;
 }
 
-export const areFactionsHostile = (a: CreatureFaction, b: CreatureFaction): boolean => a !== b;
+const areFactionsHostile = (a: CreatureFaction, b: CreatureFaction): boolean => a !== b;
 
 function hasTrackedSight(opts: {
   readonly cache: WorldChunkCache; readonly e: WildlifeEntity; readonly cand: CombatTarget; readonly dist: number;

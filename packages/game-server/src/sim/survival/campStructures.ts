@@ -5,7 +5,7 @@ import {
   type PlacedStructureRecord, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
-import type { LootManager } from "../wildlife/lootManager.js";
+import type { LootManager } from "../wildlife/loot/lootManager.js";
 
 export interface SavedBedBinding {
   readonly ownerKey: string;

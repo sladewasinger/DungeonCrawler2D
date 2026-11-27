@@ -5,11 +5,10 @@ import { playSavedStudioPreset } from "./studioOverrides.js";
 import { synthWeaponSwingByArchetype } from "./weapons/synthWeaponSfx.js";
 import { EXTENDED_SIMPLE_CUES } from "./weapons/synthCombatCues.js";
 import {
-  applyTrackEnvelope, connectWithPan, detachAudioNodesOnEnded, getColoredNoiseBuffer, playProceduralTracks,
-  type NoiseColor, type ProceduralTrackSpec,
+  applyTrackEnvelope, connectWithPan, detachAudioNodesOnEnded, getColoredNoiseBuffer, type NoiseColor,
 } from "./proceduralSynth.js";
 
-export { playProceduralTracks, type NoiseColor, type ProceduralTrackSpec };
+export { type NoiseColor };
 
 interface NoiseBurstOpts {
   readonly ctx: AudioContext;

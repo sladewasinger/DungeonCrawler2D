@@ -23,6 +23,7 @@ export interface SettingsCallbacks {
   readonly onRespawn: () => void;
   readonly onReturnToTitle: () => void;
   readonly onPrefsChange: (prefs: SettingsPrefs) => void;
+  readonly onOpenChange?: ((open: boolean) => void) | undefined;
 }
 
 const QUALITY_CHOICES: readonly { readonly id: QualityPresetId; readonly label: string }[] = [
@@ -86,9 +87,11 @@ export class SettingsMenu {
   toggle(): void { this.setOpen(!this.open); }
 
   setOpen(next: boolean): void {
+    const changed = this.open !== next;
     this.open = next;
     this.backdrop.hidden = !next;
     if (next) this.syncAudioUi(this.cb.audio.getPrefs());
+    if (changed) this.cb.onOpenChange?.(next);
   }
 
   syncExternalState(quality: QualityPresetId, zoom: number): void {

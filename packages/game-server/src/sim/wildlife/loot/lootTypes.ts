@@ -13,7 +13,9 @@ export interface StoredChest {
   readonly poiKind: ChunkPoi["kind"] | "player-chest";
   readonly x: number; readonly y: number; readonly elevation: number;
   opened: boolean; sealed?: boolean | undefined; readonly braziersTotal?: number | undefined;
-  readonly slots: InventorySlot[];
+  readonly poi?: ChunkPoi | undefined;
+  populated?: boolean | undefined;
+  slots: InventorySlot[];
 }
 
 export interface SavedChestRecord {

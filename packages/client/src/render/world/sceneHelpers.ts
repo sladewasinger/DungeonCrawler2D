@@ -150,7 +150,7 @@ function resolveEventShake(ev: WorldEvent, localId: string): number {
   return ev.fatal ? 5.5 : 3.2;
 }
 
-export function applyWorldEventFx(opts: {
+function applyWorldEventFx(opts: {
   readonly ev: WorldEvent; readonly localId: string;
   readonly entities: readonly WorldEntitySnapshot[] | undefined; readonly local: PlayerSnapshot | undefined;
   readonly leaveSmokeDur: number; readonly sinks: SceneFxSinks;
@@ -161,7 +161,46 @@ export function applyWorldEventFx(opts: {
   return resolveEventShake(ev, localId);
 }
 
-export function bindViewportRectSync(target: HTMLElement, onSync: () => void): () => void {
+export function buildSceneFxSinks(opts: {
+  readonly particles: { spawnSmokePoof(q: { readonly x: number; readonly y: number; readonly durationSec?: number }): void };
+  readonly gore: {
+    spawnClashSparks(q: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation: number }): void;
+    spawnCritSparks(q: { readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly elevation: number }): void;
+    spawnGroundCrack(q: { readonly x: number; readonly y: number; readonly elevation: number; readonly cache: WorldChunkCache }): void;
+    spawn(q: ReturnType<typeof buildGoreSpawn>): void;
+  };
+  readonly cache: WorldChunkCache;
+}): SceneFxSinks {
+  const { particles, gore, cache } = opts;
+  return {
+    spawnSmoke: (x, y, durationSec) => particles.spawnSmokePoof(durationSec !== undefined ? { x, y, durationSec } : { x, y }),
+    spawnSparks: (pos) => gore.spawnClashSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+    spawnCritSparks: (pos) => gore.spawnCritSparks({ x: pos.x, y: pos.y, dirX: pos.dirX, dirY: pos.dirY, elevation: pos.elev }),
+    spawnCrack: (x, y, elevation) => gore.spawnGroundCrack({ x, y, elevation, cache }),
+    spawnGore: (ev, elev) => gore.spawn(buildGoreSpawn(ev, elev, cache)),
+  };
+}
+
+export function applyWorldEventsBatch(opts: {
+  readonly events: readonly WorldEvent[];
+  readonly localId: string;
+  readonly entities: readonly WorldEntitySnapshot[] | undefined;
+  readonly local: PlayerSnapshot | undefined;
+  readonly leaveSmokeDur: number;
+  readonly sinks: SceneFxSinks;
+}): number {
+  let maxShake = 0;
+  for (const ev of opts.events) {
+    const shake = applyWorldEventFx({
+      ev, localId: opts.localId, entities: opts.entities, local: opts.local,
+      leaveSmokeDur: opts.leaveSmokeDur, sinks: opts.sinks,
+    });
+    if (shake > maxShake) maxShake = shake;
+  }
+  return maxShake;
+}
+
+function bindViewportRectSync(target: HTMLElement, onSync: () => void): () => void {
   onSync();
   const obs = typeof ResizeObserver === "function" ? new ResizeObserver(onSync) : null;
   obs?.observe(target);
@@ -174,4 +213,35 @@ export function bindViewportRectSync(target: HTMLElement, onSync: () => void): (
     window.removeEventListener("scroll", onSync, true);
     window.removeEventListener("fullscreenchange", onSync);
   };
+}
+
+export function bindSceneContextAndViewport(opts: {
+  readonly canvas: HTMLCanvasElement;
+  readonly onRectSync: () => void;
+  readonly onContextLoss: (lost: boolean) => void;
+}): () => void {
+  const unbindRect = bindViewportRectSync(opts.canvas, opts.onRectSync);
+  const onLost = () => opts.onContextLoss(true);
+  const onRestored = () => opts.onContextLoss(false);
+  opts.canvas.addEventListener("webglcontextlost", onLost);
+  opts.canvas.addEventListener("webglcontextrestored", onRestored);
+  return () => {
+    unbindRect();
+    opts.canvas.removeEventListener("webglcontextlost", onLost);
+    opts.canvas.removeEventListener("webglcontextrestored", onRestored);
+  };
+}
+
+export function estimateManagedTextureStats(
+  texSys: { readonly managedTextures?: readonly ({ readonly pixelWidth?: number; readonly pixelHeight?: number } | null | undefined)[] },
+): { readonly activeTextureCount: number; readonly estimatedTextureBytes: number } {
+  const managed = texSys.managedTextures ?? [];
+  let activeTextureCount = 0;
+  let estimatedTextureBytes = 0;
+  for (const tex of managed) {
+    if (!tex) continue;
+    activeTextureCount += 1;
+    estimatedTextureBytes += Math.max(0, (tex.pixelWidth ?? 0) * (tex.pixelHeight ?? 0) * 4);
+  }
+  return { activeTextureCount, estimatedTextureBytes };
 }

@@ -1,8 +1,9 @@
 /** Local movement prediction and WebSocket reconciliation helpers. */
 import { STARTER_ARMOR, getItemDef, isBowItem } from "@dc2d/content";
 import {
-  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, MELEE_FEEL_TUNING, STEALTH_TUNING,
-  WorldChunkCache, getWeaponStepSpec, playerFootSegment, resolveMovement, resolveWeaponArchetype, stepJumpArc,
+  BOW_MAX_CHARGE_SEC, COMBAT_TUNING, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z,
+  WorldChunkCache, computeCharacterMoveMultiplier, getWeaponStepSpec, playerFootSegment,
+  resolveMovement, resolveWeaponArchetype, stepJumpArc,
   type CharacterAppearance, type PlayerSnapshot,
 } from "@dc2d/engine";
 
@@ -107,41 +108,27 @@ export function reconcilePredictedPlayer(
   };
 }
 
-function swingSpeedMultiplier(player: PlayerSnapshot): number {
+function resolvePredictedSwing(player: PlayerSnapshot) {
   const def = player.heldItem ? getItemDef(player.heldItem) : undefined;
   const arch = resolveWeaponArchetype(player.heldItem, def?.weaponArchetype);
   const stepSpec = getWeaponStepSpec(arch, player.comboStep ?? 1);
-  if ((player.swingProgress ?? 0) > stepSpec.windupEnd) return COMBAT_TUNING.movementMults.swing;
-  if (stepSpec.weightTier === "light") return 0.85;
-  return stepSpec.weightTier === "heavy" ? 0.58 : 0.72;
-}
-
-function baseActionMultiplier(player: PlayerSnapshot): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (player.dodging) return m.dodge;
-  if ((player.swingProgress ?? 0) > 0) return swingSpeedMultiplier(player);
-  if (player.blocking) return m.block;
-  if ((player.bowCharge ?? 0) > 0) return m.bowDraw;
-  return 1;
-}
-
-function waterSpeedMultiplier(player: PlayerSnapshot): number {
-  const m = COMBAT_TUNING.movementMults;
-  if (player.inDeepWater) return (player.stamina ?? 100) <= 1 ? m.exhaustedSwim : m.deepWater;
-  return player.inWater ? m.shallowWater : 1;
-}
-
-function webStickMultiplier(player: PlayerSnapshot): number {
-  const cocoon = player.cocoonProgress ?? 0;
-  const stick = player.webStick ?? 0;
-  if (cocoon >= 0.35 || stick >= MELEE_FEEL_TUNING.webStuckThreshold) return 0;
-  return stick > 0.05 ? 1 - stick * 0.65 : 1;
+  return { swingProgress: player.swingProgress ?? 0, swingWindupEnd: stepSpec.windupEnd, swingWeightTier: stepSpec.weightTier };
 }
 
 function movementMultiplier(player: PlayerSnapshot): number {
-  const crouchMult = player.crouching ? STEALTH_TUNING.crouchSpeedMult : 1;
-  const gearMult = Math.max(0.65, player.moveSpeedMult ?? 1);
-  return baseActionMultiplier(player) * waterSpeedMultiplier(player) * crouchMult * webStickMultiplier(player) * gearMult;
+  return computeCharacterMoveMultiplier({
+    dodging: Boolean(player.dodging),
+    ...resolvePredictedSwing(player),
+    blocking: Boolean(player.blocking),
+    bowCharge: player.bowCharge ?? 0,
+    inWater: Boolean(player.inWater),
+    inDeepWater: Boolean(player.inDeepWater),
+    stamina: player.stamina ?? 100,
+    crouching: Boolean(player.crouching),
+    webStick: player.webStick ?? 0,
+    cocoonProgress: player.cocoonProgress ?? 0,
+    gearAndBuffSpeedMult: player.moveSpeedMult ?? 1,
+  });
 }
 
 const isPlayerImmobilized = (p: PlayerSnapshot): boolean => (p.respawnTimer ?? 0) > 0 || (p.staggerTimer ?? 0) > 0;

@@ -5,10 +5,15 @@ import {
 } from "@dc2d/engine";
 import { WebSocket } from "ws";
 import { TICK_RATE, type WorldSim } from "../sim/worldSim.js";
-import { executeAdminSlashCommand } from "../sim/frontier/adminSlashCommands.js";
+import { executeAdminSlashCommand } from "../sim/admin/adminSlashCommands.js";
 import { attemptAdminAuth, type AdminAuthConfig } from "./adminAuth.js";
-import { filterSnapshotForPlayer, inventorySignature } from "./snapshotFilter.js";
+import {
+  createSpatialBroadcastIndex, filterSnapshotForPlayer, inventorySignature,
+  populateSpatialBroadcastIndex, type SpatialBroadcastIndex,
+} from "./snapshotFilter.js";
 import { MAX_WS_BUFFERED_BYTES } from "./wsSecurity.js";
+
+const sharedSpatialIndex = createSpatialBroadcastIndex();
 
 const DUMMY_ENTITY_KINDS = new Set(["dummy", "slime-dummy", "spar-dummy"]);
 
@@ -32,6 +37,7 @@ export interface TickBroadcastData {
   readonly chatMessages?: ChatEntry[] | undefined;
   readonly worldDeltas: WorldDeltaSnapshot;
   readonly deltaRev: number;
+  readonly spatialIndex?: SpatialBroadcastIndex | undefined;
 }
 
 export interface ClientSession {
@@ -87,7 +93,7 @@ function buildOptionalSnapshotFields(opts: {
   };
 }
 
-export function buildClientSnapshot(input: {
+function buildClientSnapshot(input: {
   readonly sim: WorldSim; readonly session: ClientSession; readonly data: TickBroadcastData;
 }): ServerMessage {
   const sendDeltas = input.session.sentDeltaRev !== input.data.deltaRev;
@@ -101,18 +107,20 @@ export function buildClientSnapshot(input: {
   };
 }
 
-export function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
-  const { projectiles, entities, chests, groundLoot, webs } = sim.combatSnapshots();
+function makeTickBroadcastData(sim: WorldSim, includeEvents: boolean): TickBroadcastData {
+  const { projectiles, entities, chests, groundLoot, webs } = sim.combatSnapshots(true);
   const chatMessages = includeEvents ? sim.drainChatMessages() : [];
-  return {
+  const base: TickBroadcastData = {
     players: sim.snapshots(), projectiles, entities, chests, groundLoot, ...(webs ? { webs } : {}),
     events: includeEvents ? sim.drainCombatEvents() : [],
     ...(chatMessages.length > 0 ? { chatMessages } : {}),
     worldDeltas: sim.worldDeltaSnapshot(), deltaRev: sim.cache.deltaRevision(),
   };
+  return { ...base, spatialIndex: populateSpatialBroadcastIndex(sharedSpatialIndex, base) };
 }
 
 export function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, ClientSession>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
+  ctx.sim.drainCommands();
   const withEvents = ctx.includeEvents !== false;
   if (ctx.clients.size === 0) {
     if (withEvents) { ctx.sim.drainCombatEvents(); ctx.sim.drainChatMessages(); }

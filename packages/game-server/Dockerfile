@@ -2,13 +2,15 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/content/package.json packages/content/package.json
 COPY packages/engine/package.json packages/engine/package.json
 COPY packages/game-server/package.json packages/game-server/package.json
 COPY packages/client/package.json packages/client/package.json
 
-RUN npm ci --workspace=@dc2d/game-server --workspace=@dc2d/engine --workspace=@dc2d/content --include-workspace-root
+RUN npm ci --workspace=@dc2d/game-server --workspace=@dc2d/engine --workspace=@dc2d/content --workspace=@dc2d/contracts --include-workspace-root
 
+COPY packages/contracts packages/contracts
 COPY packages/content packages/content
 COPY packages/engine packages/engine
 COPY packages/game-server packages/game-server

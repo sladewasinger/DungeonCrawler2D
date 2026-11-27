@@ -49,7 +49,7 @@ Every phase specification in `docs/phases/phase-<N>-*.md` must include a `## 5. 
   - `e2e-desktop` — Playwright browser test on Desktop (`1280×720`) against `preview-prod`.
   - `e2e-mobile` — Playwright browser test on Mobile (`390×844`, `hasTouch: true`) against `preview-prod`.
   - `visual` — Deterministic screenshot capture + non-blank canvas pixel-entropy check (`artifacts/qa/phase-<N>/`).
-- **Test Tagging Convention**: Every Vitest (`it(...)` / `test(...)`) and Playwright (`test(...)`) case proving a requirement includes `[REQ-P<N>-<NN>]` in its test title (e.g., `it("[REQ-P8-01] rejects Workbench recipes when no Workbench is within 2.8 tiles", ...)`).
+- **Test Tagging Convention**: Every Vitest (`it(...)` / `test(...)`) and Playwright (`test(...)`) case proving a requirement includes `[REQ-P<N>-<NN>]` (with optional explicit layer suffix `[REQ-P<N>-<NN>][sim]` or `[REQ-P<N>-<NN>][static]`) in its test title (e.g., `it("[REQ-P8-01][sim] rejects Workbench recipes when no Workbench is within 2.8 tiles", ...)`).
 
 ---
 
@@ -65,62 +65,46 @@ Every phase specification in `docs/phases/phase-<N>-*.md` must include a `## 5. 
    - Every declared `Automated Test Target` file exists on disk.
 4. Prints a per-requirement coverage matrix and exits with code **`1`** if any requirement is uncovered, skipped, or failing.
 
-### Layer 2 — Static Content, Asset & Code Quality Gate (`scripts/verify/content-integrity.mjs`)
+### Layer 2 — Static Content, Asset, Docs & Code Quality Gate (`scripts/verify/content-integrity.mjs`, `scripts/verify/doc-integrity.mjs`)
 
-1. **Catalog Completeness**: Every `ITEM_CATALOG` entry has non-empty `description`, valid `ItemRarity`, icon coverage (`itemIcons.ts` / `campItemIcons.ts` / `weaponItemIcons.ts` / `frontierItemIcons.ts`), held weapon/tool/shield visual coverage (`heldWeapons.ts` / `frontierHeldGear.ts`), and at least one acquisition path (`tests/integration/contentIntegrity.test.ts`).
-2. **Recipe Integrity**: Every `RECIPE_CATALOG` entry references valid `outputItemId` and `ingredients[].itemId` in `ITEM_CATALOG` and uses valid station flags (`hand` vs `requiresCampfire` vs `requiresWorkbench`).
-3. **World Prop Integrity**: Every `PropKind` maps to a non-empty texture key, collision/footprint spec, and map/render handling without missing texture fallbacks.
-4. **Contract Hygiene**: Zero hardcoded starter IDs (`"bow"`, `"wooden-shield"`) in combat/input/render branches outside catalog/starter definitions (enforcing `isBowItem()` / `isShieldItem()`).
+1. **Catalog & Live TS Wiring Completeness**: Via live TypeScript imports in `tests/integration/contentIntegrity.test.ts`, verifies every `ITEM_CATALOG` entry has non-empty `description`, valid `ItemRarity`, `32×32` icon painter (`REGISTERED_ITEM_ICON_IDS`), held weapon/tool/shield visual (`REGISTERED_HELD_GEAR_IDS`), and acquisition path (`STARTER_LOADOUT`, `STARTER_ARMOR`, `RECIPE_CATALOG`, `HARVEST_NODE_SPECS`, `ALL_LOOT_TABLE_ITEM_IDS`), plus bidirectional `public/assets/` <-> manifest integrity.
+2. **Recipe & Prop Registry Integrity**: Every `RECIPE_CATALOG` entry references valid items; every `PropKind` in `PROP_KIND_VALUES` has an exhaustive `PROP_SPECS` entry (`@dc2d/content`) AND a client chunk render mount (`REGISTERED_PROP_RENDER_KINDS`).
+3. **Headless Simulation & Property Fuzzing**: `SimScenario` (`packages/game-server/src/testing/simScenario.ts`) exercises multi-tick & persistence-reboot scenarios, paired with `fast-check` property suites (`tests/properties/*.test.ts`) for kinematics parity, inventory conservation, fuzz finiteness, and multi-seed worldgen reachability.
+4. **Documentation Freshness (`npm run verify:docs`)**: Checks Markdown link resolution, backticked file paths, colocated `README.md` indexing, script/doc parity, and manifest-referenced asset directories (`docs/audit/` excluded for historical pre-remediation citations).
 5. **Repository Quality Gates**:
-   - `npm run typecheck` (strict TypeScript across all 4 workspaces)
-   - `npm run lint` (`eslint` + `scripts/check-folder-size.mjs`: `<= 250` lines/file, `<= 35` lines/function, max nesting `3`, `<= 12` direct source files per new folder)
+   - `npm run typecheck` (strict topological TypeScript across all 5 packages + `tsconfig.qa.json`)
+   - `npm run lint` (`eslint` with type-aware AST rules + `scripts/check-folder-size.mjs`: `<= 250` lines/file, `<= 35` lines/function, max nesting `3`, `<= 12` direct source/py files per new folder + colocated `README.md`s)
+   - `npm run lint:deadcode` (`knip` zero-unused-files/exports/deps gate)
    - `npm run build` (`@dc2d/game-server` + `@dc2d/client` production bundles)
 
 ### Layer 3 — Real-Browser Playwright E2E & Performance Gate (`e2e/`)
 
-Runs against the frozen production bundle (`npm run preview-prod`) with:
-- Deterministic `WORLD_SEED=1337`
-- Isolated temporary `WORLD_SAVE_PATH` per test suite (plus explicit server restart tests where persistence is verified)
-- `ADMIN_TOKEN=e2e-test-token` enabled strictly for deterministic test setup (`/tp`, `/give`, `/biome`, `/poi`, `/weather`, `/floor`)
-- Two mandatory browser projects:
-  - **Desktop**: `1280×720`, mouse + keyboard (`WASD`, `E`, `M`, `Tab`, `C`, `Q`, `R`, `Enter`, `Esc`)
-  - **Mobile**: `390×844`, `hasTouch: true`, `isMobile: true`, floating thumbstick + touch combat/interact buttons
+Runs against the frozen production bundle (`npm run preview-prod`) with `/?qaDiag=1`, `WORLD_SEED=1337`, isolated `WORLD_SAVE_PATH=none`, `ADMIN_TOKEN=e2e-test-token`, Desktop (`1280×720`) & Mobile (`390×844`, `hasTouch: true`).
 
 #### Hard Global Assertions (Active on Every E2E Test)
-- `0` `console.error` events
-- `0` uncaught `pageerror` exceptions
-- `0` WebGL shader compilation, program link, or `GL_INVALID_VALUE` / texture-size errors
-- `0` failed HTTP asset requests (`status >= 400`)
-- **Frame-Time / FPS Budget**: Opening any modal (`Inventory`, `Crafting`, `[M]` Overworld Map, `Reward Box`) must keep median FPS `>= 0.55×` active gameplay baseline (eliminating 120Hz DOM thrashing or per-frame canvas recomputation regressions on every runner), while meeting baseline headless SwiftShader (`>= 12 FPS`) and Phase 12 hardware (`>= 45 FPS`) budgets.
-- **Persistence Survival**: Reloading the browser (`F5`) or restarting the preview server preserves player inventory, structures, chests, beds, fog-of-war, progression, and zone state as specified by each phase.
+- `0` `console.error` events, `0` uncaught `pageerror` exceptions, `0` failed HTTP requests (`status >= 400`)
+- `window.__dc2dDiag.getStats()` reports `rendererReady === true`, `chunkCount > 0`, finite `playerPos`, and `0` WebGL shader compile/link errors
+- `assertNoHudOverlap(page)` confirms zero clipped or overlapping visible HUD widgets on Desktop and Mobile
+- **Frame-Time / FPS Budget**: Opening modals keeps median FPS `>= 0.55×` gameplay baseline and meets baseline SwiftShader (`>= 12 FPS`) / Phase 12 hardware (`>= 45 FPS`) budgets
 
 ### Layer 4 — Visual Quality Gate (`artifacts/qa/phase-<N>/`)
 
-1. Each phase E2E suite captures deterministic PNG screenshots (`artifacts/qa/phase-<N>/<desktop|mobile>-<req-id>.png`) of critical UI and world states.
-2. **Non-Blank / Non-Corrupt Canvas Audit**: Samples the primary WebGL `<canvas>` and verifies pixel luminance variance / non-zero color entropy (automatically catching WebGL black-square atlas overflows, blank shaders, or invisible sprites).
-3. **WebGL Texture Size Guard**: Inspects uploaded GPU textures in Playwright telemetry to verify every uploaded WebGL texture stays `<= 2048×2048` on mobile viewports (`<= 4096×4096` desktop).
-4. **QA Visual Manifest**: Writes `artifacts/qa/phase-<N>/manifest.json` linking each screenshot to its `REQ-P<N>-<NN>` ID and FPS measurement for rapid visual inspection.
+1. Deterministic full-page screenshots (`artifacts/qa/phase-<N>/<desktop|mobile>-<req-id>.png`) paired with `manifest.json` (`REQ-P<N>-<NN>`, FPS, entropy result).
+2. **Isolated WebGL `<canvas>` Entropy Audit**: Temporarily hides DOM HUD overlays while capturing `#app canvas` (`captureIsolatedCanvasBuf`) so UI chrome never masks blank/corrupt WebGL rendering.
 
 ---
 
-## 4. Planned CLI & CI Enforcement
+## 4. CLI & CI Enforcement
 
-| Planned Command | Scope | When Run |
+| Command | Scope | When Run |
 | --- | --- | --- |
-| `npm run verify:content` | Layer 2 static catalog, recipe, prop, and wiring audit | Every PR & pre-commit |
+| `npm run ai:loop` | Fast (`<4s`) incremental ESLint, folder check, `verify:docs`, affected `tsc` & `vitest --related` -> `.verify-reports/ai-feedback.json` | Every edit iteration |
+| `npm run verify:content` | Layer 2 static catalog, live TS icons/held/props, and public asset audit | Every PR & pre-commit |
+| `npm run verify:docs` | Layer 2 Markdown link, path, colocated README, and script parity check | Every PR & pre-commit |
 | `npm run verify:e2e` | Layer 3 + 4 Playwright Desktop & Mobile suites against `preview-prod` | Phase sign-off & CI |
 | `npm run verify:spec -- phase-<N>` | Layer 1 REQ-ID traceability check against Vitest + Playwright JSON | Phase sign-off & CI |
-| `npm run verify:phase -- phase-<N>` | Runs `typecheck` + `lint` + `build` + `test` + `verify:content` + `verify:e2e` + `verify:spec -- phase-<N>` | Mandatory exit gate before marking phase `✅` |
+| `npm run verify:phase -- phase-<N>` / `npm run ai:gate` | Full 4-layer gate (`typecheck`, `lint`, `build`, `test`, `verify:content`, `verify:docs`, `verify:e2e`, `verify:spec`) + `.verify-reports/ai-feedback.json` | Mandatory exit gate |
 
-### CI Enforcement (`.github/workflows/quality.yml`)
-When the Verification Gate tooling is implemented, `.github/workflows/quality.yml` will execute:
-1. `npm run typecheck`
-2. `npm run lint`
-3. `npm test` (with JSON output)
-4. `npm run verify:content`
-5. `npm run build`
-6. `npm run verify:e2e` (uploading `artifacts/qa/` on failure/completion)
-7. `npm run verify:spec -- all-completed`
-
-### Phase Completion Rule
-A phase spec's `> **Status**:` line may only be changed to `✅ Complete` in the same PR/commit where `npm run verify:phase -- phase-<N>` exits `0` with all `REQ-P<N>-*` requirements passing.
+### CI Enforcement & Phase Graduation
+- `.github/workflows/quality.yml` runs `npm audit --omit=dev --audit-level=moderate`, `typecheck`, `lint`, `vitest` (JSON), `verify:content`, `verify:docs`, `build`, `verify:e2e`, and `verify:spec -- all-completed`.
+- **Phase Completion & Graduation Rule**: A phase spec's `> **Status**:` line may only change to `✅ Complete` in the same commit where `npm run verify:phase -- phase-<N>` exits `0`, colocated `README.md`s & `docs/ROADMAP.md` reflect shipped reality, and obsolete pre-implementation audit prose is pruned cleanly.

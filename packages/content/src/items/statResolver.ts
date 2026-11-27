@@ -76,7 +76,7 @@ function resolveBaseMeta(d: Partial<ItemDef>, p: Partial<ItemPrefixDef>, itemId:
     displayName: p.label ? `${p.label} ${baseName}` : baseName,
     baseName,
     rarity: bumpRarity(d.rarity || "common", p.rarityBump || 0),
-    description: d.description || "A frontier item.",
+    description: d.description || "An overworld item.",
   };
 }
 

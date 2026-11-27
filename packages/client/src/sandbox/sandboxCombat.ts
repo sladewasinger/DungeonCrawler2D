@@ -142,7 +142,7 @@ function nextActorBleedTimer(opts: { readonly actor: SandboxActor; readonly next
   return opts.nextHp <= opts.actor.snap.maxHp * 0.5 ? Math.max(opts.actor.snap.bleedTimer, BLEED_DURATION_SEC * 0.85) : opts.actor.snap.bleedTimer;
 }
 
-export function applyActorDamage(opts: {
+function applyActorDamage(opts: {
   readonly actor: SandboxActor; readonly dmg: number; readonly attackerId: string;
   readonly dirX: number; readonly dirY: number; readonly goreStyle?: GoreStyle;
   readonly comboStep?: number | undefined; readonly sweepDir?: number | undefined;

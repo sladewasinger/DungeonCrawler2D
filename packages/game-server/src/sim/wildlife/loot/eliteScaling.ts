@@ -2,7 +2,7 @@
 import { BIOME_CATALOG, rollChestLoot, rollEnemyDrop } from "@dc2d/content";
 import { computeDangerTier, createEmptyChestSlots, hashUnit2d, sampleMacroBiome, type BiomeKind, type ChunkPoi, type DangerTier, type InventorySlot, type WorldChunkCache } from "@dc2d/engine";
 import type { WildlifeEntity, WildlifeKind } from "../creatureSpecs.js";
-import type { LootManager } from "../lootManager.js";
+import type { LootManager } from "./lootManager.js";
 
 const TIER_SCALE: Readonly<Record<DangerTier, { readonly hp: number; readonly dmg: number; readonly speed: number }>> = {
   1: { hp: 1.0, dmg: 1.0, speed: 1.0 },
@@ -31,18 +31,18 @@ export function dangerTierStatScale(tier: DangerTier, isElite: boolean): { reado
     : { hpMult: base.hp, dmgMult: base.dmg, speedMult: base.speed };
 }
 
-export function defaultEliteTitle(kind: WildlifeKind): string {
+function defaultEliteTitle(kind: WildlifeKind): string {
   return ELITE_TITLES[kind];
 }
 
-export function pickBiomeWildlifeKind(biome: BiomeKind, roll: number): WildlifeKind {
+function pickBiomeWildlifeKind(biome: BiomeKind, roll: number): WildlifeKind {
   const roster = BIOME_CATALOG[biome].wildlifeRoster;
   return roster[Math.floor(roll * roster.length) % roster.length] ?? "wolf";
 }
 
 const WANDERING_ELITE_CHANCE: Readonly<Record<DangerTier, number>> = { 1: 0, 2: 0, 3: 0.06, 4: 0.12, 5: 0.20 };
 
-export function shouldSpawnWanderingElite(tier: DangerTier, roll: number): boolean {
+function shouldSpawnWanderingElite(tier: DangerTier, roll: number): boolean {
   return roll < WANDERING_ELITE_CHANCE[tier];
 }
 

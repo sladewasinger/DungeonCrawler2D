@@ -29,8 +29,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run lint:deadcode
       - run: npx vitest run --reporter=default --reporter=json --outputFile=.verify-reports/vitest.json
       - run: npm run verify:content
+      - run: npm run verify:docs
       - run: npm run build
       - run: npm run verify:e2e
       - run: npm run verify:spec -- all-completed

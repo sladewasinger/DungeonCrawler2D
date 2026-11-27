@@ -1,6 +1,6 @@
 /** Spider ranged web spit AI, stuck-victim silk cocoon wrapping, locked poison bite, and escape cuts/burns. */
 import {
-  MELEE_FEEL_TUNING, WorldChunkCache, canReachMeleeTarget, hasElevationLineOfSight, playerProjectileHurtbox, projectileHitsHurtbox,
+  MELEE_FEEL_TUNING, WorldChunkCache, canReachMeleeTarget, hasElevationLineOfSight, playerHurtbox, projectileHitsHurtbox,
   type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
@@ -97,7 +97,7 @@ function needsCocoonWrap(victim: CombatPlayerRef | undefined): victim is CombatP
   return victim.combat.webStick >= MELEE_FEEL_TUNING.webStuckThreshold && victim.combat.webStuckSec >= MELEE_FEEL_TUNING.webStuckCocoonDelaySec;
 }
 
-export function stepSpiderWebAndCocoon(opts: {
+function stepSpiderWebAndCocoon(opts: {
   readonly cache: WorldChunkCache; readonly spider: WildlifeEntity; readonly target: CombatTarget;
   readonly players: readonly CombatPlayerRef[]; readonly dt: number; readonly events: WorldEvent[];
   readonly spawnWeb: (spider: WildlifeEntity, target: CombatTarget) => void;
@@ -165,7 +165,7 @@ function findWebPlayerHit(opts: {
     const hitT = projectileHitsHurtbox({
       x0: opts.x0, y0: opts.y0, x1: opts.pr.x, y1: opts.pr.y,
       projectileElevation: opts.pr.elevation, projectileOnStairs: opts.onStairs,
-      box: playerProjectileHurtbox(p, opts.cache),
+      box: playerHurtbox(p, opts.cache),
     });
     if (hitT !== null) return p;
   }

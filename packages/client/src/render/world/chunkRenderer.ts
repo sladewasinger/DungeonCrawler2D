@@ -11,7 +11,7 @@ import type { PropTextureSet } from "../textures/propTextures.js";
 import type { TerrainTileAtlas } from "../textures/terrainTextures.js";
 import { animateChunkPropsAndFoliage, mountChunkProp, type MountedChunk, type WorldLayers } from "./chunkProps.js";
 import { ELEVATION_LIFT_PX, bakeElevatedChunkRows, playerVisualElevation } from "./cliffStrips.js";
-import { PlayerView } from "./playerSprite.js";
+import { PlayerView } from "./player/playerSprite.js";
 import { buildChunkTilemapMeshes } from "./tileBuilder.js";
 
 export interface TileBounds {
@@ -48,6 +48,7 @@ function appendVisibleChunkCasters(chunk: MountedChunk, vb: TileBounds | undefin
 
 export class ChunkRenderer {
   private readonly mounted = new Map<string, MountedChunk>();
+  private readonly chunkVisible = new Map<string, boolean>();
   private readonly playerViews = new Map<string, PlayerView>();
   private readonly cliffSprites = new Set<Sprite>();
   private readonly entities = new EntityRenderer();
@@ -56,6 +57,8 @@ export class ChunkRenderer {
     private readonly layers: WorldLayers,
     private readonly atlases: { readonly terrain: TerrainTileAtlas; readonly props: PropTextureSet },
   ) {}
+
+  mountedCount(): number { return this.mounted.size; }
 
   syncVisibleChunks(cache: WorldChunkCache, focus: { readonly x: number; readonly y: number; readonly radius: number }): void {
     const centerCx = worldToChunkCoord(Math.floor(focus.x));
@@ -120,14 +123,26 @@ export class ChunkRenderer {
     });
   }
 
+  private setChunkVisible(chunk: MountedChunk, visible: boolean): void {
+    if (this.chunkVisible.get(chunk.key) === visible) return;
+    this.chunkVisible.set(chunk.key, visible);
+    chunk.ground.mesh.visible = visible;
+    if (chunk.water) chunk.water.mesh.visible = visible;
+    for (const s of chunk.grassSprites) s.sprite.visible = visible;
+    for (const s of chunk.ysortSprites) s.visible = visible;
+    for (const s of chunk.canopySprites) s.sprite.visible = visible;
+  }
+
   private appendChunkVisuals(
     chunk: MountedChunk,
     input: { readonly players: readonly PlayerSnapshot[]; readonly viewBounds?: TileBounds | undefined; readonly timeSec: number },
     out: { readonly lights: PointLightSpec[]; readonly campfires: PointLightSpec[]; readonly casters: ShadowCaster[] },
   ): void {
     const vb = input.viewBounds;
+    const inView = !vb || chunkOverlapsBounds({ cx: chunk.cx, cy: chunk.cy, b: vb, pad: 4 });
+    this.setChunkVisible(chunk, inView);
     appendVisibleChunkLights(chunk, vb, out);
-    if (vb && !chunkOverlapsBounds({ cx: chunk.cx, cy: chunk.cy, b: vb, pad: 4 })) return;
+    if (!inView) return;
     appendVisibleChunkCasters(chunk, vb, out.casters);
     animateChunkPropsAndFoliage({ chunk, players: input.players, propsAtlas: this.atlases.props, viewBounds: vb, timeSec: input.timeSec });
   }
@@ -137,7 +152,7 @@ export class ChunkRenderer {
     for (const [id, view] of this.playerViews) {
       if (activeIds.has(id)) continue;
       view.root.removeFromParent();
-      view.root.destroy({ children: true });
+      view.dispose();
       this.playerViews.delete(id);
     }
     for (const snap of players) {
@@ -196,6 +211,7 @@ export class ChunkRenderer {
       s.destroy(isCliff ? { texture: true, textureSource: true } : undefined);
     }
     for (const s of entry.canopySprites) s.sprite.destroy();
+    this.chunkVisible.delete(entry.key);
     this.mounted.delete(entry.key);
   }
 }

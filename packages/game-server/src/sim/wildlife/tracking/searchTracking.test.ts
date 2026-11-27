@@ -3,7 +3,7 @@ import { GroundKind, PropKind, WorldChunkCache, type ChunkProp } from "@dc2d/eng
 import { createCombatState, type CombatPlayerRef } from "../../combatActions.js";
 import { createStarterInventory } from "../../playerInventory.js";
 import { CREATURE_SPECS, type WildlifeKind } from "../creatureSpecs.js";
-import { ScentTrail } from "../scentTrail.js";
+import { ScentTrail } from "./scentTrail.js";
 import { WorldEcology } from "../worldEcology.js";
 import { tryFollowAnimalScent } from "./searchTracking.js";
 

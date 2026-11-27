@@ -182,7 +182,7 @@ export function renderTrackInspectorList(host: HTMLElement, opts: {
   }
 }
 
-export function renderTrackCard(track: SoundTrackSpec, callbacks: TrackRowCallbacks, selected: boolean): HTMLDivElement {
+function renderTrackCard(track: SoundTrackSpec, callbacks: TrackRowCallbacks, selected: boolean): HTMLDivElement {
   const card = document.createElement("div");
   card.className = "st-track";
   card.dataset.trackId = track.id;

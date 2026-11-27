@@ -15,13 +15,17 @@
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
     "preview-prod": "node scripts/preview-prod.mjs",
     "test": "vitest run",
-    "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
+    "typecheck": "npm run typecheck -w @dc2d/contracts && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client && tsc -p tsconfig.qa.json --noEmit",
     "lint": "eslint . && node scripts/check-folder-size.mjs",
+    "lint:deadcode": "knip --no-progress",
     "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed",
     "verify:content": "node scripts/verify/content-integrity.mjs",
+    "verify:docs": "node scripts/verify/doc-integrity.mjs",
     "verify:e2e": "playwright test",
     "verify:spec": "node scripts/verify/spec-coverage.mjs",
     "verify:phase": "node scripts/verify/run-phase-gate.mjs",
+    "ai:loop": "node scripts/verify/ai-loop.mjs",
+    "ai:gate": "node scripts/verify/run-phase-gate.mjs",
     "sprite:bake": "node tools/sprite-studio/runBake.mjs",
     "player:bake": "node tools/sprite-studio/runPlayerBake.mjs"
   },
@@ -33,9 +37,12 @@
     "eslint-import-resolver-node": "^0.4.0",
     "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-sonarjs": "^4.2.0",
+    "fast-check": "^4.11.0",
     "globals": "^17.7.0",
+    "knip": "^6.48.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.64.0",
-    "vitest": "^5.1.2"
+    "vitest": "^5.1.2",
+    "ws": "^8.21.1"
   }
 }

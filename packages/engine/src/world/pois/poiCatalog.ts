@@ -1,4 +1,4 @@
-/** Complete catalog of all 20 frontier POI types with biome weights, categories, and discovery metadata. */
+/** Complete catalog of all 20 biome POI types with biome weights, categories, and discovery metadata. */
 import { hashUnit2d } from "../../math/noise.js";
 import type { BiomeKind, DangerTier, PoiCategory, PoiKind } from "../types.js";
 

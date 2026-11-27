@@ -1,22 +1,23 @@
 /** Authoritative overworld wildlife spawner, POI guards, and ecology step coordinator. */
 import {
-  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, WorldChunkCache, computeDangerTier, getPoiGuardRoster,
-  isInWorldSanctuary, sampleMacroBiome, worldToChunkCoord,
+  AI_TUNING, GroundKind, MELEE_FEEL_TUNING, STEALTH_TUNING, SpatialHashGrid, WorldChunkCache, computeDangerTier, getPoiGuardRoster,
+  isInWorldSanctuary, sampleMacroBiome,
   type ChunkPoi, type DangerTier, type GoreStyle, type WeaponArchetype, type WorldEvent,
 } from "@dc2d/engine";
 import type { CombatPlayerRef } from "../combatActions.js";
 import { applyPlayerOnHitPerks, computeGearStrikeOutcome, resolvePlayerGear } from "../combat/gearEffects.js";
-import { stepWildlifeEntity } from "./creatureAi.js";
+import { isPlayerNearCampfire } from "../playerInventory.js";
 import { hasSpiderCover, isScavengeLootId, type CombatPlayerCandidate, type EcologyFoodSource, type StrikePlayerFn } from "./creatureBehaviors.js";
 import { CREATURE_SPECS, ST_DEAD, ST_INVESTIGATE, createWildlifeEntity, type WildlifeEntity, type WildlifeKind } from "./creatureSpecs.js";
 import {
   UNAWARE_STATES, applyBackstabEvent, applyDamageToCreature, collectScavengeFoods, computeSectorStrike,
   findClearGuardSpot, isSectorTargetHit, serializeEntitySnapshot,
 } from "./ecologyHelpers.js";
+import { pruneDistantWildlife, runEcologyEntityLoop } from "./ecologyStepHelpers.js";
 import { factionOfKind, isCreatureAggro, type CombatTarget } from "./factionTargeting.js";
 import { buildChunkWildlifeSpawns, spawnScaledEnemyDrops } from "./loot/eliteScaling.js";
-import { LootManager } from "./lootManager.js";
-import { ScentTrail } from "./scentTrail.js";
+import { LootManager } from "./loot/lootManager.js";
+import { ScentTrail } from "./tracking/scentTrail.js";
 import { beginInvestigation } from "./tracking/searchTracking.js";
 import { rallyWolfPack } from "./wolfPackAi.js";
 
@@ -24,11 +25,13 @@ const KIND_SLIME: WildlifeKind = "slime";
 
 export class WorldEcology {
   readonly list: WildlifeEntity[] = [];
+  readonly entityGrid = new SpatialHashGrid<WildlifeEntity>(16);
   readonly loot: LootManager;
   private readonly spawnedChunks = new Set<string>();
   private readonly scent = new ScentTrail();
   private activePlayers: readonly CombatPlayerCandidate[] = [];
   private nextId = 1;
+  private stepCount = 0;
 
   constructor(private readonly cache: WorldChunkCache) { this.loot = new LootManager(cache); }
   removePlayer(playerId: string): void { this.scent.removePlayer(playerId); }
@@ -46,34 +49,37 @@ export class WorldEcology {
   private spawnChunkIfNew(cx: number, cy: number): void {
     const key = `${cx},${cy}`;
     if (this.spawnedChunks.has(key)) return;
+    if (this.spawnedChunks.size >= 2048) {
+      const oldest = this.spawnedChunks.values().next().value;
+      if (oldest !== undefined) this.spawnedChunks.delete(oldest);
+    }
     this.spawnedChunks.add(key);
     const chunk = this.cache.getChunk(cx, cy);
     for (const poi of chunk.pois) this.spawnPoiEncounter(poi);
     if (key !== "0,0") this.spawnChunkWildlife(cx, cy);
   }
 
+  private spawnPoiGuards(poi: ChunkPoi, dangerTier: DangerTier): void {
+    const guards = getPoiGuardRoster(poi.layout);
+    const rx = Math.max(1.8, poi.radiusX - 1.2);
+    const ry = Math.max(1.8, poi.radiusY - 1.0);
+    const homeRadius = Math.max(8, Math.max(poi.radiusX, poi.radiusY) + 5);
+    guards.forEach((kind, idx) => {
+      const angle = (idx / guards.length) * Math.PI * 2;
+      const ring = 0.55 + (idx % 2) * 0.35;
+      const pos = findClearGuardSpot(this.cache, poi, { x: poi.centerX + Math.cos(angle) * rx * ring, y: poi.centerY + Math.sin(angle) * ry * ring });
+      this.spawnEntity({ kind, x: pos.x, y: pos.y, dangerTier, homeRadius, poiId: poi.id, packId: poi.id, packSlot: idx + 1 });
+    });
+  }
+
   private spawnPoiEncounter(poi: ChunkPoi): void {
     this.loot.registerPoiChest(poi);
-    const biome = sampleMacroBiome(this.cache.worldSeed, poi.centerX, poi.centerY);
-    const dangerTier = computeDangerTier(biome, poi.centerX, poi.centerY);
+    const dangerTier = computeDangerTier(sampleMacroBiome(this.cache.worldSeed, poi.centerX, poi.centerY), poi.centerX, poi.centerY);
     if (poi.eliteKind) {
       const bossPos = findClearGuardSpot(this.cache, poi, { x: poi.centerX + 0.6, y: poi.centerY + 0.6 });
       this.spawnEntity({ kind: poi.eliteKind, x: bossPos.x, y: bossPos.y, dangerTier, isElite: true, title: poi.eliteTitle, homeRadius: Math.max(8, poi.radiusX + 5), poiId: poi.id, packId: poi.id, packSlot: 0 });
     }
-    const guards = getPoiGuardRoster(poi.layout);
-    const rx = Math.max(1.8, poi.radiusX - 1.2);
-    const ry = Math.max(1.8, poi.radiusY - 1.0);
-    guards.forEach((kind, idx) => {
-      const angle = (idx / guards.length) * Math.PI * 2;
-      const ring = 0.55 + (idx % 2) * 0.35;
-      const pos = findClearGuardSpot(this.cache, poi, {
-        x: poi.centerX + Math.cos(angle) * rx * ring, y: poi.centerY + Math.sin(angle) * ry * ring,
-      });
-      this.spawnEntity({
-        kind, x: pos.x, y: pos.y, dangerTier,
-        homeRadius: Math.max(8, Math.max(poi.radiusX, poi.radiusY) + 5), poiId: poi.id, packId: poi.id, packSlot: idx + 1,
-      });
-    });
+    this.spawnPoiGuards(poi, dangerTier);
   }
 
   private isValidWildlifeSpawn(wx: number, wy: number): boolean {
@@ -205,16 +211,6 @@ export class WorldEcology {
     }
   }
 
-  private pruneDistantEntities(players: readonly CombatPlayerCandidate[]): void {
-    if (players.length === 0) return;
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const e = this.list[i]!;
-      if (players.some((p) => Math.hypot(p.x - e.x, p.y - e.y) <= 96)) continue;
-      this.list.splice(i, 1);
-      this.spawnedChunks.delete(`${worldToChunkCoord(Math.floor(e.homeX))},${worldToChunkCoord(Math.floor(e.homeY))}`);
-    }
-  }
-
   private consumeFoodSource(food: EcologyFoodSource): void {
     if (food.lootId) {
       const idx = this.loot.groundLoot.findIndex((g) => g.id === food.lootId);
@@ -247,25 +243,26 @@ export class WorldEcology {
     readonly onStrike: StrikePlayerFn; readonly spawnWeb?: ((spider: WildlifeEntity, target: CombatTarget) => void) | undefined;
   }): void {
     this.activePlayers = opts.players;
-    this.pruneDistantEntities(opts.players);
+    this.stepCount += 1;
+    pruneDistantWildlife(this.list, this.spawnedChunks, opts.players);
     this.ensureAroundPlayers(opts.players);
+    this.entityGrid.clear();
+    this.entityGrid.insertAll(this.list);
     this.scent.step(opts.dt);
     this.scent.samplePlayers(opts.players.map((p) => ({
       id: p.id, x: p.x, y: p.y, elevation: p.elevation, moving: p.moving,
-      crouching: p.crouching, sprinting: p.sprinting, inWater: p.inWater, inDeepWater: p.inDeepWater, bleedTimer: p.combat.bleedTimer,
+      crouching: p.crouching, sprinting: p.sprinting, inWater: p.inWater, inDeepWater: p.inDeepWater,
+      bleedTimer: p.combat.bleedTimer, nearCampfire: isPlayerNearCampfire(this.cache, p.x, p.y),
     })), this.cache);
     const foods = collectScavengeFoods(this.list, this.loot.groundLoot, isScavengeLootId);
-    const onConsumeFood = (food: EcologyFoodSource) => this.consumeFoodSource(food);
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const keep = stepWildlifeEntity({
-        cache: this.cache, e: this.list[i]!, allEntities: this.list, players: opts.players, foods,
-        onConsumeFood, scent: this.scent, events: opts.events, timeSec: opts.timeSec, dayPhase: opts.dayPhase, dt: opts.dt,
-        onStrike: (att, target) => this.resolveEntityHit({ att, target, events: opts.events, onPlayerStrike: opts.onStrike }),
-        onBurnKill: (ent) => this.finalizeDeath(ent), spawnWeb: opts.spawnWeb,
-      });
-      if (!keep) this.list.splice(i, 1);
-    }
+    runEcologyEntityLoop({
+      cache: this.cache, list: this.list, players: opts.players, foods, scent: this.scent, events: opts.events,
+      stepCount: this.stepCount, timeSec: opts.timeSec, dayPhase: opts.dayPhase, dt: opts.dt,
+      onConsumeFood: (food) => this.consumeFoodSource(food),
+      onStrike: (att, target) => this.resolveEntityHit({ att, target, events: opts.events, onPlayerStrike: opts.onStrike }),
+      onBurnKill: (ent) => this.finalizeDeath(ent), spawnWeb: opts.spawnWeb,
+    });
     this.loot.step(opts.players, opts.events, opts.dt);
   }
-  snapshots() { return { entities: this.list.map(serializeEntitySnapshot), ...this.loot.snapshot() }; }
+  snapshots(redactUnopened = false) { return { entities: this.list.map(serializeEntitySnapshot), ...this.loot.snapshot(redactUnopened) }; }
 }

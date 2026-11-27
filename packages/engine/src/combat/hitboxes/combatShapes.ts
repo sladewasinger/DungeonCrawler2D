@@ -120,9 +120,6 @@ export function playerHurtbox(pos: ActorPositionInput, cache?: WorldChunkCache):
   return { cx: pos.x, cy: pos.y - 0.44, rx: 0.48, ry: 0.62, ...resolveActorElevation(pos, cache) };
 }
 
-export const projectileHurtbox = entityHurtbox;
-export const playerProjectileHurtbox = playerHurtbox;
-
 export function getEntityAttackSpec(kind: EntityKind): EntityAttackSpec {
   return ENTITY_ATTACK_SPECS[kind];
 }

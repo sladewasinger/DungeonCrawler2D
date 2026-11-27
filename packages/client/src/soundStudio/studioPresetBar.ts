@@ -63,7 +63,13 @@ export function buildStudioTopBar(): HTMLDivElement {
   const top = document.createElement("div");
   top.className = "st-top";
   const brand = document.createElement("div");
-  brand.innerHTML = `<div class="st-brand">Sound Studio</div><div class="st-sub">Multi-Track Procedural Web Audio Synthesizer &amp; Visualizer</div>`;
+  const title = document.createElement("div");
+  title.className = "st-brand";
+  title.textContent = "Sound Studio";
+  const sub = document.createElement("div");
+  sub.className = "st-sub";
+  sub.textContent = "Multi-Track Procedural Web Audio Synthesizer & Visualizer";
+  brand.append(title, sub);
   const back = document.createElement("a");
   back.className = "st-btn";
   back.href = "/";

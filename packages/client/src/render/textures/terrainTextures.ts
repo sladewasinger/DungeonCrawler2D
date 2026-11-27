@@ -13,10 +13,10 @@ import { paintSoftBlob } from "./terrainTileMotifs.js";
 
 export { TERRAIN_TEX_PX } from "./terrainTileDetails.js";
 
-export const TERRAIN_ATLAS_PAD = 1;
+const TERRAIN_ATLAS_PAD = 1;
 export const TERRAIN_ATLAS_STRIDE = TERRAIN_TEX_PX + TERRAIN_ATLAS_PAD * 2;
-export const TERRAIN_ATLAS_COLS = 4;
-export const TERRAIN_ATLAS_ROWS = 17;
+const TERRAIN_ATLAS_COLS = 4;
+const TERRAIN_ATLAS_ROWS = 17;
 
 export interface TerrainTileAtlas {
   readonly variants: ReadonlyMap<GroundKind, readonly HTMLCanvasElement[]>;

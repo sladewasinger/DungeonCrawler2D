@@ -1,11 +1,12 @@
 /** Pure camp structure definitions, prop/light converters, and placement validity rules. */
+import { STRUCTURE_KINDS, type StructureKind } from "@dc2d/contracts";
 import { SANCTUARY_CENTER, SANCTUARY_RADIUS } from "../combat/combatRules.js";
 import type { WorldChunkCache } from "../world/collision.js";
 import { closestObstacleCorePoint, propCollisionOffsetY, propStructureShape } from "../world/propFootprints.js";
 import { GroundKind, PropKind, type ChunkProp, type PointLightSpec } from "../world/types.js";
 
-export const STRUCTURE_KINDS = ["campfire", "torch", "wood-chest", "workbench", "bed", "palisade"] as const;
-export type StructureKind = (typeof STRUCTURE_KINDS)[number];
+export { STRUCTURE_KINDS };
+export type { StructureKind };
 
 export interface PlacedStructureRecord {
   readonly id: string;

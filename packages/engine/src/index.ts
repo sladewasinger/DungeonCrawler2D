@@ -1,11 +1,24 @@
 /** Public API for @dc2d/engine. */
 export { clamp, fbm2d, hash2d, hashUnit2d, lerp, ridgeNoise2d, smoothstep, valueNoise2d } from "./math/noise.js";
 export type { FbmOptions } from "./math/noise.js";
+export { PROP_SPECS, getPropSpec } from "@dc2d/content";
 export {
   CHUNK_SIZE,
+  GROUND_KIND_VALUES,
   GroundKind,
+  PROP_KIND_VALUES,
   PropKind,
   TILE_PX,
+} from "@dc2d/contracts";
+export type {
+  DamageElement,
+  DamageKind,
+  EffectAction,
+  EffectRule,
+  EffectTrigger,
+  PropSpec,
+} from "@dc2d/contracts";
+export {
   chunkKey,
   worldTileIndex,
   worldToChunkCoord,
@@ -22,6 +35,7 @@ export { findChunkPoi, isInsidePoiFootprint, poiFloorGround, stampPoiPropsAndLig
 export { getPoiGuardRoster } from "./world/poiLayouts.js";
 export { WorldChunkCache, resolveMovement } from "./world/collision.js";
 export type { BlockingObstacle, MovementQuery, MovementResult, TileLookup } from "./world/collision.js";
+export { SpatialHashGrid, type SpatialPoint } from "./world/spatialHashGrid.js";
 export {
   POI_CHEST_OBSTACLE_SHAPE,
   closestObstacleCorePoint,
@@ -132,6 +146,11 @@ export {
 } from "./combat/combatRules.js";
 export type { EllipseHurtbox, GoreStyle, GoreSubstance, Vec2Like } from "./combat/combatRules.js";
 export {
+  computeCharacterMoveMultiplier,
+  swingMoveSpeedMult,
+  type CharacterKinematicsInput,
+} from "./combat/kinematics.js";
+export {
   ENTITY_ATTACK_SPECS,
   ENTITY_HURTBOX_SPECS,
   PLAYER_FOOT_FORESHORTEN_Y,
@@ -146,9 +165,7 @@ export {
   playerFootCollider,
   playerFootSegment,
   playerHurtbox,
-  playerProjectileHurtbox,
   projectileHitsHurtbox,
-  projectileHurtbox,
   resolveEntityAttackHitbox,
   resolvePlayerAttackHitbox,
 } from "./combat/hitboxes/combatShapes.js";

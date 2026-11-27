@@ -3,8 +3,8 @@ import type { IncomingMessage } from "node:http";
 
 export const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
 export const MAX_WS_BUFFERED_BYTES = 512 * 1024;
-export const MAX_CLIENTS = 64;
-export const MAX_CONNS_PER_IP = 4;
+const MAX_CLIENTS = 64;
+const MAX_CONNS_PER_IP = 4;
 export const HANDSHAKE_TIMEOUT_MS = 5_000;
 const MAX_PACKETS_PER_SEC = 90;
 const PACKET_BURST = 120;

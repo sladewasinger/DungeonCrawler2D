@@ -35,7 +35,7 @@ function recolorPixel(opts: { readonly data: Uint8ClampedArray; readonly p: numb
   data[p + 2] = clamp255(palette[2] * scale);
 }
 
-export function recolorArmorImageData(data: Uint8ClampedArray, primaryHex: string, trimHex?: string): void {
+function recolorArmorImageData(data: Uint8ClampedArray, primaryHex: string, trimHex?: string): void {
   const pri = parseHex(primaryHex);
   const trim = trimHex ? parseHex(trimHex) : null;
   for (let p = 0; p < data.length; p += 4) {

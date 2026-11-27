@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
-import { convertPngBufferToLosslessWebp } from "../tools/sprite-studio/pngCodec.mjs";
+import { convertPngBufferToLosslessWebp } from "../tools/sprite-studio/bake/pngCodec.mjs";
 
 const PUBLIC_DIR = resolve(process.cwd(), "packages/client/public");
 const MANIFEST_PATH = resolve(PUBLIC_DIR, "assets/sprite-manifest.json");

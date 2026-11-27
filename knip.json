@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreBinaries": ["ffmpeg"],
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.mjs",
+        "tools/sprite-studio/*.mjs",
+        "tools/sprite-studio/bake/*.mjs",
+        "tests/**/*.test.ts",
+        "e2e/**/*.ts"
+      ],
+      "project": [
+        "scripts/**/*.mjs",
+        "tools/**/*.mjs",
+        "tests/**/*.ts",
+        "e2e/**/*.ts"
+      ]
+    },
+    "packages/contracts": {},
+    "packages/content": {
+      "entry": ["src/**/*.test.ts"]
+    },
+    "packages/engine": {
+      "entry": ["src/**/*.test.ts"]
+    },
+    "packages/game-server": {
+      "entry": ["src/testing/simScenario.ts", "src/**/*.test.ts"]
+    },
+    "packages/client": {
+      "entry": ["src/sandbox/sandboxMode.ts", "src/**/*.test.ts"]
+    }
+  }
+}

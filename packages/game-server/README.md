@@ -1,8 +1,17 @@
 # `@dc2d/game-server`
 
-Authoritative 20 Hz multiplayer server built on Node + `ws`:
-- Evaluates infinite deterministic terrain via `@dc2d/engine`
-- Drives authoritative 3-phase melee combat (`src/sim/combat/meleeTimeline.ts`, `statusEffects.ts` burn/bleed/venom poison DoT & water extinguish, bow crits/perks, heavy hold guard-break, timed parry -> `1.75×` riposte, spear shield-poke, pickaxe armor-crush + AoE slam, `0.18s` input buffer, windup dodge-cancel), gear RPG stats/perks (`src/sim/combat/gearEffects.ts`), proximity chat (`src/sim/chat/proximityChat.ts`), frontier discoveries, shrines, waystones & brazier vaults (`src/sim/frontier/`), dynamic spring-cloth webs & silk cocoons (`src/sim/webs/`), ecological wildlife AI with `DangerTier`/Elites & dynamic seeded loot (`src/sim/wildlife/`), persisted `worldClockSec`/Day-Night clock, and POI chests/loot
-- Enforces fail-closed admin/debug authorization (`src/net/adminAuth.ts`, `src/sim/frontier/adminSlashCommands.ts`, `wsSession.ts`): requires constant-time `ADMIN_TOKEN` match with per-IP failed-attempt lockout unless `ALLOW_OPEN_DEV_ADMIN=1` is set in non-production builds, and authenticates clients via per-account cryptographic `accountId`/`resumeToken` handshake with single-session eviction
-- Validates WebSocket origins, payloads (`16 KiB` cap), IP connection caps, and sliding-window message rates (`src/net/wsSecurity.ts`, `wsServer.ts`), broadcasts 20 Hz tick-coalesced AOI/stealth-culled snapshots (`src/net/snapshotFilter.ts`, `wsSession.ts`, redacting unopened/sealed chest contents and private fields) with `TCP_NODELAY`, expires stale ground loot (`MAX_GROUND_LOOT_AGE_SEC`), flushes persistence asynchronously (`src/sim/survival/persistenceStore.ts`) plus synchronously on `SIGINT`/`SIGTERM` (`src/main.ts`), and bundles to `dist/main.cjs`
-- Production containerization targets Fly.io `dfw` (`../../fly.toml`, `./Dockerfile`, `WORLD_SAVE_PATH=/data/world-save.json` on persistent `world_data` volume), activated in `.github/workflows/deploy-production.yml` via `FLY_API_TOKEN` and defaulting to `wss://ws.dungeoncrawl2d.austinwasinger.com/ws` (overridable via `VITE_GAME_WS_URL`; see [`docs/FLY-DEPLOYMENT.md`](../../docs/FLY-DEPLOYMENT.md) for full CLI, DNS, and token instructions)
+Tier-4 authoritative 20 Hz Node + `ws` multiplayer game server built over `@dc2d/contracts`, `@dc2d/content`, and `@dc2d/engine`:
+
+## Architecture & Directories
+| Directory | Covers |
+| --- | --- |
+| [`src/net/`](./src/net/README.md) | WebSocket `/health` & game server, 20 Hz coalesced broadcasts, rate/origin limits, session/admin auth, AOI redaction |
+| [`src/sim/`](./src/sim/README.md) | `WorldSim` loop, combat, inventory, proximity chat, training dummies |
+| [`src/sim/admin/`](./src/sim/admin/README.md) | Authenticated server chat slash commands (`/god`, `/give`, `/tp`, `/biome`, `/poi`) |
+| [`src/sim/exploration/`](./src/sim/exploration/README.md) | Shrines, waystones, brazier puzzles, and biome/POI discovery tracking |
+| [`src/sim/wildlife/`](./src/sim/wildlife/README.md) | Living wildlife/POI ecology, scent trails, wolf packs, swept projectiles, and seeded loot |
+| [`src/sim/persistence/`](./src/sim/persistence/README.md) | `node:sqlite` WAL transactional persistence, schema migrations, and offline profile eviction |
+| `src/sim/survival/`, `src/sim/webs/` | Node depletion, camp building, persistence DTOs, and dynamic cloth spider webs (see [`src/sim/README.md`](./src/sim/README.md)) |
+| [`src/testing/`](./src/testing/README.md) | Headless deterministic `SimScenario` harness for multi-tick & persistence-reboot tests |
+
+Production builds bundle to `dist/main.cjs` for Fly.io `dfw` deployment (see [`docs/FLY-DEPLOYMENT.md`](../../docs/FLY-DEPLOYMENT.md)).

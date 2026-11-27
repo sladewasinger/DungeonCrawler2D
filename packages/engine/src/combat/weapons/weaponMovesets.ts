@@ -1,14 +1,13 @@
 /** Extensible per-weapon melee moveset registry, 3-phase timing, weight feel, and harvest tool hooks. */
-import type { GoreStyle } from "../combatRules.js";
+import { getItemDef } from "@dc2d/content";
+import {
+  WEAPON_ARCHETYPES,
+  type AttackMotionKind, type GoreStyle, type HarvestToolKind, type WeaponArchetype,
+} from "@dc2d/contracts";
 import { WEIGHT_FEEL_PRESETS, type WeaponWeightTier } from "./weaponFeelTuning.js";
 
-export const WEAPON_ARCHETYPES = [
-  "sword", "axe", "pickaxe", "torch", "unarmed", "spear", "dagger", "greatsword",
-] as const;
-
-export type WeaponArchetype = (typeof WEAPON_ARCHETYPES)[number];
-export type AttackMotionKind = "slash" | "backhand" | "lunge" | "chop" | "overheadSlam" | "thrust" | "cleave" | "punch";
-export type HarvestToolKind = "none" | "wood" | "stone" | "forage";
+export { WEAPON_ARCHETYPES };
+export type { AttackMotionKind, HarvestToolKind, WeaponArchetype };
 
 const GORE_CHUNK_SPRAY: GoreStyle = "chunk-spray";
 const LIGHT = WEIGHT_FEEL_PRESETS.light;
@@ -108,17 +107,15 @@ export const WEAPON_MOVESETS: Readonly<Record<WeaponArchetype, WeaponMovesetSpec
 };
 
 const ARCHETYPE_SET = new Set<string>(WEAPON_ARCHETYPES);
-const ITEM_TO_ARCHETYPE: Readonly<Record<string, WeaponArchetype>> = {
-  "flint-dagger": "dagger",
-  "wooden-spear": "spear",
-  "iron-greatsword": "greatsword",
-};
+
+const asWeaponArchetype = (candidate: string | null | undefined): WeaponArchetype | undefined =>
+  candidate && ARCHETYPE_SET.has(candidate) ? (candidate as WeaponArchetype) : undefined;
 
 export function resolveWeaponArchetype(itemId: string | null | undefined, explicitArchetype?: string): WeaponArchetype {
-  if (explicitArchetype && ARCHETYPE_SET.has(explicitArchetype)) return explicitArchetype as WeaponArchetype;
-  if (itemId && ITEM_TO_ARCHETYPE[itemId]) return ITEM_TO_ARCHETYPE[itemId];
-  if (itemId && ARCHETYPE_SET.has(itemId)) return itemId as WeaponArchetype;
-  return "unarmed";
+  return asWeaponArchetype(explicitArchetype)
+    ?? asWeaponArchetype(itemId ? getItemDef(itemId)?.weaponArchetype : undefined)
+    ?? asWeaponArchetype(itemId)
+    ?? "unarmed";
 }
 
 export function getWeaponMoveset(archetype: WeaponArchetype): WeaponMovesetSpec {
